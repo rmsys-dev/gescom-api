@@ -1,0 +1,360 @@
+/**
+ * Slugs de permissão usados por rotas, controllers e seeds de departamento.
+ * Padrão: `{verbo}_{recurso}` em snake_case (ex.: `consultar_departamentos`).
+ */
+export const permissionCatalog = [
+  //Usuários
+  // "incluir_usuarios",
+  // "alterar_usuarios",
+  "consultar_usuarios",
+  // "incluir_membros",
+  // "alterar_membros",
+  "consultar_membros",
+  //Departamentos
+  // "incluir_departamentos",
+  // "alterar_departamentos",
+  // "excluir_departamentos",
+  "consultar_departamentos",
+  //Permissões
+  // "incluir_permissoes",
+  // "alterar_permissoes",
+  "consultar_permissoes",
+  //Empresas
+  // "alterar_empresas",
+  "consultar_empresas",
+  //Unidades de medida
+  "consultar_unidades_medida",
+  // "incluir_unidades_medida",
+  // "alterar_unidades_medida",
+  // "excluir_unidades_medida",
+  //Tipos de produto
+  "consultar_tipos_produto",
+  // "incluir_tipos_produto",
+  // "alterar_tipos_produto",
+  // "excluir_tipos_produto",
+  //Produtos
+  "consultar_produtos",
+  // "incluir_produtos",
+  // "alterar_produtos",
+  // "excluir_produtos",
+  //NCM
+  "consultar_ncm_produtos",
+  // "incluir_ncm_produtos",
+  // "alterar_ncm_produtos",
+  // "excluir_ncm_produtos",
+  //CEST
+  "consultar_cest_produtos",
+  // "incluir_cest_produtos",
+  // "alterar_cest_produtos",
+  // "excluir_cest_produtos",
+  //ANP
+  "consultar_anp_produtos",
+  // "incluir_anp_produtos",
+  // "alterar_anp_produtos",
+  // "excluir_anp_produtos",
+  //NBS
+  "consultar_nbs_produtos",
+  // "incluir_nbs_produtos",
+  // "alterar_nbs_produtos",
+  // "excluir_nbs_produtos",
+  //Grupos de produto
+  "consultar_grupos_produto",
+  // "incluir_grupos_produto",
+  // "alterar_grupos_produto",
+  // "excluir_grupos_produto",
+  //Subgrupos de produto
+  "consultar_subgrupos_produto",
+  // "incluir_subgrupos_produto",
+  // "alterar_subgrupos_produto",
+  // "excluir_subgrupos_produto",
+  //Marcas de produto
+  "consultar_marcas_produto",
+  // "incluir_marcas_produto",
+  // "alterar_marcas_produto",
+  // "excluir_marcas_produto",
+  //PIS/COFINS
+  "consultar_situacao_pis_cofins",
+  // "incluir_situacao_pis_cofins",
+  // "alterar_situacao_pis_cofins",
+  // "excluir_situacao_pis_cofins",
+  //ICMS
+  "consultar_tributacao_icms",
+  // "incluir_tributacao_icms",
+  // "alterar_tributacao_icms",
+  // "excluir_tributacao_icms",
+  //Preços
+  "consultar_precos",
+  // "incluir_precos",
+  // "alterar_precos",
+  // "excluir_precos",
+  //Preços promocionais
+  "consultar_precos_promocionais",
+  // "incluir_precos_promocionais",
+  // "alterar_precos_promocionais",
+  // "excluir_precos_promocionais",
+  //Tributação de produto
+  "consultar_tributacao_produto",
+  // "incluir_tributacao_produto",
+  // "alterar_tributacao_produto",
+  // "excluir_tributacao_produto",
+  //Aplicações de produto
+  "consultar_aplicacoes_produto",
+  // "incluir_aplicacoes_produto",
+  // "alterar_aplicacoes_produto",
+  // "excluir_aplicacoes_produto",
+  //Endereços
+  "consultar_enderecos",
+  // "incluir_enderecos",
+  // "alterar_enderecos",
+  // "excluir_enderecos",
+  //Vendas
+  "consultar_vendas",
+  // "incluir_vendas",
+  // "alterar_vendas",
+  "consultar_devolucoes_vendas",
+  // "incluir_devolucoes_vendas",
+  "consultar_tipos_pagamento",
+  // "incluir_tipos_pagamento",
+  // "alterar_tipos_pagamento",
+  // "excluir_tipos_pagamento",
+  //Estoque
+  "consultar_setores_estoque",
+  // "incluir_setores_estoque",
+  // "alterar_setores_estoque",
+  // "excluir_setores_estoque",
+  "consultar_locacoes_estoque",
+  // "incluir_locacoes_estoque",
+  // "alterar_locacoes_estoque",
+  // "excluir_locacoes_estoque",
+  "consultar_lotes_estoque",
+  // "incluir_lotes_estoque",
+  // "alterar_lotes_estoque",
+  // "excluir_lotes_estoque",
+  "consultar_saldos_lote_estoque",
+  // "incluir_saldos_lote_estoque",
+  // "alterar_saldos_lote_estoque",
+  // "excluir_saldos_lote_estoque",
+  "consultar_saldos_estoque",
+  // "incluir_saldos_estoque",
+  // "alterar_saldos_estoque",
+  // "excluir_saldos_estoque",
+  "consultar_estoque_min_max",
+  // "incluir_estoque_min_max",
+  // "alterar_estoque_min_max",
+  // "excluir_estoque_min_max",
+  "consultar_movimentos_estoque",
+  // "incluir_movimentos_estoque",
+] as const;
+
+export type PermissionSlug = (typeof permissionCatalog)[number];
+
+/** Referências tipadas aos slugs (middlewares, serviços) — evita literais soltos. */
+export const PERM = {
+  consultar_usuarios: "consultar_usuarios",
+  // incluir_usuarios: "incluir_usuarios",
+  // alterar_usuarios: "alterar_usuarios",
+  consultar_membros: "consultar_membros",
+  // incluir_membros: "incluir_membros",
+  consultar_departamentos: "consultar_departamentos",
+} as const satisfies Record<string, PermissionSlug>;
+
+const productPermissions = [
+  "consultar_unidades_medida",
+  // "incluir_unidades_medida",
+  // "alterar_unidades_medida",
+  // "excluir_unidades_medida",
+  "consultar_tipos_produto",
+  // "incluir_tipos_produto",
+  // "alterar_tipos_produto",
+  // "excluir_tipos_produto",
+  "consultar_produtos",
+  // "incluir_produtos",
+  // "alterar_produtos",
+  // "excluir_produtos",
+  "consultar_ncm_produtos",
+  // "incluir_ncm_produtos",
+  // "alterar_ncm_produtos",
+  // "excluir_ncm_produtos",
+  "consultar_cest_produtos",
+  // "incluir_cest_produtos",
+  // "alterar_cest_produtos",
+  // "excluir_cest_produtos",
+  "consultar_anp_produtos",
+  // "incluir_anp_produtos",
+  // "alterar_anp_produtos",
+  // "excluir_anp_produtos",
+  "consultar_nbs_produtos",
+  // "incluir_nbs_produtos",
+  // "alterar_nbs_produtos",
+  // "excluir_nbs_produtos",
+  "consultar_grupos_produto",
+  // "incluir_grupos_produto",
+  // "alterar_grupos_produto",
+  // "excluir_grupos_produto",
+  "consultar_subgrupos_produto",
+  // "incluir_subgrupos_produto",
+  // "alterar_subgrupos_produto",
+  // "excluir_subgrupos_produto",
+  "consultar_marcas_produto",
+  // "incluir_marcas_produto",
+  // "alterar_marcas_produto",
+  // "excluir_marcas_produto",
+  "consultar_situacao_pis_cofins",
+  // "incluir_situacao_pis_cofins",
+  // "alterar_situacao_pis_cofins",
+  // "excluir_situacao_pis_cofins",
+  "consultar_tributacao_icms",
+  // "incluir_tributacao_icms",
+  // "alterar_tributacao_icms",
+  // "excluir_tributacao_icms",
+  "consultar_precos",
+  // "incluir_precos",
+  // "alterar_precos",
+  // "excluir_precos",
+  "consultar_precos_promocionais",
+  // "incluir_precos_promocionais",
+  // "alterar_precos_promocionais",
+  // "excluir_precos_promocionais",
+  "consultar_tributacao_produto",
+  // "incluir_tributacao_produto",
+  // "alterar_tributacao_produto",
+  // "excluir_tributacao_produto",
+  "consultar_aplicacoes_produto",
+  // "incluir_aplicacoes_produto",
+  // "alterar_aplicacoes_produto",
+  // "excluir_aplicacoes_produto",
+] as const satisfies readonly PermissionSlug[];
+
+const salesPermissions = [
+  "consultar_vendas",
+  // "incluir_vendas",
+  // "alterar_vendas",
+  "consultar_devolucoes_vendas",
+  // "incluir_devolucoes_vendas",
+  "consultar_tipos_pagamento",
+  // "incluir_tipos_pagamento",
+  // "alterar_tipos_pagamento",
+  // "excluir_tipos_pagamento",
+] as const satisfies readonly PermissionSlug[];
+
+const stockPermissions = [
+  "consultar_setores_estoque",
+  // "incluir_setores_estoque",
+  // "alterar_setores_estoque",
+  // "excluir_setores_estoque",
+  "consultar_locacoes_estoque",
+  // "incluir_locacoes_estoque",
+  // "alterar_locacoes_estoque",
+  // "excluir_locacoes_estoque",
+  "consultar_lotes_estoque",
+  // "incluir_lotes_estoque",
+  // "alterar_lotes_estoque",
+  // "excluir_lotes_estoque",
+  "consultar_saldos_lote_estoque",
+  // "incluir_saldos_lote_estoque",
+  // "alterar_saldos_lote_estoque",
+  // "excluir_saldos_lote_estoque",
+  "consultar_saldos_estoque",
+  // "incluir_saldos_estoque",
+  // "alterar_saldos_estoque",
+  // "excluir_saldos_estoque",
+  "consultar_estoque_min_max",
+  // "incluir_estoque_min_max",
+  // "alterar_estoque_min_max",
+  // "excluir_estoque_min_max",
+  "consultar_movimentos_estoque",
+  // "incluir_movimentos_estoque",
+] as const satisfies readonly PermissionSlug[];
+
+const administrador = [
+  // "incluir_usuarios",
+  // "alterar_usuarios",
+  "consultar_usuarios",
+  // "incluir_membros",
+  // "alterar_membros",
+  "consultar_membros",
+  "consultar_departamentos",
+  // "incluir_permissoes",
+  // "alterar_permissoes",
+  "consultar_permissoes",
+  // "alterar_empresas",
+  "consultar_empresas",
+  ...productPermissions,
+  ...salesPermissions,
+  ...stockPermissions,
+  "consultar_enderecos",
+  // "incluir_enderecos",
+  // "alterar_enderecos",
+  // "excluir_enderecos",
+] as const satisfies readonly PermissionSlug[];
+
+const operacional = [
+  "consultar_usuarios",
+  "consultar_membros",
+  "consultar_departamentos",
+  "consultar_permissoes",
+  "consultar_empresas",
+  "consultar_unidades_medida",
+  "consultar_tipos_produto",
+  "consultar_produtos",
+  "consultar_ncm_produtos",
+  "consultar_cest_produtos",
+  "consultar_anp_produtos",
+  "consultar_nbs_produtos",
+  "consultar_grupos_produto",
+  "consultar_subgrupos_produto",
+  "consultar_marcas_produto",
+  "consultar_situacao_pis_cofins",
+  "consultar_tributacao_icms",
+  "consultar_precos",
+  "consultar_precos_promocionais",
+  "consultar_tributacao_produto",
+  "consultar_aplicacoes_produto",
+  "consultar_vendas",
+  "consultar_devolucoes_vendas",
+  "consultar_tipos_pagamento",
+  "consultar_setores_estoque",
+  "consultar_locacoes_estoque",
+  "consultar_lotes_estoque",
+  "consultar_saldos_lote_estoque",
+  "consultar_saldos_estoque",
+  "consultar_estoque_min_max",
+  "consultar_movimentos_estoque",
+  "consultar_enderecos",
+] as const satisfies readonly PermissionSlug[];
+
+const recursos_humanos = [
+  // "incluir_usuarios",
+  // "alterar_usuarios",
+  "consultar_usuarios",
+  // "incluir_membros",
+  // "alterar_membros",
+  "consultar_membros",
+  "consultar_departamentos",
+  //  "incluir_permissoes",
+  // "alterar_permissoes",
+  "consultar_permissoes",
+] as const satisfies readonly PermissionSlug[];
+
+/**
+ * Permissões iniciais por SKU (`departments.permission_reference`), usadas na criação
+ * do departamento (maintainer) para popular `department_default_permissions`.
+ */
+export const defaultPermissionsByReference = {
+  administrador,
+  operacional,
+  recursos_humanos,
+} as const;
+
+export type PermissionReference = keyof typeof defaultPermissionsByReference;
+
+export const permissionReferenceCatalog = Object.keys(
+  defaultPermissionsByReference,
+) as readonly PermissionReference[];
+
+export const isPermissionReference = (v: string): v is PermissionReference =>
+  Object.prototype.hasOwnProperty.call(defaultPermissionsByReference, v);
+
+export const getPermissionsForReference = (
+  ref: PermissionReference,
+): readonly PermissionSlug[] => defaultPermissionsByReference[ref];

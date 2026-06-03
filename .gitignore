@@ -1,0 +1,41 @@
+node_modules/
+dist/
+coverage/
+docs/
+
+.env
+.env.docker.development
+.env.docker
+.env.docker*
+.env*
+!.env.example
+
+# TypeScript
+*.tsbuildinfo
+
+# Logs e saída de pacotes
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Cache de ferramentas
+.eslintcache
+
+# Pastas temporárias (uploads locais, scratch, etc.)
+tmp/
+temp/
+
+# Chaves e certificados (não versionar material criptográfico local)
+*.pem
+*.p12
+*.pfx
+
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+
+.idea/

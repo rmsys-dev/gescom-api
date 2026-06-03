@@ -101,7 +101,10 @@ export class MembershipsController {
       membershipPostAudit(req, enterpriseId, "memberships.service.createWithNewUser"),
     );
     sendSuccessResponse(res, HttpStatus.CREATED, {
-      message: "Membro e usuário criados com sucesso.",
+      message:
+        body.sendEmail === true
+          ? "Membro e usuário criados com sucesso. E-mail de primeiro acesso enviado."
+          : "Membro e usuário criados com sucesso.",
       data: row,
     });
   };
@@ -118,7 +121,10 @@ export class MembershipsController {
       membershipPostAudit(req, enterpriseId, "memberships.service.inviteMembership"),
     );
     sendSuccessResponse(res, HttpStatus.CREATED, {
-      message: "Convite de membro enviado com sucesso.",
+      message:
+        body.sendEmail === true
+          ? "Convite de membro enviado com sucesso."
+          : "Membro criado com sucesso.",
       data: row,
     });
   };

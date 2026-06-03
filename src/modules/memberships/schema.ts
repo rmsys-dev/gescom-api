@@ -117,6 +117,7 @@ export const createOnboardMembershipSchema = z
   .object({
     user: createUserBodySchema,
     member: createOnboardMemberPartSchema,
+    sendEmail: z.boolean().optional(),
   })
   .strict();
 
@@ -130,6 +131,7 @@ export const inviteMembershipBodySchema = z
     member: createOnboardMemberPartSchema,
     inviteEmail: emailSchema("inviteEmail").optional(),
     invitePhone: phoneSchema("invitePhone").optional(),
+    sendEmail: z.boolean().optional(),
   })
   .strict()
   .refine((b) => Boolean(b.inviteEmail ?? b.invitePhone), {

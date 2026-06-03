@@ -544,16 +544,6 @@ export class MembershipsService {
     await this.assertMembershipNotExists(enterpriseId, targetUser.id);
     await this.assertDepartmentsExistAndActive(input.member.departments);
 
-    const plainCode = generateNumericInviteCode();
-    const codeHash = await hashPassword(plainCode);
-    const expiresAt = addMinutesFromNow(env.INVITATION_CODE_TTL_MINUTES);
-
-    const useEmail = Boolean(input.inviteEmail);
-    const channel = useEmail ? ("EMAIL" as const) : ("SMS" as const);
-    const sentTo = useEmail
-      ? normalizeEmail(input.inviteEmail!)
-      : normalizePhone(input.invitePhone!);
-
     const auditCtx = withEnterpriseAuditContext(
       {
         ...audit,
@@ -561,6 +551,24 @@ export class MembershipsService {
       },
       enterpriseId,
     );
+
+    let plainCode: string | undefined;
+    let codeHash: string | undefined;
+    let expiresAt: Date | undefined;
+    let channel: "EMAIL" | "SMS" | undefined;
+    let sentTo: string | undefined;
+
+    if (input.sendEmail === true) {
+      plainCode = generateNumericInviteCode();
+      codeHash = await hashPassword(plainCode);
+      expiresAt = addMinutesFromNow(env.INVITATION_CODE_TTL_MINUTES);
+
+      const useEmail = Boolean(input.inviteEmail);
+      channel = useEmail ? "EMAIL" : "SMS";
+      sentTo = useEmail
+        ? normalizeEmail(input.inviteEmail!)
+        : normalizePhone(input.invitePhone!);
+    }
 
     const member = await db.transaction(async (tx) => {
       const m = await this.createMembershipStructure(
@@ -586,55 +594,59 @@ export class MembershipsService {
         tx,
       });
 
-      await invalidatePendingInvites(
-        {
-          userId: targetUser.id,
-          purpose: "MEMBERSHIP_ACCEPT",
-          memberId: m.id,
-        },
-        tx,
-      );
+      if (input.sendEmail === true) {
+        await invalidatePendingInvites(
+          {
+            userId: targetUser.id,
+            purpose: "MEMBERSHIP_ACCEPT",
+            memberId: m.id,
+          },
+          tx,
+        );
 
-      await createInvitationRow(
-        {
-          userId: targetUser.id,
-          purpose: "MEMBERSHIP_ACCEPT",
-          memberId: m.id,
-          codeHash,
-          channel,
-          sentTo,
-          maxAttempts: env.INVITATION_MAX_ATTEMPTS,
-          expiresAt,
-          ipAddress: meta.ipAddress,
-          userAgent: meta.userAgent,
-        },
-        tx,
-      );
+        await createInvitationRow(
+          {
+            userId: targetUser.id,
+            purpose: "MEMBERSHIP_ACCEPT",
+            memberId: m.id,
+            codeHash: codeHash!,
+            channel: channel!,
+            sentTo: sentTo!,
+            maxAttempts: env.INVITATION_MAX_ATTEMPTS,
+            expiresAt: expiresAt!,
+            ipAddress: meta.ipAddress,
+            userAgent: meta.userAgent,
+          },
+          tx,
+        );
+      }
 
       return m;
     });
 
-    if (channel === "EMAIL") {
-      await sendMembershipInviteCode({
-        to: sentTo,
-        code: plainCode,
-        userName: targetUser.userName,
-        enterpriseTradeName: enterprise.tradeName,
+    if (input.sendEmail === true) {
+      if (channel === "EMAIL") {
+        await sendMembershipInviteCode({
+          to: sentTo!,
+          code: plainCode!,
+          userName: targetUser.userName,
+          enterpriseTradeName: enterprise.tradeName,
+        });
+      }
+
+      await writeAudit({
+        event: "INVITE_CREATED",
+        userId: actorUserId,
+        enterpriseId,
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent,
+        requestId: meta.requestId,
+        reason:
+          channel === "EMAIL"
+            ? `Convite membro ${member.id}`
+            : `Convite membro ${member.id} (canal SMS sem envio automatico)`,
       });
     }
-
-    await writeAudit({
-      event: "INVITE_CREATED",
-      userId: actorUserId,
-      enterpriseId,
-      ipAddress: meta.ipAddress,
-      userAgent: meta.userAgent,
-      requestId: meta.requestId,
-      reason:
-        channel === "EMAIL"
-          ? `Convite membro ${member.id}`
-          : `Convite membro ${member.id} (canal SMS sem envio automatico)`,
-    });
 
     return { memberId: member.id };
   }
@@ -841,7 +853,7 @@ export class MembershipsService {
       };
     });
 
-    if (input.member.class !== "CLIENTE") {
+    if (input.member.class !== "CLIENTE" && input.sendEmail === true) {
       await this.queueFirstAccessInviteAfterOnboard({
         userId: result.user.id,
         userEmail: result.user.userEmail,

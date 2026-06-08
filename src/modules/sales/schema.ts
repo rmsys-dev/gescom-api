@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   createPaginationQuerySchema,
   dateOnlyIsoSchema,
+  optionalTrimmedStringSchema,
 } from "../../shared/validation/common-schemas.js";
 import { parseIsoDateOnly } from "../../shared/validation/data-normalizers.js";
 
@@ -193,6 +194,12 @@ export const listSalesQuerySchema = createPaginationQuerySchema(100).extend({
   status: saleStatusSchema.optional(),
   budgetClosureSituation: budgetClosureSituationSchema.optional(),
   userId: z.string().uuid().optional(),
+  /** Busca parcial pelo numero do pedido (orderNumber). */
+  orderNumber: optionalTrimmedStringSchema("orderNumber", 20),
+  /** Busca parcial pelo nome do vendedor (campo UserName / userLegalName). */
+  seller: optionalTrimmedStringSchema("seller", 255),
+  /** Busca parcial pelo nome do cliente (campo memberName). */
+  client: optionalTrimmedStringSchema("client", 255),
 });
 
 export const patchSaleItemSchema = z

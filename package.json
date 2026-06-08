@@ -27,6 +27,7 @@
     "seed:fictitious-users": "tsx scripts/seed-fictitious-users.ts",
     "seed:fictitious-addresses": "tsx scripts/seed-fictitious-addresses.ts",
     "seed:test-data": "tsx scripts/seed-test-data.ts",
+    "seed:dashboard-today": "tsx scripts/seed-dashboard-today.ts",
     "postman:auth": "npx newman run docs/postman-collections/auth-collection/postman-auth-collection.json -e docs/postman-collections/postman-global-environment.json",
     "postman:login": "npx newman run docs/postman-collections/auth-collection/postman-auth-collection.json -e docs/postman-collections/postman-global-environment.json --folder \"Auth - Login (EMAIL)\"",
     "postman:enterprises": "npx newman run docs/postman-collections/auth-collection/postman-enterprises-collection.json -e docs/postman-collections/postman-global-environment.json",

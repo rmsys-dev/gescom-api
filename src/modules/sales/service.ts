@@ -1,4 +1,15 @@
-import { and, asc, count, desc, eq, inArray, isNull } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNull,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 import { db } from "../../db/index.js";
 import {
   enterprisesMembers,
@@ -192,7 +203,7 @@ export class SalesService {  // Servico de vendas
   }
 
   private listScope(enterpriseId: string, query?: ListSalesQuery) {
-    const filters = [eq(sales.enterprisesId, enterpriseId)];
+    const filters: SQL[] = [eq(sales.enterprisesId, enterpriseId)];
     if (query?.type) {
       filters.push(eq(sales.type, query.type));
     }
@@ -207,7 +218,39 @@ export class SalesService {  // Servico de vendas
     if (query?.userId) {
       filters.push(eq(sales.userId, query.userId));
     }
+    if (query?.orderNumber) {
+      const term = `%${query.orderNumber}%`;
+      filters.push(sql`cast(${sales.orderNumber} as text) ilike ${term}`);
+    }
+    if (query?.seller) {
+      filters.push(ilike(sales.userLegalName, `%${query.seller}%`));
+    }
+    if (query?.client) {
+      filters.push(ilike(users.userName, `%${query.client}%`));
+    }
     return and(...filters);
+  }
+
+  private listFromWithMemberJoins() {
+    return db
+      .select(saleWithMemberSelect)
+      .from(sales)
+      .leftJoin(
+        enterprisesMembers,
+        eq(sales.memberId, enterprisesMembers.id),
+      )
+      .leftJoin(users, eq(enterprisesMembers.userId, users.id));
+  }
+
+  private listCountFromWithMemberJoins() {
+    return db
+      .select({ c: count() })
+      .from(sales)
+      .leftJoin(
+        enterprisesMembers,
+        eq(sales.memberId, enterprisesMembers.id),
+      )
+      .leftJoin(users, eq(enterprisesMembers.userId, users.id));
   }
 
   private mapSaleItemResponse(
@@ -800,19 +843,12 @@ export class SalesService {  // Servico de vendas
     const { limit, offset } = resolveListPagination(query);
     const where = this.listScope(enterpriseId, query);
     const [items, totalRows] = await Promise.all([
-      db
-        .select(saleWithMemberSelect)
-        .from(sales)
-        .leftJoin(
-          enterprisesMembers,
-          eq(sales.memberId, enterprisesMembers.id),
-        )
-        .leftJoin(users, eq(enterprisesMembers.userId, users.id))
+      this.listFromWithMemberJoins()
         .where(where)
         .orderBy(desc(sales.createdAt), asc(sales.id))
         .limit(limit)
         .offset(offset),
-      db.select({ c: count() }).from(sales).where(where),
+      this.listCountFromWithMemberJoins().where(where),
     ]);
     const total = Number(totalRows[0]?.c ?? 0);
     return { items, total, limit, offset };

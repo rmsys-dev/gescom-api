@@ -2,6 +2,8 @@ node_modules/
 dist/
 coverage/
 docs/
+/drizzle/
+/scripts/
 
 .env
 .env.docker.development

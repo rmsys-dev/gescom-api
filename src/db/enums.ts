@@ -62,8 +62,10 @@ export const housingTypeEnum = pgEnum("housing_type", [
 //Gênero (feminino, masculino, não informado)
 export const genderEnum = pgEnum("gender", [
   "FEMININO",
-  "MASCULINO, NÃO_INFORMADO",
+  "MASCULINO",
+  "NÃO_INFORMADO",
 ]);
+
 export const maritalStatusEnum = pgEnum("marital_status", [
   "SOLTEIRO",
   "CASADO",

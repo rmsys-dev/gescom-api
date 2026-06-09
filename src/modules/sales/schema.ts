@@ -222,6 +222,10 @@ export const listSalesQuerySchema = createPaginationQuerySchema(100).extend({
   status: saleStatusSchema.optional(),
   budgetClosureSituation: budgetClosureSituationSchema.optional(),
   userId: z.string().uuid().optional(),
+  sellerId: z.string().uuid().optional(),
+  orderNumber: z.coerce.number().int().positive().optional(),
+  seller: optionalTrimmedStringSchema("seller", 255).optional(),
+  client: optionalTrimmedStringSchema("client", 255).optional(),
 });
 
 export const patchSaleItemSchema = z

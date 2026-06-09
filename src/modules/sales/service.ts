@@ -1,4 +1,16 @@
-import { and, asc, count, desc, eq, inArray, isNull } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNull,
+  notInArray,
+  or,
+  type SQL,
+} from "drizzle-orm";
 import { db } from "../../db/index.js";
 import {
   enterprisesMembers,
@@ -33,6 +45,9 @@ import {
   isServiceProductType,
   PRODUCT_TYPE_SERVICE_CODE,
 } from "../../shared/products/product-type-service.js";
+import { PERM } from "../auth/default-permissions.js";
+import { isAllowed, resolvePermissions } from "../auth/permissions.js";
+import { findPrimaryMemberDepartmentIdByMemberId } from "../auth/repository.js";
 import {
   resolveDefaultSaleItemStockRefs,
 } from "../stock/balance.js";
@@ -249,12 +264,8 @@ export class SalesService {  // Servico de vendas
     if (query?.orderNumber !== undefined) {
       filters.push(eq(sales.orderNumber, query.orderNumber));
     }
-    if (query?.orderNumber) {
-      const term = `%${query.orderNumber}%`;
-      filters.push(sql`cast(${sales.orderNumber} as text) ilike ${term}`);
-    }
     if (query?.seller) {
-      filters.push(ilike(sales.userLegalName, `%${query.seller}%`));
+      filters.push(ilike(sales.sellerLegalName, `%${query.seller}%`));
     }
     if (query?.client) {
       filters.push(ilike(users.userName, `%${query.client}%`));

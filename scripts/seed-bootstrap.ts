@@ -39,14 +39,14 @@ import { hashPassword, normalizeCpf } from "../src/modules/auth/password.js";
 
 /** Credenciais e empresa criadas/atualizadas pelo seed (editar aqui se necessário). */
 const BOOTSTRAP_SEED = {
-  adminPassword: "martins@2395",
-  adminCpf: "03747547133",
-  adminEmail: "leomir.rmsys@gmail.com",
-  adminPhone: "64992214800",
-  adminName: "Leomir Dias",
-  enterpriseLegalName: "RMsys Informática",
-  enterpriseTradeName: "RMsys",
-  enterpriseCnpj: "00000000000191",
+  adminPassword: "RM697452",
+  adminCpf: "64079805187",
+  adminEmail: "rones@rmsys.net",
+  adminPhone: "64999990774",
+  adminName: "RMsys Informática",
+  enterpriseLegalName: "Empresa Teste",
+  enterpriseTradeName: "Empresa Teste",
+  enterpriseCnpj: "15243294000173",
 } as const;
 
 const DEPT_ADMIN_NAME = "Administrativo";
@@ -119,6 +119,39 @@ async function ensureDepartmentSnapshotIfMissing(
   );
 }
 
+async function syncMissingCatalogPermissions(
+  departmentId: string,
+  ref: PermissionReference,
+): Promise<void> {
+  const catalogPerms = getPermissionsForReference(ref);
+  const existing = await db
+    .select({ permission: departmentDefaultPermissions.permission })
+    .from(departmentDefaultPermissions)
+    .where(
+      and(
+        eq(departmentDefaultPermissions.departmentId, departmentId),
+        isNull(departmentDefaultPermissions.deletedAt),
+      ),
+    );
+
+  const existingSet = new Set(existing.map((row) => row.permission));
+  const missing = catalogPerms.filter((permission) => !existingSet.has(permission));
+  if (missing.length === 0) {
+    return;
+  }
+
+  await db.insert(departmentDefaultPermissions).values(
+    missing.map((permission) => ({
+      departmentId,
+      permission,
+      status: "ALLOW" as const,
+    })),
+  );
+  console.log(
+    `Permissoes adicionadas ao departamento ${departmentId}: ${missing.join(", ")}`,
+  );
+}
+
 async function ensureDepartment(params: {
   name: string;
   description: string;
@@ -161,6 +194,7 @@ async function ensureDepartment(params: {
     }
 
     await ensureDepartmentSnapshotIfMissing(row.id, permissionReference);
+    await syncMissingCatalogPermissions(row.id, permissionReference);
     return row.id;
   }
 
@@ -430,6 +464,7 @@ export const runBootstrapSeed = async (): Promise<void> => {
       const [member] = await tx
         .insert(enterprisesMembers)
         .values({
+          code: 1,
           userId,
           enterpriseId,
           class: "ADMINISTRADOR",

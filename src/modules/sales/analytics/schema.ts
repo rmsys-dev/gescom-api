@@ -25,7 +25,7 @@ export const granularitySchema = z.enum(["day", "week", "month", "year"]);
 export const sortByProductSchema = z.enum(["revenue", "quantity"]);
 
 const optionalFiltersSchema = z.object({
-  userId: z.string().uuid().optional(),
+  sellerId: z.string().uuid().optional(),
   memberId: z.string().uuid().optional(),
   paymentTypeId: z.string().uuid().optional(),
   productsEnterprisesId: z.string().uuid().optional(),
@@ -132,7 +132,7 @@ export const analyticsOperationsQuerySchema = periodFieldsSchema
 export const analyticsReceivablesQuerySchema = z
   .object({
     timezone: z.string().trim().min(1).default("America/Sao_Paulo"),
-    userId: z.string().uuid().optional(),
+    sellerId: z.string().uuid().optional(),
     memberId: z.string().uuid().optional(),
   })
   .strict();

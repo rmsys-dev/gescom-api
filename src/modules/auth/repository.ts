@@ -27,6 +27,7 @@ export const findCredentialByLogin = async (
   loginType: AuthLoginType,
   loginNormalized: string,
 ): Promise<CredentialWithUser | null> => {
+  
   const rows = await db
     .select({
       credential: usersCredentials,
@@ -43,7 +44,7 @@ export const findCredentialByLogin = async (
       ),
     )
     .limit(1);
-
+  
   return rows[0] ?? null;
 };
 

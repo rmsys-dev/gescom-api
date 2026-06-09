@@ -18,6 +18,7 @@ import {
   saleReturnSituationEnum,
   saleReturnStatusEnum,
   saleStatusEnum,
+  saleOriginEnum,
   saleTypeEnum,
   statusEnum,
 } from "../enums.js";
@@ -59,6 +60,10 @@ export const sales = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
     userLegalName: varchar("user_legal_name", { length: 255 }).notNull(),
+    sellerId: uuid("seller_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    sellerLegalName: varchar("seller_legal_name", { length: 255 }).notNull(),
     memberId: uuid("member_id").references(() => enterprisesMembers.id, {
       onDelete: "restrict",
     }),
@@ -98,6 +103,7 @@ export const sales = pgTable(
       (): AnyPgColumn => sales.id,
       { onDelete: "restrict" },
     ),
+    origin: saleOriginEnum("origin").default("WEB"),
     completedionDate: date("completedion_date", { mode: "date" }), // finalizada
     enterprisesId: uuid("enterprises_id")
       .notNull()
@@ -117,6 +123,7 @@ export const sales = pgTable(
     index("sales_analytics_pipeline_idx")
       .on(t.enterprisesId, t.createdAt)
       .where(sql`${t.status} = 'ABERTA'`),
+    index("sales_seller_id_idx").on(t.enterprisesId, t.sellerId),
   ],
 );
 
@@ -173,6 +180,15 @@ export const salesItems = pgTable(
     (): AnyPgColumn => salesItems.id,
     { onDelete: "restrict" },
   ),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "restrict" }),
+  userLegalName: varchar("user_legal_name", { length: 255 }).notNull(),
+  sellerId: uuid("seller_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "restrict" }),
+  sellerLegalName: varchar("seller_legal_name", { length: 255 }).notNull(),
+  origin: saleOriginEnum("origin").notNull().default("WEB"),
   createdAt: tz("created_at").defaultNow().notNull(),
   updatedAt: tz("updated_at"),
   },
@@ -180,6 +196,7 @@ export const salesItems = pgTable(
     index("sales_items_products_enterprises_id_idx").on(
       t.productsEnterprisesId,
     ),
+    index("sales_items_seller_id_idx").on(t.sellerId),
   ],
 );
 
@@ -235,6 +252,38 @@ export const salesBudgetConversionItems = pgTable(
     check(
       "sales_budget_conversion_items_quantity_positive",
       sql`${t.quantity} > 0`,
+    ),
+  ],
+);
+
+export const salesBudgetUnclosedItems = pgTable(
+  "sales_budget_unclosed_items",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    conversionId: uuid("conversion_id")
+      .notNull()
+      .references(() => salesBudgetConversions.id, { onDelete: "cascade" }),
+    budgetItemId: uuid("budget_item_id")
+      .notNull()
+      .references(() => salesItems.id, { onDelete: "restrict" }),
+    quantityNotConverted: decimal("quantity_not_converted", {
+      precision: 14,
+      scale: 4,
+    }).notNull(),
+    justification: varchar("justification", { length: 500 }).notNull(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    userLegalName: varchar("user_legal_name", { length: 255 }).notNull(),
+    createdAt: tz("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex(
+      "sales_budget_unclosed_items_conversion_budget_item_unique",
+    ).on(t.conversionId, t.budgetItemId),
+    check(
+      "sales_budget_unclosed_items_quantity_positive",
+      sql`${t.quantityNotConverted} > 0`,
     ),
   ],
 );

@@ -89,6 +89,7 @@ export const verifyLoginCredentials = async (
   }
 
   const passwordOk = await verifyPassword(input.password, credential.password);
+
   if (!passwordOk) {
     await registerFailure(credential.id, credential.failedAttempts);
     await writeAudit({

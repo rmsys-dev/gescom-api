@@ -11,6 +11,12 @@ import type { RequestWithId } from "./request-id.js";
 // Se nao tiver, registra auditoria e lanca ForbiddenError; se tiver, chama next().
 
 export const requirePermission = (permission: PermissionSlug): RequestHandler => {
+  return requireAnyPermission([permission]);
+};
+
+export const requireAnyPermission = (
+  permissions: readonly PermissionSlug[],
+): RequestHandler => {
   return async (
     req: Request,
     _res: Response,
@@ -63,8 +69,11 @@ export const requirePermission = (permission: PermissionSlug): RequestHandler =>
       }
 
       const resolved = await resolvePermissions(memberDepartmentId);
+      const allowed = permissions.some((permission) =>
+        isAllowed(resolved, permission),
+      );
 
-      if (!isAllowed(resolved, permission)) {
+      if (!allowed) {
         await writeAudit({
           event: "PERMISSION_DENIED",
           userId: reqWithAuth.auth.userId,
@@ -73,7 +82,7 @@ export const requirePermission = (permission: PermissionSlug): RequestHandler =>
           ipAddress: req.ip ?? null,
           userAgent: req.header("user-agent") ?? null,
           requestId: reqWithId.requestId ?? null,
-          reason: `Permissao negada: ${permission}`,
+          reason: `Permissao negada: ${permissions.join(" | ")}`,
         });
         throw new ForbiddenError(
           "Permissao negada para esta operacao",

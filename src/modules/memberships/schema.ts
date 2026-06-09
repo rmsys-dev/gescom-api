@@ -95,6 +95,7 @@ export const refineMembershipDepartmentsByClass = <
 const createMembershipInnerSchema = z
   .object({
     userId: uuidSchema("userId"),
+    code: z.coerce.number().int().optional(),
     class: z.enum(memberClassEnum.enumValues),
     departments: z.array(membershipDepartmentSchema).default([]),
   })
@@ -154,6 +155,7 @@ export type MembershipPatchParams = z.infer<typeof membershipPatchParamsSchema>;
 //Esquema de alteração (patch) de membro
 export const patchMembershipSchema = z
   .object({
+    code: z.coerce.number().int().nullable().optional(),
     class: z.enum(memberClassEnum.enumValues).optional(),
     status: z.enum(statusEnum.enumValues).optional(),
     // Se `true`, o back define `deleted_at` com a data/hora do servidor (soft delete)
@@ -162,6 +164,7 @@ export const patchMembershipSchema = z
   .strict()
   .refine(
     (data) =>
+      data.code !== undefined ||
       data.class !== undefined ||
       data.status !== undefined ||
       data.softDelete === true,

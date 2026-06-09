@@ -72,14 +72,14 @@ export class DimensionsAnalyticsService {
 
     const rows = await db
       .select({
-        id: sales.userId,
-        label: sales.userLegalName,
+        id: sales.sellerId,
+        label: sales.sellerLegalName,
         revenue: sql<string>`coalesce(sum(${sales.valueLiquid}), 0)`,
         salesCount: sql<string>`count(*)`,
       })
       .from(sales)
       .where(scope)
-      .groupBy(sales.userId, sales.userLegalName)
+      .groupBy(sales.sellerId, sales.sellerLegalName)
       .orderBy(sql`sum(${sales.valueLiquid}) desc`)
       .limit(query.limit ?? 10);
 

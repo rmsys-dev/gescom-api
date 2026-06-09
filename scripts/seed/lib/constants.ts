@@ -1,6 +1,6 @@
 /** Alinhado a `BOOTSTRAP_SEED` em `scripts/seed-bootstrap.ts`. */
-export const BOOTSTRAP_ENTERPRISE_CNPJ = "00000000000191";
-export const BOOTSTRAP_ADMIN_CPF = "03747547133";
+export const BOOTSTRAP_ENTERPRISE_CNPJ = "15243294000173";
+export const BOOTSTRAP_ADMIN_CPF = "64079805187";
 
 /** Prefixo CPF para usuarios ficticios sem credenciais (90000000001…). */
 export const FICTITIOUS_CPF_PREFIX = "900000000";

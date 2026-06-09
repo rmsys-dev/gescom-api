@@ -1,6 +1,8 @@
 import { and, asc, count, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 import { db } from "../../db/schema.js";
 import {
+  ceps,
+  cities,
   departments,
   departmentDefaultPermissions,
   enterprises,
@@ -9,6 +11,7 @@ import {
   memberPermissionsDefault,
   membersDepartments,
   users,
+  usersAddress,
 } from "../../db/schema.js";
 import { env } from "../../config/env.js";
 import {
@@ -75,19 +78,72 @@ type AuthMeta = {
   requestId: string | null;
 };
 
+type MemberUserSummary = {
+  id: string;
+  userName: string;
+  userRegistration: string;
+  userEmail: string;
+  userPhone: string;
+  addressLine?: string | null;
+  cityName?: string | null;
+};
+
 type MemberWithUserRow = {
   member: typeof enterprisesMembers.$inferSelect;
-  user: {
-    id: string;
-    userName: string;
-    userRegistration: string;
-    userEmail: string;
-    userPhone: string;
-  };
+  user: MemberUserSummary;
+};
+
+const formatAddressLine = (street: string, number: string): string => {
+  const parts = [street.trim(), number.trim()].filter((part) => part.length > 0);
+  return parts.join(", ");
+};
+
+const loadPrincipalAddressSummariesByUserId = async (
+  userIds: string[],
+): Promise<Map<string, { addressLine: string | null; cityName: string | null }>> => {
+  const uniqueUserIds = [...new Set(userIds)];
+  if (uniqueUserIds.length === 0) {
+    return new Map();
+  }
+
+  const rows = await db
+    .select({
+      userId: usersAddress.userId,
+      street: ceps.address,
+      number: ceps.number,
+      cityName: cities.citieName,
+    })
+    .from(usersAddress)
+    .innerJoin(ceps, eq(usersAddress.cepId, ceps.id))
+    .innerJoin(cities, eq(usersAddress.cityId, cities.id))
+    .where(
+      and(
+        inArray(usersAddress.userId, uniqueUserIds),
+        eq(usersAddress.adressType, "PRINCIPAL"),
+        isNull(usersAddress.deletedAt),
+        isNull(ceps.deletedAt),
+        isNull(cities.deletedAt),
+      ),
+    );
+
+  const byUserId = new Map<
+    string,
+    { addressLine: string | null; cityName: string | null }
+  >();
+  for (const row of rows) {
+    if (byUserId.has(row.userId)) continue;
+    const addressLine = formatAddressLine(row.street, row.number);
+    byUserId.set(row.userId, {
+      addressLine: addressLine || null,
+      cityName: row.cityName?.trim() || null,
+    });
+  }
+  return byUserId;
 };
 
 const mapMemberWithUser = ({ member, user }: MemberWithUserRow) => ({
   id: member.id,
+  code: member.code,
   status: member.status,
   userId: member.userId,
   enterpriseId: member.enterpriseId,
@@ -163,11 +219,19 @@ export class MembershipsService {
     });
 
     const rowsById = new Map(rows.map((row) => [row.id, row]));
+    const addressByUserId = await loadPrincipalAddressSummariesByUserId(
+      rows
+        .map((row) => row.user?.id)
+        .filter((userId): userId is string => userId != null),
+    );
+
     const items = memberIds.flatMap((memberId) => {
       const row = rowsById.get(memberId);
       if (!row?.user || row.user.deletedAt != null) {
         return [];
       }
+
+      const address = addressByUserId.get(row.user.id);
 
       return [
         mapMemberWithUser({
@@ -178,6 +242,8 @@ export class MembershipsService {
             userRegistration: row.user.userRegistration,
             userEmail: row.user.userEmail,
             userPhone: row.user.userPhone,
+            addressLine: address?.addressLine ?? null,
+            cityName: address?.cityName ?? null,
           },
         }),
       ];
@@ -342,6 +408,7 @@ export class MembershipsService {
       enterpriseId: string;
       userId: string;
       actorUserId: string;
+      code?: number;
       class: typeof enterprisesMembers.$inferInsert.class;
       status: "ATIVO" | "PENDENTE";
       departments: CreateMembershipInput["departments"];
@@ -354,6 +421,7 @@ export class MembershipsService {
     const [member] = await tx
       .insert(enterprisesMembers)
       .values({
+        code: input.code ?? null,
         userId: input.userId,
         enterpriseId: input.enterpriseId,
         class: input.class,
@@ -488,6 +556,7 @@ export class MembershipsService {
           enterpriseId,
           userId: input.userId,
           actorUserId,
+          code: input.code,
           class: input.class,
           status: "ATIVO",
           departments: input.departments,
@@ -576,6 +645,7 @@ export class MembershipsService {
           enterpriseId,
           userId: targetUser.id,
           actorUserId,
+          code: input.member.code,
           class: input.member.class,
           status: "PENDENTE",
           departments: input.member.departments,
@@ -829,6 +899,7 @@ export class MembershipsService {
           enterpriseId,
           userId: createdUser.id,
           actorUserId,
+          code: input.member.code,
           class: input.member.class,
           status: "ATIVO",
           departments: input.member.departments,
@@ -910,6 +981,7 @@ export class MembershipsService {
     };
 
     if (input.class !== undefined) setValues.class = input.class;
+    if (input.code !== undefined) setValues.code = input.code;
 
     if (isDeleteOperation) {
       Object.assign(setValues, membershipSoftDeleteValues(now));

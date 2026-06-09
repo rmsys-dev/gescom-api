@@ -22,7 +22,13 @@ import type {
   PatchSaleInput,
   PatchSaleItemInput,
 } from "./schema.js";
-import { salesService } from "./service.js";
+import { salesService, type SaleAuthContext } from "./service.js";
+
+const saleAuthFromRequest = (auth: RequestWithAuth["auth"]): SaleAuthContext => ({
+  userId: auth!.userId!,
+  memberId: auth!.memberId,
+  memberDepartmentId: auth!.memberDepartmentId,
+});
 
 export class SalesController {
   public list = async (req: Request, res: Response): Promise<void> => {
@@ -30,7 +36,7 @@ export class SalesController {
     const enterpriseId = requireTenantEnterpriseId(auth);
     const query = (req as RequestWithValidatedQuery<ListSalesQuery>).validatedQuery;
 
-    if (query.userId && auth.userId && query.userId !== auth.userId) {
+    if (query.sellerId && auth.userId && query.sellerId !== auth.userId) {
       throw new ForbiddenError(
         "Nao e permitido listar vendas de outro vendedor",
       );
@@ -63,9 +69,10 @@ export class SalesController {
     const body = req.body as CreateSaleInput;
     const data = await salesService.create(
       enterpriseId,
-      auth.userId ?? null,
+      auth.userId ? saleAuthFromRequest(auth) : null,
       body,
       auditContextFromPostAuth(auth, req, "sales.service.create"),
+      req.headers["x-gescom-client"],
     );
     sendSuccessResponse(res, HttpStatus.CREATED, {
       message: "Venda criada com sucesso.",
@@ -81,9 +88,10 @@ export class SalesController {
     const data = await salesService.patch(
       enterpriseId,
       saleId,
-      auth.userId ?? null,
+      auth.userId ? saleAuthFromRequest(auth) : null,
       body,
       auditContextFromPatchAuth(auth, req, "sales.service.patch"),
+      req.headers["x-gescom-client"],
     );
     sendSuccessResponse(res, HttpStatus.OK, {
       message: "Venda atualizada com sucesso.",
@@ -99,9 +107,10 @@ export class SalesController {
     const data = await salesService.addItem(
       enterpriseId,
       saleId,
-      auth.userId ?? null,
+      saleAuthFromRequest(auth),
       body,
       auditContextFromPostAuth(auth, req, "sales.service.addItem"),
+      req.headers["x-gescom-client"],
     );
     sendSuccessResponse(res, HttpStatus.CREATED, {
       message: "Item incluido na venda com sucesso.",
@@ -176,9 +185,10 @@ export class SalesController {
     const data = await salesService.convertBudgetToSale(
       enterpriseId,
       saleId,
-      auth.userId ?? null,
+      auth.userId ? saleAuthFromRequest(auth) : null,
       body,
       auditContextFromPostAuth(auth, req, "sales.service.convertBudgetToSale"),
+      req.headers["x-gescom-client"],
     );
     sendSuccessResponse(res, HttpStatus.CREATED, {
       message: "Orcamento convertido em venda com sucesso.",

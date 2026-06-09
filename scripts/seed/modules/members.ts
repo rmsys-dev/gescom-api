@@ -61,6 +61,7 @@ export async function seedMembers(): Promise<string[]> {
       const [member] = await db
         .insert(enterprisesMembers)
         .values({
+          code: 1000 + i,
           userId,
           enterpriseId: ctx.enterpriseId,
           class: memberClass,

@@ -254,3 +254,4 @@ export const budgetConversionKindEnum = pgEnum("budget_conversion_kind", [
   "PARCIAL",
   "TOTAL",
 ]);
+export const saleOriginEnum = pgEnum("sale_origin", ["WEB", "MOBILE"]);

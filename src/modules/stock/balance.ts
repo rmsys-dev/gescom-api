@@ -276,3 +276,76 @@ export async function adjustStockBalance(  // AJUSTA O SALDO DE ESTOQUE POR LOCA
   }
   return { before, after };
 }
+
+export type DefaultSaleItemStockRefs = {
+  stockSectorId: string;
+  stockLocationId: string;
+  stockBatchId: string | null;
+};
+
+export async function resolveDefaultSaleItemStockRefs(
+  enterpriseId: string,
+  productsEnterprisesId: string,
+  tx?: Tx,
+  pathPrefix = "items",
+): Promise<DefaultSaleItemStockRefs> {
+  const runner = tx ?? db;
+  const pe = await getProductEnterpriseForStock(
+    enterpriseId,
+    productsEnterprisesId,
+    tx,
+  );
+
+  if (pe.controlsBatch) {
+    const batchRow = (
+      await runner
+        .select({
+          batchId: stockBatches.id,
+          locationId: stockBatchBalances.stockLocationId,
+        })
+        .from(stockBatches)
+        .innerJoin(
+          stockBatchBalances,
+          eq(stockBatchBalances.stockBatchId, stockBatches.id),
+        )
+        .where(eq(stockBatches.productsEnterprisesId, productsEnterprisesId))
+        .limit(1)
+    )[0];
+
+    if (batchRow) {
+      const locRow = await getLocationSectorId(batchRow.locationId, tx);
+      return {
+        stockSectorId: locRow.stockSectorId,
+        stockLocationId: batchRow.locationId,
+        stockBatchId: batchRow.batchId,
+      };
+    }
+  }
+
+  const rentalRow = (
+    await runner
+      .select({ locationId: stockSectorsRental.stockLocationId })
+      .from(stockSectorsRental)
+      .where(eq(stockSectorsRental.productsEnterprisesId, productsEnterprisesId))
+      .limit(1)
+  )[0];
+
+  if (rentalRow) {
+    const locRow = await getLocationSectorId(rentalRow.locationId, tx);
+    return {
+      stockSectorId: locRow.stockSectorId,
+      stockLocationId: rentalRow.locationId,
+      stockBatchId: null,
+    };
+  }
+
+  throw new ValidationError(
+    [
+      {
+        path: `${pathPrefix}.productsEnterprisesId`,
+        message: "Produto sem estoque configurado na empresa",
+      },
+    ],
+    "Estoque nao configurado",
+  );
+}

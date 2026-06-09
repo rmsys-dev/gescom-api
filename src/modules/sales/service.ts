@@ -1,4 +1,9 @@
-import { and, asc, count, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNull, notInArray, or } from "drizzle-orm";
+import { PERM } from "../auth/default-permissions.js";
+import {
+  findPrimaryMemberDepartmentIdByMemberId,
+} from "../auth/repository.js";
+import { isAllowed, resolvePermissions } from "../auth/permissions.js";
 import { db } from "../../db/index.js";
 import {
   enterprisesMembers,
@@ -7,6 +12,7 @@ import {
   sales,
   salesBudgetConversionItems,
   salesBudgetConversions,
+  salesBudgetUnclosedItems,
   salesDues,
   salesItems,
   salesPayments,
@@ -14,6 +20,7 @@ import {
 } from "../../db/schema.js";
 import {
   ConflictError,
+  ForbiddenError,
   NotFoundError,
   ValidationError,
 } from "../../shared/errors/app-error.js";
@@ -26,7 +33,14 @@ import {
 } from "../../shared/audit/entity-audit.js";
 import { toAuditRecord } from "../../shared/audit/build-field-diff.js";
 import { EntityTypes } from "../../shared/audit/entity-types.js";
-import { PRODUCT_TYPE_SERVICE_CODE } from "../../shared/products/product-type-service.js";
+import {
+  getProductTypeCode,
+  isServiceProductType,
+  PRODUCT_TYPE_SERVICE_CODE,
+} from "../../shared/products/product-type-service.js";
+import {
+  resolveDefaultSaleItemStockRefs,
+} from "../stock/balance.js";
 import {
   assertSaleOrderNumberAvailable,
   nextSaleOrderNumber,
@@ -41,7 +55,12 @@ import {
   validateSaleItemStock,
 } from "./sale-stock.js";
 import {
+  resolveSaleClosingOrigin,
+  type SaleOrigin,
+} from "./sale-origin.js";
+import {
   computeItemValueTotal,
+  convertBudgetItemInputSchema,
   type ConvertBudgetToSaleInput,
   type CreateSaleInput,
   type CreateSaleItemInput,
@@ -50,6 +69,9 @@ import {
   type PatchSaleItemInput,
   type SalePaymentInput,
 } from "./schema.js";
+import type { z } from "zod";
+
+type ConvertBudgetItemLine = z.infer<typeof convertBudgetItemInputSchema>;
 
 type BudgetClosureSituation = "ABERTO" | "PARCIAL" | "FECHADO";
 type BudgetConversionKind = "PARCIAL" | "TOTAL";
@@ -57,8 +79,10 @@ type BudgetConversionKind = "PARCIAL" | "TOTAL";
 const dec = (v: number | undefined | null) =>
   v !== undefined && v !== null ? v.toString() : null;
 
-const decNum = (v: string | null | undefined) =>
+const decNum = (v: string | number | null | undefined) =>
   v !== undefined && v !== null && v !== "" ? Number(v) : 0;
+
+const formatQuantity = (value: number) => value.toFixed(4);
 
 const moneyCents = (value: number) => Math.round(value * 100);
 
@@ -77,6 +101,33 @@ const computeFinancialFromPercentage = (subTotal: number, percentage: number) =>
 const computePercentageFromFinancial = (subTotal: number, value: number) =>
   subTotal > 0 ? roundMoney((value / subTotal) * 100) : 0;
 
+/** Diferença máxima entre % derivado e valor em R$ (arredondamento de centavos). */
+const FINANCIAL_ROUNDING_TOLERANCE = 0.02;
+
+const resolveAdjustmentFinancial = (
+  subTotal: number,
+  percentage: string | null,
+  storedValue: string | null,
+): { value: number; percentage: string | null } => {
+  const stored = decNum(storedValue);
+  if (hasStoredPercentage(percentage)) {
+    const pct = decNum(percentage);
+    const fromPct = computeFinancialFromPercentage(subTotal, pct);
+    if (
+      stored > 0 &&
+      Math.abs(stored - fromPct) <= FINANCIAL_ROUNDING_TOLERANCE
+    ) {
+      return { value: stored, percentage: null };
+    }
+    return { value: fromPct, percentage };
+  }
+
+  return {
+    value: stored,
+    percentage: null,
+  };
+};
+
 const resolveFinancialAdjustments = (  // Calcula os valores financeiros da venda
   sale: Pick<
     typeof sales.$inferSelect,
@@ -87,45 +138,22 @@ const resolveFinancialAdjustments = (  // Calcula os valores financeiros da vend
   >,
   subTotal: number,
 ) => {
-  let valueDiscountFinancial: number;
-  let percentageDiscount: string | null;
-
-  if (hasStoredPercentage(sale.percentageDiscount)) {
-    const pct = decNum(sale.percentageDiscount);
-    valueDiscountFinancial = computeFinancialFromPercentage(subTotal, pct);
-    percentageDiscount = sale.percentageDiscount;
-  } else {
-    valueDiscountFinancial = decNum(sale.valueDiscountFinancial);
-    percentageDiscount =
-      valueDiscountFinancial > 0
-        ? decPercentage(
-            computePercentageFromFinancial(subTotal, valueDiscountFinancial),
-          )
-        : null;
-  }
-
-  let valueAcresceFinancial: number;
-  let percentageAcresce: string | null;
-
-  if (hasStoredPercentage(sale.percentageAcresce)) {
-    const pct = decNum(sale.percentageAcresce);
-    valueAcresceFinancial = computeFinancialFromPercentage(subTotal, pct);
-    percentageAcresce = sale.percentageAcresce;
-  } else {
-    valueAcresceFinancial = decNum(sale.valueAcresceFinancial);
-    percentageAcresce =
-      valueAcresceFinancial > 0
-        ? decPercentage(
-            computePercentageFromFinancial(subTotal, valueAcresceFinancial),
-          )
-        : null;
-  }
+  const discount = resolveAdjustmentFinancial(
+    subTotal,
+    sale.percentageDiscount,
+    sale.valueDiscountFinancial,
+  );
+  const acresce = resolveAdjustmentFinancial(
+    subTotal,
+    sale.percentageAcresce,
+    sale.valueAcresceFinancial,
+  );
 
   return {
-    valueDiscountFinancial,
-    percentageDiscount,
-    valueAcresceFinancial,
-    percentageAcresce,
+    valueDiscountFinancial: discount.value,
+    percentageDiscount: discount.percentage,
+    valueAcresceFinancial: acresce.value,
+    percentageAcresce: acresce.percentage,
   };
 };
 
@@ -139,11 +167,21 @@ const toUtcDateKey = (date: Date) => {
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
+export type SaleAuthContext = {
+  userId: string;
+  memberId?: string;
+  memberDepartmentId?: string;
+};
+
+const SELLER_INELIGIBLE_MEMBER_CLASSES = ["CLIENTE", "FORNECEDOR"] as const;
+
 const saleWithMemberSelect = { 
   id: sales.id,
   orderNumber: sales.orderNumber,
   userId: sales.userId,
-  UserName: sales.userLegalName,
+  userLegalName: sales.userLegalName,
+  sellerId: sales.sellerId,
+  sellerLegalName: sales.sellerLegalName,
   memberId: sales.memberId,
   memberName: users.userName,
   type: sales.type,
@@ -161,6 +199,7 @@ const saleWithMemberSelect = {
   returnSituation: sales.returnSituation,
   budgetClosureSituation: sales.budgetClosureSituation,
   sourceBudgetSaleId: sales.sourceBudgetSaleId,
+  origin: sales.origin,
   completedionDate: sales.completedionDate,
   enterprisesId: sales.enterprisesId,
   createdAt: sales.createdAt,
@@ -204,8 +243,16 @@ export class SalesService {  // Servico de vendas
     if (query?.status) {
       filters.push(eq(sales.status, query.status));
     }
-    if (query?.userId) {
-      filters.push(eq(sales.userId, query.userId));
+    if (query?.sellerId) {
+      filters.push(
+        or(
+          eq(sales.sellerId, query.sellerId),
+          eq(sales.userId, query.sellerId),
+        )!,
+      );
+    }
+    if (query?.orderNumber !== undefined) {
+      filters.push(eq(sales.orderNumber, query.orderNumber));
     }
     return and(...filters);
   }
@@ -381,6 +428,56 @@ export class SalesService {  // Servico de vendas
     } satisfies CreateSaleItemInput;
   }
 
+  private async resolveConversionItemInput(
+    tx: Tx,
+    enterpriseId: string,
+    budgetItem: typeof salesItems.$inferSelect,
+    convertQuantity: number,
+    itemPath: string,
+    line?: ConvertBudgetItemLine,
+  ): Promise<CreateSaleItemInput> {
+    const base = this.prorateItemFinancials(
+      budgetItem,
+      convertQuantity,
+      itemPath,
+    );
+
+    const typeCode = await getProductTypeCode(budgetItem.productTypeId);
+    if (typeCode && isServiceProductType(typeCode)) {
+      return base;
+    }
+
+    let stockSectorId =
+      line?.stockSectorId ?? budgetItem.stockSectorId ?? undefined;
+    let stockLocationId =
+      line?.stockLocationId ?? budgetItem.stockLocationId ?? undefined;
+    let stockBatchId =
+      line?.stockBatchId !== undefined
+        ? line.stockBatchId ?? undefined
+        : budgetItem.stockBatchId ?? undefined;
+
+    if (!stockSectorId || !stockLocationId) {
+      const defaults = await resolveDefaultSaleItemStockRefs(
+        enterpriseId,
+        budgetItem.productsEnterprisesId,
+        tx,
+        itemPath,
+      );
+      stockSectorId = stockSectorId ?? defaults.stockSectorId;
+      stockLocationId = stockLocationId ?? defaults.stockLocationId;
+      if (stockBatchId === undefined) {
+        stockBatchId = defaults.stockBatchId ?? undefined;
+      }
+    }
+
+    return {
+      ...base,
+      stockSectorId,
+      stockLocationId,
+      stockBatchId,
+    };
+  }
+
   private async getSaleRow(  // Obtem a venda pelo id
     tx: Tx | typeof db,
     enterpriseId: string,
@@ -543,7 +640,17 @@ export class SalesService {  // Servico de vendas
     }
   }
 
-  private mapItemInputToInsert(saleId: string, item: CreateSaleItemInput) {   // Mapeia o item para ser inserido na venda
+  private mapItemInputToInsert(
+    saleId: string,
+    item: CreateSaleItemInput,
+    actor: {
+      userId: string;
+      userLegalName: string;
+      sellerId: string;
+      sellerLegalName: string;
+    },
+    origin: SaleOrigin,
+  ) {
     const valueTotal = computeItemValueTotal(
       item.quantity,
       item.valueUnit,
@@ -563,7 +670,19 @@ export class SalesService {  // Servico de vendas
       stockSectorId: item.stockSectorId ?? null,
       stockLocationId: item.stockLocationId ?? null,
       stockBatchId: item.stockBatchId ?? null,
+      userId: actor.userId,
+      userLegalName: actor.userLegalName,
+      sellerId: actor.sellerId,
+      sellerLegalName: actor.sellerLegalName,
+      origin,
     };
+  }
+
+  private resolveItemLaunchOrigin(
+    itemOrigin: SaleOrigin | undefined,
+    gescomClient?: string | string[],
+  ): SaleOrigin {
+    return resolveSaleClosingOrigin(itemOrigin, gescomClient);
   }
 
   private computeValueLiquid(
@@ -576,13 +695,15 @@ export class SalesService {  // Servico de vendas
       | "valueAcresceFinancial"
     >,
   ) {
-    return Math.max(
-      0,
-      subTotal -
-        decNum(sale.discountValuetems) -
-        decNum(sale.valueDiscountFinancial) +
-        decNum(sale.valueAcresceItems) +
-        decNum(sale.valueAcresceFinancial),
+    return roundMoney(
+      Math.max(
+        0,
+        subTotal -
+          decNum(sale.discountValuetems) -
+          decNum(sale.valueDiscountFinancial) +
+          decNum(sale.valueAcresceItems) +
+          decNum(sale.valueAcresceFinancial),
+      ),
     );
   }
 
@@ -750,14 +871,14 @@ export class SalesService {  // Servico de vendas
     return this.getById(enterpriseId, saleId);
   }
 
-  private async resolveSeller(  // Obtem o vendedor pelo id
-    sellerUserId: string,
+  private async resolveSeller(
+    userId: string,
   ): Promise<{ userId: string; userLegalName: string }> {
     const row = (
       await db
         .select({ id: users.id, userName: users.userName })
         .from(users)
-        .where(and(eq(users.id, sellerUserId), isNull(users.deletedAt)))
+        .where(and(eq(users.id, userId), isNull(users.deletedAt)))
         .limit(1)
     )[0];
     if (!row) {
@@ -766,6 +887,111 @@ export class SalesService {  // Servico de vendas
     return {
       userId: row.id,
       userLegalName: row.userName.trim().toUpperCase(),
+    };
+  }
+
+  private async assertSellerInEnterprise(
+    enterpriseId: string,
+    sellerUserId: string,
+  ) {
+    const row = (
+      await db
+        .select({ id: enterprisesMembers.id })
+        .from(enterprisesMembers)
+        .where(
+          and(
+            eq(enterprisesMembers.userId, sellerUserId),
+            eq(enterprisesMembers.enterpriseId, enterpriseId),
+            eq(enterprisesMembers.status, "ATIVO"),
+            isNull(enterprisesMembers.deletedAt),
+            notInArray(
+              enterprisesMembers.class,
+              [...SELLER_INELIGIBLE_MEMBER_CLASSES],
+            ),
+          ),
+        )
+        .limit(1)
+    )[0];
+    if (!row) {
+      throw new ValidationError(
+        [
+          {
+            path: "body.sellerId",
+            message:
+              "Vendedor deve ser membro ativo da empresa (nao cliente ou fornecedor)",
+          },
+        ],
+        "Vendedor invalido",
+      );
+    }
+  }
+
+  private async assertCanAssignSeller(
+    auth: SaleAuthContext,
+    sellerUserId: string,
+  ) {
+    if (sellerUserId === auth.userId) return;
+
+    let memberDepartmentId = auth.memberDepartmentId;
+    if (!memberDepartmentId && auth.memberId) {
+      memberDepartmentId =
+        (await findPrimaryMemberDepartmentIdByMemberId(auth.memberId)) ??
+        undefined;
+    }
+    if (!memberDepartmentId) {
+      throw new ForbiddenError(
+        "Sem permissao para atribuir outro vendedor",
+        "PERMISSION_DENIED",
+      );
+    }
+    const resolved = await resolvePermissions(memberDepartmentId);
+    if (!isAllowed(resolved, PERM.alterar_vendas)) {
+      throw new ForbiddenError(
+        "Sem permissao para atribuir outro vendedor",
+        "PERMISSION_DENIED",
+      );
+    }
+  }
+
+  private async resolveSaleSeller(
+    auth: SaleAuthContext,
+    enterpriseId: string,
+    requestedSellerId?: string,
+    defaultSellerId?: string,
+  ): Promise<{ sellerId: string; sellerLegalName: string }> {
+    const sellerUserId = requestedSellerId ?? defaultSellerId ?? auth.userId;
+    await this.assertCanAssignSeller(auth, sellerUserId);
+    await this.assertSellerInEnterprise(enterpriseId, sellerUserId);
+    const seller = await this.resolveSeller(sellerUserId);
+    return {
+      sellerId: seller.userId,
+      sellerLegalName: seller.userLegalName,
+    };
+  }
+
+  private async resolveItemActor(
+    auth: SaleAuthContext,
+    enterpriseId: string,
+    sale: Pick<typeof sales.$inferSelect, "sellerId">,
+    itemSellerId?: string,
+  ): Promise<{
+    userId: string;
+    userLegalName: string;
+    sellerId: string;
+    sellerLegalName: string;
+  }> {
+    const operator = await this.resolveSeller(auth.userId);
+    const seller = await this.resolveSaleSeller(
+      auth,
+      enterpriseId,
+      itemSellerId,
+      sale.sellerId,
+    );
+    return {
+      userId: operator.userId,
+      userLegalName: operator.userLegalName,
+      sellerId: seller.sellerId,
+      sellerLegalName: seller.sellerLegalName,
     };
   }
 
@@ -966,15 +1192,24 @@ export class SalesService {  // Servico de vendas
     }
 
     const conversionIds = conversions.map((c) => c.id);
-    const conversionItems = await db
-      .select()
-      .from(salesBudgetConversionItems)
-      .where(inArray(salesBudgetConversionItems.conversionId, conversionIds));
+    const [conversionItems, unclosedItems] = await Promise.all([
+      db
+        .select()
+        .from(salesBudgetConversionItems)
+        .where(inArray(salesBudgetConversionItems.conversionId, conversionIds)),
+      db
+        .select()
+        .from(salesBudgetUnclosedItems)
+        .where(inArray(salesBudgetUnclosedItems.conversionId, conversionIds)),
+    ]);
 
     return {
       items: conversions.map((conversion) => ({
         ...conversion,
         items: conversionItems.filter(
+          (item) => item.conversionId === conversion.id,
+        ),
+        unclosedItems: unclosedItems.filter(
           (item) => item.conversionId === conversion.id,
         ),
       })),
@@ -983,17 +1218,23 @@ export class SalesService {  // Servico de vendas
 
   public async create(
     enterpriseId: string,
-    sellerUserId: string | null,
+    auth: SaleAuthContext | null,
     input: CreateSaleInput,
     audit: EntityAuditContext,
+    gescomClient?: string | string[],
   ) {
-    if (!sellerUserId) {
+    if (!auth?.userId) {
       throw new ValidationError(
         [{ path: "auth", message: "Usuario autenticado obrigatorio" }],
         "Nao autenticado",
       );
     }
-    const seller = await this.resolveSeller(sellerUserId);
+    const operator = await this.resolveSeller(auth.userId);
+    const seller = await this.resolveSaleSeller(
+      auth,
+      enterpriseId,
+      input.sellerId,
+    );
 
     const status = input.status;
     if (status === "FINALIZADA" && input.type !== "VENDA") {
@@ -1024,12 +1265,19 @@ export class SalesService {  // Servico de vendas
           orderNumber = await nextSaleOrderNumber(enterpriseId, tx);
         }
 
+        const closingOrigin =
+          status === "FINALIZADA"
+            ? resolveSaleClosingOrigin(input.origin, gescomClient)
+            : undefined;
+
         const [sale] = await tx
           .insert(sales)
           .values({
             orderNumber,
-            userId: seller.userId,
-            userLegalName: seller.userLegalName,
+            userId: operator.userId,
+            userLegalName: operator.userLegalName,
+            sellerId: seller.sellerId,
+            sellerLegalName: seller.sellerLegalName,
             memberId: input.memberId,
             type: input.type,
             subTotal: "0",
@@ -1041,6 +1289,7 @@ export class SalesService {  // Servico de vendas
             valueAcresceFinancial: dec(input.valueAcresceFinancial),
             valueLiquid: "0",
             status,
+            ...(closingOrigin !== undefined ? { origin: closingOrigin } : {}),
             completedionDate: status === "FINALIZADA" ? new Date() : null,
             enterprisesId: enterpriseId,
           })
@@ -1061,16 +1310,30 @@ export class SalesService {  // Servico de vendas
             await validateSaleItemStock(enterpriseId, itemInput, `items.${i}`);
           }
 
+          const actor = await this.resolveItemActor(
+            auth,
+            enterpriseId,
+            sale,
+            itemInput.sellerId,
+          );
+
           const [inserted] = await tx
             .insert(salesItems)
-            .values(this.mapItemInputToInsert(sale.id, itemInput))
+            .values(
+              this.mapItemInputToInsert(
+                sale.id,
+                itemInput,
+                actor,
+                this.resolveItemLaunchOrigin(itemInput.origin, gescomClient),
+              ),
+            )
             .returning();
           if (!inserted) throw new Error("Falha ao incluir item na venda");
 
           if (input.type === "VENDA") {
             await applySaleItemStockOut(tx, {
               enterpriseId,
-              userId: sellerUserId,
+              userId: auth.userId,
               saleId: sale.id,
               orderNumber: sale.orderNumber,
               item: inserted,
@@ -1122,9 +1385,10 @@ export class SalesService {  // Servico de vendas
   public async patch(
     enterpriseId: string,
     id: string,
-    userId: string | null,
+    auth: SaleAuthContext | null,
     input: PatchSaleInput,
     audit: EntityAuditContext,
+    gescomClient?: string | string[],
   ) {
     const existing = await this.getById(enterpriseId, id);
     if (
@@ -1168,8 +1432,24 @@ export class SalesService {  // Servico de vendas
       );
     }
 
+    let sellerUpdate: { sellerId: string; sellerLegalName: string } | undefined;
+    if (input.sellerId !== undefined) {
+      if (!auth?.userId) {
+        throw new ValidationError(
+          [{ path: "auth", message: "Usuario autenticado obrigatorio" }],
+          "Nao autenticado",
+        );
+      }
+      sellerUpdate = await this.resolveSaleSeller(
+        auth,
+        enterpriseId,
+        input.sellerId,
+      );
+    }
+
     const hasHeaderChange =
       input.memberId !== undefined ||
+      input.sellerId !== undefined ||
       input.percentageDiscount !== undefined ||
       input.discountValuetems !== undefined ||
       input.valueDiscountFinancial !== undefined ||
@@ -1187,6 +1467,9 @@ export class SalesService {  // Servico de vendas
     }
 
     const finalize = nextStatus === "FINALIZADA";
+    const closingOrigin = finalize
+      ? resolveSaleClosingOrigin(input.origin, gescomClient)
+      : undefined;
     const cancelSale =
       existing.type === "VENDA" && nextStatus === "CANCELADA";
 
@@ -1242,8 +1525,14 @@ export class SalesService {  // Servico de vendas
           .update(sales)
           .set({
             ...(input.memberId !== undefined ? { memberId: input.memberId } : {}),
+            ...(sellerUpdate
+              ? {
+                  sellerId: sellerUpdate.sellerId,
+                  sellerLegalName: sellerUpdate.sellerLegalName,
+                }
+              : {}),
             ...(input.status !== undefined ? { status: input.status } : {}),
-            ...(input.percentageDiscount !== undefined
+            ...(typeof input.percentageDiscount === "number"
               ? {
                   percentageDiscount: decPercentage(input.percentageDiscount),
                   valueDiscountFinancial: dec(
@@ -1254,22 +1543,21 @@ export class SalesService {  // Servico de vendas
                   ),
                 }
               : {}),
+            ...(input.percentageDiscount === null
+              ? { percentageDiscount: null }
+              : {}),
             ...(input.discountValuetems !== undefined
               ? { discountValuetems: dec(input.discountValuetems) }
               : {}),
-            ...(input.valueDiscountFinancial !== undefined &&
-            input.percentageDiscount === undefined
+            ...(input.valueDiscountFinancial !== undefined
               ? {
                   valueDiscountFinancial: dec(input.valueDiscountFinancial),
-                  percentageDiscount: decPercentage(
-                    computePercentageFromFinancial(
-                      subTotalForFinancial,
-                      input.valueDiscountFinancial,
-                    ),
-                  ),
+                  ...(typeof input.percentageDiscount !== "number"
+                    ? { percentageDiscount: null }
+                    : {}),
                 }
               : {}),
-            ...(input.percentageAcresce !== undefined
+            ...(typeof input.percentageAcresce === "number"
               ? {
                   percentageAcresce: decPercentage(input.percentageAcresce),
                   valueAcresceFinancial: dec(
@@ -1280,19 +1568,18 @@ export class SalesService {  // Servico de vendas
                   ),
                 }
               : {}),
+            ...(input.percentageAcresce === null
+              ? { percentageAcresce: null }
+              : {}),
             ...(input.valueAcresceItems !== undefined
               ? { valueAcresceItems: dec(input.valueAcresceItems) }
               : {}),
-            ...(input.valueAcresceFinancial !== undefined &&
-            input.percentageAcresce === undefined
+            ...(input.valueAcresceFinancial !== undefined
               ? {
                   valueAcresceFinancial: dec(input.valueAcresceFinancial),
-                  percentageAcresce: decPercentage(
-                    computePercentageFromFinancial(
-                      subTotalForFinancial,
-                      input.valueAcresceFinancial,
-                    ),
-                  ),
+                  ...(typeof input.percentageAcresce !== "number"
+                    ? { percentageAcresce: null }
+                    : {}),
                 }
               : {}),
             ...(input.valueLiquid !== undefined
@@ -1301,6 +1588,7 @@ export class SalesService {  // Servico de vendas
             ...(completedionDate !== undefined
               ? { completedionDate }
               : {}),
+            ...(closingOrigin !== undefined ? { origin: closingOrigin } : {}),
             updatedAt: new Date(),
           })
           .where(this.scope(enterpriseId, id))
@@ -1322,6 +1610,15 @@ export class SalesService {  // Servico de vendas
 
       if (finalize) {
         if (existing.type === "VENDA") {
+          for (const item of items) {
+            await applySaleItemStockOut(tx, {
+              enterpriseId,
+              userId: auth?.userId ?? null,
+              saleId: id,
+              orderNumber: row.orderNumber,
+              item,
+            });
+          }
           await assertSaleItemsStockCommitted(tx, id, items);
         }
         await this.assertSaleHasNoPayments(tx, id);
@@ -1337,7 +1634,7 @@ export class SalesService {  // Servico de vendas
         for (const item of items) {
           await applySaleItemStockReturn(tx, {
             enterpriseId,
-            userId,
+            userId: auth?.userId ?? null,
             saleId: id,
             orderNumber: row.orderNumber,
             item,
@@ -1353,18 +1650,19 @@ export class SalesService {  // Servico de vendas
   public async convertBudgetToSale(
     enterpriseId: string,
     budgetSaleId: string,
-    sellerUserId: string | null,
+    auth: SaleAuthContext | null,
     input: ConvertBudgetToSaleInput,
     audit: EntityAuditContext,
+    gescomClient?: string | string[],
   ) {
-    if (!sellerUserId) {
+    if (!auth?.userId) {
       throw new ValidationError(
         [{ path: "auth", message: "Usuario autenticado obrigatorio" }],
         "Nao autenticado",
       );
     }
 
-    const seller = await this.resolveSeller(sellerUserId);
+    const operator = await this.resolveSeller(auth.userId);
     const status = input.status;
 
     const seenBudgetItemIds = new Set<string>();
@@ -1391,13 +1689,6 @@ export class SalesService {  // Servico de vendas
         const budget = budgetBefore;
         this.assertBudgetOpenForConversion(budget);
 
-        if (!budget.memberId) {
-          throw new ValidationError(
-            [{ path: "params.saleId", message: "Orcamento sem cliente vinculado" }],
-            "Cliente obrigatorio",
-          );
-        }
-
         const budgetItems = await tx
           .select()
           .from(salesItems)
@@ -1410,7 +1701,13 @@ export class SalesService {  // Servico de vendas
         const conversionLines: {
           budgetItem: typeof salesItems.$inferSelect;
           convertQuantity: number;
-          itemInput: CreateSaleItemInput;
+          line: (typeof input.items)[number];
+          itemIndex: number;
+        }[] = [];
+        const unclosedRows: {
+          budgetItemId: string;
+          quantityNotConverted: number;
+          justification: string;
         }[] = [];
 
         for (let i = 0; i < input.items.length; i++) {
@@ -1442,26 +1739,59 @@ export class SalesService {  // Servico de vendas
             );
           }
 
-          conversionLines.push({
-            budgetItem,
-            convertQuantity: line.quantity,
-            itemInput: this.prorateItemFinancials(
+          if (line.quantity < remaining - 1e-9) {
+            const justification = line.unclosedJustification?.trim();
+            if (justification) {
+              unclosedRows.push({
+                budgetItemId: budgetItem.id,
+                quantityNotConverted: remaining - line.quantity,
+                justification,
+              });
+            }
+          }
+
+          if (line.quantity > 0) {
+            conversionLines.push({
               budgetItem,
-              line.quantity,
-              `body.items.${i}`,
-            ),
-          });
+              convertQuantity: line.quantity,
+              line,
+              itemIndex: i,
+            });
+          }
         }
 
+        const memberId = input.memberId ?? budget.memberId;
+        if (!memberId) {
+          throw new ValidationError(
+            [{ path: "params.saleId", message: "Orcamento sem cliente vinculado" }],
+            "Cliente obrigatorio",
+          );
+        }
+        await this.assertClientMember(tx, enterpriseId, memberId);
+
         const orderNumber = await nextSaleOrderNumber(enterpriseId, tx);
+
+        const seller = await this.resolveSaleSeller(
+          auth,
+          enterpriseId,
+          input.sellerId,
+          budget.sellerId,
+        );
+
+        const closingOrigin =
+          status === "FINALIZADA"
+            ? resolveSaleClosingOrigin(input.origin, gescomClient)
+            : undefined;
 
         const [generatedSale] = await tx
           .insert(sales)
           .values({
             orderNumber,
-            userId: seller.userId,
-            userLegalName: seller.userLegalName,
-            memberId: budget.memberId,
+            userId: operator.userId,
+            userLegalName: operator.userLegalName,
+            sellerId: seller.sellerId,
+            sellerLegalName: seller.sellerLegalName,
+            memberId,
             type: "VENDA",
             subTotal: "0",
             percentageDiscount: decPercentage(input.percentageDiscount),
@@ -1473,6 +1803,7 @@ export class SalesService {  // Servico de vendas
             valueLiquid: "0",
             status,
             sourceBudgetSaleId: budgetSaleId,
+            ...(closingOrigin !== undefined ? { origin: closingOrigin } : {}),
             completedionDate: status === "FINALIZADA" ? new Date() : null,
             enterprisesId: enterpriseId,
           })
@@ -1486,27 +1817,49 @@ export class SalesService {  // Servico de vendas
         }[] = [];
 
         for (let i = 0; i < conversionLines.length; i++) {
-          const { budgetItem, convertQuantity, itemInput } = conversionLines[i];
+          const { budgetItem, convertQuantity, line, itemIndex } =
+            conversionLines[i];
+          const itemPath = `body.items.${itemIndex}`;
+          const itemInput = await this.resolveConversionItemInput(
+            tx,
+            enterpriseId,
+            budgetItem,
+            convertQuantity,
+            itemPath,
+            line,
+          );
 
           await assertSaleItemStockAvailable(
             tx,
             enterpriseId,
             itemInput,
-            `items.${i}`,
+            itemPath,
+          );
+
+          const actor = await this.resolveItemActor(
+            auth,
+            enterpriseId,
+            generatedSale,
           );
 
           const [inserted] = await tx
             .insert(salesItems)
             .values({
-              ...this.mapItemInputToInsert(generatedSale.id, itemInput),
+              ...this.mapItemInputToInsert(
+                generatedSale.id,
+                itemInput,
+                actor,
+                this.resolveItemLaunchOrigin(itemInput.origin, gescomClient),
+              ),
               sourceBudgetItemId: budgetItem.id,
+              quantityConverted: formatQuantity(convertQuantity),
             })
             .returning();
           if (!inserted) throw new Error("Falha ao incluir item na venda gerada");
 
           await applySaleItemStockOut(tx, {
             enterpriseId,
-            userId: sellerUserId,
+            userId: auth.userId,
             saleId: generatedSale.id,
             orderNumber: generatedSale.orderNumber,
             item: inserted,
@@ -1514,20 +1867,26 @@ export class SalesService {  // Servico de vendas
 
           const nextConverted =
             decNum(budgetItem.quantityConverted) + convertQuantity;
-          await tx
+          const [updatedBudgetItem] = await tx
             .update(salesItems)
             .set({
-              quantityConverted: nextConverted.toString(),
+              quantityConverted: formatQuantity(nextConverted),
               updatedAt: new Date(),
             })
-            .where(eq(salesItems.id, budgetItem.id));
+            .where(eq(salesItems.id, budgetItem.id))
+            .returning({ id: salesItems.id });
+          if (!updatedBudgetItem) {
+            throw new Error(
+              `Falha ao atualizar quantityConverted do item ${budgetItem.id}`,
+            );
+          }
 
-          budgetItem.quantityConverted = nextConverted.toString();
+          budgetItem.quantityConverted = formatQuantity(nextConverted);
 
           conversionItemRows.push({
             budgetItemId: budgetItem.id,
             saleItemId: inserted.id,
-            quantity: convertQuantity.toString(),
+            quantity: formatQuantity(convertQuantity),
           });
         }
 
@@ -1578,8 +1937,8 @@ export class SalesService {  // Servico de vendas
             budgetSaleId,
             generatedSaleId: generatedSale.id,
             closureKind,
-            userId: seller.userId,
-            userLegalName: seller.userLegalName,
+            userId: operator.userId,
+            userLegalName: operator.userLegalName,
           })
           .returning();
         if (!conversion) throw new Error("Falha ao registrar conversao");
@@ -1592,6 +1951,19 @@ export class SalesService {  // Servico de vendas
             quantity: row.quantity,
           })),
         );
+
+        if (unclosedRows.length > 0) {
+          await tx.insert(salesBudgetUnclosedItems).values(
+            unclosedRows.map((row) => ({
+              conversionId: conversion.id,
+              budgetItemId: row.budgetItemId,
+              quantityNotConverted: row.quantityNotConverted.toString(),
+              justification: row.justification,
+              userId: operator.userId,
+              userLegalName: operator.userLegalName,
+            })),
+          );
+        }
 
         return generatedSale.id;
       });
@@ -1628,10 +2000,18 @@ export class SalesService {  // Servico de vendas
   public async addItem(
     enterpriseId: string,
     saleId: string,
-    userId: string | null,
+    auth: SaleAuthContext | null,
     input: CreateSaleItemInput,
     audit: EntityAuditContext,
+    gescomClient?: string | string[],
   ) {
+    if (!auth?.userId) {
+      throw new ValidationError(
+        [{ path: "auth", message: "Usuario autenticado obrigatorio" }],
+        "Nao autenticado",
+      );
+    }
+
     let beforeRow!: typeof sales.$inferSelect;
     await db.transaction(async (tx) => {
       beforeRow = await this.getSaleRow(tx, enterpriseId, saleId);
@@ -1644,16 +2024,30 @@ export class SalesService {  // Servico de vendas
         await validateSaleItemStock(enterpriseId, input, "body");
       }
 
+      const actor = await this.resolveItemActor(
+        auth,
+        enterpriseId,
+        sale,
+        input.sellerId,
+      );
+
       const [inserted] = await tx
         .insert(salesItems)
-        .values(this.mapItemInputToInsert(saleId, input))
+        .values(
+          this.mapItemInputToInsert(
+            saleId,
+            input,
+            actor,
+            this.resolveItemLaunchOrigin(input.origin, gescomClient),
+          ),
+        )
         .returning();
       if (!inserted) throw new Error("Falha ao incluir item na venda");
 
       if (sale.type === "VENDA") {
         await applySaleItemStockOut(tx, {
           enterpriseId,
-          userId,
+          userId: auth.userId,
           saleId,
           orderNumber: sale.orderNumber,
           item: inserted,

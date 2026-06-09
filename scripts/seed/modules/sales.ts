@@ -13,6 +13,11 @@ import {
   users,
 } from "../../../src/db/schema.js";
 import { computeItemValueTotal } from "../../../src/modules/sales/schema.js";
+import {
+  applySaleItemStockOut,
+  saleItemStockOutRef,
+} from "../../../src/modules/sales/sale-stock.js";
+import { stockMovementExistsByDocumentRef } from "../../../src/modules/stock/movement.js";
 import { syncEnterpriseSequenceFloor } from "../../../src/shared/sequences/enterprise-sequence.js";
 import { SEED_VOLUMES } from "../lib/constants.js";
 import { resolveBootstrapContext } from "../lib/context.js";
@@ -81,6 +86,62 @@ const PAYMENT_TYPE_WEIGHTS: Record<string, number> = {
   Dinheiro: 12,
   Boleto: 8,
 };
+
+/** Corrige vendas seed antigas ABERTAS que inseriram itens sem movimentacao de estoque. */
+async function repairSeedSaleStockMovements(
+  enterpriseId: string,
+  adminUserId: string,
+): Promise<number> {
+  const vendas = await db
+    .select({
+      saleId: sales.id,
+      orderNumber: sales.orderNumber,
+    })
+    .from(sales)
+    .where(
+      and(
+        eq(sales.enterprisesId, enterpriseId),
+        eq(sales.type, "VENDA"),
+        eq(sales.status, "ABERTA"),
+      ),
+    );
+
+  let repaired = 0;
+
+  for (const venda of vendas) {
+    const items = await db
+      .select()
+      .from(salesItems)
+      .where(eq(salesItems.salesId, venda.saleId));
+
+    for (const item of items) {
+      const ref = saleItemStockOutRef(venda.saleId, item.id);
+      if (await stockMovementExistsByDocumentRef(db, ref)) {
+        continue;
+      }
+
+      try {
+        await db.transaction(async (tx) => {
+          await applySaleItemStockOut(tx, {
+            enterpriseId,
+            userId: adminUserId,
+            saleId: venda.saleId,
+            orderNumber: venda.orderNumber,
+            item,
+          });
+        });
+        repaired++;
+      } catch (err) {
+        console.warn(
+          `  Reparo baixa estoque: item ${item.id} (pedido ${String(venda.orderNumber)}) ignorado:`,
+          err instanceof Error ? err.message : err,
+        );
+      }
+    }
+  }
+
+  return repaired;
+}
 
 async function ensurePaymentTypes(): Promise<Map<string, string>> {
   const map = new Map<string, string>();
@@ -331,6 +392,33 @@ export async function seedSales(catalog: ProductCatalogRefs): Promise<void> {
           .limit(1)
       )[0];
 
+      const operatorUser = (
+        await db
+          .select({ userName: users.userName })
+          .from(users)
+          .where(eq(users.id, ctx.adminUserId))
+          .limit(1)
+      )[0];
+
+      const sellerUser = (
+        await db
+          .select({ userName: users.userName })
+          .from(users)
+          .where(eq(users.id, sellerMember.userId))
+          .limit(1)
+      )[0];
+
+      const operatorLegalName = (
+        operatorUser?.userName ?? "Admin"
+      )
+        .trim()
+        .toUpperCase();
+      const sellerLegalName = (
+        sellerUser?.userName ?? sellerMember.userName
+      )
+        .trim()
+        .toUpperCase();
+
       // -----------------------------------------------------------------------
       // Inserção na transação
       // -----------------------------------------------------------------------
@@ -339,9 +427,11 @@ export async function seedSales(catalog: ProductCatalogRefs): Promise<void> {
           .insert(sales)
           .values({
             orderNumber,
-            userId: clientMember.userId,
-            userLegalName: clientUser?.userName ?? clientMember.userName,
-            memberId: sellerMember.memberId,
+            userId: ctx.adminUserId,
+            userLegalName: operatorLegalName,
+            sellerId: sellerMember.userId,
+            sellerLegalName,
+            memberId: clientMember.memberId,
             type,
             subTotal: subTotal.toFixed(2),
             discountValuetems: totalDiscountItems > 0
@@ -388,8 +478,23 @@ export async function seedSales(catalog: ProductCatalogRefs): Promise<void> {
               stockSectorId: stockRef?.stockSectorId ?? null,
               stockLocationId: stockRef?.stockLocationId ?? null,
               stockBatchId: stockRef?.stockBatchId ?? null,
+              userId: ctx.adminUserId,
+              userLegalName: operatorLegalName,
+              sellerId: sellerMember.userId,
+              sellerLegalName,
+              origin: "WEB",
             })
             .returning();
+
+          if (type === "VENDA" && item) {
+            await applySaleItemStockOut(tx, {
+              enterpriseId: ctx.enterpriseId,
+              userId: ctx.adminUserId,
+              saleId,
+              orderNumber: sale!.orderNumber,
+              item,
+            });
+          }
 
           if (!firstItemId) {
             firstItemId = item!.id;
@@ -455,7 +560,7 @@ export async function seedSales(catalog: ProductCatalogRefs): Promise<void> {
       if (type === "ORCAMENTO" && budgetSituation === "FECHADO") {
         closedBudgetIds.push({
           budgetSaleId: insertedItem.saleId,
-          memberId: sellerMember.memberId,
+          memberId: clientMember.memberId,
         });
       }
 
@@ -564,8 +669,8 @@ export async function seedSales(catalog: ProductCatalogRefs): Promise<void> {
     const budgetRow = (
       await db
         .select({
-          userId: sales.userId,
-          userLegalName: sales.userLegalName,
+          sellerId: sales.sellerId,
+          sellerLegalName: sales.sellerLegalName,
           valueLiquid: sales.valueLiquid,
           subTotal: sales.subTotal,
           createdAt: sales.createdAt,
@@ -587,13 +692,25 @@ export async function seedSales(catalog: ProductCatalogRefs): Promise<void> {
     const quantity = randInt(1, 3);
     const valueTotal = computeItemValueTotal(quantity, valueUnit, 0, 0);
 
+    const adminUser = (
+      await db
+        .select({ userName: users.userName })
+        .from(users)
+        .where(eq(users.id, ctx.adminUserId))
+        .limit(1)
+    )[0];
+    const adminLegalName = (adminUser?.userName ?? "Admin").trim().toUpperCase();
+
     await db.transaction(async (tx) => {
+
       const [convertedSale] = await tx
         .insert(sales)
         .values({
           orderNumber,
-          userId: budgetRow.userId,
-          userLegalName: budgetRow.userLegalName,
+          userId: ctx.adminUserId,
+          userLegalName: adminLegalName,
+          sellerId: budgetRow.sellerId,
+          sellerLegalName: budgetRow.sellerLegalName,
           memberId: candidate.memberId,
           type: "VENDA",
           subTotal: subTotalVal.toFixed(2),
@@ -628,8 +745,23 @@ export async function seedSales(catalog: ProductCatalogRefs): Promise<void> {
           stockSectorId: stockRef.stockSectorId,
           stockLocationId: stockRef.stockLocationId,
           stockBatchId: stockRef.stockBatchId ?? null,
+          userId: ctx.adminUserId,
+          userLegalName: adminLegalName,
+          sellerId: budgetRow.sellerId,
+          sellerLegalName: budgetRow.sellerLegalName,
+          origin: "WEB",
         })
         .returning();
+
+      if (newItem) {
+        await applySaleItemStockOut(tx, {
+          enterpriseId: ctx.enterpriseId,
+          userId: ctx.adminUserId,
+          saleId,
+          orderNumber: convertedSale!.orderNumber,
+          item: newItem,
+        });
+      }
 
       const [payment] = await tx
         .insert(salesPayments)
@@ -650,22 +782,13 @@ export async function seedSales(catalog: ProductCatalogRefs): Promise<void> {
         salesId: saleId,
       });
 
-      // Registra conversão
-      const adminUser = (
-        await db
-          .select({ userName: users.userName })
-          .from(users)
-          .where(eq(users.id, ctx.adminUserId))
-          .limit(1)
-      )[0];
-
       await tx.insert(salesBudgetConversions).values({
         enterprisesId: ctx.enterpriseId,
         budgetSaleId: candidate.budgetSaleId,
         generatedSaleId: saleId,
         closureKind: "TOTAL",
         userId: ctx.adminUserId,
-        userLegalName: adminUser?.userName ?? "Admin",
+        userLegalName: adminLegalName,
         createdAt: convDate,
       });
 
@@ -698,6 +821,16 @@ export async function seedSales(catalog: ProductCatalogRefs): Promise<void> {
   if (conversionCandidates.length > 0) {
     console.log(
       `  Conversoes orcamento->venda seed: ${String(budgetConversionCount)} criadas.`,
+    );
+  }
+
+  const repairedStock = await repairSeedSaleStockMovements(
+    ctx.enterpriseId,
+    ctx.adminUserId,
+  );
+  if (repairedStock > 0) {
+    console.log(
+      `  Reparo baixa estoque seed: ${String(repairedStock)} item(ns) corrigido(s).`,
     );
   }
 

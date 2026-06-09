@@ -7,6 +7,7 @@ import { parseIsoDateOnly } from "../../shared/validation/data-normalizers.js";
 
 const saleTypeSchema = z.enum(["VENDA", "ORCAMENTO"]);
 const saleStatusSchema = z.enum(["ABERTA", "FINALIZADA", "CANCELADA"]);
+const saleOriginSchema = z.enum(["WEB", "MOBILE"]);
 
 const decimalOpt = z.number().optional();
 const percentageOpt = z.number().min(0).max(100).optional();
@@ -33,6 +34,10 @@ export const saleItemInputSchema = z
     stockSectorId: z.string().uuid().optional(),
     stockLocationId: z.string().uuid().optional(),
     stockBatchId: z.string().uuid().optional(),
+    /** Vendedor do item; default = vendedor do documento. */
+    sellerId: z.string().uuid().optional(),
+    /** Canal de lancamento do item; default via header X-Gescom-Client ou WEB. */
+    origin: saleOriginSchema.optional(),
   })
   .strict()
   .transform((data) => ({
@@ -68,6 +73,7 @@ export const createSaleSchema = z
   .object({
     orderNumber: z.number().int().positive().optional(),
     memberId: z.string().uuid(),
+    sellerId: z.string().uuid().optional(),
     type: saleTypeSchema,
     percentageDiscount: decimalOpt,
     discountValuetems: decimalOpt,
@@ -77,6 +83,8 @@ export const createSaleSchema = z
     valueAcresceFinancial: decimalOpt,
     /** Opcional; default ABERTA. Informe FINALIZADA apenas ao criar venda ja fechada (com payments). */
     status: saleStatusSchema.default("ABERTA"),
+    /** Canal de fechamento; somente ao criar ja FINALIZADA. */
+    origin: saleOriginSchema.optional(),
     items: z.array(saleItemInputSchema).min(1),
     /** Pagamentos e parcelas somente ao criar ja FINALIZADA. */
     payments: z.array(salePaymentInputSchema).optional(),
@@ -103,19 +111,28 @@ export const createSaleSchema = z
           "Pagamentos e parcelas so podem ser informados ao fechar a venda (status FINALIZADA)",
       });
     }
+    if (data.origin !== undefined) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["origin"],
+        message:
+          "origin so pode ser informado ao fechar a venda (status FINALIZADA)",
+      });
+    }
   });
 
 export const patchSaleSchema = z
   .object({
     memberId: z.string().uuid().optional(),
+    sellerId: z.string().uuid().optional(),
     status: saleStatusSchema.optional(),
     /** Percentual 0–100 sobre subTotal; gera valueDiscountFinancial no recalculo. */
-    percentageDiscount: percentageOpt,
+    percentageDiscount: percentageOpt.nullable(),
     discountValuetems: decimalOpt,
     /** Valor monetario manual; gera percentageDiscount no recalculo. Nao enviar com percentageDiscount. */
     valueDiscountFinancial: monetaryOpt,
     /** Percentual 0–100 sobre subTotal; gera valueAcresceFinancial no recalculo. */
-    percentageAcresce: percentageOpt,
+    percentageAcresce: percentageOpt.nullable(),
     valueAcresceItems: decimalOpt,
     /** Valor monetario manual; gera percentageAcresce no recalculo. Nao enviar com percentageAcresce. */
     valueAcresceFinancial: monetaryOpt,
@@ -125,6 +142,8 @@ export const patchSaleSchema = z
     recalculateTotals: z.boolean().optional(),
     /** Pagamentos e parcelas — somente junto com status FINALIZADA. */
     payments: z.array(salePaymentInputSchema).min(1).optional(),
+    /** Canal onde a venda foi fechada; somente com status FINALIZADA. */
+    origin: saleOriginSchema.optional(),
   })
   .strict()
   .superRefine((data, ctx) => {
@@ -138,7 +157,7 @@ export const patchSaleSchema = z
     }
 
     if (
-      data.percentageDiscount !== undefined &&
+      data.percentageDiscount != null &&
       data.valueDiscountFinancial !== undefined
     ) {
       ctx.addIssue({
@@ -150,7 +169,7 @@ export const patchSaleSchema = z
     }
 
     if (
-      data.percentageAcresce !== undefined &&
+      data.percentageAcresce != null &&
       data.valueAcresceFinancial !== undefined
     ) {
       ctx.addIssue({
@@ -158,6 +177,15 @@ export const patchSaleSchema = z
         path: ["valueAcresceFinancial"],
         message:
           "Informe apenas percentageAcresce ou valueAcresceFinancial, nao ambos",
+      });
+    }
+
+    if (data.origin !== undefined && data.status !== "FINALIZADA") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["origin"],
+        message:
+          "origin so pode ser informado ao fechar a venda (status FINALIZADA)",
       });
     }
   })
@@ -192,7 +220,9 @@ export const listSalesQuerySchema = createPaginationQuerySchema(100).extend({
   type: saleTypeSchema.optional(),
   status: saleStatusSchema.optional(),
   budgetClosureSituation: budgetClosureSituationSchema.optional(),
-  userId: z.string().uuid().optional(),
+  orderNumber: z.coerce.number().int().positive().optional(),
+  /** Minhas vendas/orçamentos: filtra onde sou vendedor (sellerId) ou operador (userId). */
+  sellerId: z.string().uuid().optional(),
 });
 
 export const patchSaleItemSchema = z
@@ -217,13 +247,19 @@ export const patchSaleItemSchema = z
 export const convertBudgetItemInputSchema = z
   .object({
     budgetItemId: z.string().uuid(),
-    quantity: z.number().positive(),
+    quantity: z.number().min(0),
+    unclosedJustification: z.string().trim().min(1).max(500).optional(),
+    stockSectorId: z.string().uuid().optional(),
+    stockLocationId: z.string().uuid().optional(),
+    stockBatchId: z.string().uuid().nullable().optional(),
   })
   .strict();
 
 export const convertBudgetToSaleSchema = z
   .object({
     status: saleStatusSchema,
+    sellerId: z.string().uuid().optional(),
+    memberId: z.string().uuid().optional(),
     items: z.array(convertBudgetItemInputSchema).min(1),
     percentageDiscount: decimalOpt,
     discountValuetems: decimalOpt,
@@ -232,9 +268,20 @@ export const convertBudgetToSaleSchema = z
     valueAcresceItems: decimalOpt,
     valueAcresceFinancial: decimalOpt,
     payments: z.array(salePaymentInputSchema).optional(),
+    /** Canal de fechamento; somente com status FINALIZADA. */
+    origin: saleOriginSchema.optional(),
   })
   .strict()
   .superRefine((data, ctx) => {
+    const hasConvertQty = data.items.some((item) => item.quantity > 0);
+    if (!hasConvertQty) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["items"],
+        message: "Informe ao menos um item com quantidade maior que zero",
+      });
+    }
+
     const hasPayments = (data.payments?.length ?? 0) > 0;
     if (data.status === "FINALIZADA") {
       if (!hasPayments) {
@@ -261,6 +308,14 @@ export const convertBudgetToSaleSchema = z
         path: ["payments"],
         message:
           "Pagamentos e parcelas so podem ser informados ao fechar a venda (status FINALIZADA)",
+      });
+    }
+    if (data.origin !== undefined) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["origin"],
+        message:
+          "origin so pode ser informado ao fechar a venda (status FINALIZADA)",
       });
     }
   });

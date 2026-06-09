@@ -19,7 +19,7 @@ export class OperationsAnalyticsService {
     const localDate = localCreatedDateSql(period.timezone);
 
     const filterConditions = [];
-    if (filters.userId) filterConditions.push(eq(sales.userId, filters.userId));
+    if (filters.sellerId) filterConditions.push(eq(sales.sellerId, filters.sellerId));
     if (filters.memberId) {
       filterConditions.push(eq(sales.memberId, filters.memberId));
     }
@@ -70,7 +70,7 @@ export class OperationsAnalyticsService {
       sql`${localDate} >= ${period.from}::date`,
       sql`${localDate} <= ${period.to}::date`,
     ];
-    if (filters.userId) filterConditions.push(eq(sales.userId, filters.userId));
+    if (filters.sellerId) filterConditions.push(eq(sales.sellerId, filters.sellerId));
     if (filters.memberId) {
       filterConditions.push(eq(sales.memberId, filters.memberId));
     }

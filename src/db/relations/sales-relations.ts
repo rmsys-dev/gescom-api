@@ -5,6 +5,8 @@ import {
   sales,
   salesItems,
   salesBudgetConversions,
+  salesBudgetConversionItems,
+  salesBudgetUnclosedItems,
   salesReturnItems,
   salesReturns,
   salesDues,
@@ -22,7 +24,6 @@ import {
   stockLocations,
   stockBatches,
 } from "../entities/stock.js";
-import { salesBudgetConversionItems } from "../entities/sales.js";
 
 // relações da tabela de TIPOS DE PAGAMENTO.
 export const paymentTypesRelations = relations(paymentTypes, ({ many }) => ({
@@ -34,6 +35,12 @@ export const salesRelations = relations(sales, ({ one, many }) => ({
   user: one(users, {
     fields: [sales.userId],
     references: [users.id],
+    relationName: "saleOperator",
+  }),
+  seller: one(users, {
+    fields: [sales.sellerId],
+    references: [users.id],
+    relationName: "saleSeller",
   }),
   member: one(enterprisesMembers, {
     fields: [sales.memberId],
@@ -60,6 +67,16 @@ export const salesRelations = relations(sales, ({ one, many }) => ({
 }));
 
 export const salesItemsRelations = relations(salesItems, ({ one, many }) => ({
+  user: one(users, {
+    fields: [salesItems.userId],
+    references: [users.id],
+    relationName: "saleItemOperator",
+  }),
+  seller: one(users, {
+    fields: [salesItems.sellerId],
+    references: [users.id],
+    relationName: "saleItemSeller",
+  }),
   productsEnterprises: one(productsEnterprises, {
     fields: [salesItems.productsEnterprisesId],
     references: [productsEnterprises.id],
@@ -121,6 +138,7 @@ export const salesBudgetConversionsRelations = relations(
       references: [users.id],
     }),
     items: many(salesBudgetConversionItems),
+    unclosedItems: many(salesBudgetUnclosedItems),
   }),
 );
 
@@ -139,6 +157,24 @@ export const salesBudgetConversionItemsRelations = relations(
     saleItem: one(salesItems, {
       fields: [salesBudgetConversionItems.saleItemId],
       references: [salesItems.id],
+    }),
+  }),
+);
+
+export const salesBudgetUnclosedItemsRelations = relations(
+  salesBudgetUnclosedItems,
+  ({ one }) => ({
+    conversion: one(salesBudgetConversions, {
+      fields: [salesBudgetUnclosedItems.conversionId],
+      references: [salesBudgetConversions.id],
+    }),
+    budgetItem: one(salesItems, {
+      fields: [salesBudgetUnclosedItems.budgetItemId],
+      references: [salesItems.id],
+    }),
+    user: one(users, {
+      fields: [salesBudgetUnclosedItems.userId],
+      references: [users.id],
     }),
   }),
 );

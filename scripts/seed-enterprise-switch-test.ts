@@ -24,14 +24,14 @@ import {
 import { normalizeCpf } from "../src/modules/auth/password.js";
 
 /** Mesmo valor que `BOOTSTRAP_SEED.adminCpf` em `scripts/seed-bootstrap.ts`. */
-const BOOTSTRAP_ADMIN_CPF = "03747547133";
+const BOOTSTRAP_ADMIN_CPF = "64079805187";
 
 const DEPT_ADMIN_NAME = "Administrativo";
 
 const SECOND_ENTERPRISE_SEED = {
-  enterpriseLegalName: "Gescom",
-  enterpriseTradeName: "Gescom System",
-  enterpriseCnpj: "55655665000147",
+  enterpriseLegalName: "Empresa Teste",
+  enterpriseTradeName: "Empresa Teste",
+  enterpriseCnpj: "15243294000173",
 } as const;
 
 async function ensureMemberPermissionsFromDepartments(params: {
@@ -207,6 +207,7 @@ const seed = async (): Promise<void> => {
       const [member] = await tx
         .insert(enterprisesMembers)
         .values({
+          code: 1,
           userId,
           enterpriseId,
           class: "ADMINISTRADOR",

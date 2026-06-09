@@ -111,6 +111,7 @@ export const permissionCatalog = [
   "consultar_vendas",
   "incluir_vendas",
   "alterar_vendas",
+  "gerar_vendas",
   "consultar_devolucoes_vendas",
   "incluir_devolucoes_vendas",
   "consultar_tipos_pagamento",
@@ -156,6 +157,9 @@ export const PERM = {
   consultar_membros: "consultar_membros",
   incluir_membros: "incluir_membros",
   consultar_departamentos: "consultar_departamentos",
+  incluir_vendas: "incluir_vendas",
+  alterar_vendas: "alterar_vendas",
+  gerar_vendas: "gerar_vendas",
 } as const satisfies Record<string, PermissionSlug>;
 
 const productPermissions = [
@@ -229,6 +233,7 @@ const salesPermissions = [
   "consultar_vendas",
   "incluir_vendas",
   "alterar_vendas",
+  "gerar_vendas",
   "consultar_devolucoes_vendas",
   "incluir_devolucoes_vendas",
   "consultar_tipos_pagamento",

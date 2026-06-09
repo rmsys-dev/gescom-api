@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 import { logServerError } from "../logging/logger.js";
 import { AppError, PayloadTooLargeError } from "./app-error.js";
 import { createApiErrorResponse } from "./api-error-response.js";
+import { extractLoggableErrorCause } from "./extract-error-cause.js";
 import { mapZodIssuesToDetails } from "./map-zod-issues.js";
 
 type RequestWithOptionalId = {
@@ -79,6 +80,7 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
         apiCode: err.code,
         message: err.message,
         stack: err.stack,
+        cause: extractLoggableErrorCause(err),
       });
     }
 
@@ -100,6 +102,7 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
     apiCode: INTERNAL_SERVER_ERROR_API_CODE,
     message: unexpectedError.message,
     stack: unexpectedError.stack,
+    cause: extractLoggableErrorCause(unexpectedError),
   });
 
   res.status(500).json(

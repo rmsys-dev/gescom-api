@@ -8,7 +8,7 @@ import {
 import { timezoneSqlLiteral, type ResolvedPeriod } from "./period.js";
 
 export type AnalyticsFilters = {
-  userId?: string;
+  sellerId?: string;
   memberId?: string;
   paymentTypeId?: string;
   productsEnterprisesId?: string;
@@ -58,8 +58,8 @@ export const buildReturnDateCondition = (
 
 export const buildSaleFilterConditions = (filters: AnalyticsFilters): SQL[] => {
   const conditions: SQL[] = [];
-  if (filters.userId) {
-    conditions.push(eq(sales.userId, filters.userId));
+  if (filters.sellerId) {
+    conditions.push(eq(sales.sellerId, filters.sellerId));
   }
   if (filters.memberId) {
     conditions.push(eq(sales.memberId, filters.memberId));
@@ -131,7 +131,7 @@ export const buildReturnsScope = (
   );
 
 export const extractFilters = (query: AnalyticsFilters): AnalyticsFilters => ({
-  userId: query.userId,
+  sellerId: query.sellerId,
   memberId: query.memberId,
   paymentTypeId: query.paymentTypeId,
   productsEnterprisesId: query.productsEnterprisesId,

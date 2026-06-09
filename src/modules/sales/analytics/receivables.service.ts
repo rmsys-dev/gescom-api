@@ -19,7 +19,7 @@ export class ReceivablesAnalyticsService {
       eq(sales.type, "VENDA"),
       eq(sales.status, "FINALIZADA"),
     ];
-    if (query.userId) conditions.push(eq(sales.userId, query.userId));
+    if (query.sellerId) conditions.push(eq(sales.sellerId, query.sellerId));
     if (query.memberId) conditions.push(eq(sales.memberId, query.memberId));
 
     const rows = await db
@@ -58,7 +58,7 @@ export class ReceivablesAnalyticsService {
       eq(sales.type, "VENDA"),
       eq(sales.status, "FINALIZADA"),
     ];
-    if (query.userId) conditions.push(eq(sales.userId, query.userId));
+    if (query.sellerId) conditions.push(eq(sales.sellerId, query.sellerId));
     if (query.memberId) conditions.push(eq(sales.memberId, query.memberId));
 
     const agingBucket = sql<string>`CASE

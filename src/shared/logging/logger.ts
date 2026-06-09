@@ -1,3 +1,4 @@
+import type { LoggableErrorCause } from "../errors/extract-error-cause.js";
 import { LogEvents } from "./log-events.js";
 import { sanitizeLogData } from "./sanitize-log-data.js";
 
@@ -8,7 +9,7 @@ export type LogPayload = {
   requestId?: string | null;
 } & Record<string, unknown>;
 
-const writeLog = (level: LogLevel, payload: LogPayload): void => {
+const writeLog = (level: LogLevel, payload: LogPayload): void => {  // Escreve o log no console
   const sanitized = sanitizeLogData(payload);
   const entry = {
     timestamp: new Date().toISOString(),
@@ -48,6 +49,7 @@ export const logServerError = (input: {
   apiCode: string;
   message: string;
   stack?: string;
+  cause?: LoggableErrorCause;
 }): void => {
   logError({
     event: LogEvents.SERVER_ERROR,
@@ -55,5 +57,6 @@ export const logServerError = (input: {
     apiCode: input.apiCode,
     message: input.message,
     stack: input.stack,
+    ...(input.cause ? { cause: input.cause } : {}),
   });
 };

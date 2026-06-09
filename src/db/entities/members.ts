@@ -27,6 +27,7 @@ export const enterprisesMembers = pgTable(
   "enterprises_members",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    code: integer("code"),  // Código do membro
     status: statusEnum("status").default("ATIVO").notNull(), // Status
     userId: uuid("user_id")
       .notNull()

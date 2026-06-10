@@ -1,10 +1,26 @@
 import { z } from "zod";
-import { createPaginationQuerySchema } from "../../../shared/validation/common-schemas.js";
+import { statusEnum } from "../../../db/enums.js";
 
-export const listProductsEnterprisesQuerySchema =
-  createPaginationQuerySchema(100).extend({
-    search: z.string().trim().min(1).optional(),
-  });
+/** Filtros combinados com AND; `search` mantém busca ampla legada (OR). */
+const optionalFilterText = z.string().trim().min(1).optional();
+
+export const listProductsEnterprisesQuerySchema = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(100).optional(),
+    offset: z.coerce.number().int().min(0).optional(),
+    search: optionalFilterText,
+    description: optionalFilterText,
+    code: optionalFilterText,
+    barCode: optionalFilterText,
+    manufacturer: optionalFilterText,
+    origin: optionalFilterText,
+    group: optionalFilterText,
+    subgroup: optionalFilterText,
+    brand: optionalFilterText,
+    application: optionalFilterText,
+    status: z.enum(statusEnum.enumValues).optional(),
+  })
+  .strict();
 
 export const createProductEnterpriseSchema = z
   .object({

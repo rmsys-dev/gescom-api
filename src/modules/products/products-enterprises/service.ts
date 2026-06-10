@@ -1,7 +1,8 @@
-import { and, asc, count, eq, ilike, or, sql } from "drizzle-orm";
+import { and, asc, count, eq, exists, ilike, or, sql } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import {
   measurementUnits,
+  productApplication,
   productBrands,
   products,
   productsAnp,
@@ -429,12 +430,12 @@ export class ProductsEnterprisesService {
     }
   }
 
-  public async list(
+  private buildListConditions(
     enterpriseId: string,
-    query: ListProductsEnterprisesQuery = {},
+    query: ListProductsEnterprisesQuery,
   ) {
-    const { limit, offset } = resolveListPagination(query);
     const conditions = [eq(productsEnterprises.enterprisesId, enterpriseId)];
+
     if (query.search) {
       const term = `%${query.search}%`;
       conditions.push(
@@ -446,7 +447,120 @@ export class ProductsEnterprisesService {
         )!,
       );
     }
-    const where = and(...conditions);
+
+    if (query.description) {
+      conditions.push(
+        ilike(productsEnterprises.description, `%${query.description}%`),
+      );
+    }
+
+    if (query.code) {
+      conditions.push(
+        sql`cast(${productsEnterprises.code} as text) ilike ${`%${query.code}%`}`,
+      );
+    }
+
+    if (query.barCode) {
+      conditions.push(ilike(products.barCode, `%${query.barCode}%`));
+    }
+
+    if (query.manufacturer) {
+      conditions.push(
+        ilike(productsEnterprises.manufacturer, `%${query.manufacturer}%`),
+      );
+    }
+
+    if (query.origin) {
+      conditions.push(ilike(productsEnterprises.origin, `%${query.origin}%`));
+    }
+
+    if (query.group) {
+      const term = `%${query.group}%`;
+      conditions.push(
+        exists(
+          db
+            .select({ id: productGroups.id })
+            .from(productGroups)
+            .where(
+              and(
+                eq(productGroups.id, productsEnterprises.productGroupId),
+                ilike(productGroups.description, term),
+              ),
+            ),
+        ),
+      );
+    }
+
+    if (query.subgroup) {
+      const term = `%${query.subgroup}%`;
+      conditions.push(
+        exists(
+          db
+            .select({ id: productSubgroups.id })
+            .from(productSubgroups)
+            .where(
+              and(
+                eq(
+                  productSubgroups.id,
+                  productsEnterprises.productSubgroupId,
+                ),
+                ilike(productSubgroups.description, term),
+              ),
+            ),
+        ),
+      );
+    }
+
+    if (query.brand) {
+      const term = `%${query.brand}%`;
+      conditions.push(
+        exists(
+          db
+            .select({ id: productBrands.id })
+            .from(productBrands)
+            .where(
+              and(
+                eq(productBrands.id, productsEnterprises.productBrandId),
+                ilike(productBrands.description, term),
+              ),
+            ),
+        ),
+      );
+    }
+
+    if (query.application) {
+      const term = `%${query.application}%`;
+      conditions.push(
+        exists(
+          db
+            .select({ id: productApplication.id })
+            .from(productApplication)
+            .where(
+              and(
+                eq(
+                  productApplication.productsEnterprisesId,
+                  productsEnterprises.id,
+                ),
+                ilike(productApplication.description, term),
+              ),
+            ),
+        ),
+      );
+    }
+
+    if (query.status) {
+      conditions.push(eq(products.status, query.status));
+    }
+
+    return and(...conditions);
+  }
+
+  public async list(
+    enterpriseId: string,
+    query: ListProductsEnterprisesQuery = {},
+  ) {
+    const { limit, offset } = resolveListPagination(query);
+    const where = this.buildListConditions(enterpriseId, query);
     const [items, totalRows] = await Promise.all([
       db
         .select(productEnterpriseSelectFields)

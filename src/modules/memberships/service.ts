@@ -47,6 +47,10 @@ import {
   findUserByRegistration,
 } from "../auth/repository.js";
 import {
+  listAllowed,
+  resolvePermissionsBatch,
+} from "../auth/permissions.js";
+import {
   createInvitationRow,
   generateNumericInviteCode,
   invalidatePendingInvites,
@@ -339,6 +343,15 @@ export class MembershipsService {
             desc(membersDepartments.mainDepartment),
             asc(membersDepartments.id),
           ],
+          with: {
+            department: true,
+            permissionsDefault: {
+              where: isNull(memberPermissionsDefault.deletedAt),
+            },
+            extraPermissions: {
+              where: isNull(memberExtraPermissions.deletedAt),
+            },
+          },
         },
       },
     });
@@ -347,13 +360,35 @@ export class MembershipsService {
       throw new NotFoundError("Membro nao encontrado", "MEMBERSHIP_NOT_FOUND");
     }
 
+    const permissionsByMemberDepartment = await resolvePermissionsBatch(
+      row.departments.map((department) => department.id),
+    );
+
     const departments = row.departments.map((department) => ({
       id: department.id,
       departmentId: department.departmentId,
+      name: department.department?.name ?? null,
       mainDepartment: department.mainDepartment,
       status: department.status,
       createdAt: department.createdAt,
       updatedAt: department.updatedAt,
+      permissionsDefault: department.permissionsDefault.map(
+        ({ id, permission, status }) => ({
+          id,
+          permission,
+          status,
+        }),
+      ),
+      extraPermissions: department.extraPermissions.map(
+        ({ id, permission, status }) => ({
+          id,
+          permission,
+          status,
+        }),
+      ),
+      permissions: listAllowed(
+        permissionsByMemberDepartment.get(department.id) ?? new Map(),
+      ),
     }));
 
     return {

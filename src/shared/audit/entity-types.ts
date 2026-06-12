@@ -45,6 +45,8 @@ export const EntityTypes = {
   PAYMENT_TYPES: "PAYMENT_TYPES",
   SALES: "SALES",
   SALES_RETURNS: "SALES_RETURNS",
+  TYPE_NETWORKS: "TYPE_NETWORKS",
+  TYPE_SUPPLIER_CUSTOMERS: "TYPE_SUPPLIER_CUSTOMERS",
 } as const;
 
 export type EntityType = (typeof EntityTypes)[keyof typeof EntityTypes];

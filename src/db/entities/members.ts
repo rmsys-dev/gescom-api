@@ -21,6 +21,8 @@ import {
 import { users } from "./users.js";
 import { enterprises } from "./enterprises.js";
 import { departments } from "./departments.js";
+import { typeSupplierCustomers } from "./typeSupplierCustomers.js";
+import { typeNetworks } from "./typeNetworks.js";
 import { tz } from "../functions.js";
 import { percentageDecimal } from "../functions.js";
 
@@ -52,6 +54,13 @@ export const enterprisesMembers = pgTable(
     comissionOnSight: decimal("comission_on_sight", percentageDecimal).notNull().default("0.00"),  // Comissão a vista
     comissionToTerms: decimal("comission_to_terms", percentageDecimal).notNull().default("0.00"),  // Comissão a prazo
     comissionPartial: decimal("comission_partial", percentageDecimal).notNull().default("0.00"),  // Comissão parcial
+    typeSupplierCustomerId: uuid("type_supplier_customer_id").references(
+      () => typeSupplierCustomers.id,
+      { onDelete: "restrict" },
+    ),
+    typeNetworkId: uuid("type_network_id").references(() => typeNetworks.id, {
+      onDelete: "restrict",
+    }),
     approvedAt: date("approved_at", { mode: "date" }), // Data de aprovação / ativação
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),

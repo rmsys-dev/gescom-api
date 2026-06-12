@@ -12,6 +12,8 @@ import * as authentication from "./entities/authentication.js";
 import * as products from "./entities/products.js";
 import * as sales from "./entities/sales.js";
 import * as stock from "./entities/stock.js";
+import * as typeOfCustomers from "./entities/typeSupplierCustomers.js";
+import * as typeNetworks from "./entities/typeNetworks.js";
 import * as auditoriums from "./auditoriums.js";
 
 export * from "./entities/addresses.js";
@@ -25,6 +27,8 @@ export * from "./entities/authentication.js";
 export * from "./entities/products.js";
 export * from "./entities/sales.js";
 export * from "./entities/stock.js";
+export * from "./entities/typeSupplierCustomers.js";
+export * from "./entities/typeNetworks.js";
 export * from "./auditoriums.js";
 
 /**RELAÇÕES**/
@@ -37,6 +41,8 @@ import * as authRelations from "./relations/auth-relations.js";
 import * as productsRelations from "./relations/products-relations.js";
 import * as salesRelations from "./relations/sales-relations.js";
 import * as stockRelations from "./relations/stock-relations.js";
+import * as typeOfCustomersRelations from "./relations/type-supplier-customers-relations.js";
+import * as typeNetworksRelations from "./relations/type-networks-relations.js";
 
 export * from "./relations/addresses-relations.js";
 export * from "./relations/enterprise-relations.js";
@@ -46,6 +52,8 @@ export * from "./relations/auth-relations.js";
 export * from "./relations/products-relations.js";
 export * from "./relations/sales-relations.js";
 export * from "./relations/stock-relations.js";
+export * from "./relations/type-supplier-customers-relations.js";
+export * from "./relations/type-networks-relations.js";
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -65,6 +73,8 @@ const schema = {
   ...products,
   ...sales,
   ...stock,
+  ...typeOfCustomers,
+  ...typeNetworks,
   ...auditoriums,
   ...addressesRelations,
   ...enterpriseRelations,
@@ -74,6 +84,8 @@ const schema = {
   ...productsRelations,
   ...salesRelations,
   ...stockRelations,
+  ...typeOfCustomersRelations,
+  ...typeNetworksRelations,
 };
 
 export const db = drizzle(client, { schema });

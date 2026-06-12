@@ -84,6 +84,21 @@ Aplicar migrações:
 npm run db:migrate
 ```
 
+**Produção (Render / Supabase):** após deploy de código com schema novo, aplique migrações no banco de produção usando `DRIZZLE_DATABASE_URL` (conexão direta, porta `5432`):
+
+```bash
+npm run db:migrate
+```
+
+Se `db:migrate` falhar (ex.: histórico de migrações incompleto), aplique a correção idempotente de `enterprises_members` e valide:
+
+```bash
+npm run db:apply:enterprises-members-limits
+npm run db:verify:enterprises-members
+```
+
+A pasta `drizzle/` deve ser versionada no git para que cada deploy traga os SQLs necessários.
+
 Sincronizar schema sem arquivo de migração (útil só em desenvolvimento, com cuidado):
 
 ```bash

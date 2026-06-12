@@ -32,8 +32,7 @@ import {
   productsEnterprises,
 } from "./products.js";
 import { stockSectors, stockLocations, stockBatches } from "./stock.js";
-import { tz } from "../functions.js";
-import { percentageDecimal } from "../functions.js";
+import { tz, percentageDecimal } from "../functions.js";
 
 // TIPOS DE PAGAMENTO.
 export const paymentTypes = pgTable(

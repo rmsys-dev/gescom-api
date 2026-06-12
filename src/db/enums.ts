@@ -220,6 +220,8 @@ export const entityTypeEnum = pgEnum("entity_type", [
   "PAYMENT_TYPES",
   "SALES",
   "SALES_RETURNS",
+  "TYPE_NETWORKS",
+  "TYPE_SUPPLIER_CUSTOMERS",
 ]);
 
 export const stockMovementTypeEnum = pgEnum("stock_movement_type", [
@@ -263,4 +265,12 @@ export const budgetConversionKindEnum = pgEnum("budget_conversion_kind", [
   "PARCIAL",
   "TOTAL",
 ]);
+
+//Tipo de cliente (classificacao de clientes, cliente, fornecedor)
+export const typeClassificationCustomersEnum = pgEnum("type_classification_customers", [
+  "TODOS",
+  "CLIENTE",
+  "FORNECEDOR"
+]);
+
 export const saleOriginEnum = pgEnum("sale_origin", ["WEB", "MOBILE"]);

@@ -35,6 +35,8 @@ import { stockSectorsRentalRouter } from "../../modules/stock/stock-sectors-rent
 import { stockMinMaxRouter } from "../../modules/stock/stock-min-max/routes.js";
 import { stockMovementsRouter } from "../../modules/stock/stock-movements/routes.js";
 import { salesRouter } from "../../modules/sales/routes.js";
+import { typeNetworksRouter } from "../../modules/memberships/type-networks/routes.js";
+import { typeSupplierCustomersRouter } from "../../modules/memberships/type-supplier-customers/routes.js";
 
 const v1Router = Router();
 
@@ -75,5 +77,7 @@ v1Router.use("/stock-sectors-rental", stockSectorsRentalRouter);
 v1Router.use("/stock-min-max", stockMinMaxRouter);
 v1Router.use("/stock-movements", stockMovementsRouter);
 v1Router.use("/sales", salesRouter);
+v1Router.use("/type-networks", typeNetworksRouter);
+v1Router.use("/type-supplier-customers", typeSupplierCustomersRouter);
 
 export { v1Router };

@@ -11,6 +11,8 @@ import {
   memberPermissionsDefault,
 } from "../entities/members.js";
 import { users } from "../entities/users.js";
+import { typeSupplierCustomers } from "../entities/typeSupplierCustomers.js";
+import { typeNetworks } from "../entities/typeNetworks.js";
 
 //**RELAÇÕES DE MEMBROS DE EMPRESAS**//
 export const enterprisesMembersRelations = relations(
@@ -23,6 +25,14 @@ export const enterprisesMembersRelations = relations(
     enterprise: one(enterprises, {
       fields: [enterprisesMembers.enterpriseId],
       references: [enterprises.id],
+    }),
+    typeSupplierCustomer: one(typeSupplierCustomers, {
+      fields: [enterprisesMembers.typeSupplierCustomerId],
+      references: [typeSupplierCustomers.id],
+    }),
+    typeNetwork: one(typeNetworks, {
+      fields: [enterprisesMembers.typeNetworkId],
+      references: [typeNetworks.id],
     }),
     departments: many(membersDepartments),
     invitations: many(userInvitations),

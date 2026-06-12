@@ -10,6 +10,16 @@ export const permissionCatalog = [
   "incluir_membros",
   "alterar_membros",
   "consultar_membros",
+  //Tipos de rede
+  "consultar_tipos_rede",
+  "incluir_tipos_rede",
+  "alterar_tipos_rede",
+  "excluir_tipos_rede",
+  //Tipos de fornecedor/cliente
+  "consultar_tipos_fornecedor_cliente",
+  "incluir_tipos_fornecedor_cliente",
+  "alterar_tipos_fornecedor_cliente",
+  "excluir_tipos_fornecedor_cliente",
   //Departamentos
   "incluir_departamentos",
   "alterar_departamentos",
@@ -242,6 +252,17 @@ const salesPermissions = [
   "excluir_tipos_pagamento",
 ] as const satisfies readonly PermissionSlug[];
 
+const memberLookupPermissions = [
+  "consultar_tipos_rede",
+  "incluir_tipos_rede",
+  "alterar_tipos_rede",
+  "excluir_tipos_rede",
+  "consultar_tipos_fornecedor_cliente",
+  "incluir_tipos_fornecedor_cliente",
+  "alterar_tipos_fornecedor_cliente",
+  "excluir_tipos_fornecedor_cliente",
+] as const satisfies readonly PermissionSlug[];
+
 const stockPermissions = [
   "consultar_setores_estoque",
   "incluir_setores_estoque",
@@ -287,6 +308,7 @@ const administrador = [
   ...productPermissions,
   ...salesPermissions,
   ...stockPermissions,
+  ...memberLookupPermissions,
   "consultar_enderecos",
   "incluir_enderecos",
   "alterar_enderecos",
@@ -296,6 +318,8 @@ const administrador = [
 const operacional = [
   "consultar_usuarios",
   "consultar_membros",
+  "consultar_tipos_rede",
+  "consultar_tipos_fornecedor_cliente",
   "consultar_departamentos",
   "consultar_permissoes",
   "consultar_empresas",

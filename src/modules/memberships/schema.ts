@@ -28,6 +28,29 @@ export const listMembersQuerySchema = createPaginationQuerySchema(100)
 
 export type ListMembersQuery = z.infer<typeof listMembersQuerySchema>;
 
+const membershipPercentageSchema = z.number().min(0).max(100);
+
+const membershipSalesFieldsSchema = z
+  .object({
+    saleLimit: membershipPercentageSchema.optional(),
+    exceedDiscountSale: z.boolean().optional(),
+    receiptLimitDiscount: membershipPercentageSchema.optional(),
+    comissionOnSight: membershipPercentageSchema.optional(),
+    comissionToTerms: membershipPercentageSchema.optional(),
+    comissionPartial: membershipPercentageSchema.optional(),
+  })
+  .strict();
+
+const hasMembershipSalesField = (
+  data: z.infer<typeof membershipSalesFieldsSchema>,
+) =>
+  data.saleLimit !== undefined ||
+  data.exceedDiscountSale !== undefined ||
+  data.receiptLimitDiscount !== undefined ||
+  data.comissionOnSight !== undefined ||
+  data.comissionToTerms !== undefined ||
+  data.comissionPartial !== undefined;
+
 //Esquema de empresa de membro
 export const membershipEnterpriseParamsSchema = z
   .object({
@@ -99,7 +122,7 @@ const createMembershipInnerSchema = z
     class: z.enum(memberClassEnum.enumValues),
     departments: z.array(membershipDepartmentSchema).default([]),
   })
-  .strict();
+  .merge(membershipSalesFieldsSchema);
 
 //Esquema de criação de membro
 export const createMembershipSchema = createMembershipInnerSchema.superRefine(
@@ -161,13 +184,14 @@ export const patchMembershipSchema = z
     // Se `true`, o back define `deleted_at` com a data/hora do servidor (soft delete)
     softDelete: z.boolean().optional(),
   })
-  .strict()
+  .merge(membershipSalesFieldsSchema)
   .refine(
     (data) =>
       data.code !== undefined ||
       data.class !== undefined ||
       data.status !== undefined ||
-      data.softDelete === true,
+      data.softDelete === true ||
+      hasMembershipSalesField(data),
     "Deve haver ao menos um campo para atualizar",
   );
 

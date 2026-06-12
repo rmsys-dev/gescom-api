@@ -9,6 +9,7 @@ import {
   uniqueIndex,
   varchar,
   uuid,
+  decimal,
 } from "drizzle-orm/pg-core";
 import {
   statusEnum,
@@ -21,6 +22,8 @@ import { users } from "./users.js";
 import { enterprises } from "./enterprises.js";
 import { departments } from "./departments.js";
 import { tz } from "../functions.js";
+import { percentageDecimal } from "../functions.js";
+
 
 //Tabela de membros de empresas
 export const enterprisesMembers = pgTable(
@@ -43,6 +46,12 @@ export const enterprisesMembers = pgTable(
     registeredOn: date("registered_on", { mode: "date" })
       .default(sql`CURRENT_DATE`)
       .notNull(),
+    saleLimit: decimal("sale_limit", percentageDecimal).notNull().default("0.00"),  // Limite de vendas
+    exceedDiscountSale: boolean("exceed_discount_sale").notNull().default(false),  // Exceder desconto de venda
+    receiptLimitDiscount: decimal("receipt_limit_discount", percentageDecimal).notNull().default("0.00"),  // Limite de desconto de recebimento
+    comissionOnSight: decimal("comission_on_sight", percentageDecimal).notNull().default("0.00"),  // Comissão a vista
+    comissionToTerms: decimal("comission_to_terms", percentageDecimal).notNull().default("0.00"),  // Comissão a prazo
+    comissionPartial: decimal("comission_partial", percentageDecimal).notNull().default("0.00"),  // Comissão parcial
     approvedAt: date("approved_at", { mode: "date" }), // Data de aprovação / ativação
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),

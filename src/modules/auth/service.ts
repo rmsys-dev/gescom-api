@@ -58,6 +58,7 @@ type LoginResponse = {
   };
   enterprises: Array<{
     id: string;
+    registration: string;
     tradeName: string;
     legalName: string;
     memberId: string;

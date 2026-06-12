@@ -141,6 +141,61 @@ const loadPrincipalAddressSummariesByUserId = async (
   return byUserId;
 };
 
+const formatMembershipPercentage = (value: number) =>
+  Math.round(value * 100) / 100;
+
+const mapMembershipSalesFieldsToInsert = (
+  input: Pick<
+    CreateMembershipInput,
+    | "saleLimit"
+    | "exceedDiscountSale"
+    | "receiptLimitDiscount"
+    | "comissionOnSight"
+    | "comissionToTerms"
+    | "comissionPartial"
+  >,
+): Partial<typeof enterprisesMembers.$inferInsert> => ({
+  ...(input.saleLimit !== undefined
+    ? { saleLimit: formatMembershipPercentage(input.saleLimit).toFixed(2) }
+    : {}),
+  ...(input.exceedDiscountSale !== undefined
+    ? { exceedDiscountSale: input.exceedDiscountSale }
+    : {}),
+  ...(input.receiptLimitDiscount !== undefined
+    ? {
+        receiptLimitDiscount: formatMembershipPercentage(
+          input.receiptLimitDiscount,
+        ).toFixed(2),
+      }
+    : {}),
+  ...(input.comissionOnSight !== undefined
+    ? {
+        comissionOnSight: formatMembershipPercentage(
+          input.comissionOnSight,
+        ).toFixed(2),
+      }
+    : {}),
+  ...(input.comissionToTerms !== undefined
+    ? {
+        comissionToTerms: formatMembershipPercentage(
+          input.comissionToTerms,
+        ).toFixed(2),
+      }
+    : {}),
+  ...(input.comissionPartial !== undefined
+    ? {
+        comissionPartial: formatMembershipPercentage(
+          input.comissionPartial,
+        ).toFixed(2),
+      }
+    : {}),
+});
+
+const mapMembershipSalesFieldsToPatch = (
+  input: PatchMembershipInput,
+): Partial<typeof enterprisesMembers.$inferInsert> =>
+  mapMembershipSalesFieldsToInsert(input);
+
 const mapMemberWithUser = ({ member, user }: MemberWithUserRow) => ({
   id: member.id,
   code: member.code,
@@ -148,6 +203,12 @@ const mapMemberWithUser = ({ member, user }: MemberWithUserRow) => ({
   userId: member.userId,
   enterpriseId: member.enterpriseId,
   class: member.class,
+  saleLimit: member.saleLimit,
+  exceedDiscountSale: member.exceedDiscountSale,
+  receiptLimitDiscount: member.receiptLimitDiscount,
+  comissionOnSight: member.comissionOnSight,
+  comissionToTerms: member.comissionToTerms,
+  comissionPartial: member.comissionPartial,
   includedBy: member.includedBy,
   registeredOn: member.registeredOn,
   approvedAt: member.approvedAt,
@@ -415,6 +476,15 @@ export class MembershipsService {
       approvedAt: Date | null;
       memberDepartmentStatus: "ATIVO" | "PENDENTE";
       skipPermissionSnapshot: boolean;
+      salesFields?: Pick<
+        CreateMembershipInput,
+        | "saleLimit"
+        | "exceedDiscountSale"
+        | "receiptLimitDiscount"
+        | "comissionOnSight"
+        | "comissionToTerms"
+        | "comissionPartial"
+      >;
     },
     tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   ) {
@@ -428,6 +498,9 @@ export class MembershipsService {
         includedBy: input.actorUserId,
         approvedAt: input.approvedAt,
         status: input.status,
+        ...(input.salesFields
+          ? mapMembershipSalesFieldsToInsert(input.salesFields)
+          : {}),
       })
       .returning();
 
@@ -563,6 +636,7 @@ export class MembershipsService {
           approvedAt: now,
           memberDepartmentStatus: "ATIVO",
           skipPermissionSnapshot: false,
+          salesFields: input,
         },
         tx,
       );
@@ -652,6 +726,7 @@ export class MembershipsService {
           approvedAt: null,
           memberDepartmentStatus: "PENDENTE",
           skipPermissionSnapshot: true,
+          salesFields: input.member,
         },
         tx,
       );
@@ -906,6 +981,7 @@ export class MembershipsService {
           approvedAt: now,
           memberDepartmentStatus: "ATIVO",
           skipPermissionSnapshot: false,
+          salesFields: input.member,
         },
         tx,
       );
@@ -982,6 +1058,7 @@ export class MembershipsService {
 
     if (input.class !== undefined) setValues.class = input.class;
     if (input.code !== undefined) setValues.code = input.code;
+    Object.assign(setValues, mapMembershipSalesFieldsToPatch(input));
 
     if (isDeleteOperation) {
       Object.assign(setValues, membershipSoftDeleteValues(now));

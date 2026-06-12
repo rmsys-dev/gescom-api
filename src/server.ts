@@ -11,6 +11,21 @@ const server = app.listen(env.PORT, () => {
   });
 });
 
+server.on("error", (error: NodeJS.ErrnoException) => {
+  const portInUse = error.code === "EADDRINUSE";
+
+  logError({
+    event: LogEvents.SERVER_LISTEN_ERROR,
+    message: portInUse
+      ? `Porta ${env.PORT} ja esta em uso. Encerre o processo anterior ou altere PORT no .env.`
+      : error.message,
+    port: env.PORT,
+    code: error.code ?? null,
+  });
+
+  process.exit(1);
+});
+
 const gracefulShutdown = async (signal: NodeJS.Signals): Promise<void> => {
   logInfo({
     event: LogEvents.SHUTDOWN_SIGNAL_RECEIVED,

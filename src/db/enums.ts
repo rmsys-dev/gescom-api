@@ -20,6 +20,13 @@ export const saleTypeEnum = pgEnum("sale_type", [
   "OUTRO",
 ]);
 
+// TIPO DE PAGAMENTO ( A VISTA, A PRAZO, OUTROS)
+export const paymentTypeEnum = pgEnum("payment_type", [
+  "A_VISTA",
+  "A_PRAZO",
+  "OUTROS",
+]);
+
 //Tipo de pis/cofins (entrada, saída, transferência, outro)
 export const pisCofinsTypeEnum = pgEnum("pis_cofins_type", [
   "ENTRADA",

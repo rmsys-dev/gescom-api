@@ -14,6 +14,7 @@ import {
 import { db } from "../../db/index.js";
 import {
   enterprisesMembers,
+  paymentTypes,
   productTypes,
   productsEnterprises,
   sales,
@@ -362,15 +363,15 @@ export class SalesService {  // Servico de vendas
         "Tipo invalido",
       );
     }
-    if (budget.status !== "ABERTA") {
+    if (budget.status === "CANCELADA") {
       throw new ValidationError(
         [
           {
             path: "params.saleId",
-            message: "Somente orcamentos ABERTOS podem ser convertidos",
+            message: "Orcamento cancelado nao pode ser convertido",
           },
         ],
-        "Orcamento nao editavel",
+        "Orcamento cancelado",
       );
     }
     if (budget.budgetClosureSituation === "FECHADO") {
@@ -712,8 +713,202 @@ export class SalesService {  // Servico de vendas
       userLegalName: actor.userLegalName,
       sellerId: actor.sellerId,
       sellerLegalName: actor.sellerLegalName,
+      PercentageComissionSeller: "0.00",
+      PercentageComissionManager: "0.00",
       origin,
     };
+  }
+
+  private async loadSellerMember(
+    tx: Tx | typeof db,
+    enterpriseId: string,
+    sellerUserId: string,
+  ) {
+    const row = (
+      await tx
+        .select({
+          id: enterprisesMembers.id,
+          saleLimit: enterprisesMembers.saleLimit,
+          exceedDiscountSale: enterprisesMembers.exceedDiscountSale,
+          comissionOnSight: enterprisesMembers.comissionOnSight,
+          comissionToTerms: enterprisesMembers.comissionToTerms,
+          comissionPartial: enterprisesMembers.comissionPartial,
+        })
+        .from(enterprisesMembers)
+        .where(
+          and(
+            eq(enterprisesMembers.userId, sellerUserId),
+            eq(enterprisesMembers.enterpriseId, enterpriseId),
+            eq(enterprisesMembers.status, "ATIVO"),
+            isNull(enterprisesMembers.deletedAt),
+            notInArray(
+              enterprisesMembers.class,
+              [...SELLER_INELIGIBLE_MEMBER_CLASSES],
+            ),
+          ),
+        )
+        .limit(1)
+    )[0];
+
+    if (!row) {
+      throw new ValidationError(
+        [
+          {
+            path: "body.sellerId",
+            message:
+              "Vendedor deve ser membro ativo da empresa (nao cliente ou fornecedor)",
+          },
+        ],
+        "Vendedor invalido",
+      );
+    }
+
+    return row;
+  }
+
+  private assertSaleDiscountWithinMemberLimit(
+    member: { saleLimit: string; exceedDiscountSale: boolean },
+    totals: {
+      subTotal: number;
+      discountValuetems: number;
+      valueDiscountFinancial: number;
+    },
+    path = "body",
+  ) {
+    if (member.exceedDiscountSale) return;
+    if (totals.subTotal <= 0) return;
+
+    const totalDiscount = roundMoney(
+      totals.discountValuetems + totals.valueDiscountFinancial,
+    );
+    const effectivePct = computePercentageFromFinancial(
+      totals.subTotal,
+      totalDiscount,
+    );
+    const limit = decNum(member.saleLimit);
+
+    if (effectivePct > limit) {
+      throw new ValidationError(
+        [
+          {
+            path,
+            message: `Desconto total (itens + financeiro) de ${effectivePct}% excede o limite do vendedor (${limit}%)`,
+          },
+        ],
+        "Desconto excede limite do membro",
+      );
+    }
+  }
+
+  private async assertSaleDiscountWithinMemberLimitForSeller(
+    tx: Tx | typeof db,
+    enterpriseId: string,
+    sellerUserId: string,
+    totals: {
+      subTotal: number;
+      discountValuetems: number;
+      valueDiscountFinancial: number;
+    },
+    path = "body",
+  ) {
+    const member = await this.loadSellerMember(tx, enterpriseId, sellerUserId);
+    this.assertSaleDiscountWithinMemberLimit(member, totals, path);
+  }
+
+  private assertItemLineDiscountWithinMemberLimit(
+    member: { saleLimit: string; exceedDiscountSale: boolean },
+    item: { quantity: number; valueUnit: number; valueDiscount: number },
+    path = "body.valueDiscount",
+  ) {
+    if (member.exceedDiscountSale) return;
+
+    const lineSubTotal = roundMoney(item.quantity * item.valueUnit);
+    if (lineSubTotal <= 0) return;
+
+    const linePct = computePercentageFromFinancial(
+      lineSubTotal,
+      item.valueDiscount,
+    );
+    const limit = decNum(member.saleLimit);
+
+    if (linePct > limit) {
+      throw new ValidationError(
+        [
+          {
+            path,
+            message: `Desconto do item (${linePct}%) excede o limite do vendedor (${limit}%)`,
+          },
+        ],
+        "Desconto excede limite do membro",
+      );
+    }
+  }
+
+  private async assertItemLineDiscountWithinMemberLimitForSeller(
+    tx: Tx | typeof db,
+    enterpriseId: string,
+    sellerUserId: string,
+    item: { quantity: number; valueUnit: number; valueDiscount: number },
+    path = "body.valueDiscount",
+  ) {
+    const member = await this.loadSellerMember(tx, enterpriseId, sellerUserId);
+    this.assertItemLineDiscountWithinMemberLimit(member, item, path);
+  }
+
+  private resolveMemberCommissionRate(
+    member: {
+      comissionOnSight: string;
+      comissionToTerms: string;
+      comissionPartial: string;
+    },
+    paymentKinds: Array<(typeof paymentTypes.$inferSelect)["paymentType"]>,
+  ): string {
+    const uniqueKinds = new Set(paymentKinds);
+
+    if (uniqueKinds.size === 1 && uniqueKinds.has("A_VISTA")) {
+      return member.comissionOnSight;
+    }
+    if (uniqueKinds.size === 1 && uniqueKinds.has("A_PRAZO")) {
+      return member.comissionToTerms;
+    }
+
+    return member.comissionPartial;
+  }
+
+  private async applySaleItemsCommission(
+    tx: Tx,
+    saleId: string,
+    rate: string,
+  ) {
+    await tx
+      .update(salesItems)
+      .set({
+        PercentageComissionSeller: rate,
+        PercentageComissionManager: "0.00",
+        updatedAt: new Date(),
+      })
+      .where(eq(salesItems.salesId, saleId));
+  }
+
+  private async recalculateSaleItemsCommission(
+    tx: Tx,
+    saleId: string,
+    sellerUserId: string,
+    enterpriseId: string,
+    payments: SalePaymentInput[],
+  ) {
+    const member = await this.loadSellerMember(tx, enterpriseId, sellerUserId);
+    const paymentTypeIds = payments.map((payment) => payment.paymentTypeId);
+    const rows = await tx
+      .select({ paymentType: paymentTypes.paymentType })
+      .from(paymentTypes)
+      .where(inArray(paymentTypes.id, paymentTypeIds));
+
+    const rate = this.resolveMemberCommissionRate(
+      member,
+      rows.map((row) => row.paymentType),
+    );
+    await this.applySaleItemsCommission(tx, saleId, rate);
   }
 
   private resolveItemLaunchOrigin(
@@ -903,7 +1098,18 @@ export class SalesService {  // Servico de vendas
           "Venda nao editavel",
         );
       }
-      await this.recalculateSaleTotalsFromItems(tx, enterpriseId, saleId, sale);
+      const totals = await this.recalculateSaleTotalsFromItems(
+        tx,
+        enterpriseId,
+        saleId,
+        sale,
+      );
+      await this.assertSaleDiscountWithinMemberLimitForSeller(
+        tx,
+        enterpriseId,
+        sale.sellerId,
+        totals,
+      );
     });
     await this.recordSaleUpdateAudit(enterpriseId, saleId, beforeRow, audit);
     return this.getById(enterpriseId, saleId);
@@ -1348,6 +1554,18 @@ export class SalesService {  // Servico de vendas
             itemInput.sellerId,
           );
 
+          await this.assertItemLineDiscountWithinMemberLimitForSeller(
+            tx,
+            enterpriseId,
+            actor.sellerId,
+            {
+              quantity: itemInput.quantity,
+              valueUnit: itemInput.valueUnit,
+              valueDiscount: itemInput.valueDiscount,
+            },
+            `items.${i}.valueDiscount`,
+          );
+
           const [inserted] = await tx
             .insert(salesItems)
             .values(
@@ -1372,11 +1590,17 @@ export class SalesService {  // Servico de vendas
           }
         }
 
-        await this.recalculateSaleTotalsFromItems(
+        const totals = await this.recalculateSaleTotalsFromItems(
           tx,
           enterpriseId,
           sale.id,
           sale,
+        );
+        await this.assertSaleDiscountWithinMemberLimitForSeller(
+          tx,
+          enterpriseId,
+          seller.sellerId,
+          totals,
         );
 
         if (status === "FINALIZADA" && input.payments?.length) {
@@ -1388,6 +1612,13 @@ export class SalesService {  // Servico de vendas
             input.payments,
           );
           await this.insertSalePayments(tx, sale.id, input.payments);
+          await this.recalculateSaleItemsCommission(
+            tx,
+            sale.id,
+            seller.sellerId,
+            enterpriseId,
+            input.payments,
+          );
         }
 
         return sale.id;
@@ -1634,6 +1865,19 @@ export class SalesService {  // Servico de vendas
         row = (await this.getSaleRow(tx, enterpriseId, id))!;
       }
 
+      if (row.status === "ABERTA") {
+        await this.assertSaleDiscountWithinMemberLimitForSeller(
+          tx,
+          enterpriseId,
+          sellerUpdate?.sellerId ?? row.sellerId,
+          {
+            subTotal: decNum(row.subTotal),
+            discountValuetems: decNum(row.discountValuetems),
+            valueDiscountFinancial: decNum(row.valueDiscountFinancial),
+          },
+        );
+      }
+
       const items = await tx
         .select()
         .from(salesItems)
@@ -1659,6 +1903,13 @@ export class SalesService {  // Servico de vendas
           input.payments!,
         );
         await this.insertSalePayments(tx, id, input.payments!);
+        await this.recalculateSaleItemsCommission(
+          tx,
+          id,
+          sellerUpdate?.sellerId ?? existing.sellerId,
+          enterpriseId,
+          input.payments!,
+        );
       }
 
       if (cancelSale) {
@@ -1833,6 +2084,7 @@ export class SalesService {  // Servico de vendas
             valueAcresceFinancial: dec(input.valueAcresceFinancial),
             valueLiquid: "0",
             status,
+            budgetClosureSituation: "FECHADO",
             sourceBudgetSaleId: budgetSaleId,
             ...(closingOrigin !== undefined ? { origin: closingOrigin } : {}),
             completedionDate: status === "FINALIZADA" ? new Date() : null,
@@ -1871,6 +2123,18 @@ export class SalesService {  // Servico de vendas
             auth,
             enterpriseId,
             generatedSale,
+          );
+
+          await this.assertItemLineDiscountWithinMemberLimitForSeller(
+            tx,
+            enterpriseId,
+            actor.sellerId,
+            {
+              quantity: itemInput.quantity,
+              valueUnit: itemInput.valueUnit,
+              valueDiscount: itemInput.valueDiscount,
+            },
+            `${itemPath}.valueDiscount`,
           );
 
           const [inserted] = await tx
@@ -1921,11 +2185,17 @@ export class SalesService {  // Servico de vendas
           });
         }
 
-        await this.recalculateSaleTotalsFromItems(
+        const totals = await this.recalculateSaleTotalsFromItems(
           tx,
           enterpriseId,
           generatedSale.id,
           generatedSale,
+        );
+        await this.assertSaleDiscountWithinMemberLimitForSeller(
+          tx,
+          enterpriseId,
+          seller.sellerId,
+          totals,
         );
 
         if (status === "FINALIZADA" && input.payments?.length) {
@@ -1941,6 +2211,13 @@ export class SalesService {  // Servico de vendas
             input.payments,
           );
           await this.insertSalePayments(tx, generatedSale.id, input.payments);
+          await this.recalculateSaleItemsCommission(
+            tx,
+            generatedSale.id,
+            seller.sellerId,
+            enterpriseId,
+            input.payments,
+          );
         }
 
         const updatedBudgetItems = await tx
@@ -1948,15 +2225,17 @@ export class SalesService {  // Servico de vendas
           .from(salesItems)
           .where(eq(salesItems.salesId, budgetSaleId));
 
-        const budgetClosureSituation =
+        const computedClosureSituation =
           this.computeBudgetClosureSituation(updatedBudgetItems);
         const closureKind: BudgetConversionKind =
-          budgetClosureSituation === "FECHADO" ? "TOTAL" : "PARCIAL";
+          computedClosureSituation === "FECHADO" ? "TOTAL" : "PARCIAL";
 
         await tx
           .update(sales)
           .set({
-            budgetClosureSituation,
+            budgetClosureSituation: computedClosureSituation,
+            status: "FINALIZADA",
+            completedionDate: new Date(),
             updatedAt: new Date(),
           })
           .where(eq(sales.id, budgetSaleId));
@@ -2062,6 +2341,18 @@ export class SalesService {  // Servico de vendas
         input.sellerId,
       );
 
+      await this.assertItemLineDiscountWithinMemberLimitForSeller(
+        tx,
+        enterpriseId,
+        actor.sellerId,
+        {
+          quantity: input.quantity,
+          valueUnit: input.valueUnit,
+          valueDiscount: input.valueDiscount,
+        },
+        "body.valueDiscount",
+      );
+
       const [inserted] = await tx
         .insert(salesItems)
         .values(
@@ -2086,11 +2377,17 @@ export class SalesService {  // Servico de vendas
       }
 
       const updatedSale = await this.getSaleRow(tx, enterpriseId, saleId);
-      await this.recalculateSaleTotalsFromItems(
+      const totals = await this.recalculateSaleTotalsFromItems(
         tx,
         enterpriseId,
         saleId,
         updatedSale,
+      );
+      await this.assertSaleDiscountWithinMemberLimitForSeller(
+        tx,
+        enterpriseId,
+        updatedSale.sellerId,
+        totals,
       );
     });
     await this.recordSaleUpdateAudit(enterpriseId, saleId, beforeRow, audit);
@@ -2145,11 +2442,17 @@ export class SalesService {  // Servico de vendas
         );
 
       const updatedSale = await this.getSaleRow(tx, enterpriseId, saleId);
-      await this.recalculateSaleTotalsFromItems(
+      const totals = await this.recalculateSaleTotalsFromItems(
         tx,
         enterpriseId,
         saleId,
         updatedSale,
+      );
+      await this.assertSaleDiscountWithinMemberLimitForSeller(
+        tx,
+        enterpriseId,
+        updatedSale.sellerId,
+        totals,
       );
     });
     await this.recordSaleUpdateAudit(enterpriseId, saleId, beforeRow, audit);
@@ -2189,6 +2492,18 @@ export class SalesService {  // Servico de vendas
       const merged = this.mergeSaleItemPatch(existing, input);
       this.assertBudgetItemEditable(sale, existing, merged.quantity);
 
+      await this.assertItemLineDiscountWithinMemberLimitForSeller(
+        tx,
+        enterpriseId,
+        existing.sellerId,
+        {
+          quantity: merged.quantity,
+          valueUnit: merged.valueUnit,
+          valueDiscount: merged.valueDiscount,
+        },
+        "body.valueDiscount",
+      );
+
       if (sale.type === "VENDA") {
         await syncSaleItemStockOnUpdate(tx, {
           enterpriseId,
@@ -2223,11 +2538,17 @@ export class SalesService {  // Servico de vendas
         );
 
       const updatedSale = await this.getSaleRow(tx, enterpriseId, saleId);
-      await this.recalculateSaleTotalsFromItems(
+      const totals = await this.recalculateSaleTotalsFromItems(
         tx,
         enterpriseId,
         saleId,
         updatedSale,
+      );
+      await this.assertSaleDiscountWithinMemberLimitForSeller(
+        tx,
+        enterpriseId,
+        updatedSale.sellerId,
+        totals,
       );
     });
     await this.recordSaleUpdateAudit(enterpriseId, saleId, beforeRow, audit);

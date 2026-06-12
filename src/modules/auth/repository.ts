@@ -51,6 +51,7 @@ export const findCredentialByLogin = async (
 export type UserEnterpriseMembership = {
   memberId: string;
   enterpriseId: string;
+  enterpriseRegistration: string;
   enterpriseTradeName: string;
   enterpriseLegalName: string;
   enterpriseStatus: typeof enterprises.$inferSelect.status;
@@ -95,6 +96,7 @@ export const listActiveEnterprisesForUser = async (
   return page.map((row) => ({
     memberId: row.id,
     enterpriseId: row.enterprise!.id,
+    enterpriseRegistration: row.enterprise!.registration,
     enterpriseTradeName: row.enterprise!.tradeName,
     enterpriseLegalName: row.enterprise!.legalName,
     enterpriseStatus: row.enterprise!.status,

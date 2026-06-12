@@ -59,6 +59,7 @@ export class PaymentTypesService {
         .insert(paymentTypes)
         .values({
           description: input.description.trim(),
+          paymentType: input.paymentType,
           status: input.status ?? "ATIVO",
         })
         .returning();
@@ -93,6 +94,9 @@ export class PaymentTypesService {
         .set({
           ...(input.description !== undefined
             ? { description: input.description.trim() }
+            : {}),
+          ...(input.paymentType !== undefined
+            ? { paymentType: input.paymentType }
             : {}),
           ...(input.status !== undefined ? { status: input.status } : {}),
           updatedAt: new Date(),

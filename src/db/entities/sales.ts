@@ -21,6 +21,7 @@ import {
   saleOriginEnum,
   saleTypeEnum,
   statusEnum,
+  paymentTypeEnum,
 } from "../enums.js";
 import { users } from "./users.js";
 import { enterprisesMembers } from "./members.js";
@@ -34,12 +35,14 @@ import { stockSectors, stockLocations, stockBatches } from "./stock.js";
 import { tz } from "../functions.js";
 import { percentageDecimal } from "../functions.js";
 
+// TIPOS DE PAGAMENTO.
 export const paymentTypes = pgTable(
   "payment_types",
   {
     id: uuid("id").defaultRandom().primaryKey(),
     description: varchar("description", { length: 255 }).notNull(),
     status: statusEnum("status").notNull().default("ATIVO"),
+    paymentType: paymentTypeEnum("payment_type").notNull(),  
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
   },
@@ -131,7 +134,7 @@ export const sales = pgTable(
 export const salesItems = pgTable(
   "sales_items",
   {
-  id: uuid("id").defaultRandom().primaryKey().unique(),
+  id: uuid("id").defaultRandom().primaryKey(),
   quantity: decimal("quantity", { precision: 14, scale: 4 }).notNull(),
   valueUnit: decimal("value_unit", { precision: 14, scale: 4 }).notNull(),
   valueDiscount: decimal("value_discount", {
@@ -183,12 +186,14 @@ export const salesItems = pgTable(
   userId: uuid("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "restrict" }),
-  userLegalName: varchar("user_legal_name", { length: 255 }).notNull(),
+  userLegalName: varchar("user_legal_name", { length: 255 }).notNull(), // NOME LEGAL DO USUÁRIO
   sellerId: uuid("seller_id")
     .notNull()
-    .references(() => users.id, { onDelete: "restrict" }),
-  sellerLegalName: varchar("seller_legal_name", { length: 255 }).notNull(),
-  origin: saleOriginEnum("origin").notNull().default("WEB"),
+    .references(() => users.id, { onDelete: "restrict" }),  // VENDEDOR
+  sellerLegalName: varchar("seller_legal_name", { length: 255 }).notNull(), // NOME LEGAL DO VENDEDOR
+  PercentageComissionSeller: decimal("percentage_comission_seller", percentageDecimal).notNull().default("0.00"),  // Percentagem de comissão do vendedor
+  PercentageComissionManager: decimal("percentage_comission_manager", percentageDecimal).notNull().default("0.00"),  // Percentagem de comissão do gerente
+  origin: saleOriginEnum("origin").notNull().default("WEB"),  
   createdAt: tz("created_at").defaultNow().notNull(),
   updatedAt: tz("updated_at"),
   },
@@ -346,6 +351,7 @@ export const salesReturnItems = pgTable(
   ],
 );
 
+// PAGAMENTOS DE VENDA.
 export const salesPayments = pgTable(
   "sales_payments",
   {

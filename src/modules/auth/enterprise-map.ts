@@ -3,6 +3,7 @@ import type { UserEnterpriseMembership } from "./repository.js";
 export const mapEnterprises = (rows: UserEnterpriseMembership[]) =>
   rows.map((row) => ({
     id: row.enterpriseId,
+    registration: row.enterpriseRegistration,
     tradeName: row.enterpriseTradeName,
     legalName: row.enterpriseLegalName,
     memberId: row.memberId,

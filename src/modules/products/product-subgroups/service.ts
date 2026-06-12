@@ -16,6 +16,68 @@ import type {
   PatchProductSubgroupInput,
 } from "./schema.js";
 
+const formatSubgroupPercentage = (value: number) =>
+  Math.round(value * 100) / 100;
+
+const mapSubgroupCommissionFieldsToInsert = (
+  input: Pick<
+    CreateProductSubgroupInput,
+    | "generatesComission"
+    | "comissionOnSightSeller"
+    | "comissionToTermsSeller"
+    | "comissionPartialSeller"
+    | "comissionOnSightManager"
+    | "comissionToTermsManager"
+    | "comissionPartialManager"
+  >,
+): Partial<typeof productSubgroups.$inferInsert> => ({
+  ...(input.generatesComission !== undefined
+    ? { generatesComission: input.generatesComission }
+    : {}),
+  ...(input.comissionOnSightSeller !== undefined
+    ? {
+        comissionOnSightSeller: formatSubgroupPercentage(
+          input.comissionOnSightSeller,
+        ).toFixed(2),
+      }
+    : {}),
+  ...(input.comissionToTermsSeller !== undefined
+    ? {
+        comissionToTermsSeller: formatSubgroupPercentage(
+          input.comissionToTermsSeller,
+        ).toFixed(2),
+      }
+    : {}),
+  ...(input.comissionPartialSeller !== undefined
+    ? {
+        comissionPartialSeller: formatSubgroupPercentage(
+          input.comissionPartialSeller,
+        ).toFixed(2),
+      }
+    : {}),
+  ...(input.comissionOnSightManager !== undefined
+    ? {
+        comissionOnSightManager: formatSubgroupPercentage(
+          input.comissionOnSightManager,
+        ).toFixed(2),
+      }
+    : {}),
+  ...(input.comissionToTermsManager !== undefined
+    ? {
+        comissionToTermsManager: formatSubgroupPercentage(
+          input.comissionToTermsManager,
+        ).toFixed(2),
+      }
+    : {}),
+  ...(input.comissionPartialManager !== undefined
+    ? {
+        comissionPartialManager: formatSubgroupPercentage(
+          input.comissionPartialManager,
+        ).toFixed(2),
+      }
+    : {}),
+});
+
 export class ProductSubgroupsService {
   public async list(query: ListProductSubgroupsQuery = {}) {
     const { limit, offset } = resolveListPagination(query);
@@ -55,7 +117,10 @@ export class ProductSubgroupsService {
   ) {
     const [row] = await db
       .insert(productSubgroups)
-      .values({ description: input.description.trim() })
+      .values({
+        description: input.description.trim(),
+        ...mapSubgroupCommissionFieldsToInsert(input),
+      })
       .returning();
     if (!row) throw new Error("Falha ao criar subgrupo de produto");
     await recordCreateAudit({
@@ -79,6 +144,7 @@ export class ProductSubgroupsService {
         ...(input.description !== undefined
           ? { description: input.description.trim() }
           : {}),
+        ...mapSubgroupCommissionFieldsToInsert(input),
         updatedAt: new Date(),
       })
       .where(eq(productSubgroups.id, id))

@@ -4,6 +4,7 @@ export const LogEvents = {
   ENTITY_AUDIT_WRITE_FAILED: "entity_audit_write_failed",
   HTTP_REQUEST: "http_request",
   SERVER_STARTED: "server_started",
+  SERVER_LISTEN_ERROR: "server_listen_error",
   SHUTDOWN_SIGNAL_RECEIVED: "shutdown_signal_received",
   HTTP_SERVER_CLOSE_ERROR: "http_server_close_error",
 } as const;

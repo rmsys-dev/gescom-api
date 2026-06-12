@@ -5,6 +5,7 @@ import { pgTable, uniqueIndex } from "drizzle-orm/pg-core";
 import { enterprises } from "./enterprises.js";
 import { pisCofinsTypeEnum } from "../enums.js";
 import { tz } from "../functions.js";
+import { percentageDecimal } from "../functions.js";
 
 //tabela de produtos. - Global
 export const products = pgTable(
@@ -189,6 +190,13 @@ export const productGroups = pgTable("product_groups", {
 export const productSubgroups = pgTable("product_subgroups", {
   id: uuid("id").defaultRandom().primaryKey(),
   description: varchar("description", { length: 255 }).notNull(),
+  generatesComission: boolean("generates_comission").notNull().default(false),  // Gera comissão
+  comissionOnSightSeller: decimal("comission_on_sight_seller", percentageDecimal).notNull().default("0.00"),  // Comissão a vista do vendedor 
+  comissionToTermsSeller: decimal("comission_to_terms_seller", percentageDecimal).notNull().default("0.00"),  // Comissão a prazo do vendedor
+  comissionPartialSeller: decimal("comission_partial_seller", percentageDecimal).notNull().default("0.00"),  // Comissão parcial do vendedor
+  comissionOnSightManager: decimal("comission_on_sight_manager", percentageDecimal).notNull().default("0.00"),  // Comissão a vista do gerente
+  comissionToTermsManager: decimal("comission_to_terms_manager", percentageDecimal).notNull().default("0.00"),  // Comissão a prazo do gerente
+  comissionPartialManager: decimal("comission_partial_manager", percentageDecimal).notNull().default("0.00"),  // Comissão parcial do gerente
   createdAt: tz("created_at").defaultNow().notNull(),
   updatedAt: tz("updated_at"),
 });

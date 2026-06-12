@@ -3,19 +3,41 @@ import { createPaginationQuerySchema } from "../../../shared/validation/common-s
 
 export const listProductSubgroupsQuerySchema = createPaginationQuerySchema(100);
 
+const subgroupPercentageSchema = z.number().min(0).max(100);
+
+const productSubgroupCommissionFieldsSchema = {
+  generatesComission: z.boolean().optional(),
+  comissionOnSightSeller: subgroupPercentageSchema.optional(),
+  comissionToTermsSeller: subgroupPercentageSchema.optional(),
+  comissionPartialSeller: subgroupPercentageSchema.optional(),
+  comissionOnSightManager: subgroupPercentageSchema.optional(),
+  comissionToTermsManager: subgroupPercentageSchema.optional(),
+  comissionPartialManager: subgroupPercentageSchema.optional(),
+};
+
 export const createProductSubgroupSchema = z
   .object({
     description: z.string().trim().min(1).max(255).toUpperCase(),
+    ...productSubgroupCommissionFieldsSchema,
   })
   .strict();
 
 export const patchProductSubgroupSchema = z
   .object({
     description: z.string().trim().min(1).max(255).toUpperCase().optional(),
+    ...productSubgroupCommissionFieldsSchema,
   })
   .strict()
   .refine(
-    (data) => data.description !== undefined,
+    (data) =>
+      data.description !== undefined ||
+      data.generatesComission !== undefined ||
+      data.comissionOnSightSeller !== undefined ||
+      data.comissionToTermsSeller !== undefined ||
+      data.comissionPartialSeller !== undefined ||
+      data.comissionOnSightManager !== undefined ||
+      data.comissionToTermsManager !== undefined ||
+      data.comissionPartialManager !== undefined,
     "Deve haver ao menos um campo para atualizar",
   );
 

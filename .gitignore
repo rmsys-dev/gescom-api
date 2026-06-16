@@ -30,6 +30,7 @@ pnpm-debug.log*
 # Pastas temporárias (uploads locais, scratch, etc.)
 tmp/
 temp/
+scripts/db/backups/
 
 # Chaves e certificados (não versionar material criptográfico local)
 *.pem

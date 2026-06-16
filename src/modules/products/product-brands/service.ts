@@ -14,6 +14,9 @@ import {
 } from "../../../shared/audit/entity-audit.js";
 import { toAuditRecord } from "../../../shared/audit/build-field-diff.js";
 import { EntityTypes } from "../../../shared/audit/entity-types.js";
+import {
+  assertEnterpriseCatalogDescriptionAvailable,
+} from "../shared/enterprise-catalog-description.js";
 import type {
   CreateProductBrandInput,
   ListProductBrandsQuery,
@@ -66,12 +69,19 @@ export class ProductBrandsService {
     input: CreateProductBrandInput,
     audit: EntityAuditContext,
   ) {
+    const description = await assertEnterpriseCatalogDescriptionAvailable({
+      table: productBrands,
+      enterpriseId,
+      description: input.description,
+      conflictCode: "PRODUCT_BRAND_CONFLICT",
+      message: "Descricao de marca ja existe na empresa",
+    });
     try {
       const [row] = await db
         .insert(productBrands)
         .values({
           enterprisesId: enterpriseId,
-          description: input.description.trim(),
+          description,
         })
         .returning();
       if (!row) throw new Error("Falha ao criar marca de produto");
@@ -100,13 +110,22 @@ export class ProductBrandsService {
     audit: EntityAuditContext,
   ) {
     const existing = await this.getById(enterpriseId, id);
+    const description =
+      input.description !== undefined
+        ? await assertEnterpriseCatalogDescriptionAvailable({
+            table: productBrands,
+            enterpriseId,
+            description: input.description,
+            excludeId: id,
+            conflictCode: "PRODUCT_BRAND_CONFLICT",
+            message: "Descricao de marca ja existe na empresa",
+          })
+        : undefined;
     try {
       const [row] = await db
         .update(productBrands)
         .set({
-          ...(input.description !== undefined
-            ? { description: input.description.trim() }
-            : {}),
+          ...(description !== undefined ? { description } : {}),
           updatedAt: new Date(),
         })
         .where(this.scope(enterpriseId, id))

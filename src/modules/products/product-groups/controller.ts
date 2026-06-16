@@ -23,9 +23,9 @@ export class ProductGroupsController {
   public list = async (req: Request, res: Response): Promise<void> => {
     const query = (req as RequestWithValidatedQuery<ListProductGroupsQuery>)
       .validatedQuery;
-    const enterpriseId = requireTenantEnterpriseId(
-      (req as RequestWithAuth).auth!,
-    );
+    const enterpriseId =
+      (req.params["enterpriseId"] as string | undefined) ??
+      requireTenantEnterpriseId((req as RequestWithAuth).auth!);
     const page = await productGroupsService.list(enterpriseId, query);
     sendPageFromService(
       res,

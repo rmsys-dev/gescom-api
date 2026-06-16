@@ -1,7 +1,18 @@
 import { z } from "zod";
-import { createPaginationQuerySchema } from "../../../shared/validation/common-schemas.js";
+import {
+  createPaginationQuerySchema,
+  uuidSchema,
+} from "../../../shared/validation/common-schemas.js";
+import { normalizeEnterpriseCatalogDescription } from "../shared/enterprise-catalog-description.js";
 
 export const listProductSubgroupsQuerySchema = createPaginationQuerySchema(100);
+
+const enterpriseCatalogDescriptionSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(255)
+  .transform(normalizeEnterpriseCatalogDescription);
 
 const subgroupPercentageSchema = z.number().min(0).max(100);
 
@@ -17,14 +28,14 @@ const productSubgroupCommissionFieldsSchema = {
 
 export const createProductSubgroupSchema = z
   .object({
-    description: z.string().trim().min(1).max(255).toUpperCase(),
+    description: enterpriseCatalogDescriptionSchema,
     ...productSubgroupCommissionFieldsSchema,
   })
   .strict();
 
 export const patchProductSubgroupSchema = z
   .object({
-    description: z.string().trim().min(1).max(255).toUpperCase().optional(),
+    description: enterpriseCatalogDescriptionSchema.optional(),
     ...productSubgroupCommissionFieldsSchema,
   })
   .strict()
@@ -40,6 +51,12 @@ export const patchProductSubgroupSchema = z
       data.comissionPartialManager !== undefined,
     "Deve haver ao menos um campo para atualizar",
   );
+
+export const productSubgroupEnterpriseParamsSchema = z
+  .object({
+    enterpriseId: uuidSchema("enterpriseId"),
+  })
+  .strict();
 
 export const productSubgroupParamsSchema = z
   .object({

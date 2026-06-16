@@ -1,18 +1,29 @@
 import { z } from "zod";
-import { createPaginationQuerySchema } from "../../../shared/validation/common-schemas.js";
+import {
+  createPaginationQuerySchema,
+  uuidSchema,
+} from "../../../shared/validation/common-schemas.js";
+import { normalizeEnterpriseCatalogDescription } from "../shared/enterprise-catalog-description.js";
 
 export const listProductGroupsQuerySchema = createPaginationQuerySchema(100);
 
+const enterpriseCatalogDescriptionSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(255)
+  .transform(normalizeEnterpriseCatalogDescription);
+
 export const createProductGroupSchema = z
   .object({
-    description: z.string().trim().min(1).max(255).toUpperCase(),
+    description: enterpriseCatalogDescriptionSchema,
     profitMargin: z.number().min(0).optional(),
   })
   .strict();
 
 export const patchProductGroupSchema = z
   .object({
-    description: z.string().trim().min(1).max(255).toUpperCase().optional(),
+    description: enterpriseCatalogDescriptionSchema.optional(),
     profitMargin: z.number().min(0).nullable().optional(),
   })
   .strict()
@@ -21,6 +32,12 @@ export const patchProductGroupSchema = z
       data.description !== undefined || data.profitMargin !== undefined,
     "Deve haver ao menos um campo para atualizar",
   );
+
+export const productGroupEnterpriseParamsSchema = z
+  .object({
+    enterpriseId: uuidSchema("enterpriseId"),
+  })
+  .strict();
 
 export const productGroupParamsSchema = z
   .object({

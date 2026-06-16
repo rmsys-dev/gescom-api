@@ -7,6 +7,9 @@ import { emptyQuerySchema } from "../../shared/validation/common-schemas.js";
 import { enterpriseAddressesRouter } from "./enterprise-addresses/routes.js";
 import { membershipsRouter } from "../memberships/routes.js";
 import { usersRouter } from "../users/routes.js";
+import { enterpriseProductBrandsRouter } from "../products/product-brands/routes.js";
+import { enterpriseProductGroupsRouter } from "../products/product-groups/routes.js";
+import { enterpriseProductSubgroupsRouter } from "../products/product-subgroups/routes.js";
 import { enterprisesController } from "./controller.js";
 import {
   enterpriseParamsSchema,
@@ -51,6 +54,27 @@ enterprisesRouter.patch(
 //***ROTA DO MÓDULO DE ENDEREÇOS DA EMPRESA ***
 
 enterprisesRouter.use("/:enterpriseId/addresses", enterpriseAddressesRouter);
+
+//***ROTA DO MÓDULO DE MARCAS DE PRODUTO ***
+
+enterprisesRouter.use(
+  "/:enterpriseId/product-brands",
+  enterpriseProductBrandsRouter,
+);
+
+//***ROTA DO MÓDULO DE GRUPOS DE PRODUTO ***
+
+enterprisesRouter.use(
+  "/:enterpriseId/product-groups",
+  enterpriseProductGroupsRouter,
+);
+
+//***ROTA DO MÓDULO DE SUBGRUPOS DE PRODUTO ***
+
+enterprisesRouter.use(
+  "/:enterpriseId/product-subgroups",
+  enterpriseProductSubgroupsRouter,
+);
 
 //***ROTA DO MÓDULO DE MEMBROS ***
 

@@ -57,6 +57,13 @@
       "when": 1781610005276,
       "tag": "0007_tenant_products_stock_sales_sync",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1781611000000,
+      "tag": "0008_product_catalog_enterprise_description_unique",
+      "breakpoints": true
     }
   ]
 }

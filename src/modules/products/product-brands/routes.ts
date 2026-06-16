@@ -9,6 +9,7 @@ import {
   createProductBrandSchema,
   listProductBrandsQuerySchema,
   patchProductBrandSchema,
+  productBrandEnterpriseParamsSchema,
   productBrandParamsSchema,
 } from "./schema.js";
 
@@ -62,4 +63,18 @@ productBrandsRouter.delete(
   productBrandsController.delete,
 );
 
-export { productBrandsRouter };
+const enterpriseProductBrandsRouter = Router({ mergeParams: true });
+
+enterpriseProductBrandsRouter.get(
+  "/",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("consultar_marcas_produto"),
+  validateSchema({
+    params: productBrandEnterpriseParamsSchema,
+    query: listProductBrandsQuerySchema,
+  }),
+  productBrandsController.list,
+);
+
+export { productBrandsRouter, enterpriseProductBrandsRouter };

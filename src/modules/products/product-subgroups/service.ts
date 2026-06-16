@@ -14,6 +14,9 @@ import {
 } from "../../../shared/audit/entity-audit.js";
 import { toAuditRecord } from "../../../shared/audit/build-field-diff.js";
 import { EntityTypes } from "../../../shared/audit/entity-types.js";
+import {
+  assertEnterpriseCatalogDescriptionAvailable,
+} from "../shared/enterprise-catalog-description.js";
 import type {
   CreateProductSubgroupInput,
   ListProductSubgroupsQuery,
@@ -128,12 +131,19 @@ export class ProductSubgroupsService {
     input: CreateProductSubgroupInput,
     audit: EntityAuditContext,
   ) {
+    const description = await assertEnterpriseCatalogDescriptionAvailable({
+      table: productSubgroups,
+      enterpriseId,
+      description: input.description,
+      conflictCode: "PRODUCT_SUBGROUP_CONFLICT",
+      message: "Descricao de subgrupo ja existe na empresa",
+    });
     try {
       const [row] = await db
         .insert(productSubgroups)
         .values({
           enterprisesId: enterpriseId,
-          description: input.description.trim(),
+          description,
           ...mapSubgroupCommissionFieldsToInsert(input),
         })
         .returning();
@@ -163,13 +173,22 @@ export class ProductSubgroupsService {
     audit: EntityAuditContext,
   ) {
     const existing = await this.getById(enterpriseId, id);
+    const description =
+      input.description !== undefined
+        ? await assertEnterpriseCatalogDescriptionAvailable({
+            table: productSubgroups,
+            enterpriseId,
+            description: input.description,
+            excludeId: id,
+            conflictCode: "PRODUCT_SUBGROUP_CONFLICT",
+            message: "Descricao de subgrupo ja existe na empresa",
+          })
+        : undefined;
     try {
       const [row] = await db
         .update(productSubgroups)
         .set({
-          ...(input.description !== undefined
-            ? { description: input.description.trim() }
-            : {}),
+          ...(description !== undefined ? { description } : {}),
           ...mapSubgroupCommissionFieldsToInsert(input),
           updatedAt: new Date(),
         })

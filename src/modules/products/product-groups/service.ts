@@ -14,6 +14,9 @@ import {
 } from "../../../shared/audit/entity-audit.js";
 import { toAuditRecord } from "../../../shared/audit/build-field-diff.js";
 import { EntityTypes } from "../../../shared/audit/entity-types.js";
+import {
+  assertEnterpriseCatalogDescriptionAvailable,
+} from "../shared/enterprise-catalog-description.js";
 import type {
   CreateProductGroupInput,
   ListProductGroupsQuery,
@@ -66,12 +69,19 @@ export class ProductGroupsService {
     input: CreateProductGroupInput,
     audit: EntityAuditContext,
   ) {
+    const description = await assertEnterpriseCatalogDescriptionAvailable({
+      table: productGroups,
+      enterpriseId,
+      description: input.description,
+      conflictCode: "PRODUCT_GROUP_CONFLICT",
+      message: "Descricao de grupo ja existe na empresa",
+    });
     try {
       const [row] = await db
         .insert(productGroups)
         .values({
           enterprisesId: enterpriseId,
-          description: input.description.trim(),
+          description,
           profitMargin:
             input.profitMargin !== undefined
               ? input.profitMargin.toString()
@@ -104,13 +114,22 @@ export class ProductGroupsService {
     audit: EntityAuditContext,
   ) {
     const existing = await this.getById(enterpriseId, id);
+    const description =
+      input.description !== undefined
+        ? await assertEnterpriseCatalogDescriptionAvailable({
+            table: productGroups,
+            enterpriseId,
+            description: input.description,
+            excludeId: id,
+            conflictCode: "PRODUCT_GROUP_CONFLICT",
+            message: "Descricao de grupo ja existe na empresa",
+          })
+        : undefined;
     try {
       const [row] = await db
         .update(productGroups)
         .set({
-          ...(input.description !== undefined
-            ? { description: input.description.trim() }
-            : {}),
+          ...(description !== undefined ? { description } : {}),
           ...(input.profitMargin !== undefined
             ? {
                 profitMargin:

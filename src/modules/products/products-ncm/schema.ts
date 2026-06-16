@@ -6,7 +6,7 @@ export const listProductsNcmQuerySchema = createPaginationQuerySchema(100);
 const ncmCodeSchema = z
   .string()
   .trim()
-  .length(8, "NCM deve ter exatamente 8 caracteres");
+  .min(2, "NCM deve ter no minimo 2 caracteres");
 
 export const createProductsNcmSchema = z
   .object({

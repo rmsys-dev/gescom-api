@@ -1,23 +1,40 @@
 import { z } from "zod";
-import { createPaginationQuerySchema } from "../../../shared/validation/common-schemas.js";
+import {
+  createPaginationQuerySchema,
+  uuidSchema,
+} from "../../../shared/validation/common-schemas.js";
+import { normalizeEnterpriseCatalogDescription } from "../shared/enterprise-catalog-description.js";
 
 export const listProductBrandsQuerySchema = createPaginationQuerySchema(100);
 
+const enterpriseCatalogDescriptionSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(255)
+  .transform(normalizeEnterpriseCatalogDescription);
+
 export const createProductBrandSchema = z
   .object({
-    description: z.string().trim().min(1).max(255).toUpperCase(),
+    description: enterpriseCatalogDescriptionSchema,
   })
   .strict();
 
 export const patchProductBrandSchema = z
   .object({
-    description: z.string().trim().min(1).max(255).toUpperCase().optional(),
+    description: enterpriseCatalogDescriptionSchema.optional(),
   })
   .strict()
   .refine(
     (data) => data.description !== undefined,
     "Deve haver ao menos um campo para atualizar",
   );
+
+export const productBrandEnterpriseParamsSchema = z
+  .object({
+    enterpriseId: uuidSchema("enterpriseId"),
+  })
+  .strict();
 
 export const productBrandParamsSchema = z
   .object({

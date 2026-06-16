@@ -9,6 +9,7 @@ import {
   createProductSubgroupSchema,
   listProductSubgroupsQuerySchema,
   patchProductSubgroupSchema,
+  productSubgroupEnterpriseParamsSchema,
   productSubgroupParamsSchema,
 } from "./schema.js";
 
@@ -62,4 +63,18 @@ productSubgroupsRouter.delete(
   productSubgroupsController.delete,
 );
 
-export { productSubgroupsRouter };
+const enterpriseProductSubgroupsRouter = Router({ mergeParams: true });
+
+enterpriseProductSubgroupsRouter.get(
+  "/",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("consultar_subgrupos_produto"),
+  validateSchema({
+    params: productSubgroupEnterpriseParamsSchema,
+    query: listProductSubgroupsQuerySchema,
+  }),
+  productSubgroupsController.list,
+);
+
+export { productSubgroupsRouter, enterpriseProductSubgroupsRouter };

@@ -48,6 +48,18 @@ export class ProductsEnterprisesController {
     });
   };
 
+  public getByCode = async (req: Request, res: Response): Promise<void> => {
+    const code = Number(req.params["code"]);
+    const row = await productsEnterprisesService.getByCode(
+      requireTenantEnterpriseId((req as RequestWithAuth).auth!),
+      code,
+    );
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Produto da empresa recuperado com sucesso.",
+      data: row,
+    });
+  };
+
   public create = async (req: Request, res: Response): Promise<void> => {
     const reqAuth = req as RequestWithAuth;
     const auth = reqAuth.auth!;

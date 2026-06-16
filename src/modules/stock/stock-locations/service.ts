@@ -1,4 +1,4 @@
-import { asc, count, eq } from "drizzle-orm";
+import { and, asc, count, eq } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import { stockLocations, stockSectors } from "../../../db/schema.js";
 import {
@@ -14,6 +14,7 @@ import {
 } from "../../../shared/audit/entity-audit.js";
 import { toAuditRecord } from "../../../shared/audit/build-field-diff.js";
 import { EntityTypes } from "../../../shared/audit/entity-types.js";
+import { assertStockSectorBelongsToEnterprise } from "../balance.js";
 import type {
   CreateStockLocationInput,
   ListStockLocationsQuery,
@@ -21,43 +22,66 @@ import type {
 } from "./schema.js";
 
 export class StockLocationsService {
-  private async assertSectorExists(stockSectorId: string) {
-    const row = (
-      await db
-        .select({ id: stockSectors.id })
-        .from(stockSectors)
-        .where(eq(stockSectors.id, stockSectorId))
-        .limit(1)
-    )[0];
-    if (!row) {
-      throw new NotFoundError(
-        "Setor de estoque nao encontrado",
-        "STOCK_SECTOR_NOT_FOUND",
-      );
-    }
+  private scope(enterpriseId: string, id?: string) {
+    const base = [eq(stockSectors.enterprisesId, enterpriseId)];
+    if (id) base.push(eq(stockLocations.id, id));
+    return and(...base);
   }
 
-  public async list(query: ListStockLocationsQuery = {}) {
+  public async list(enterpriseId: string, query: ListStockLocationsQuery = {}) {
     const { limit, offset } = resolveListPagination(query);
+    const where = this.scope(enterpriseId);
     const [items, totalRows] = await Promise.all([
       db
-        .select()
+        .select({
+          id: stockLocations.id,
+          code: stockLocations.code,
+          description: stockLocations.description,
+          stockSectorId: stockLocations.stockSectorId,
+          status: stockLocations.status,
+          createdAt: stockLocations.createdAt,
+          updatedAt: stockLocations.updatedAt,
+        })
         .from(stockLocations)
+        .innerJoin(
+          stockSectors,
+          eq(stockLocations.stockSectorId, stockSectors.id),
+        )
+        .where(where)
         .orderBy(asc(stockLocations.code), asc(stockLocations.id))
         .limit(limit)
         .offset(offset),
-      db.select({ c: count() }).from(stockLocations),
+      db
+        .select({ c: count() })
+        .from(stockLocations)
+        .innerJoin(
+          stockSectors,
+          eq(stockLocations.stockSectorId, stockSectors.id),
+        )
+        .where(where),
     ]);
     const total = Number(totalRows[0]?.c ?? 0);
     return { items, total, limit, offset };
   }
 
-  public async getById(id: string) {
+  public async getById(enterpriseId: string, id: string) {
     const row = (
       await db
-        .select()
+        .select({
+          id: stockLocations.id,
+          code: stockLocations.code,
+          description: stockLocations.description,
+          stockSectorId: stockLocations.stockSectorId,
+          status: stockLocations.status,
+          createdAt: stockLocations.createdAt,
+          updatedAt: stockLocations.updatedAt,
+        })
         .from(stockLocations)
-        .where(eq(stockLocations.id, id))
+        .innerJoin(
+          stockSectors,
+          eq(stockLocations.stockSectorId, stockSectors.id),
+        )
+        .where(this.scope(enterpriseId, id))
         .limit(1)
     )[0];
     if (!row) {
@@ -70,10 +94,14 @@ export class StockLocationsService {
   }
 
   public async create(
+    enterpriseId: string,
     input: CreateStockLocationInput,
     audit: EntityAuditContext,
   ) {
-    await this.assertSectorExists(input.stockSectorId);
+    await assertStockSectorBelongsToEnterprise(
+      enterpriseId,
+      input.stockSectorId,
+    );
     try {
       const [row] = await db
         .insert(stockLocations)
@@ -104,13 +132,17 @@ export class StockLocationsService {
   }
 
   public async patch(
+    enterpriseId: string,
     id: string,
     input: PatchStockLocationInput,
     audit: EntityAuditContext,
   ) {
-    const existing = await this.getById(id);
+    const existing = await this.getById(enterpriseId, id);
     if (input.stockSectorId) {
-      await this.assertSectorExists(input.stockSectorId);
+      await assertStockSectorBelongsToEnterprise(
+        enterpriseId,
+        input.stockSectorId,
+      );
     }
     try {
       const [row] = await db
@@ -154,8 +186,12 @@ export class StockLocationsService {
     }
   }
 
-  public async delete(id: string, audit: EntityAuditContext) {
-    const existing = await this.getById(id);
+  public async delete(
+    enterpriseId: string,
+    id: string,
+    audit: EntityAuditContext,
+  ) {
+    const existing = await this.getById(enterpriseId, id);
     const [row] = await db
       .delete(stockLocations)
       .where(eq(stockLocations.id, id))

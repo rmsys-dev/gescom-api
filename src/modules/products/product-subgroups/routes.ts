@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authMiddleware } from "../../../shared/middleware/auth-middleware.js";
 import { requirePermission } from "../../../shared/middleware/permission-middleware.js";
+import { tenantMiddleware } from "../../../shared/middleware/tenant-middleware.js";
 import { validateSchema } from "../../../shared/middleware/validate-schema.js";
 import { emptyQuerySchema } from "../../../shared/validation/common-schemas.js";
 import { productSubgroupsController } from "./controller.js";
@@ -16,6 +17,7 @@ const productSubgroupsRouter = Router();
 productSubgroupsRouter.get(
   "/",
   authMiddleware,
+  tenantMiddleware,
   requirePermission("consultar_subgrupos_produto"),
   validateSchema({ query: listProductSubgroupsQuerySchema }),
   productSubgroupsController.list,
@@ -24,6 +26,7 @@ productSubgroupsRouter.get(
 productSubgroupsRouter.get(
   "/:productSubgroupId",
   authMiddleware,
+  tenantMiddleware,
   requirePermission("consultar_subgrupos_produto"),
   validateSchema({ params: productSubgroupParamsSchema, query: emptyQuerySchema }),
   productSubgroupsController.getById,
@@ -32,6 +35,7 @@ productSubgroupsRouter.get(
 productSubgroupsRouter.post(
   "/",
   authMiddleware,
+  tenantMiddleware,
   requirePermission("incluir_subgrupos_produto"),
   validateSchema({ body: createProductSubgroupSchema }),
   productSubgroupsController.create,
@@ -40,6 +44,7 @@ productSubgroupsRouter.post(
 productSubgroupsRouter.patch(
   "/:productSubgroupId",
   authMiddleware,
+  tenantMiddleware,
   requirePermission("alterar_subgrupos_produto"),
   validateSchema({
     params: productSubgroupParamsSchema,
@@ -51,6 +56,7 @@ productSubgroupsRouter.patch(
 productSubgroupsRouter.delete(
   "/:productSubgroupId",
   authMiddleware,
+  tenantMiddleware,
   requirePermission("excluir_subgrupos_produto"),
   validateSchema({ params: productSubgroupParamsSchema, query: emptyQuerySchema }),
   productSubgroupsController.delete,

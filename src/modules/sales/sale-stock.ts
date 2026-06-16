@@ -1,10 +1,11 @@
 import { db } from "../../db/index.js";
-import { stockMovements, stockSectors } from "../../db/schema.js";
+import { stockMovements } from "../../db/schema.js";
 import { eq, like } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "../../shared/errors/app-error.js";
 import { isServiceProductType } from "../../shared/products/product-type-service.js";
 import {
   assertBatchBelongsToProduct,
+  assertStockSectorBelongsToEnterprise,
   assertSufficientStock,
   getLocationSectorId,
   getProductEnterpriseForStock,
@@ -206,21 +207,13 @@ export async function validateSaleItemStock(
 
   assertNonServiceStockFields(item, pathPrefix);
 
-  const sector = (
-    await db
-      .select({ id: stockSectors.id })
-      .from(stockSectors)
-      .where(eq(stockSectors.id, item.stockSectorId!))
-      .limit(1)
-  )[0];
-  if (!sector) {
-    throw new NotFoundError(
-      "Setor de estoque nao encontrado",
-      "STOCK_SECTOR_NOT_FOUND",
-    );
-  }
+  await assertStockSectorBelongsToEnterprise(
+    enterpriseId,
+    item.stockSectorId!,
+    tx,
+  );
 
-  const locationSector = await getLocationSectorId(item.stockLocationId!);
+  const locationSector = await getLocationSectorId(item.stockLocationId!, tx);
   if (locationSector.stockSectorId !== item.stockSectorId) {
     throw new ValidationError(
       [

@@ -1,10 +1,6 @@
 import { and, asc, count, desc, eq, gte, lte } from "drizzle-orm";
 import { db } from "../../../db/index.js";
-import {
-  productsEnterprises,
-  stockLocations,
-  stockMovements,
-} from "../../../db/schema.js";
+import { productsEnterprises, stockMovements } from "../../../db/schema.js";
 import { NotFoundError } from "../../../shared/errors/app-error.js";
 import { resolveListPagination } from "../../../shared/pagination/pagination-params.js";
 import {
@@ -12,6 +8,7 @@ import {
   type EntityAuditContext,
 } from "../../../shared/audit/entity-audit.js";
 import { EntityTypes } from "../../../shared/audit/entity-types.js";
+import { assertStockLocationBelongsToEnterprise } from "../balance.js";
 import { createStockMovementInTx } from "../movement.js";
 import type {
   CreateStockMovementInput,
@@ -23,22 +20,6 @@ export class StockMovementsService {
     const base = [eq(productsEnterprises.enterprisesId, enterpriseId)];
     if (id) base.push(eq(stockMovements.id, id));
     return and(...base);
-  }
-
-  private async assertLocationExists(stockLocationId: string) {
-    const row = (
-      await db
-        .select({ id: stockLocations.id })
-        .from(stockLocations)
-        .where(eq(stockLocations.id, stockLocationId))
-        .limit(1)
-    )[0];
-    if (!row) {
-      throw new NotFoundError(
-        "Locacao fisica de estoque nao encontrada",
-        "STOCK_LOCATION_NOT_FOUND",
-      );
-    }
   }
 
   public async list(
@@ -155,10 +136,16 @@ export class StockMovementsService {
     audit: EntityAuditContext,
   ) {
     if (input.fromStockLocationId) {
-      await this.assertLocationExists(input.fromStockLocationId);
+      await assertStockLocationBelongsToEnterprise(
+        enterpriseId,
+        input.fromStockLocationId,
+      );
     }
     if (input.toStockLocationId) {
-      await this.assertLocationExists(input.toStockLocationId);
+      await assertStockLocationBelongsToEnterprise(
+        enterpriseId,
+        input.toStockLocationId,
+      );
     }
 
     const row = await db.transaction(async (tx) =>

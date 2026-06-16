@@ -149,20 +149,32 @@ export const productApplicationRelations = relations(
 );
 
 // relações da tabela de GRUPO DE PRODUTOS.
-export const productGroupsRelations = relations(productGroups, ({ many }) => ({
+export const productGroupsRelations = relations(productGroups, ({ one, many }) => ({
+  enterprise: one(enterprises, {
+    fields: [productGroups.enterprisesId],
+    references: [enterprises.id],
+  }),
   productsEnterprises: many(productsEnterprises),
 }));
 
 // relações da tabela de SUBGRUPO DE PRODUTOS.
 export const productSubgroupsRelations = relations(
   productSubgroups,
-  ({ many }) => ({
+  ({ one, many }) => ({
+    enterprise: one(enterprises, {
+      fields: [productSubgroups.enterprisesId],
+      references: [enterprises.id],
+    }),
     productsEnterprises: many(productsEnterprises),
   }),
 );
 
 // relações da tabela de MARCA DE PRODUTOS.
-export const productBrandsRelations = relations(productBrands, ({ many }) => ({
+export const productBrandsRelations = relations(productBrands, ({ one, many }) => ({
+  enterprise: one(enterprises, {
+    fields: [productBrands.enterprisesId],
+    references: [enterprises.id],
+  }),
   productsEnterprises: many(productsEnterprises),
 }));
 

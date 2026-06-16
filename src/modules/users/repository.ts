@@ -48,6 +48,25 @@ export const findUserByIdScoped = async (
   return rows[0]?.user ?? null;
 };
 
+export const findMemberIdForUserInEnterprise = async (
+  userId: string,
+  enterpriseId: string,
+): Promise<string | null> => {
+  const rows = await db
+    .select({ id: enterprisesMembers.id })
+    .from(enterprisesMembers)
+    .innerJoin(enterprises, eq(enterprises.id, enterprisesMembers.enterpriseId))
+    .where(
+      and(
+        eq(enterprisesMembers.userId, userId),
+        activeMembershipForEnterprise(enterpriseId),
+        activeEnterpriseRow(),
+      ),
+    )
+    .limit(1);
+  return rows[0]?.id ?? null;
+};
+
 //Busca um usuário pelo registro: modo de leitura já resolvido pelo middleware `resolveUserReadAccess`
 export const findUserByRegistrationScoped = async (
   registration: string,

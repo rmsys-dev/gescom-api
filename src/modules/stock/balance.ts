@@ -5,6 +5,7 @@ import {
   stockBatchBalances,
   stockBatches,
   stockLocations,
+  stockSectors,
   stockSectorsRental,
 } from "../../db/schema.js";
 import {
@@ -48,6 +49,61 @@ export async function getProductEnterpriseForStock( // PRODUTO EMPRESA
     throw new NotFoundError(
       "Produto da empresa nao encontrado",
       "PRODUCT_ENTERPRISE_NOT_FOUND",
+    );
+  }
+  return row;
+}
+
+export async function assertStockSectorBelongsToEnterprise(
+  enterpriseId: string,
+  stockSectorId: string,
+  tx?: Tx,
+) {
+  const runner = tx ?? db;
+  const row = (
+    await runner
+      .select({ id: stockSectors.id })
+      .from(stockSectors)
+      .where(
+        and(
+          eq(stockSectors.id, stockSectorId),
+          eq(stockSectors.enterprisesId, enterpriseId),
+        ),
+      )
+      .limit(1)
+  )[0];
+  if (!row) {
+    throw new NotFoundError(
+      "Setor de estoque nao encontrado",
+      "STOCK_SECTOR_NOT_FOUND",
+    );
+  }
+  return row;
+}
+
+export async function assertStockLocationBelongsToEnterprise(
+  enterpriseId: string,
+  stockLocationId: string,
+  tx?: Tx,
+) {
+  const runner = tx ?? db;
+  const row = (
+    await runner
+      .select({ id: stockLocations.id })
+      .from(stockLocations)
+      .innerJoin(stockSectors, eq(stockLocations.stockSectorId, stockSectors.id))
+      .where(
+        and(
+          eq(stockLocations.id, stockLocationId),
+          eq(stockSectors.enterprisesId, enterpriseId),
+        ),
+      )
+      .limit(1)
+  )[0];
+  if (!row) {
+    throw new NotFoundError(
+      "Locacao fisica de estoque nao encontrada",
+      "STOCK_LOCATION_NOT_FOUND",
     );
   }
   return row;

@@ -73,6 +73,12 @@ export const productEnterpriseParamsSchema = z
   })
   .strict();
 
+export const productEnterpriseCodeParamsSchema = z
+  .object({
+    code: z.coerce.number().int(),
+  })
+  .strict();
+
 export const createProductEnterprisePayloadSchema =
   createProductEnterpriseSchema.omit({ productId: true });
 

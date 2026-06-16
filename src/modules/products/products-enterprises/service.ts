@@ -87,7 +87,7 @@ export class ProductsEnterprisesService {
     }
   }
 
-  private async assertFkExists() {
+  private async assertFkExists(enterpriseId: string) {
     return {
       measurementUnit: async (id: string) => {
         const row = (
@@ -184,7 +184,12 @@ export class ProductsEnterprisesService {
           await db
             .select({ id: productGroups.id })
             .from(productGroups)
-            .where(eq(productGroups.id, id))
+            .where(
+              and(
+                eq(productGroups.id, id),
+                eq(productGroups.enterprisesId, enterpriseId),
+              ),
+            )
             .limit(1)
         )[0];
         if (!row) {
@@ -199,7 +204,12 @@ export class ProductsEnterprisesService {
           await db
             .select({ id: productSubgroups.id })
             .from(productSubgroups)
-            .where(eq(productSubgroups.id, id))
+            .where(
+              and(
+                eq(productSubgroups.id, id),
+                eq(productSubgroups.enterprisesId, enterpriseId),
+              ),
+            )
             .limit(1)
         )[0];
         if (!row) {
@@ -214,7 +224,12 @@ export class ProductsEnterprisesService {
           await db
             .select({ id: productBrands.id })
             .from(productBrands)
-            .where(eq(productBrands.id, id))
+            .where(
+              and(
+                eq(productBrands.id, id),
+                eq(productBrands.enterprisesId, enterpriseId),
+              ),
+            )
             .limit(1)
         )[0];
         if (!row) {
@@ -298,7 +313,9 @@ export class ProductsEnterprisesService {
     }
   }
 
-  private async validateProductFks(input: {
+  private async validateProductFks(
+    enterpriseId: string,
+    input: {
     measurementUnitId: string;
     productTypeId: string;
     productNcmId?: string | null;
@@ -308,10 +325,11 @@ export class ProductsEnterprisesService {
     productGroupId: string;
     productSubgroupId: string;
     productBrandId: string;
-  }) {
+  },
+  ) {
     await this.validateProductTypeRules(input);
 
-    const fk = await this.assertFkExists();
+    const fk = await this.assertFkExists(enterpriseId);
     const checks = [
       fk.measurementUnit(input.measurementUnitId),
       fk.productType(input.productTypeId),
@@ -335,9 +353,10 @@ export class ProductsEnterprisesService {
   }
 
   public async assertEnterprisePayload(
+    enterpriseId: string,
     input: CreateProductEnterprisePayloadInput,
   ) {
-    await this.validateProductFks(input);
+    await this.validateProductFks(enterpriseId, input);
   }
 
   private async insertEnterpriseLink(
@@ -484,6 +503,7 @@ export class ProductsEnterprisesService {
             .where(
               and(
                 eq(productGroups.id, productsEnterprises.productGroupId),
+                eq(productGroups.enterprisesId, enterpriseId),
                 ilike(productGroups.description, term),
               ),
             ),
@@ -504,6 +524,7 @@ export class ProductsEnterprisesService {
                   productSubgroups.id,
                   productsEnterprises.productSubgroupId,
                 ),
+                eq(productSubgroups.enterprisesId, enterpriseId),
                 ilike(productSubgroups.description, term),
               ),
             ),
@@ -521,6 +542,7 @@ export class ProductsEnterprisesService {
             .where(
               and(
                 eq(productBrands.id, productsEnterprises.productBrandId),
+                eq(productBrands.enterprisesId, enterpriseId),
                 ilike(productBrands.description, term),
               ),
             ),
@@ -587,6 +609,29 @@ export class ProductsEnterprisesService {
     return this.getLinkedRow(enterpriseId, id);
   }
 
+  public async getByCode(enterpriseId: string, code: number) {
+    const row = (
+      await db
+        .select(productEnterpriseSelectFields)
+        .from(productsEnterprises)
+        .innerJoin(products, eq(productsEnterprises.productId, products.id))
+        .where(
+          and(
+            eq(productsEnterprises.enterprisesId, enterpriseId),
+            eq(productsEnterprises.code, code),
+          ),
+        )
+        .limit(1)
+    )[0];
+    if (!row) {
+      throw new NotFoundError(
+        "Vinculo produto/empresa nao encontrado",
+        "PRODUCT_ENTERPRISE_NOT_FOUND",
+      );
+    }
+    return row;
+  }
+
   public async create(
     enterpriseId: string,
     input: CreateProductEnterpriseInput,
@@ -594,7 +639,7 @@ export class ProductsEnterprisesService {
   ) {
     await Promise.all([
       this.assertProductExists(input.productId),
-      this.validateProductFks(input),
+      this.validateProductFks(enterpriseId, input),
     ]);
     const { productId, ...payload } = input;
     return this.createForProduct(
@@ -647,7 +692,7 @@ export class ProductsEnterprisesService {
       input.productSubgroupId ||
       input.productBrandId
     ) {
-      await this.validateProductFks(merged);
+      await this.validateProductFks(enterpriseId, merged);
     }
     try {
       const [row] = await db

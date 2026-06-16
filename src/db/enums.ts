@@ -52,9 +52,8 @@ export const typeUserContactEnum = pgEnum("type_user_contact", [
 
 //Tipo de crédito (crédito, débito, outro)
 export const creditTypeEnum = pgEnum("credit_type", [
-  "CREDITO",
-  "DEBITO",
-  "OUTRO",
+  "MENSAL",
+  "GERAL"
 ]);
 
 //Tipo de moradia (alugado, próprio, doado, emprestado, outro)
@@ -129,6 +128,7 @@ export const memberClassEnum = pgEnum("member_class", [
   "GERENTE",
   "COLABORADOR",
   "CLIENTE",
+  "TRANSPORTADOR",
   "FORNECEDOR",
   "PARCEIRO",
   "SOCIO",
@@ -182,6 +182,12 @@ export const entityTypeEnum = pgEnum("entity_type", [
   "USERS_RELATIONSHIPS",
   "USERS_TAX_INFOS",
   "USERS_FINANCIAL_INFO",
+  "MEMBERS_PERSONAL_INFO",
+  "MEMBERS_ADDRESS",
+  "MEMBERS_CONTACT",
+  "MEMBERS_RELATIONSHIPS",
+  "MEMBERS_TAX_INFOS",
+  "MEMBERS_FINANCIAL_INFO",
   "ENTERPRISES",
   "ENTERPRISES_ADDRESS",
   "ENTERPRISES_MEMBERS",

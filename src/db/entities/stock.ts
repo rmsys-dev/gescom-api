@@ -15,16 +15,30 @@ import {
   stockMovementTypeEnum,
 } from "../enums.js";
 import { productsEnterprises } from "./products.js";
+import { enterprises } from "./enterprises.js";
 import { users } from "./users.js";
 import { tz } from "../functions.js";
 
 // SETOR DE ESTOQUE
-export const stockSectors = pgTable("stock_sectors", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  description: varchar("description", { length: 255 }).notNull(),
-  createdAt: tz("created_at").defaultNow().notNull(),
-  updatedAt: tz("updated_at"),
-});
+export const stockSectors = pgTable(
+  "stock_sectors",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    enterprisesId: uuid("enterprises_id")
+      .notNull()
+      .references(() => enterprises.id, { onDelete: "cascade" }),
+    description: varchar("description", { length: 255 }).notNull(),
+    createdAt: tz("created_at").defaultNow().notNull(),
+    updatedAt: tz("updated_at"),
+  },
+  (t) => [
+    uniqueIndex("stock_sectors_enterprise_description_unique").on(
+      t.enterprisesId,
+      t.description,
+    ),
+    index("stock_sectors_enterprise_idx").on(t.enterprisesId),
+  ],
+);
 
 // LOCAÇÃO FÍSICA DENTRO DO SETOR (corredor / prateleira / nível)
 export const stockLocations = pgTable(

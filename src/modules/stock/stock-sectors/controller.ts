@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import type { RequestWithAuth } from "../../../shared/middleware/auth-middleware.js";
+import { requireTenantEnterpriseId } from "../../../shared/controllers/tenant-context.js";
 import {
   auditContextFromDeleteAuth,
   auditContextFromPatchAuth,
@@ -22,7 +23,10 @@ export class StockSectorsController {
   public list = async (req: Request, res: Response): Promise<void> => {
     const query = (req as RequestWithValidatedQuery<ListStockSectorsQuery>)
       .validatedQuery;
-    const page = await stockSectorsService.list(query);
+    const enterpriseId = requireTenantEnterpriseId(
+      (req as RequestWithAuth).auth!,
+    );
+    const page = await stockSectorsService.list(enterpriseId, query);
     sendPageFromService(
       res,
       HttpStatus.OK,
@@ -32,8 +36,11 @@ export class StockSectorsController {
   };
 
   public getById = async (req: Request, res: Response): Promise<void> => {
+    const enterpriseId = requireTenantEnterpriseId(
+      (req as RequestWithAuth).auth!,
+    );
     const stockSectorId = req.params["stockSectorId"] as string;
-    const row = await stockSectorsService.getById(stockSectorId);
+    const row = await stockSectorsService.getById(enterpriseId, stockSectorId);
     sendSuccessResponse(res, HttpStatus.OK, {
       message: "Setor de estoque recuperado com sucesso.",
       data: row,
@@ -43,7 +50,9 @@ export class StockSectorsController {
   public create = async (req: Request, res: Response): Promise<void> => {
     const body = req.body as CreateStockSectorInput;
     const auth = (req as RequestWithAuth).auth!;
+    const enterpriseId = requireTenantEnterpriseId(auth);
     const row = await stockSectorsService.create(
+      enterpriseId,
       body,
       auditContextFromPostAuth(auth, req, "stock.stock-sectors.service.create"),
     );
@@ -57,7 +66,9 @@ export class StockSectorsController {
     const stockSectorId = req.params["stockSectorId"] as string;
     const body = req.body as PatchStockSectorInput;
     const auth = (req as RequestWithAuth).auth!;
+    const enterpriseId = requireTenantEnterpriseId(auth);
     const row = await stockSectorsService.patch(
+      enterpriseId,
       stockSectorId,
       body,
       auditContextFromPatchAuth(auth, req, "stock.stock-sectors.service.patch"),
@@ -71,7 +82,9 @@ export class StockSectorsController {
   public delete = async (req: Request, res: Response): Promise<void> => {
     const stockSectorId = req.params["stockSectorId"] as string;
     const auth = (req as RequestWithAuth).auth!;
+    const enterpriseId = requireTenantEnterpriseId(auth);
     const row = await stockSectorsService.delete(
+      enterpriseId,
       stockSectorId,
       auditContextFromDeleteAuth(auth, req, "stock.stock-sectors.service.delete"),
     );

@@ -12,6 +12,7 @@ import {
   listMembersQuerySchema,
   memberDepartmentBaseParamsSchema,
   memberDepartmentParamsSchema,
+  membershipCodeParamsSchema,
   membershipEnterpriseParamsSchema,
   membershipMemberDepartmentParamsSchema,
   membershipPatchParamsSchema,
@@ -60,6 +61,16 @@ membershipsRouter.get(
     query: listMembersQuerySchema,
   }),
   membershipsController.list,
+);
+
+//Detalhe de membro por código
+membershipsRouter.get(
+  "/code/:code",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("consultar_membros"),
+  validateSchema({ params: membershipCodeParamsSchema }),
+  membershipsController.getByCode,
 );
 
 //Detalhe de membro por ID

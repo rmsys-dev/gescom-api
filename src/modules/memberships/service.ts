@@ -11,7 +11,7 @@ import {
   memberPermissionsDefault,
   membersDepartments,
   users,
-  usersAddress,
+  membersAddress,
 } from "../../db/schema.js";
 import { env } from "../../config/env.js";
 import {
@@ -102,47 +102,47 @@ const formatAddressLine = (street: string, number: string): string => {
   return parts.join(", ");
 };
 
-const loadPrincipalAddressSummariesByUserId = async (
-  userIds: string[],
+const loadPrincipalAddressSummariesByMemberId = async (
+  memberIds: string[],
 ): Promise<Map<string, { addressLine: string | null; cityName: string | null }>> => {
-  const uniqueUserIds = [...new Set(userIds)];
-  if (uniqueUserIds.length === 0) {
+  const uniqueMemberIds = [...new Set(memberIds)];
+  if (uniqueMemberIds.length === 0) {
     return new Map();
   }
 
   const rows = await db
     .select({
-      userId: usersAddress.userId,
+      memberId: membersAddress.memberId,
       street: ceps.address,
       number: ceps.number,
       cityName: cities.citieName,
     })
-    .from(usersAddress)
-    .innerJoin(ceps, eq(usersAddress.cepId, ceps.id))
-    .innerJoin(cities, eq(usersAddress.cityId, cities.id))
+    .from(membersAddress)
+    .innerJoin(ceps, eq(membersAddress.cepId, ceps.id))
+    .innerJoin(cities, eq(membersAddress.cityId, cities.id))
     .where(
       and(
-        inArray(usersAddress.userId, uniqueUserIds),
-        eq(usersAddress.adressType, "PRINCIPAL"),
-        isNull(usersAddress.deletedAt),
+        inArray(membersAddress.memberId, uniqueMemberIds),
+        eq(membersAddress.adressType, "PRINCIPAL"),
+        isNull(membersAddress.deletedAt),
         isNull(ceps.deletedAt),
         isNull(cities.deletedAt),
       ),
     );
 
-  const byUserId = new Map<
+  const byMemberId = new Map<
     string,
     { addressLine: string | null; cityName: string | null }
   >();
   for (const row of rows) {
-    if (byUserId.has(row.userId)) continue;
+    if (byMemberId.has(row.memberId)) continue;
     const addressLine = formatAddressLine(row.street, row.number);
-    byUserId.set(row.userId, {
+    byMemberId.set(row.memberId, {
       addressLine: addressLine || null,
       cityName: row.cityName?.trim() || null,
     });
   }
-  return byUserId;
+  return byMemberId;
 };
 
 const formatMembershipPercentage = (value: number) =>
@@ -284,10 +284,8 @@ export class MembershipsService {
     });
 
     const rowsById = new Map(rows.map((row) => [row.id, row]));
-    const addressByUserId = await loadPrincipalAddressSummariesByUserId(
-      rows
-        .map((row) => row.user?.id)
-        .filter((userId): userId is string => userId != null),
+    const addressByMemberId = await loadPrincipalAddressSummariesByMemberId(
+      memberIds,
     );
 
     const items = memberIds.flatMap((memberId) => {
@@ -296,7 +294,7 @@ export class MembershipsService {
         return [];
       }
 
-      const address = addressByUserId.get(row.user.id);
+      const address = addressByMemberId.get(memberId);
 
       return [
         mapMemberWithUser({
@@ -404,6 +402,26 @@ export class MembershipsService {
       }),
       departments,
     };
+  }
+
+  /** Detalhe do vínculo membro-empresa por código interno. */
+  public async getByCode(enterpriseId: string, code: number) {
+    await this.assertEnterpriseExists(enterpriseId);
+
+    const match = await db.query.enterprisesMembers.findFirst({
+      where: and(
+        eq(enterprisesMembers.enterpriseId, enterpriseId),
+        eq(enterprisesMembers.code, code),
+        isNull(enterprisesMembers.deletedAt),
+      ),
+      columns: { id: true },
+    });
+
+    if (!match) {
+      throw new NotFoundError("Membro nao encontrado", "MEMBERSHIP_NOT_FOUND");
+    }
+
+    return this.getById(enterpriseId, match.id);
   }
 
   //Verifica se a empresa existe

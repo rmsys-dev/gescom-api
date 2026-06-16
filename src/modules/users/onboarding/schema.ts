@@ -45,8 +45,8 @@ export const usersContactParamsSchema = userEnterpriseAndIdParamsSchema
 export const personalInfoCreateSchema = z
   .object({
     gender: genderSchema.optional(),
-    birthDate: dateOnlyIsoSchema("birthDate").optional(),
-    placeOfBirth: personNameSchema("placeOfBirth").optional(),
+    birthDate: dateOnlyIsoSchema("birthDate").optional(),  
+    placeOfBirth: personNameSchema("placeOfBirth").optional(),  
   })
   .strict();
 
@@ -143,14 +143,14 @@ export type UsersContactPatchInput = z.infer<typeof usersContactPatchSchema>;
 
 export const usersRelationshipsCreateSchema = z
   .object({
-    maritalStatus: maritalStatusSchema.optional(),
-    spouseName: personNameSchema("spouseName").optional(),
-    housingType: housingTypeSchema.optional(),
-    rentalPeriod: z.coerce.number().int().min(0).optional(),
-    motherName: personNameSchema("motherName").optional(),
+    maritalStatus: maritalStatusSchema.optional(),  
+    spouseName: personNameSchema("spouseName").optional(),  
+    housingType: housingTypeSchema.optional(),  
+    rentalPeriod: z.coerce.number().int().min(0).optional(),  
+    motherName: personNameSchema("motherName").optional(),  
     fatherName: personNameSchema("fatherName").optional(),
-    profession: personNameSchema("profession").optional(),
-    professionDescription: personNameSchema("professionDescription").optional(),
+    profession: personNameSchema("profession").optional(), 
+    professionDescription: personNameSchema("professionDescription").optional(), 
     professionTime: z.coerce.number().int().min(0).optional(),
     income: z.coerce.number().min(0).optional(),
     linkWithSeller: z.boolean().optional(),
@@ -228,9 +228,7 @@ export const usersFinancialInfoCreateSchema = z
     ratTax: z.coerce.number().min(0).max(100).optional(),
     reductionRate: z.coerce.number().min(0).max(100).optional(),
     senarTax: z.coerce.number().min(0).max(100).optional(),
-    low: z.boolean().optional(),
     sale_discount: z.coerce.number().min(0).max(100).optional(),
-    doSt: z.boolean().optional(),
     sendNF: z.boolean().optional(),
   })
   .strict();
@@ -249,3 +247,9 @@ export type UsersFinancialInfoCreateInput = z.infer<
 export type UsersFinancialInfoPatchInput = z.infer<
   typeof usersFinancialInfoPatchSchema
 >;
+
+// Aliases para perfil vinculado a enterprises_members (members_*)
+export const membersContactCreateSchema = usersContactCreateSchema;
+export const membersRelationshipsCreateSchema = usersRelationshipsCreateSchema;
+export const membersTaxInfosCreateSchema = usersTaxInfosCreateSchema;
+export const membersFinancialInfoCreateSchema = usersFinancialInfoCreateSchema;

@@ -6,6 +6,12 @@ import { enterprisesSequences } from "../entities/sequences.js";
 import { departments } from "../entities/departments.js";
 import { membersDepartments } from "../entities/members.js";
 import { departmentDefaultPermissions } from "../entities/departments.js";
+import { stockSectors } from "../entities/stock.js";
+import {
+  productBrands,
+  productGroups,
+  productSubgroups,
+} from "../entities/products.js";
 
 //**RELAÇÕES DE ENDEREÇOS DE EMPRESAS**//
 export const enterprisesAddressRelations = relations(
@@ -39,6 +45,10 @@ export const enterprisesRelations = relations(enterprises, ({ many }) => ({
   members: many(enterprisesMembers),
   addresses: many(enterprisesAddress),
   sequences: many(enterprisesSequences),
+  stockSectors: many(stockSectors),
+  productGroups: many(productGroups),
+  productSubgroups: many(productSubgroups),
+  productBrands: many(productBrands),
 }));
 
 //**RELAÇÕES DE DEPARTAMENTOS**//

@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import type { RequestWithAuth } from "../../../shared/middleware/auth-middleware.js";
+import { requireTenantEnterpriseId } from "../../../shared/controllers/tenant-context.js";
 import {
   auditContextFromDeleteAuth,
   auditContextFromPatchAuth,
@@ -22,7 +23,10 @@ export class StockLocationsController {
   public list = async (req: Request, res: Response): Promise<void> => {
     const query = (req as RequestWithValidatedQuery<ListStockLocationsQuery>)
       .validatedQuery;
-    const page = await stockLocationsService.list(query);
+    const enterpriseId = requireTenantEnterpriseId(
+      (req as RequestWithAuth).auth!,
+    );
+    const page = await stockLocationsService.list(enterpriseId, query);
     sendPageFromService(
       res,
       HttpStatus.OK,
@@ -32,8 +36,14 @@ export class StockLocationsController {
   };
 
   public getById = async (req: Request, res: Response): Promise<void> => {
+    const enterpriseId = requireTenantEnterpriseId(
+      (req as RequestWithAuth).auth!,
+    );
     const stockLocationId = req.params["stockLocationId"] as string;
-    const row = await stockLocationsService.getById(stockLocationId);
+    const row = await stockLocationsService.getById(
+      enterpriseId,
+      stockLocationId,
+    );
     sendSuccessResponse(res, HttpStatus.OK, {
       message: "Locacao fisica de estoque recuperada com sucesso.",
       data: row,
@@ -43,7 +53,9 @@ export class StockLocationsController {
   public create = async (req: Request, res: Response): Promise<void> => {
     const body = req.body as CreateStockLocationInput;
     const auth = (req as RequestWithAuth).auth!;
+    const enterpriseId = requireTenantEnterpriseId(auth);
     const row = await stockLocationsService.create(
+      enterpriseId,
       body,
       auditContextFromPostAuth(auth, req, "stock.stock-locations.service.create"),
     );
@@ -57,7 +69,9 @@ export class StockLocationsController {
     const stockLocationId = req.params["stockLocationId"] as string;
     const body = req.body as PatchStockLocationInput;
     const auth = (req as RequestWithAuth).auth!;
+    const enterpriseId = requireTenantEnterpriseId(auth);
     const row = await stockLocationsService.patch(
+      enterpriseId,
       stockLocationId,
       body,
       auditContextFromPatchAuth(auth, req, "stock.stock-locations.service.patch"),
@@ -71,7 +85,9 @@ export class StockLocationsController {
   public delete = async (req: Request, res: Response): Promise<void> => {
     const stockLocationId = req.params["stockLocationId"] as string;
     const auth = (req as RequestWithAuth).auth!;
+    const enterpriseId = requireTenantEnterpriseId(auth);
     const row = await stockLocationsService.delete(
+      enterpriseId,
       stockLocationId,
       auditContextFromDeleteAuth(
         auth,

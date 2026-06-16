@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { createPaginationQuerySchema, uuidSchema } from "../../shared/validation/common-schemas.js";
+import {
+  createPaginationQuerySchema,
+  uuidSchema,
+} from "../../shared/validation/common-schemas.js";
 
 export const departmentParamsSchema = z
   .object({

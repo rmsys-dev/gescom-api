@@ -1,12 +1,12 @@
 import { relations } from "drizzle-orm";
 import { enterprisesAddress } from "../entities/enterprises.js";
 import { ceps, countries, states, cities } from "../entities/addresses.js";
-import { usersAddress } from "../entities/users.js";
+import { membersAddress } from "../entities/members.js";
 
 //**RELAÇÕES DE ENDEREÇOS**//
 export const countriesRelations = relations(countries, ({ many }) => ({
   states: many(states),
-  usersAddresses: many(usersAddress),
+  membersAddresses: many(membersAddress),
   enterprisesAddresses: many(enterprisesAddress),
 }));
 
@@ -17,7 +17,7 @@ export const statesRelations = relations(states, ({ one, many }) => ({
     references: [countries.id],
   }),
   cities: many(cities),
-  usersAddresses: many(usersAddress),
+  membersAddresses: many(membersAddress),
   enterprisesAddresses: many(enterprisesAddress),
 }));
 
@@ -28,7 +28,7 @@ export const citiesRelations = relations(cities, ({ one, many }) => ({
     references: [states.id],
   }),
   ceps: many(ceps),
-  usersAddresses: many(usersAddress),
+  membersAddresses: many(membersAddress),
   enterprisesAddresses: many(enterprisesAddress),
 }));
 
@@ -38,6 +38,6 @@ export const cepsRelations = relations(ceps, ({ one, many }) => ({
     fields: [ceps.cityId],
     references: [cities.id],
   }),
-  usersAddresses: many(usersAddress),
+  membersAddresses: many(membersAddress),
   enterprisesAddresses: many(enterprisesAddress),
 }));

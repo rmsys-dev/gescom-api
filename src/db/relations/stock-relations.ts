@@ -1,5 +1,6 @@
 import { relations } from "drizzle-orm";
 import { productsEnterprises } from "../entities/products.js";
+import { enterprises } from "../entities/enterprises.js";
 import {
   stockBatchBalances,
   stockMinMax,
@@ -12,7 +13,11 @@ import {
 import { users } from "../entities/users.js";
 
 // relações da tabela de ESTOQUE DE SETOR.
-export const stockSectorsRelations = relations(stockSectors, ({ many }) => ({
+export const stockSectorsRelations = relations(stockSectors, ({ one, many }) => ({
+  enterprise: one(enterprises, {
+    fields: [stockSectors.enterprisesId],
+    references: [enterprises.id],
+  }),
   stockLocations: many(stockLocations), // LOCAÇÕES
   stockSectorsRental: many(stockSectorsRental), // SALDOS POR SETOR DE ESTOQUE
   stockBatchBalances: many(stockBatchBalances), // SALDOS POR LOTE

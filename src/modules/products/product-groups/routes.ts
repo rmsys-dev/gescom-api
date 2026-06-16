@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authMiddleware } from "../../../shared/middleware/auth-middleware.js";
 import { requirePermission } from "../../../shared/middleware/permission-middleware.js";
+import { tenantMiddleware } from "../../../shared/middleware/tenant-middleware.js";
 import { validateSchema } from "../../../shared/middleware/validate-schema.js";
 import { emptyQuerySchema } from "../../../shared/validation/common-schemas.js";
 import { productGroupsController } from "./controller.js";
@@ -16,6 +17,7 @@ const productGroupsRouter = Router();
 productGroupsRouter.get(
   "/",
   authMiddleware,
+  tenantMiddleware,
   requirePermission("consultar_grupos_produto"),
   validateSchema({ query: listProductGroupsQuerySchema }),
   productGroupsController.list,
@@ -24,6 +26,7 @@ productGroupsRouter.get(
 productGroupsRouter.get(
   "/:productGroupId",
   authMiddleware,
+  tenantMiddleware,
   requirePermission("consultar_grupos_produto"),
   validateSchema({ params: productGroupParamsSchema, query: emptyQuerySchema }),
   productGroupsController.getById,
@@ -32,6 +35,7 @@ productGroupsRouter.get(
 productGroupsRouter.post(
   "/",
   authMiddleware,
+  tenantMiddleware,
   requirePermission("incluir_grupos_produto"),
   validateSchema({ body: createProductGroupSchema }),
   productGroupsController.create,
@@ -40,6 +44,7 @@ productGroupsRouter.post(
 productGroupsRouter.patch(
   "/:productGroupId",
   authMiddleware,
+  tenantMiddleware,
   requirePermission("alterar_grupos_produto"),
   validateSchema({
     params: productGroupParamsSchema,
@@ -51,6 +56,7 @@ productGroupsRouter.patch(
 productGroupsRouter.delete(
   "/:productGroupId",
   authMiddleware,
+  tenantMiddleware,
   requirePermission("excluir_grupos_produto"),
   validateSchema({ params: productGroupParamsSchema, query: emptyQuerySchema }),
   productGroupsController.delete,

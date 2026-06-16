@@ -1,7 +1,11 @@
-import { asc, count, eq } from "drizzle-orm";
+import { and, asc, count, eq } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import { productSubgroups } from "../../../db/schema.js";
-import { NotFoundError } from "../../../shared/errors/app-error.js";
+import {
+  ConflictError,
+  NotFoundError,
+} from "../../../shared/errors/app-error.js";
+import { isPostgresUniqueViolation } from "../../../shared/db/postgres-errors.js";
 import { resolveListPagination } from "../../../shared/pagination/pagination-params.js";
 import {
   recordCreateAudit,
@@ -79,27 +83,35 @@ const mapSubgroupCommissionFieldsToInsert = (
 });
 
 export class ProductSubgroupsService {
-  public async list(query: ListProductSubgroupsQuery = {}) {
+  private scope(enterpriseId: string, id?: string) {
+    const base = [eq(productSubgroups.enterprisesId, enterpriseId)];
+    if (id) base.push(eq(productSubgroups.id, id));
+    return and(...base);
+  }
+
+  public async list(enterpriseId: string, query: ListProductSubgroupsQuery = {}) {
     const { limit, offset } = resolveListPagination(query);
+    const where = this.scope(enterpriseId);
     const [items, totalRows] = await Promise.all([
       db
         .select()
         .from(productSubgroups)
+        .where(where)
         .orderBy(asc(productSubgroups.description), asc(productSubgroups.id))
         .limit(limit)
         .offset(offset),
-      db.select({ c: count() }).from(productSubgroups),
+      db.select({ c: count() }).from(productSubgroups).where(where),
     ]);
     const total = Number(totalRows[0]?.c ?? 0);
     return { items, total, limit, offset };
   }
 
-  public async getById(id: string) {
+  public async getById(enterpriseId: string, id: string) {
     const row = (
       await db
         .select()
         .from(productSubgroups)
-        .where(eq(productSubgroups.id, id))
+        .where(this.scope(enterpriseId, id))
         .limit(1)
     )[0];
     if (!row) {
@@ -112,65 +124,92 @@ export class ProductSubgroupsService {
   }
 
   public async create(
+    enterpriseId: string,
     input: CreateProductSubgroupInput,
     audit: EntityAuditContext,
   ) {
-    const [row] = await db
-      .insert(productSubgroups)
-      .values({
-        description: input.description.trim(),
-        ...mapSubgroupCommissionFieldsToInsert(input),
-      })
-      .returning();
-    if (!row) throw new Error("Falha ao criar subgrupo de produto");
-    await recordCreateAudit({
-      entityType: EntityTypes.PRODUCT_SUBGROUPS,
-      entityId: row.id,
-      after: row,
-      ctx: audit,
-    });
-    return row;
+    try {
+      const [row] = await db
+        .insert(productSubgroups)
+        .values({
+          enterprisesId: enterpriseId,
+          description: input.description.trim(),
+          ...mapSubgroupCommissionFieldsToInsert(input),
+        })
+        .returning();
+      if (!row) throw new Error("Falha ao criar subgrupo de produto");
+      await recordCreateAudit({
+        entityType: EntityTypes.PRODUCT_SUBGROUPS,
+        entityId: row.id,
+        after: row,
+        ctx: audit,
+      });
+      return row;
+    } catch (err) {
+      if (isPostgresUniqueViolation(err)) {
+        throw new ConflictError(
+          "Descricao de subgrupo ja existe na empresa",
+          "PRODUCT_SUBGROUP_CONFLICT",
+        );
+      }
+      throw err;
+    }
   }
 
   public async patch(
+    enterpriseId: string,
     id: string,
     input: PatchProductSubgroupInput,
     audit: EntityAuditContext,
   ) {
-    const existing = await this.getById(id);
-    const [row] = await db
-      .update(productSubgroups)
-      .set({
-        ...(input.description !== undefined
-          ? { description: input.description.trim() }
-          : {}),
-        ...mapSubgroupCommissionFieldsToInsert(input),
-        updatedAt: new Date(),
-      })
-      .where(eq(productSubgroups.id, id))
-      .returning();
-    if (!row) {
-      throw new NotFoundError(
-        "Subgrupo de produto nao encontrado",
-        "PRODUCT_SUBGROUP_NOT_FOUND",
-      );
+    const existing = await this.getById(enterpriseId, id);
+    try {
+      const [row] = await db
+        .update(productSubgroups)
+        .set({
+          ...(input.description !== undefined
+            ? { description: input.description.trim() }
+            : {}),
+          ...mapSubgroupCommissionFieldsToInsert(input),
+          updatedAt: new Date(),
+        })
+        .where(this.scope(enterpriseId, id))
+        .returning();
+      if (!row) {
+        throw new NotFoundError(
+          "Subgrupo de produto nao encontrado",
+          "PRODUCT_SUBGROUP_NOT_FOUND",
+        );
+      }
+      await recordEntityAudit({
+        entityType: EntityTypes.PRODUCT_SUBGROUPS,
+        entityId: id,
+        action: "UPDATE",
+        before: toAuditRecord(existing),
+        after: toAuditRecord(row),
+        ctx: audit,
+      });
+      return row;
+    } catch (err) {
+      if (isPostgresUniqueViolation(err)) {
+        throw new ConflictError(
+          "Descricao de subgrupo ja existe na empresa",
+          "PRODUCT_SUBGROUP_CONFLICT",
+        );
+      }
+      throw err;
     }
-    await recordEntityAudit({
-      entityType: EntityTypes.PRODUCT_SUBGROUPS,
-      entityId: id,
-      action: "UPDATE",
-      before: toAuditRecord(existing),
-      after: toAuditRecord(row),
-      ctx: audit,
-    });
-    return row;
   }
 
-  public async delete(id: string, audit: EntityAuditContext) {
-    const existing = await this.getById(id);
+  public async delete(
+    enterpriseId: string,
+    id: string,
+    audit: EntityAuditContext,
+  ) {
+    const existing = await this.getById(enterpriseId, id);
     const [row] = await db
       .delete(productSubgroups)
-      .where(eq(productSubgroups.id, id))
+      .where(this.scope(enterpriseId, id))
       .returning();
     if (!row) {
       throw new NotFoundError(

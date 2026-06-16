@@ -2,7 +2,6 @@ import { and, asc, count, eq } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import {
   productsEnterprises,
-  stockLocations,
   stockSectorsRental,
 } from "../../../db/schema.js";
 import {
@@ -19,7 +18,7 @@ import {
 } from "../../../shared/audit/entity-audit.js";
 import { toAuditRecord } from "../../../shared/audit/build-field-diff.js";
 import { EntityTypes } from "../../../shared/audit/entity-types.js";
-import { getProductEnterpriseForStock } from "../balance.js";
+import { getProductEnterpriseForStock, assertStockLocationBelongsToEnterprise } from "../balance.js";
 import type {
   CreateStockSectorRentalInput,
   ListStockSectorsRentalQuery,
@@ -53,19 +52,10 @@ export class StockSectorsRentalService {
         "Use saldo por lote",
       );
     }
-    const location = (
-      await db
-        .select({ id: stockLocations.id })
-        .from(stockLocations)
-        .where(eq(stockLocations.id, input.stockLocationId))
-        .limit(1)
-    )[0];
-    if (!location) {
-      throw new NotFoundError(
-        "Locacao fisica de estoque nao encontrada",
-        "STOCK_LOCATION_NOT_FOUND",
-      );
-    }
+    await assertStockLocationBelongsToEnterprise(
+      enterpriseId,
+      input.stockLocationId,
+    );
   }
 
   public async list(

@@ -1,7 +1,7 @@
 import { boolean, decimal, integer, uuid } from "drizzle-orm/pg-core";
 import { statusEnum } from "../enums.js";
 import { varchar } from "drizzle-orm/pg-core";
-import { pgTable, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, uniqueIndex, index } from "drizzle-orm/pg-core";
 import { enterprises } from "./enterprises.js";
 import { pisCofinsTypeEnum } from "../enums.js";
 import { tz } from "../functions.js";
@@ -177,37 +177,88 @@ export const pisCofinsSituation = pgTable(
   (t) => [uniqueIndex("pis_cofins_situation_cst_unique").on(t.cst)],
 );
 
-// GRUPO DE PRODUTOS. - Global
-export const productGroups = pgTable("product_groups", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  description: varchar("description", { length: 255 }).notNull(),
-  profitMargin: decimal("profit_margin", { precision: 14, scale: 4 }),
-  createdAt: tz("created_at").defaultNow().notNull(),
-  updatedAt: tz("updated_at"),
-});
+// GRUPO DE PRODUTOS. - Fechado por tenant
+export const productGroups = pgTable(
+  "product_groups",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    enterprisesId: uuid("enterprises_id")
+      .notNull()
+      .references(() => enterprises.id, { onDelete: "cascade" }),
+    description: varchar("description", { length: 255 }).notNull(),
+    profitMargin: decimal("profit_margin", { precision: 14, scale: 4 }),
+    createdAt: tz("created_at").defaultNow().notNull(),
+    updatedAt: tz("updated_at"),
+  },
+  (t) => [
+    uniqueIndex("product_groups_enterprise_description_unique").on(
+      t.enterprisesId,
+      t.description,
+    ),
+    index("product_groups_enterprise_idx").on(t.enterprisesId),
+  ],
+);
 
-// SUBGRUPO DE PRODUTOS. - Global
-export const productSubgroups = pgTable("product_subgroups", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  description: varchar("description", { length: 255 }).notNull(),
-  generatesComission: boolean("generates_comission").notNull().default(false),  // Gera comissão
-  comissionOnSightSeller: decimal("comission_on_sight_seller", percentageDecimal).notNull().default("0.00"),  // Comissão a vista do vendedor 
-  comissionToTermsSeller: decimal("comission_to_terms_seller", percentageDecimal).notNull().default("0.00"),  // Comissão a prazo do vendedor
-  comissionPartialSeller: decimal("comission_partial_seller", percentageDecimal).notNull().default("0.00"),  // Comissão parcial do vendedor
-  comissionOnSightManager: decimal("comission_on_sight_manager", percentageDecimal).notNull().default("0.00"),  // Comissão a vista do gerente
-  comissionToTermsManager: decimal("comission_to_terms_manager", percentageDecimal).notNull().default("0.00"),  // Comissão a prazo do gerente
-  comissionPartialManager: decimal("comission_partial_manager", percentageDecimal).notNull().default("0.00"),  // Comissão parcial do gerente
-  createdAt: tz("created_at").defaultNow().notNull(),
-  updatedAt: tz("updated_at"),
-});
+// SUBGRUPO DE PRODUTOS. - Fechado por tenant
+export const productSubgroups = pgTable(
+  "product_subgroups",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    enterprisesId: uuid("enterprises_id")
+      .notNull()
+      .references(() => enterprises.id, { onDelete: "cascade" }),
+    description: varchar("description", { length: 255 }).notNull(),
+    generatesComission: boolean("generates_comission").notNull().default(false), // Gera comissão
+    comissionOnSightSeller: decimal("comission_on_sight_seller", percentageDecimal)
+      .notNull()
+      .default("0.00"), // Comissão a vista do vendedor
+    comissionToTermsSeller: decimal("comission_to_terms_seller", percentageDecimal)
+      .notNull()
+      .default("0.00"), // Comissão a prazo do vendedor
+    comissionPartialSeller: decimal("comission_partial_seller", percentageDecimal)
+      .notNull()
+      .default("0.00"), // Comissão parcial do vendedor
+    comissionOnSightManager: decimal("comission_on_sight_manager", percentageDecimal)
+      .notNull()
+      .default("0.00"), // Comissão a vista do gerente
+    comissionToTermsManager: decimal("comission_to_terms_manager", percentageDecimal)
+      .notNull()
+      .default("0.00"), // Comissão a prazo do gerente
+    comissionPartialManager: decimal("comission_partial_manager", percentageDecimal)
+      .notNull()
+      .default("0.00"), // Comissão parcial do gerente
+    createdAt: tz("created_at").defaultNow().notNull(),
+    updatedAt: tz("updated_at"),
+  },
+  (t) => [
+    uniqueIndex("product_subgroups_enterprise_description_unique").on(
+      t.enterprisesId,
+      t.description,
+    ),
+    index("product_subgroups_enterprise_idx").on(t.enterprisesId),
+  ],
+);
 
-// MARCA DE PRODUTOS. - Global
-export const productBrands = pgTable("product_brands", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  description: varchar("description", { length: 255 }).notNull(),
-  createdAt: tz("created_at").defaultNow().notNull(),
-  updatedAt: tz("updated_at"),
-});
+// MARCA DE PRODUTOS. - Fechado por tenant
+export const productBrands = pgTable(
+  "product_brands",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    enterprisesId: uuid("enterprises_id")
+      .notNull()
+      .references(() => enterprises.id, { onDelete: "cascade" }),
+    description: varchar("description", { length: 255 }).notNull(),
+    createdAt: tz("created_at").defaultNow().notNull(),
+    updatedAt: tz("updated_at"),
+  },
+  (t) => [
+    uniqueIndex("product_brands_enterprise_description_unique").on(
+      t.enterprisesId,
+      t.description,
+    ),
+    index("product_brands_enterprise_idx").on(t.enterprisesId),
+  ],
+);
 
 // tabela ligacao entre produtos e empresas. - Fechado por tenant
 export const productsEnterprises = pgTable(

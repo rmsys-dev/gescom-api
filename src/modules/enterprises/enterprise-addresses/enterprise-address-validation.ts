@@ -9,7 +9,7 @@ import {
   requireActiveCity,
   requireActiveCountry,
   requireActiveState,
-} from "../../maintainer/shared/address-helpers.js";
+} from "../../addresses/shared/address-helpers.js";
 
 export type AddressHierarchyInput = {
   cepId: string;

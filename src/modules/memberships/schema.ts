@@ -175,6 +175,15 @@ export const membershipPatchParamsSchema = z
 
 export type MembershipPatchParams = z.infer<typeof membershipPatchParamsSchema>;
 
+export const membershipCodeParamsSchema = z
+  .object({
+    enterpriseId: uuidSchema("enterpriseId"),
+    code: z.coerce.number().int(),
+  })
+  .strict();
+
+export type MembershipCodeParams = z.infer<typeof membershipCodeParamsSchema>;
+
 //Esquema de alteração (patch) de membro
 export const patchMembershipSchema = z
   .object({

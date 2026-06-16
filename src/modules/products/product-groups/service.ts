@@ -1,4 +1,4 @@
-import { asc, count, eq } from "drizzle-orm";
+import { and, asc, count, eq } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import { productGroups } from "../../../db/schema.js";
 import {
@@ -21,27 +21,35 @@ import type {
 } from "./schema.js";
 
 export class ProductGroupsService {
-  public async list(query: ListProductGroupsQuery = {}) {
+  private scope(enterpriseId: string, id?: string) {
+    const base = [eq(productGroups.enterprisesId, enterpriseId)];
+    if (id) base.push(eq(productGroups.id, id));
+    return and(...base);
+  }
+
+  public async list(enterpriseId: string, query: ListProductGroupsQuery = {}) {
     const { limit, offset } = resolveListPagination(query);
+    const where = this.scope(enterpriseId);
     const [items, totalRows] = await Promise.all([
       db
         .select()
         .from(productGroups)
+        .where(where)
         .orderBy(asc(productGroups.description), asc(productGroups.id))
         .limit(limit)
         .offset(offset),
-      db.select({ c: count() }).from(productGroups),
+      db.select({ c: count() }).from(productGroups).where(where),
     ]);
     const total = Number(totalRows[0]?.c ?? 0);
     return { items, total, limit, offset };
   }
 
-  public async getById(id: string) {
+  public async getById(enterpriseId: string, id: string) {
     const row = (
       await db
         .select()
         .from(productGroups)
-        .where(eq(productGroups.id, id))
+        .where(this.scope(enterpriseId, id))
         .limit(1)
     )[0];
     if (!row) {
@@ -54,6 +62,7 @@ export class ProductGroupsService {
   }
 
   public async create(
+    enterpriseId: string,
     input: CreateProductGroupInput,
     audit: EntityAuditContext,
   ) {
@@ -61,6 +70,7 @@ export class ProductGroupsService {
       const [row] = await db
         .insert(productGroups)
         .values({
+          enterprisesId: enterpriseId,
           description: input.description.trim(),
           profitMargin:
             input.profitMargin !== undefined
@@ -79,7 +89,7 @@ export class ProductGroupsService {
     } catch (err) {
       if (isPostgresUniqueViolation(err)) {
         throw new ConflictError(
-          "Grupo de produto em conflito",
+          "Descricao de grupo ja existe na empresa",
           "PRODUCT_GROUP_CONFLICT",
         );
       }
@@ -88,11 +98,12 @@ export class ProductGroupsService {
   }
 
   public async patch(
+    enterpriseId: string,
     id: string,
     input: PatchProductGroupInput,
     audit: EntityAuditContext,
   ) {
-    const existing = await this.getById(id);
+    const existing = await this.getById(enterpriseId, id);
     try {
       const [row] = await db
         .update(productGroups)
@@ -110,7 +121,7 @@ export class ProductGroupsService {
             : {}),
           updatedAt: new Date(),
         })
-        .where(eq(productGroups.id, id))
+        .where(this.scope(enterpriseId, id))
         .returning();
       if (!row) {
         throw new NotFoundError(
@@ -130,7 +141,7 @@ export class ProductGroupsService {
     } catch (err) {
       if (isPostgresUniqueViolation(err)) {
         throw new ConflictError(
-          "Grupo de produto em conflito",
+          "Descricao de grupo ja existe na empresa",
           "PRODUCT_GROUP_CONFLICT",
         );
       }
@@ -138,11 +149,15 @@ export class ProductGroupsService {
     }
   }
 
-  public async delete(id: string, audit: EntityAuditContext) {
-    const existing = await this.getById(id);
+  public async delete(
+    enterpriseId: string,
+    id: string,
+    audit: EntityAuditContext,
+  ) {
+    const existing = await this.getById(enterpriseId, id);
     const [row] = await db
       .delete(productGroups)
-      .where(eq(productGroups.id, id))
+      .where(this.scope(enterpriseId, id))
       .returning();
     if (!row) {
       throw new NotFoundError(

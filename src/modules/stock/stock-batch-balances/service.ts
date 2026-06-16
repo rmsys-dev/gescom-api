@@ -4,7 +4,6 @@ import {
   productsEnterprises,
   stockBatchBalances,
   stockBatches,
-  stockLocations,
 } from "../../../db/schema.js";
 import {
   ConflictError,
@@ -22,6 +21,7 @@ import { toAuditRecord } from "../../../shared/audit/build-field-diff.js";
 import { EntityTypes } from "../../../shared/audit/entity-types.js";
 import {
   assertBatchBelongsToProduct,
+  assertStockLocationBelongsToEnterprise,
   getProductEnterpriseForStock,
 } from "../balance.js";
 import type {
@@ -73,19 +73,10 @@ export class StockBatchBalancesService {
       batch.productsEnterprisesId,
       input.stockBatchId,
     );
-    const location = (
-      await db
-        .select({ id: stockLocations.id })
-        .from(stockLocations)
-        .where(eq(stockLocations.id, input.stockLocationId))
-        .limit(1)
-    )[0];
-    if (!location) {
-      throw new NotFoundError(
-        "Locacao fisica de estoque nao encontrada",
-        "STOCK_LOCATION_NOT_FOUND",
-      );
-    }
+    await assertStockLocationBelongsToEnterprise(
+      enterpriseId,
+      input.stockLocationId,
+    );
   }
 
   public async list(

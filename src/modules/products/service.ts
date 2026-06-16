@@ -62,7 +62,10 @@ export class ProductsService {
     input: CreateProductWithEnterpriseInput,
     audit: EntityAuditContext,
   ) {
-    await productsEnterprisesService.assertEnterprisePayload(input.enterprise);
+    await productsEnterprisesService.assertEnterprisePayload(
+      enterpriseId,
+      input.enterprise,
+    );
     const enterpriseAudit = withEnterpriseAuditContext(audit, enterpriseId);
 
     try {

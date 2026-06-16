@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { HttpStatus } from "../../../shared/http/http-status.js";
 import type { RequestWithAuth } from "../../../shared/middleware/auth-middleware.js";
+import { requireTenantEnterpriseId } from "../../../shared/controllers/tenant-context.js";
 import type { RequestWithValidatedQuery } from "../../../shared/middleware/validate-schema.js";
 import {
   auditContextFromDeleteAuth,
@@ -22,7 +23,10 @@ export class ProductBrandsController {
   public list = async (req: Request, res: Response): Promise<void> => {
     const query = (req as RequestWithValidatedQuery<ListProductBrandsQuery>)
       .validatedQuery;
-    const page = await productBrandsService.list(query);
+    const enterpriseId = requireTenantEnterpriseId(
+      (req as RequestWithAuth).auth!,
+    );
+    const page = await productBrandsService.list(enterpriseId, query);
     sendPageFromService(
       res,
       HttpStatus.OK,
@@ -32,8 +36,11 @@ export class ProductBrandsController {
   };
 
   public getById = async (req: Request, res: Response): Promise<void> => {
+    const enterpriseId = requireTenantEnterpriseId(
+      (req as RequestWithAuth).auth!,
+    );
     const productBrandId = req.params["productBrandId"] as string;
-    const row = await productBrandsService.getById(productBrandId);
+    const row = await productBrandsService.getById(enterpriseId, productBrandId);
     sendSuccessResponse(res, HttpStatus.OK, {
       message: "Marca de produto recuperada com sucesso.",
       data: row,
@@ -42,8 +49,10 @@ export class ProductBrandsController {
 
   public create = async (req: Request, res: Response): Promise<void> => {
     const auth = (req as RequestWithAuth).auth!;
+    const enterpriseId = requireTenantEnterpriseId(auth);
     const body = req.body as CreateProductBrandInput;
     const row = await productBrandsService.create(
+      enterpriseId,
       body,
       auditContextFromPostAuth(
         auth,
@@ -59,9 +68,11 @@ export class ProductBrandsController {
 
   public patch = async (req: Request, res: Response): Promise<void> => {
     const auth = (req as RequestWithAuth).auth!;
+    const enterpriseId = requireTenantEnterpriseId(auth);
     const productBrandId = req.params["productBrandId"] as string;
     const body = req.body as PatchProductBrandInput;
     const row = await productBrandsService.patch(
+      enterpriseId,
       productBrandId,
       body,
       auditContextFromPatchAuth(
@@ -78,8 +89,10 @@ export class ProductBrandsController {
 
   public delete = async (req: Request, res: Response): Promise<void> => {
     const auth = (req as RequestWithAuth).auth!;
+    const enterpriseId = requireTenantEnterpriseId(auth);
     const productBrandId = req.params["productBrandId"] as string;
     const row = await productBrandsService.delete(
+      enterpriseId,
       productBrandId,
       auditContextFromDeleteAuth(
         auth,

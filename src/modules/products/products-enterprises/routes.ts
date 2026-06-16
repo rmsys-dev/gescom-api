@@ -9,6 +9,7 @@ import {
   createProductEnterpriseSchema,
   listProductsEnterprisesQuerySchema,
   patchProductEnterpriseSchema,
+  productEnterpriseCodeParamsSchema,
   productEnterpriseParamsSchema,
 } from "./schema.js";
 
@@ -21,6 +22,18 @@ productsEnterprisesRouter.get(
   requirePermission("consultar_produtos"),
   validateSchema({ query: listProductsEnterprisesQuerySchema }),
   productsEnterprisesController.list,
+);
+
+productsEnterprisesRouter.get(
+  "/code/:code",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("consultar_produtos"),
+  validateSchema({
+    params: productEnterpriseCodeParamsSchema,
+    query: emptyQuerySchema,
+  }),
+  productsEnterprisesController.getByCode,
 );
 
 productsEnterprisesRouter.get(

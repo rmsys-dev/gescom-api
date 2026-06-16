@@ -70,6 +70,17 @@ export class MembershipsController {
     });
   };
 
+  //Detalhe de membro por código
+  public getByCode = async (req: Request, res: Response): Promise<void> => {
+    const enterpriseId = req.params["enterpriseId"] as string;
+    const code = Number(req.params["code"]);
+    const row = await membershipsService.getByCode(enterpriseId, code);
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Membro recuperado com sucesso.",
+      data: row,
+    });
+  };
+
   //Cria um membro com usuário
   public create = async (req: Request, res: Response): Promise<void> => {
     const reqAuth = req as RequestWithAuth;

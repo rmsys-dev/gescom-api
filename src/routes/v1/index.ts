@@ -7,6 +7,7 @@ import { maintainerDepartmentsRouter } from "../../modules/maintainer/department
 import { maintainerEnterprisesRouter } from "../../modules/maintainer/enterprises/routes.js";
 import { unitsRouter } from "../../modules/products/units/routes.js";
 import { typesProductsRouter } from "../../modules/products/products-types/routes.js";
+import { typeSpedRouter } from "../../modules/products/type-sped/routes.js";
 import { productsNcmRouter } from "../../modules/products/products-ncm/routes.js";
 import { productsCestRouter } from "../../modules/products/products-cest/routes.js";
 import { productsAnpRouter } from "../../modules/products/products-anp/routes.js";
@@ -45,6 +46,7 @@ v1Router.use("/maintainer/departments", maintainerDepartmentsRouter);
 //NOVAS ROTAS 01/06/2026
 v1Router.use("/units", unitsRouter);
 v1Router.use("/types-products", typesProductsRouter);
+v1Router.use("/type-sped", typeSpedRouter);
 v1Router.use("/products-ncm", productsNcmRouter);
 v1Router.use("/products-cest", productsCestRouter);
 v1Router.use("/products-anp", productsAnpRouter);

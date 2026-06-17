@@ -14,6 +14,7 @@ import * as sales from "./entities/sales.js";
 import * as stock from "./entities/stock.js";
 import * as typeOfCustomers from "./entities/typeSupplierCustomers.js";
 import * as typeNetworks from "./entities/typeNetworks.js";
+import * as typeSped from "./entities/typeSped.js";
 import * as auditoriums from "./auditoriums.js";
 
 export * from "./entities/addresses.js";
@@ -29,6 +30,7 @@ export * from "./entities/sales.js";
 export * from "./entities/stock.js";
 export * from "./entities/typeSupplierCustomers.js";
 export * from "./entities/typeNetworks.js";
+export * from "./entities/typeSped.js";
 export * from "./auditoriums.js";
 
 /**RELAÇÕES**/
@@ -43,6 +45,7 @@ import * as salesRelations from "./relations/sales-relations.js";
 import * as stockRelations from "./relations/stock-relations.js";
 import * as typeOfCustomersRelations from "./relations/type-supplier-customers-relations.js";
 import * as typeNetworksRelations from "./relations/type-networks-relations.js";
+import * as typeSpedRelations from "./relations/type-sped-relations.js";
 
 export * from "./relations/addresses-relations.js";
 export * from "./relations/enterprise-relations.js";
@@ -54,6 +57,7 @@ export * from "./relations/sales-relations.js";
 export * from "./relations/stock-relations.js";
 export * from "./relations/type-supplier-customers-relations.js";
 export * from "./relations/type-networks-relations.js";
+export * from "./relations/type-sped-relations.js";
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -75,6 +79,7 @@ const schema = {
   ...stock,
   ...typeOfCustomers,
   ...typeNetworks,
+  ...typeSped,
   ...auditoriums,
   ...addressesRelations,
   ...enterpriseRelations,
@@ -86,6 +91,7 @@ const schema = {
   ...stockRelations,
   ...typeOfCustomersRelations,
   ...typeNetworksRelations,
+  ...typeSpedRelations,
 };
 
 export const db = drizzle(client, { schema });

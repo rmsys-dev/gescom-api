@@ -3,6 +3,7 @@ import { statusEnum } from "../enums.js";
 import { varchar } from "drizzle-orm/pg-core";
 import { pgTable, uniqueIndex, index } from "drizzle-orm/pg-core";
 import { enterprises } from "./enterprises.js";
+import { typeSped } from "./typeSped.js";
 import { pisCofinsTypeEnum } from "../enums.js";
 import { tz } from "../functions.js";
 import { percentageDecimal } from "../functions.js";
@@ -14,7 +15,7 @@ export const products = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     status: statusEnum("status").default("ATIVO").notNull(), // status do produto
     description: varchar("description", { length: 255 }).notNull(), // descrição do produto
-    barCode: varchar("bar_code", { length: 255 }).notNull(), // código de barras
+    barCode: varchar("bar_code", { length: 255 }), // código de barras
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
   },
@@ -23,7 +24,7 @@ export const products = pgTable(
 
 // tabela de unidade de medida. - Global
 export const measurementUnits = pgTable(
-  "measurementUnits",
+  "measurement_units",
   {
     id: uuid("id").defaultRandom().primaryKey(),
     unit: varchar("unit", { length: 255 }).notNull(),
@@ -40,13 +41,19 @@ export const productTypes = pgTable(
   "products_types",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    type: varchar("type", { length: 255 }).notNull(),
+    type: varchar("type", { length: 255 }).notNull(),  
     description: varchar("description", { length: 255 }).notNull(),
+    manufacturing: boolean("manufacturing").notNull().default(false), // se fabricado o tipo produto.
+    sales: boolean("sales").notNull().default(false), // se faz venda.
+    typeSpedId: uuid("type_sped_id")
+      .notNull()
+      .references(() => typeSped.id, { onDelete: "restrict" }),
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
   },
   (t) => [uniqueIndex("products_types_type_active_unique").on(t.type)],
 );
+
 
 // NCM de produtos. - Global
 export const productsNcm = pgTable(

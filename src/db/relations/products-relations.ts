@@ -18,6 +18,7 @@ import {
   promotionalPrices,
 } from "../entities/products.js";
 import { enterprises } from "../entities/enterprises.js";
+import { typeSped } from "../entities/typeSped.js";
 import { stockSectorsRental, stockBatches } from "../entities/stock.js";
 
 export const productsRelations = relations(products, ({ many }) => ({
@@ -86,7 +87,11 @@ export const measurementUnitsRelations = relations(
 );
 
 // relações da tabela de tipos de produtos.
-export const productTypesRelations = relations(productTypes, ({ many }) => ({
+export const productTypesRelations = relations(productTypes, ({ one, many }) => ({
+  typeSped: one(typeSped, {
+    fields: [productTypes.typeSpedId],
+    references: [typeSped.id],
+  }),
   productsEnterprises: many(productsEnterprises),
 }));
 

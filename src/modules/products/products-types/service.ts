@@ -1,6 +1,6 @@
-import { and, asc, count, eq, isNull } from "drizzle-orm";
+import { and, asc, count, eq } from "drizzle-orm";
 import { db } from "../../../db/index.js";
-import { productTypes } from "../../../db/schema.js";
+import { productTypes, typeSped } from "../../../db/schema.js";
 import {
   ConflictError,
   NotFoundError,
@@ -21,6 +21,20 @@ import type {
 } from "./schema.js";
 
 export class TypesProductsService {
+  private async assertTypeSpedExists(typeSpedId: string) {
+    const rows = await db
+      .select({ id: typeSped.id })
+      .from(typeSped)
+      .where(eq(typeSped.id, typeSpedId))
+      .limit(1);
+    if (!rows[0]) {
+      throw new NotFoundError(
+        "Tipo SPED nao encontrado",
+        "TYPE_SPED_NOT_FOUND",
+      );
+    }
+  }
+
   public async list(query: ListTypesProductsQuery = {}) {
     const { limit, offset } = resolveListPagination(query);
     const [items, totalRows] = await Promise.all([
@@ -57,12 +71,16 @@ export class TypesProductsService {
     input: CreateTypeProductInput,
     audit: EntityAuditContext,
   ) {
+    await this.assertTypeSpedExists(input.typeSpedId);
     try {
       const [row] = await db
         .insert(productTypes)
         .values({
           type: input.type,
           description: input.description.trim(),
+          manufacturing: input.manufacturing ?? false,
+          sales: input.sales ?? false,
+          typeSpedId: input.typeSpedId,
         })
         .returning();
       if (!row) {
@@ -104,6 +122,10 @@ export class TypesProductsService {
       );
     }
 
+    if (input.typeSpedId !== undefined) {
+      await this.assertTypeSpedExists(input.typeSpedId);
+    }
+
     const now = new Date();
 
     try {
@@ -113,6 +135,13 @@ export class TypesProductsService {
           ...(input.type !== undefined ? { type: input.type } : {}),
           ...(input.description !== undefined
             ? { description: input.description.trim() }
+            : {}),
+          ...(input.manufacturing !== undefined
+            ? { manufacturing: input.manufacturing }
+            : {}),
+          ...(input.sales !== undefined ? { sales: input.sales } : {}),
+          ...(input.typeSpedId !== undefined
+            ? { typeSpedId: input.typeSpedId }
             : {}),
           updatedAt: now,
         })

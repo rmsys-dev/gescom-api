@@ -12,6 +12,11 @@ export const createTypeProductSchema = z
   .object({
     type: typeCodeSchema,
     description: z.string().trim().min(1).max(255).toUpperCase(),
+    manufacturing: z.boolean().default(false).optional(),
+    sales: z.boolean().default(false).optional(),
+    typeSpedId: z
+      .string()
+      .uuid("Campo 'typeSpedId' deve ser um UUID valido"),
   })
   .strict();
 
@@ -19,12 +24,21 @@ export const patchTypeProductSchema = z
   .object({
     type: typeCodeSchema.optional(),
     description: z.string().trim().min(1).max(255).toUpperCase().optional(),
+    manufacturing: z.boolean().optional(),
+    sales: z.boolean().optional(),
+    typeSpedId: z
+      .string()
+      .uuid("Campo 'typeSpedId' deve ser um UUID valido")
+      .optional(),
   })
   .strict()
   .refine(
     (data) =>
       data.type !== undefined ||
       data.description !== undefined ||
+      data.manufacturing !== undefined ||
+      data.sales !== undefined ||
+      data.typeSpedId !== undefined,
     "Deve haver ao menos um campo para atualizar",
   );
 

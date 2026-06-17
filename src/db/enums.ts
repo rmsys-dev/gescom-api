@@ -203,6 +203,7 @@ export const entityTypeEnum = pgEnum("entity_type", [
   "PRODUCTS_ENTERPRISES",
   "MEASUREMENT_UNITS",
   "PRODUCT_TYPES",
+  "TYPE_SPED",
   "PRODUCTS_NCM",
   "PRODUCTS_CEST",
   "PRODUCTS_ANP",

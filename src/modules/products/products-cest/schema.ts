@@ -11,7 +11,7 @@ const cestCodeSchema = z
 const ncmCodeSchema = z
   .string()
   .trim()
-  .min(4, "Produto NCM deve ter no minimo 4 caracteres");
+  .min(2, "Produto NCM deve ter no minimo 2 caracteres");
 
 export const createProductsCestSchema = z
   .object({

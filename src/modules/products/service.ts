@@ -75,7 +75,9 @@ export class ProductsService {
           .values({
             status: input.product.status ?? "ATIVO",
             description: input.product.description.trim(),
-            barCode: input.product.barCode.trim(),
+            ...(input.product.barCode !== undefined
+              ? { barCode: input.product.barCode.trim() }
+              : {}),
           })
           .returning();
         if (!product) throw new Error("Falha ao criar produto");

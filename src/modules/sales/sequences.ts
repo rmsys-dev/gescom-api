@@ -1,18 +1,18 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "../../db/index.js";
+import type { SequenceType } from "../../db/enums.js";
 import { sales } from "../../db/schema.js";
 import { ConflictError } from "../../shared/errors/app-error.js";
 import {
   nextEnterpriseSequence,
   syncEnterpriseSequenceFloor,
-  type EnterpriseDocumentType,
 } from "../../shared/sequences/enterprise-sequence.js";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-const SALE_ORDER_DOCUMENT_TYPE = "PEDIDO_VENDA" satisfies EnterpriseDocumentType;
+const SALE_ORDER_DOCUMENT_TYPE = "VENDA" satisfies SequenceType;
 
-/** Próximo número de pedido (VENDA e ORÇAMENTO compartilham PEDIDO_VENDA). */
+/** Próximo número de pedido (VENDA e ORÇAMENTO compartilham o contador VENDA). */
 export async function nextSaleOrderNumber(
   enterpriseId: string,
   tx: Tx,

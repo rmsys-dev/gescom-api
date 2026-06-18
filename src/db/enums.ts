@@ -1,5 +1,17 @@
 import { pgEnum } from "drizzle-orm/pg-core";
 
+// Tipo de sequência (VENDA, NFE, NFSE, NFCE, MDFE, CTE)
+export const sequenceTypeEnum = pgEnum("sequence_type", [
+  "VENDA",
+  "NFE",
+  "NFSE",
+  "NFCE",
+  "MDFE",
+  "CTE",
+]);
+
+export type SequenceType = (typeof sequenceTypeEnum.enumValues)[number];
+
 //Status de usuário (ativo, inativo, bloqueado, pendente, especial, cobrança, não vender)
 export const statusEnum = pgEnum("status", [
   "ATIVO",

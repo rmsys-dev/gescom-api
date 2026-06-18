@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { validateSchema } from "../../../shared/middleware/validate-schema.js";
-import { requireMaintainerApiKey } from "../shared/require-maintainer-api-key.js";
+import { requireMaintainerApiKey } from "../require-maintainer-api-key.js";
 import { maintainerDepartmentsController } from "./controller.js";
 import {
   createDepartmentSchema,

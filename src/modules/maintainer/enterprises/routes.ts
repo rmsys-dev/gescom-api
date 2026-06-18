@@ -5,7 +5,7 @@ import {
   emptyQuerySchema,
 } from "../../../shared/validation/common-schemas.js";
 import { maintainerEnterprisesController } from "./controller.js";
-import { requireMaintainerApiKey } from "../shared/require-maintainer-api-key.js";
+import { requireMaintainerApiKey } from "../require-maintainer-api-key.js";
 import { createEnterpriseSchema, enterpriseParamsSchema } from "./schema.js";
 
 const maintainerEnterprisesRouter = Router();

@@ -13,7 +13,7 @@ export const createProductSchema = z
   .object({
     status: statusSchema.default("ATIVO").optional(),
     description: z.string().trim().min(1).max(255).toUpperCase(),
-    barCode: z.string().trim().min(1).max(255),
+    barCode: z.string().trim().min(1).max(255).optional(),
   })
   .strict();
 

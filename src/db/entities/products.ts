@@ -341,9 +341,11 @@ export const prices = pgTable(
   "prices",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    price: decimal("price", { precision: 14, scale: 4 }).notNull(),
-    averageCost: decimal("average_cost", { precision: 14, scale: 4 }),
-    priceCost: decimal("price_cost", { precision: 14, scale: 4 }),
+    price: decimal("price", { precision: 14, scale: 4 }).notNull(),   // preço de venda
+    averageCost: decimal("average_cost", { precision: 14, scale: 4 }), // custo médio
+    actualRealCost: decimal("actual_real_cost", { precision: 14, scale: 4 }), // custo real
+    previousCost: decimal("previous_cost", { precision: 14, scale: 4 }), // custo anterior
+    priceCost: decimal("price_cost", { precision: 14, scale: 4 }), // custo atual.
     productsEnterprisesId: uuid("products_enterprises_id")
       .notNull()
       .references(() => productsEnterprises.id, { onDelete: "restrict" }),

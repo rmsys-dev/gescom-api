@@ -38,6 +38,8 @@ export class PricesService {
           id: prices.id,
           price: prices.price,
           averageCost: prices.averageCost,
+          actualRealCost: prices.actualRealCost,
+          previousCost: prices.previousCost,
           priceCost: prices.priceCost,
           productsEnterprisesId: prices.productsEnterprisesId,
           createdAt: prices.createdAt,
@@ -72,6 +74,8 @@ export class PricesService {
           id: prices.id,
           price: prices.price,
           averageCost: prices.averageCost,
+          actualRealCost: prices.actualRealCost,
+          previousCost: prices.previousCost,
           priceCost: prices.priceCost,
           productsEnterprisesId: prices.productsEnterprisesId,
           createdAt: prices.createdAt,
@@ -109,6 +113,14 @@ export class PricesService {
           averageCost:
             input.averageCost !== undefined
               ? input.averageCost.toString()
+              : null,
+          actualRealCost:
+            input.actualRealCost !== undefined
+              ? input.actualRealCost.toString()
+              : null,
+          previousCost:
+            input.previousCost !== undefined
+              ? input.previousCost.toString()
               : null,
           priceCost:
             input.priceCost !== undefined ? input.priceCost.toString() : null,
@@ -161,6 +173,22 @@ export class PricesService {
                   input.averageCost === null
                     ? null
                     : input.averageCost.toString(),
+              }
+            : {}),
+          ...(input.actualRealCost !== undefined
+            ? {
+                actualRealCost:
+                  input.actualRealCost === null
+                    ? null
+                    : input.actualRealCost.toString(),
+              }
+            : {}),
+          ...(input.previousCost !== undefined
+            ? {
+                previousCost:
+                  input.previousCost === null
+                    ? null
+                    : input.previousCost.toString(),
               }
             : {}),
           ...(input.priceCost !== undefined

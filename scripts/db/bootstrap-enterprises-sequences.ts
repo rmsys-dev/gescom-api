@@ -1,12 +1,14 @@
 import "dotenv/config";
 import postgres from "postgres";
 
+// Prefer DATABASE_URL (transaction pooler) for short-lived scripts: session mode
+// (DRIZZLE_DATABASE_URL) is capped at pool_size and is often exhausted in dev.
 const connectionString =
-  process.env.DRIZZLE_DATABASE_URL ?? process.env.DATABASE_URL;
+  process.env.DATABASE_URL ?? process.env.DRIZZLE_DATABASE_URL;
 
 if (!connectionString) {
   throw new Error(
-    "Defina DRIZZLE_DATABASE_URL ou DATABASE_URL para bootstrap de sequencias.",
+    "Defina DATABASE_URL ou DRIZZLE_DATABASE_URL para bootstrap de sequencias.",
   );
 }
 

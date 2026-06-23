@@ -1,0 +1,369 @@
+{
+  "info": {
+    "name": "Gescom API - Cadastro Cliente",
+    "description": "Fluxo para cadastrar membro com classe CLIENTE e vincular endereco (CEP, pais, estado, cidade).\n\nOrdem sugerida:\n1. Login\n2. Switch Enterprise (se necessario)\n3. Enderecos - buscar UUIDs\n4. Criar membro CLIENTE com usuario\n5. Vincular endereco\n6. Consultar detalhes",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000/api/v1" },
+    { "key": "accessToken", "value": "" },
+    { "key": "refreshToken", "value": "" },
+    { "key": "enterpriseId", "value": "" },
+    { "key": "userId", "value": "" },
+    { "key": "memberId", "value": "" },
+    { "key": "countryId", "value": "" },
+    { "key": "stateId", "value": "" },
+    { "key": "cityId", "value": "" },
+    { "key": "cepId", "value": "" },
+    { "key": "addressId", "value": "" },
+    { "key": "login", "value": "seu@email.com" },
+    { "key": "password", "value": "sua_senha" }
+  ],
+  "item": [
+    {
+      "name": "01 - Auth",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "",
+                  "if (json.data?.accessToken) {",
+                  "  pm.collectionVariables.set('accessToken', json.data.accessToken);",
+                  "  pm.collectionVariables.set('refreshToken', json.data.refreshToken);",
+                  "}",
+                  "",
+                  "if (json.data?.enterprises?.[0]?.id) {",
+                  "  pm.collectionVariables.set('enterpriseId', json.data.enterprises[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"loginType\": \"EMAIL\",\n  \"login\": \"{{login}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/login"
+          },
+          "response": []
+        },
+        {
+          "name": "Switch Enterprise",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "",
+                  "if (json.data?.accessToken) {",
+                  "  pm.collectionVariables.set('accessToken', json.data.accessToken);",
+                  "  pm.collectionVariables.set('refreshToken', json.data.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enterpriseId\": \"{{enterpriseId}}\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/switch-enterprise"
+          },
+          "response": []
+        },
+        {
+          "name": "Me",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": "{{baseUrl}}/auth/me"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02 - Enderecos (buscar UUIDs)",
+      "item": [
+        {
+          "name": "Listar Paises",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const first = json.data?.[0];",
+                  "",
+                  "if (first?.id) {",
+                  "  pm.collectionVariables.set('countryId', first.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/addresses/countries?limit=10&offset=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["addresses", "countries"],
+              "query": [
+                { "key": "limit", "value": "10" },
+                { "key": "offset", "value": "0" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Listar Estados",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const first = json.data?.[0];",
+                  "",
+                  "if (first?.id) {",
+                  "  pm.collectionVariables.set('stateId', first.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/addresses/states?limit=10&offset=0&countryId={{countryId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["addresses", "states"],
+              "query": [
+                { "key": "limit", "value": "10" },
+                { "key": "offset", "value": "0" },
+                { "key": "countryId", "value": "{{countryId}}" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Listar Cidades",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const first = json.data?.[0];",
+                  "",
+                  "if (first?.id) {",
+                  "  pm.collectionVariables.set('cityId', first.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/addresses/cities?limit=10&offset=0&stateId={{stateId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["addresses", "cities"],
+              "query": [
+                { "key": "limit", "value": "10" },
+                { "key": "offset", "value": "0" },
+                { "key": "stateId", "value": "{{stateId}}" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Listar CEPs",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const first = json.data?.[0];",
+                  "",
+                  "if (first?.id) {",
+                  "  pm.collectionVariables.set('cepId', first.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/addresses/ceps?limit=10&offset=0&cityId={{cityId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["addresses", "ceps"],
+              "query": [
+                { "key": "limit", "value": "10" },
+                { "key": "offset", "value": "0" },
+                { "key": "cityId", "value": "{{cityId}}" }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03 - Cadastro Cliente",
+      "item": [
+        {
+          "name": "Criar membro CLIENTE com usuario",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "",
+                  "if (json.data?.user?.id) {",
+                  "  pm.collectionVariables.set('userId', json.data.user.id);",
+                  "}",
+                  "",
+                  "if (json.data?.member?.id) {",
+                  "  pm.collectionVariables.set('memberId', json.data.member.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user\": {\n    \"userName\": \"Cliente Teste Postman\",\n    \"userRegistration\": \"52998224725\",\n    \"userEmail\": \"cliente.postman.{{$timestamp}}@exemplo.com\",\n    \"userPhone\": \"11999990001\"\n  },\n  \"member\": {\n    \"class\": \"CLIENTE\",\n    \"departments\": [],\n    \"code\": 1001\n  },\n  \"sendEmail\": false\n}"
+            },
+            "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/members/create-with-user"
+          },
+          "response": []
+        },
+        {
+          "name": "Vincular endereco do membro",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "",
+                  "if (json.data?.id) {",
+                  "  pm.collectionVariables.set('addressId', json.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cepId\": \"{{cepId}}\",\n  \"countryId\": \"{{countryId}}\",\n  \"stateId\": \"{{stateId}}\",\n  \"cityId\": \"{{cityId}}\",\n  \"adressType\": \"PRINCIPAL\"\n}"
+            },
+            "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/users/{{userId}}/addresses"
+          },
+          "response": []
+        },
+        {
+          "name": "Consultar detalhes do usuario",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/users/{{userId}}/details"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar membro CLIENTE (usuario ja existe)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"class\": \"CLIENTE\",\n  \"departments\": []\n}"
+            },
+            "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/members"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar info pessoal",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"gender\": \"MASCULINO\",\n  \"birthDate\": \"1990-01-15\",\n  \"placeOfBirth\": \"Sao Paulo\"\n}"
+            },
+            "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/users/{{userId}}/personal-info"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

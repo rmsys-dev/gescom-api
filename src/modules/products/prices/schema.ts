@@ -7,6 +7,8 @@ export const createPriceSchema = z
   .object({
     price: z.number().positive(),
     averageCost: z.number().min(0).optional(),
+    actualRealCost: z.number().min(0).optional(),
+    previousCost: z.number().min(0).optional(),
     priceCost: z.number().min(0).optional(),
     productsEnterprisesId: z.string().uuid(),
   })
@@ -16,6 +18,8 @@ export const patchPriceSchema = z
   .object({
     price: z.number().positive().optional(),
     averageCost: z.number().min(0).nullable().optional(),
+    actualRealCost: z.number().min(0).nullable().optional(),
+    previousCost: z.number().min(0).nullable().optional(),
     priceCost: z.number().min(0).nullable().optional(),
     productsEnterprisesId: z.string().uuid().optional(),
   })

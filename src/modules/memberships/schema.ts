@@ -18,6 +18,7 @@ const registrationSchema = cpfCnpjSchema("registration");
 export const listMembersQuerySchema = createPaginationQuerySchema(100)
   .extend({
     userId: uuidSchema("userId").optional(),
+    code: z.coerce.number().int().optional(),
     class: z.enum(memberClassEnum.enumValues).optional(),
     status: z.enum(statusEnum.enumValues).optional(),
     registration: registrationSchema.optional(),

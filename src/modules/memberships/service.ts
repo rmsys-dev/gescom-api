@@ -46,10 +46,7 @@ import {
   findUserByPhone,
   findUserByRegistration,
 } from "../auth/repository.js";
-import {
-  listAllowed,
-  resolvePermissionsBatch,
-} from "../auth/permissions.js";
+import { listAllowed, resolvePermissionsBatch } from "../auth/permissions.js";
 import {
   createInvitationRow,
   generateNumericInviteCode,
@@ -98,13 +95,17 @@ type MemberWithUserRow = {
 };
 
 const formatAddressLine = (street: string, number: string): string => {
-  const parts = [street.trim(), number.trim()].filter((part) => part.length > 0);
+  const parts = [street.trim(), number.trim()].filter(
+    (part) => part.length > 0,
+  );
   return parts.join(", ");
 };
 
 const loadPrincipalAddressSummariesByMemberId = async (
   memberIds: string[],
-): Promise<Map<string, { addressLine: string | null; cityName: string | null }>> => {
+): Promise<
+  Map<string, { addressLine: string | null; cityName: string | null }>
+> => {
   const uniqueMemberIds = [...new Set(memberIds)];
   if (uniqueMemberIds.length === 0) {
     return new Map();
@@ -238,6 +239,9 @@ export class MembershipsService {
     if (filters.userId !== undefined) {
       memberFilters.push(eq(enterprisesMembers.userId, filters.userId));
     }
+    if (filters.code !== undefined) {
+      memberFilters.push(eq(enterprisesMembers.code, filters.code));
+    }
     if (filters.class !== undefined) {
       memberFilters.push(eq(enterprisesMembers.class, filters.class));
     }
@@ -246,6 +250,9 @@ export class MembershipsService {
     }
     if (filters.registration !== undefined) {
       memberFilters.push(eq(users.userRegistration, filters.registration));
+    }
+    if (filters.code !== undefined) {
+      memberFilters.push(eq(enterprisesMembers.code, filters.code));
     }
     if (filters.email !== undefined) {
       memberFilters.push(eq(users.userEmail, filters.email));
@@ -284,9 +291,8 @@ export class MembershipsService {
     });
 
     const rowsById = new Map(rows.map((row) => [row.id, row]));
-    const addressByMemberId = await loadPrincipalAddressSummariesByMemberId(
-      memberIds,
-    );
+    const addressByMemberId =
+      await loadPrincipalAddressSummariesByMemberId(memberIds);
 
     const items = memberIds.flatMap((memberId) => {
       const row = rowsById.get(memberId);

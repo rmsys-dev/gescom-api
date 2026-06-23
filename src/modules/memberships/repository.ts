@@ -7,6 +7,7 @@ import {
 
 export const normalizeMemberListFilters = (query: {
   userId?: string;
+  code?: number;
   class?: (typeof enterprisesMembers.$inferSelect)["class"];
   status?: (typeof enterprisesMembers.$inferSelect)["status"];
   registration?: string;
@@ -14,6 +15,7 @@ export const normalizeMemberListFilters = (query: {
   phone?: string;
 }) => ({
   userId: query.userId,
+  code: query.code,
   class: query.class,
   status: query.status,
   registration: query.registration

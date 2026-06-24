@@ -34,7 +34,6 @@
     "db:bootstrap:sequences": "tsx scripts/db/bootstrap-enterprises-sequences.ts",
     "db:register:migration-0010": "tsx scripts/db/register-migration-0010.ts",
     "db:reset-test": "tsx scripts/db/reset-test-database.ts",
-    "seed:reset-and-fill": "tsx scripts/seed/reset-and-seed.ts",
     "seed:bootstrap": "tsx scripts/seed/bootstrap.ts",
     "seed:enterprise-switch-test": "tsx scripts/seed/enterprise-switch-test.ts",
     "seed:fictitious-users": "tsx scripts/seed/fictitious-users.ts",

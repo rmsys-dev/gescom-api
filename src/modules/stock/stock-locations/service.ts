@@ -35,7 +35,7 @@ export class StockLocationsService {
       db
         .select({
           id: stockLocations.id,
-          code: stockLocations.code,
+          box: stockLocations.box,
           description: stockLocations.description,
           stockSectorId: stockLocations.stockSectorId,
           status: stockLocations.status,
@@ -48,7 +48,7 @@ export class StockLocationsService {
           eq(stockLocations.stockSectorId, stockSectors.id),
         )
         .where(where)
-        .orderBy(asc(stockLocations.code), asc(stockLocations.id))
+        .orderBy(asc(stockLocations.box), asc(stockLocations.id))
         .limit(limit)
         .offset(offset),
       db
@@ -69,7 +69,7 @@ export class StockLocationsService {
       await db
         .select({
           id: stockLocations.id,
-          code: stockLocations.code,
+          box: stockLocations.box,
           description: stockLocations.description,
           stockSectorId: stockLocations.stockSectorId,
           status: stockLocations.status,
@@ -106,7 +106,7 @@ export class StockLocationsService {
       const [row] = await db
         .insert(stockLocations)
         .values({
-          code: input.code.trim(),
+          box: input.box?.trim() ?? null,
           description: input.description?.trim() ?? null,
           stockSectorId: input.stockSectorId,
           status: input.status ?? "ATIVO",
@@ -148,7 +148,7 @@ export class StockLocationsService {
       const [row] = await db
         .update(stockLocations)
         .set({
-          ...(input.code !== undefined ? { code: input.code.trim() } : {}),
+          ...(input.box !== undefined ? { box: input.box.trim() } : {}),
           ...(input.description !== undefined
             ? { description: input.description?.trim() ?? null }
             : {}),

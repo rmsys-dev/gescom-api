@@ -45,7 +45,7 @@ export const stockLocations = pgTable(
   "stock_locations",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    code: varchar("code", { length: 64 }).notNull(), // CÓDIGO DA LOCAÇÃO
+    box: varchar("box", { length: 64 }), // BOX DA LOCAÇÃO
     description: varchar("description", { length: 255 }),
     stockSectorId: uuid("stock_sector_id") // SETOR DE ESTOQUE
       .notNull()
@@ -55,12 +55,13 @@ export const stockLocations = pgTable(
     updatedAt: tz("updated_at"),
   },
   (t) => [
-    uniqueIndex("stock_locations_sector_code_unique").on(
-      // INDEX ÚNICO DE SETOR DE ESTOQUE E CÓDIGO
+    uniqueIndex("stock_locations_sector_box_unique").on(
+      // INDEX ÚNICO DE SETOR DE ESTOQUE E BO
       t.stockSectorId,
-      t.code,
+      t.box,
     ),
     index("stock_locations_sector_idx").on(t.stockSectorId), // INDEX DE SETOR DE ESTOQUE
+    index("stock_locations_box_idx").on(t.box), // INDEX DE BOX    
   ],
 );
 

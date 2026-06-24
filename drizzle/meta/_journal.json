@@ -85,6 +85,13 @@
       "when": 1782246799516,
       "tag": "0011_wide_the_phantom",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1782306633558,
+      "tag": "0012_mute_pride",
+      "breakpoints": true
     }
   ]
 }

@@ -7,15 +7,11 @@ const statusSchema = z.enum([
   "ATIVO",
   "INATIVO",
   "BLOQUEADO",
-  "PENDENTE",
-  "ESPECIAL",
-  "COBRANCA",
-  "NAO_VENDER",
 ]);
 
 export const createStockLocationSchema = z
   .object({
-    code: z.string().trim().min(1).max(64).toUpperCase(),
+    box: z.string().trim().min(1).max(64).toUpperCase().optional(),
     description: z.string().trim().max(255).optional(),
     stockSectorId: z.string().uuid(),
     status: statusSchema.optional(),
@@ -24,7 +20,7 @@ export const createStockLocationSchema = z
 
 export const patchStockLocationSchema = z
   .object({
-    code: z.string().trim().min(1).max(64).toUpperCase().optional(),
+    box: z.string().trim().min(1).max(64).toUpperCase().optional(),
     description: z.string().trim().max(255).nullable().optional(),
     stockSectorId: z.string().uuid().optional(),
     status: statusSchema.optional(),

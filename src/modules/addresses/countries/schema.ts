@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { createPaginationQuerySchema } from "../../../shared/validation/common-schemas.js";
 import {
+  countryCodeSchema,
   taxRateSchema,
-  twoLetterCodeSchema,
   uuidIdSchema,
 } from "../shared/address-schemas.js";
 
@@ -10,7 +10,7 @@ export const listCountriesQuerySchema = createPaginationQuerySchema(100);
 
 export const createCountrySchema = z
   .object({
-    countryCode: twoLetterCodeSchema("Codigo do pais"),
+    countryCode: countryCodeSchema,
     countryName: z.string().trim().min(1).max(255),
     cbsTax: taxRateSchema,
     isTax: taxRateSchema,
@@ -21,7 +21,7 @@ export const createCountrySchema = z
 
 export const patchCountrySchema = z
   .object({
-    countryCode: twoLetterCodeSchema("Codigo do pais").optional(),
+    countryCode: countryCodeSchema.optional(),
     countryName: z.string().trim().min(1).max(255).optional(),
     cbsTax: taxRateSchema.optional(),
     isTax: taxRateSchema.optional(),

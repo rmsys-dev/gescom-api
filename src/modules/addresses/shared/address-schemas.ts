@@ -14,7 +14,7 @@ export const taxRateSchema = z
       .max(100, "Aliquota deve ser <= 100")
       .refine(
         (n) => Math.round(n * 100) === n * 100,
-        "Aliquota deve ter no maximo 2 casas decimais",
+        "Aliquota deve ter no maximo 4 casas decimais",
       ),
   )
   .transform((n) => n.toFixed(2));
@@ -28,6 +28,13 @@ export const twoLetterCodeSchema = (label: string) =>
     .trim()
     .length(2, `${label} deve conter exatamente 2 caracteres`)
     .transform((v) => v.toUpperCase());
+
+export const countryCodeSchema = z
+  .string()
+  .trim()
+  .min(1, "Codigo do pais e obrigatorio")
+  .max(4, "Codigo do pais deve ter no maximo 4 caracteres")
+  .transform((v) => v.toUpperCase());
 
 export const cepNumberSchema = z
   .string()

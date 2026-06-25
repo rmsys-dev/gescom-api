@@ -20,6 +20,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:check-migrations": "tsx scripts/db/check-migrations-status.ts",
+    "db:baseline-migrations": "tsx scripts/db/baseline-drizzle-migrations.ts",
     "db:check-pending-migrations": "tsx scripts/db/check-pending-migration-files.ts",
     "db:compare-prod-schema": "tsx scripts/db/compare-prod-schema.ts",
     "db:apply:pending-prod": "tsx scripts/db/apply-pending-prod-migrations.ts",

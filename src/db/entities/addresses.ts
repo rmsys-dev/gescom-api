@@ -9,22 +9,19 @@ import {
   varchar,
   uuid,
 } from "drizzle-orm/pg-core";
-import { tz } from "../functions.js";
+import { tz, percentageDecimal } from "../functions.js";
 
 //Tabela de países
 export const countries = pgTable(
   "countries",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    countryCode: varchar("country_code", { length: 2 }).notNull(), //Código do país
+    countryCode: varchar("country_code", { length: 4 }).notNull(), //Código do país
     countryName: varchar("country_name", { length: 255 }).notNull(), //Nome do país
-    cbsTax: decimal("cbs_tax", { precision: 10, scale: 2 }).notNull(), //Alíquota CBS
-    isTax: decimal("is_tax", { precision: 10, scale: 2 }).notNull(), //Alíquota IS
-    ibs_uf_tax: decimal("ibs_uf_tax", { precision: 10, scale: 2 }).notNull(), //Alíquota UF IB
-    ibs_municipal_tax: decimal("ibs_municipal_tax", {
-      precision: 10,
-      scale: 2,
-    }).notNull(), //Alíquota municipal IB
+    cbsTax: decimal("cbs_tax", percentageDecimal).notNull(), //Alíquota CBS
+    isTax: decimal("is_tax", percentageDecimal).notNull(), //Alíquota IS
+    ibs_uf_tax: decimal("ibs_uf_tax", percentageDecimal).notNull(), //Alíquota UF IB
+    ibs_municipal_tax: decimal("ibs_municipal_tax", percentageDecimal).notNull(), //Alíquota municipal IB
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
     deletedAt: tz("deleted_at"),
@@ -35,16 +32,16 @@ export const countries = pgTable(
       .where(sql`${t.deletedAt} is null`),
     check(
       "countries_cbs_tax_range",
-      sql`${t.cbsTax} >= 0 and ${t.cbsTax} <= 100`,
+      sql`${t.cbsTax} >= 0 and ${t.cbsTax} <= 100.00`,
     ),
-    check("countries_is_tax_range", sql`${t.isTax} >= 0 and ${t.isTax} <= 100`),
+    check("countries_is_tax_range", sql`${t.isTax} >= 0 and ${t.isTax} <= 100.00`),
     check(
       "countries_ibs_uf_tax_range",
-      sql`${t.ibs_uf_tax} >= 0 and ${t.ibs_uf_tax} <= 100`,
+      sql`${t.ibs_uf_tax} >= 0 and ${t.ibs_uf_tax} <= 100.00`,
     ),
     check(
       "countries_ibs_municipal_tax_range",
-      sql`${t.ibs_municipal_tax} >= 0 and ${t.ibs_municipal_tax} <= 100`,
+      sql`${t.ibs_municipal_tax} >= 0 and ${t.ibs_municipal_tax} <= 100.00`,
     ),
   ],
 );
@@ -56,23 +53,14 @@ export const states = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     acronym: varchar("acronym", { length: 2 }).notNull(), //Sigla
     description: varchar("description", { length: 255 }).notNull(), //Descrição
-    internalAliquot: decimal("internal_aliquot", {
-      precision: 10,
-      scale: 2,
-    }).notNull(), //Alíquota interna
-    interstateAliquot: decimal("interstate_aliquot", {
-      precision: 10,
-      scale: 2,
-    }).notNull(), //Alíquota interestadual
-    fcpAliquot: decimal("fcp_aliquot", { precision: 10, scale: 2 }).notNull(), //Alíquota FCP
+    internalAliquot: decimal("internal_aliquot", percentageDecimal).notNull(), //Alíquota interna
+    interstateAliquot: decimal("interstate_aliquot", percentageDecimal).notNull(), //Alíquota interestadual
+    fcpAliquot: decimal("fcp_aliquot", percentageDecimal).notNull(), //Alíquota FCP
     borders: integer("borders").notNull(), //Divisas
-    embedTax: boolean("embed_tax").notNull(), //Incorporação de impostos
-    ibs_uf_tax: decimal("ibs_uf_tax", { precision: 10, scale: 2 }).notNull(), //Alíquota UF IB
-    ibs_municipal_tax: decimal("ibs_municipal_tax", {
-      precision: 10,
-      scale: 2,
-    }).notNull(), //Alíquota municipal IB
-    countryId: uuid("country_id")
+    embedDifal: boolean("embed_difal").notNull(), // embutir de DIFAL
+    ibs_uf_tax: decimal("ibs_uf_tax", percentageDecimal).notNull(), //Alíquota UF IB
+    ibs_municipal_tax: decimal("ibs_municipal_tax", percentageDecimal).notNull(), //Alíquota municipal IB
+    countryId: uuid("country_id") 
       .notNull()
       .references(() => countries.id, { onDelete: "restrict" }),
     createdAt: tz("created_at").defaultNow().notNull(),
@@ -85,24 +73,23 @@ export const states = pgTable(
       .where(sql`${t.deletedAt} is null`),
     check(
       "states_internal_aliquot_range",
-      sql`${t.internalAliquot} >= 0 and ${t.internalAliquot} <= 100`,
+      sql`${t.internalAliquot} >= 0 and ${t.internalAliquot} <= 100.00`,
     ),
     check(
       "states_interstate_aliquot_range",
-      sql`${t.interstateAliquot} >= 0 and ${t.interstateAliquot} <= 100`,
+      sql`${t.interstateAliquot} >= 0 and ${t.interstateAliquot} <= 100.00`,
     ),
     check(
       "states_fcp_aliquot_range",
-      sql`${t.fcpAliquot} >= 0 and ${t.fcpAliquot} <= 100`,
+      sql`${t.fcpAliquot} >= 0 and ${t.fcpAliquot} <= 100.00`,
     ),
-    check("states_borders_non_negative", sql`${t.borders} >= 0`),
     check(
       "states_ibs_uf_tax_range",
-      sql`${t.ibs_uf_tax} >= 0 and ${t.ibs_uf_tax} <= 100`,
+      sql`${t.ibs_uf_tax} >= 0 and ${t.ibs_uf_tax} <= 100.00`,
     ),
     check(
       "states_ibs_municipal_tax_range",
-      sql`${t.ibs_municipal_tax} >= 0 and ${t.ibs_municipal_tax} <= 100`,
+      sql`${t.ibs_municipal_tax} >= 0 and ${t.ibs_municipal_tax} <= 100.00`,
     ),
   ],
 );
@@ -140,10 +127,7 @@ export const cities = pgTable(
     citieName: varchar("city_name", { length: 255 }).notNull(), //Nome da cidade
     citieCode: varchar("city_code", { length: 2 }).notNull(),
     citieDigit: integer("city_digit").notNull(),
-    ibs_municipal_tax: decimal("ibs_municipal_tax", {
-      precision: 10,
-      scale: 2,
-    }).notNull(), //Alíquota municipal IB
+    ibs_municipal_tax: decimal("ibs_municipal_tax", percentageDecimal).notNull(), //Alíquota municipal IB
 
     stateId: uuid("state_id")
       .notNull()
@@ -161,7 +145,7 @@ export const cities = pgTable(
       .where(sql`${t.deletedAt} is null`),
     check(
       "cities_ibs_municipal_tax_range",
-      sql`${t.ibs_municipal_tax} >= 0 and ${t.ibs_municipal_tax} <= 100`,
+      sql`${t.ibs_municipal_tax} >= 0 and ${t.ibs_municipal_tax} <= 100.00`,
     ),
   ],
 );

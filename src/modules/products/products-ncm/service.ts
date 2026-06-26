@@ -1,4 +1,4 @@
-import { asc, count, eq } from "drizzle-orm";
+import { and, asc, count, eq, ilike } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import { productsNcm } from "../../../db/schema.js";
 import {
@@ -19,18 +19,30 @@ import type {
   ListProductsNcmQuery,
   PatchProductsNcmInput,
 } from "./schema.js";
+import { fiscalCodeIlikeCondition } from "../shared/fiscal-code-filter.js";
 
 export class ProductsNcmService {
   public async list(query: ListProductsNcmQuery = {}) {
     const { limit, offset } = resolveListPagination(query);
+    const conditions = [];
+    if (query.description) {
+      conditions.push(
+        ilike(productsNcm.description, `%${query.description.toUpperCase()}%`),
+      );
+    }
+    if (query.ncm) {
+      conditions.push(fiscalCodeIlikeCondition(productsNcm.ncm, query.ncm));
+    }
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
     const [items, totalRows] = await Promise.all([
       db
         .select()
         .from(productsNcm)
-        .orderBy(asc(productsNcm.description), asc(productsNcm.id))
+        .where(where)
+        .orderBy(asc(productsNcm.ncm), asc(productsNcm.id))
         .limit(limit)
         .offset(offset),
-      db.select({ c: count() }).from(productsNcm),
+      db.select({ c: count() }).from(productsNcm).where(where),
     ]);
 
     const total = Number(totalRows[0]?.c ?? 0);

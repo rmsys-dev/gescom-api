@@ -1,4 +1,4 @@
-import { asc, count, eq, ilike, or } from "drizzle-orm";
+import { and, asc, count, eq, ilike } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import { productsNbs } from "../../../db/schema.js";
 import {
@@ -19,6 +19,7 @@ import type {
   ListProductsNbsQuery,
   PatchProductsNbsInput,
 } from "./schema.js";
+import { fiscalCodeIlikeCondition } from "../shared/fiscal-code-filter.js";
 
 const mapInputToRow = (input: CreateProductsNbsInput) => ({
   lc116Item: input.lc116Item,
@@ -35,25 +36,24 @@ const mapInputToRow = (input: CreateProductsNbsInput) => ({
 export class ProductsNbsService {
   public async list(query: ListProductsNbsQuery = {}) {
     const { limit, offset } = resolveListPagination(query);
-    const search = query.search?.trim();
-    const whereClause = search
-      ? or(
-          ilike(productsNbs.nbs, `%${search}%`),
-          ilike(productsNbs.description, `%${search}%`),
-          ilike(productsNbs.lc116Item, `%${search}%`),
-          ilike(productsNbs.lc116Description, `%${search}%`),
-        )
-      : undefined;
+    const conditions = [];
+    if (query.description) {
+      conditions.push(ilike(productsNbs.description, `%${query.description}%`));
+    }
+    if (query.nbs) {
+      conditions.push(fiscalCodeIlikeCondition(productsNbs.nbs, query.nbs));
+    }
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
 
     const [items, totalRows] = await Promise.all([
       db
         .select()
         .from(productsNbs)
-        .where(whereClause)
+        .where(where)
         .orderBy(asc(productsNbs.lc116Item), asc(productsNbs.nbs))
         .limit(limit)
         .offset(offset),
-      db.select({ c: count() }).from(productsNbs).where(whereClause),
+      db.select({ c: count() }).from(productsNbs).where(where),
     ]);
 
     const total = Number(totalRows[0]?.c ?? 0);

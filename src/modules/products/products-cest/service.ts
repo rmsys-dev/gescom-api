@@ -1,4 +1,4 @@
-import { asc, count, eq, and } from "drizzle-orm";
+import { and, asc, count, eq, ilike } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import { productsCest } from "../../../db/schema.js";
 import {
@@ -19,18 +19,30 @@ import type {
   ListProductsCestQuery,
   PatchProductsCestInput,
 } from "./schema.js";
+import { fiscalCodeIlikeCondition } from "../shared/fiscal-code-filter.js";
 
 export class ProductsCestService {
   public async list(query: ListProductsCestQuery = {}) {
     const { limit, offset } = resolveListPagination(query);
+    const conditions = [];
+    if (query.description) {
+      conditions.push(
+        ilike(productsCest.description, `%${query.description.toUpperCase()}%`),
+      );
+    }
+    if (query.cest) {
+      conditions.push(fiscalCodeIlikeCondition(productsCest.cest, query.cest));
+    }
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
     const [items, totalRows] = await Promise.all([
       db
         .select()
         .from(productsCest)
+        .where(where)
         .orderBy(asc(productsCest.cest), asc(productsCest.id))
         .limit(limit)
         .offset(offset),
-      db.select({ c: count() }).from(productsCest),
+      db.select({ c: count() }).from(productsCest).where(where),
     ]);
 
     const total = Number(totalRows[0]?.c ?? 0);

@@ -1,4 +1,4 @@
-import { and, asc, count, eq } from "drizzle-orm";
+import { and, asc, count, eq, ilike } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import { productBrands } from "../../../db/schema.js";
 import {
@@ -16,6 +16,7 @@ import { toAuditRecord } from "../../../shared/audit/build-field-diff.js";
 import { EntityTypes } from "../../../shared/audit/entity-types.js";
 import {
   assertEnterpriseCatalogDescriptionAvailable,
+  normalizeEnterpriseCatalogDescription,
 } from "../shared/enterprise-catalog-description.js";
 import type {
   CreateProductBrandInput,
@@ -32,7 +33,12 @@ export class ProductBrandsService {
 
   public async list(enterpriseId: string, query: ListProductBrandsQuery = {}) {
     const { limit, offset } = resolveListPagination(query);
-    const where = this.scope(enterpriseId);
+    const conditions = [eq(productBrands.enterprisesId, enterpriseId)];
+    if (query.description) {
+      const normalized = normalizeEnterpriseCatalogDescription(query.description);
+      conditions.push(ilike(productBrands.description, `%${normalized}%`));
+    }
+    const where = and(...conditions);
     const [items, totalRows] = await Promise.all([
       db
         .select()

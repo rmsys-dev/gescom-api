@@ -1,12 +1,20 @@
 import { z } from "zod";
-import { createPaginationQuerySchema } from "../../../shared/validation/common-schemas.js";
+import {
+  catalogListFilterText,
+  catalogListQueryBase,
+} from "../shared/catalog-list-query.js";
 
-export const listProductsCestQuerySchema = createPaginationQuerySchema(100);
+export const listProductsCestQuerySchema = z
+  .object({
+    ...catalogListQueryBase,
+    cest: catalogListFilterText,
+  })
+  .strict();
 
 const cestCodeSchema = z
   .string()
   .trim()
-  .length(7, "CEST deve ter exatamente 7 caracteres")
+  .length(7, "CEST deve ter exatamente 7 caracteres");
 
 const ncmCodeSchema = z
   .string()

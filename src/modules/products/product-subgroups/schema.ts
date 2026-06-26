@@ -5,7 +5,11 @@ import {
 } from "../../../shared/validation/common-schemas.js";
 import { normalizeEnterpriseCatalogDescription } from "../shared/enterprise-catalog-description.js";
 
-export const listProductSubgroupsQuerySchema = createPaginationQuerySchema(100);
+export const listProductSubgroupsQuerySchema = createPaginationQuerySchema(
+  100,
+).extend({
+  description: z.string().trim().min(1).max(255).optional(),
+});
 
 const enterpriseCatalogDescriptionSchema = z
   .string()

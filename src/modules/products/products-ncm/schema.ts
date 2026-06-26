@@ -1,7 +1,15 @@
 import { z } from "zod";
-import { createPaginationQuerySchema } from "../../../shared/validation/common-schemas.js";
+import {
+  catalogListFilterText,
+  catalogListQueryBase,
+} from "../shared/catalog-list-query.js";
 
-export const listProductsNcmQuerySchema = createPaginationQuerySchema(100);
+export const listProductsNcmQuerySchema = z
+  .object({
+    ...catalogListQueryBase,
+    ncm: catalogListFilterText,
+  })
+  .strict();
 
 const ncmCodeSchema = z
   .string()

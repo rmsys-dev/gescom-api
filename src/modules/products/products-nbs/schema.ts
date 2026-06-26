@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { createPaginationQuerySchema } from "../../../shared/validation/common-schemas.js";
+import {
+  catalogListFilterText,
+  catalogListQueryBase,
+} from "../shared/catalog-list-query.js";
 
 const nbsCodeSchema = z
   .string()
@@ -42,11 +45,12 @@ export const productsNbsParamsSchema = z
   })
   .strict();
 
-export const listProductsNbsQuerySchema = createPaginationQuerySchema(100).extend(
-  {
-    search: z.string().trim().min(1).optional(),
-  },
-);
+export const listProductsNbsQuerySchema = z
+  .object({
+    ...catalogListQueryBase,
+    nbs: catalogListFilterText,
+  })
+  .strict();
 
 export type CreateProductsNbsInput = z.infer<typeof createProductsNbsSchema>;
 export type PatchProductsNbsInput = z.infer<typeof patchProductsNbsSchema>;

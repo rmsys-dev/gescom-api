@@ -17,5 +17,6 @@ export const typeNetworks = pgTable(
   (t) => [
     uniqueIndex("type_networks_description_active_unique")
       .on(t.description)
+      .where(sql`${t.status} = 'ATIVO'`),
   ],
 );

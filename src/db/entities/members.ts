@@ -29,7 +29,7 @@ import { enterprises } from "./enterprises.js";
 import { departments } from "./departments.js";
 import { typeSupplierCustomers } from "./typeSupplierCustomers.js";
 import { typeNetworks } from "./typeNetworks.js";
-import { ceps, countries, states, cities } from "./addresses.js";
+import { ceps } from "./addresses.js";
 import { tz } from "../functions.js";
 import { percentageDecimal } from "../functions.js";
 
@@ -39,6 +39,7 @@ export const enterprisesMembers = pgTable(
   "enterprises_members",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    
     code: integer("code"),  // Código do membro
     status: statusEnum("status").default("ATIVO").notNull(), // Status
     userId: uuid("user_id")
@@ -191,40 +192,40 @@ export const memberPermissionsDefault = pgTable(
 );
 
 //Tabela de informações pessoais de membros
-export const membersPersonalInfo = pgTable("members_personal_info", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  memberId: uuid("member_id")
-    .notNull()
-    .unique()
-    .references(() => enterprisesMembers.id, { onDelete: "restrict" }),
-  gender: genderEnum("gender"),
-  birthDate: date("birth_date", { mode: "date" }),
-  placeOfBirth: varchar("place_of_birth", { length: 255 }),
-  createdAt: tz("created_at").defaultNow().notNull(),
-  updatedAt: tz("updated_at"),
-  deletedAt: tz("deleted_at"),
-});
+export const membersPersonalInfo = pgTable(
+  "members_personal_info",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    memberId: uuid("member_id")
+      .notNull()
+      .references(() => enterprisesMembers.id, { onDelete: "restrict" }),
+    gender: genderEnum("gender"),
+    birthDate: date("birth_date", { mode: "date" }),
+    placeOfBirth: varchar("place_of_birth", { length: 255 }),
+    createdAt: tz("created_at").defaultNow().notNull(),
+    updatedAt: tz("updated_at"),
+    deletedAt: tz("deleted_at"),
+  },
+  (t) => [
+    uniqueIndex("members_personal_info_member_active_unique")
+      .on(t.memberId)
+      .where(sql`${t.deletedAt} is null`),
+  ],
+);
 
 //Tabela de endereços de membros
 export const membersAddress = pgTable(
   "members_address",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    number: varchar("number", { length: 255 }).notNull(), //Número
+    complement: varchar("complement", { length: 255 }), //Complemento
     memberId: uuid("member_id")
       .notNull()
       .references(() => enterprisesMembers.id, { onDelete: "restrict" }),
     cepId: uuid("cep_id")
       .notNull()
-      .references(() => ceps.id, { onDelete: "restrict" }),
-    countryId: uuid("country_id")
-      .notNull()
-      .references(() => countries.id, { onDelete: "restrict" }),
-    stateId: uuid("state_id")
-      .notNull()
-      .references(() => states.id, { onDelete: "restrict" }),
-    cityId: uuid("city_id")
-      .notNull()
-      .references(() => cities.id, { onDelete: "restrict" }),
+      .references(() => ceps.id, { onDelete: "restrict" }),    
     adressType: adressTypeEnum("adress_type").notNull(),
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
@@ -283,13 +284,15 @@ export const membersRelationships = pgTable(
     toWarmUp: boolean("to_warm_up"),
     memberId: uuid("member_id")
       .notNull()
-      .unique()
       .references(() => enterprisesMembers.id, { onDelete: "restrict" }),
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
     deletedAt: tz("deleted_at"),
   },
   (t) => [
+    uniqueIndex("members_relationships_member_active_unique")
+      .on(t.memberId)
+      .where(sql`${t.deletedAt} is null`),
     check("members_relationships_income_non_negative", sql`${t.income} >= 0`),
     check(
       "members_relationships_profession_time_non_negative",
@@ -303,31 +306,38 @@ export const membersRelationships = pgTable(
 );
 
 //Tabela de informações fiscais de membros
-export const membersTaxInfos = pgTable("members_tax_infos", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  renegotiation: boolean("renegotiation"),
-  spc_registration: varchar("spc_registration", { length: 255 }),
-  spc_registry_date: date("spc_registry_date", { mode: "date" }),
-  stateRegistration: varchar("state_registration", { length: 255 }),
-  municipalRegistration: varchar("municipal_registration", {
-    length: 255,
-  }),
-  suframa_registration: varchar("suframa_registration", {
-    length: 255,
-  }),
-  userLegalName: varchar("user_legal_name", { length: 255 }),
-  r3_code: integer("r3_code"),
-  sefaz_Date: date("sefaz_date", { mode: "date" }),
-  governmentEntity: varchar("government_entity", { length: 255 }),
-  benefitCode: varchar("benefit_code", { length: 255 }),
-  memberId: uuid("member_id")
-    .notNull()
-    .unique()
-    .references(() => enterprisesMembers.id, { onDelete: "restrict" }),
-  createdAt: tz("created_at").defaultNow().notNull(),
-  updatedAt: tz("updated_at"),
-  deletedAt: tz("deleted_at"),
-});
+export const membersTaxInfos = pgTable(
+  "members_tax_infos",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    renegotiation: boolean("renegotiation"),
+    spc_registration: varchar("spc_registration", { length: 255 }),
+    spc_registry_date: date("spc_registry_date", { mode: "date" }),
+    stateRegistration: varchar("state_registration", { length: 255 }),
+    municipalRegistration: varchar("municipal_registration", {
+      length: 255,
+    }),
+    suframa_registration: varchar("suframa_registration", {
+      length: 255,
+    }),
+    userLegalName: varchar("user_legal_name", { length: 255 }),
+    r3_code: integer("r3_code"),
+    sefaz_Date: date("sefaz_date", { mode: "date" }),
+    governmentEntity: varchar("government_entity", { length: 255 }),
+    benefitCode: varchar("benefit_code", { length: 255 }),
+    memberId: uuid("member_id")
+      .notNull()
+      .references(() => enterprisesMembers.id, { onDelete: "restrict" }),
+    createdAt: tz("created_at").defaultNow().notNull(),
+    updatedAt: tz("updated_at"),
+    deletedAt: tz("deleted_at"),
+  },
+  (t) => [
+    uniqueIndex("members_tax_infos_member_active_unique")
+      .on(t.memberId)
+      .where(sql`${t.deletedAt} is null`),
+  ],
+);
 
 //Tabela de informações financeiras de membros
 export const membersFinancialInfo = pgTable(
@@ -337,55 +347,57 @@ export const membersFinancialInfo = pgTable(
     ICMSReduction: decimal("icms_reduction", {
       precision: 10,
       scale: 2,
-    }),
-    discountLimit: decimal("discount_limit", {
+    }), // Redução de ICMS
+    discountLimit: decimal("discount_limit", {  
       precision: 10,
       scale: 2,
-    }),
+    }), // Limite de desconto
     discoutArrangement: varchar("discout_arrangement", {
       length: 255,
-    }),
-    creditType: creditTypeEnum("credit_type"),
+    }), // Arrangement de desconto
+    creditType: creditTypeEnum("credit_type"), 
     requestAmount: decimal("request_amount", {
       precision: 10,
       scale: 2,
-    }),
+    }), // Valor solicitado
     budgetPrice: decimal("budget_price", {
       precision: 10,
       scale: 2,
-    }),
-    taxRegime: varchar("tax_regime", { length: 255 }),
-    purchaseOrder: boolean("purchase_order"),
+    }), // Preço orçado
+    taxRegime: varchar("tax_regime", { length: 255 }), // Regime tributário
+    purchaseOrder: boolean("purchase_order"), // Pedido de compra
     prevRate: decimal("prev_rate", {
       precision: 10,
       scale: 2,
-    }),
+    }), // Taxa anterior
     ratTax: decimal("rat_tax", {
       precision: 10,
       scale: 2,
-    }),
+    }), // Taxa RAT
     reductionRate: decimal("reduction_rate", {
       precision: 10,
       scale: 2,
-    }),
+    }), // Taxa de redução
     senarTax: decimal("senar_tax", {
       precision: 10,
       scale: 2,
-    }),
+    }), // Taxa SENAR
     sale_discount: decimal("sale_discount", {
       precision: 10,
       scale: 2,
-    }),
-    sendNF: boolean("send_nf"),
-    memberId: uuid("member_id")
+    }), // Desconto de venda
+    sendNF: boolean("send_nf"), // Enviar NF
+    memberId: uuid("member_id") // Vínculo membro-empresa
       .notNull()
-      .unique()
       .references(() => enterprisesMembers.id, { onDelete: "restrict" }),
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
     deletedAt: tz("deleted_at"),
   },
   (t) => [
+    uniqueIndex("members_financial_info_member_active_unique")
+      .on(t.memberId)
+      .where(sql`${t.deletedAt} is null`),
     check(
       "members_financial_info_icms_reduction_range",
       sql`${t.ICMSReduction} >= 0 and ${t.ICMSReduction} <= 100`,

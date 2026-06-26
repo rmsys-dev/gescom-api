@@ -10,7 +10,7 @@ import {
   touchUpdatedAt,
 } from "../../../shared/db/record-lifecycle.js";
 import { resolveListPagination } from "../../../shared/pagination/pagination-params.js";
-import { assertAddressHierarchy } from "./enterprise-address-validation.js";
+import { assertActiveCep } from "./enterprise-address-validation.js";
 import {
   recordEntityAudit,
   recordSoftDeleteAudit,
@@ -60,21 +60,15 @@ export class EnterpriseAddressesService {
     enterpriseId: string,
     input: CreateEnterpriseAddressInput,
   ) {
-    await assertAddressHierarchy({
-      cepId: input.cepId,
-      cityId: input.cityId,
-      stateId: input.stateId,
-      countryId: input.countryId,
-    });
+    await assertActiveCep(input.cepId);
 
     const [row] = await db
       .insert(enterprisesAddress)
       .values({
         enterpriseId,
         cepId: input.cepId,
-        countryId: input.countryId,
-        stateId: input.stateId,
-        cityId: input.cityId,
+        number: input.number.trim(),
+        complement: input.complement?.trim() ?? null,
         adressType: input.adressType,
       })
       .returning();
@@ -144,32 +138,18 @@ export class EnterpriseAddressesService {
       return row;
     }
 
-    const effective = {
-      cepId: input.cepId ?? existing.cepId,
-      cityId: input.cityId ?? existing.cityId,
-      stateId: input.stateId ?? existing.stateId,
-      countryId: input.countryId ?? existing.countryId,
-    };
-
-    const hierarchyChanged =
-      input.cepId !== undefined ||
-      input.cityId !== undefined ||
-      input.stateId !== undefined ||
-      input.countryId !== undefined;
-
-    if (hierarchyChanged) {
-      await assertAddressHierarchy(effective);
+    if (input.cepId !== undefined) {
+      await assertActiveCep(input.cepId);
     }
 
     const [row] = await db
       .update(enterprisesAddress)
       .set({
         ...(input.cepId !== undefined ? { cepId: input.cepId } : {}),
-        ...(input.countryId !== undefined
-          ? { countryId: input.countryId }
+        ...(input.number !== undefined ? { number: input.number.trim() } : {}),
+        ...(input.complement !== undefined
+          ? { complement: input.complement?.trim() ?? null }
           : {}),
-        ...(input.stateId !== undefined ? { stateId: input.stateId } : {}),
-        ...(input.cityId !== undefined ? { cityId: input.cityId } : {}),
         ...(input.adressType !== undefined
           ? { adressType: input.adressType }
           : {}),

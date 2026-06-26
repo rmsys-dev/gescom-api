@@ -115,12 +115,12 @@ const loadPrincipalAddressSummariesByMemberId = async (
     .select({
       memberId: membersAddress.memberId,
       street: ceps.address,
-      number: ceps.number,
+      number: membersAddress.number,
       cityName: cities.citieName,
     })
     .from(membersAddress)
     .innerJoin(ceps, eq(membersAddress.cepId, ceps.id))
-    .innerJoin(cities, eq(membersAddress.cityId, cities.id))
+    .innerJoin(cities, eq(ceps.cityId, cities.id))
     .where(
       and(
         inArray(membersAddress.memberId, uniqueMemberIds),

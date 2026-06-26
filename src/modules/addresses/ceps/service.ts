@@ -66,8 +66,6 @@ export class AddressesCepsService {
         .values({
           cepNumber: input.cepNumber,
           address: input.address.trim(),
-          number: input.number.trim(),
-          complement: input.complement?.trim() ?? null,
           neighborhood: input.neighborhood.trim(),
           cityId: input.cityId,
         })
@@ -142,12 +140,6 @@ export class AddressesCepsService {
             : {}),
           ...(input.address !== undefined
             ? { address: input.address.trim() }
-            : {}),
-          ...(input.number !== undefined
-            ? { number: input.number.trim() }
-            : {}),
-          ...(input.complement !== undefined
-            ? { complement: input.complement?.trim() ?? null }
             : {}),
           ...(input.neighborhood !== undefined
             ? { neighborhood: input.neighborhood.trim() }

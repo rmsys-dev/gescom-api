@@ -33,7 +33,7 @@ import {
 } from "../../../shared/audit/entity-audit.js";
 import { toAuditRecord } from "../../../shared/audit/build-field-diff.js";
 import { EntityTypes } from "../../../shared/audit/entity-types.js";
-import { assertAddressHierarchy } from "../../enterprises/enterprise-addresses/enterprise-address-validation.js";
+import { assertActiveCep } from "../../enterprises/enterprise-addresses/enterprise-address-validation.js";
 import type { UserGetByIdReadMode } from "../../../shared/middleware/user-read-access-middleware.js";
 import type {
   PersonalInfoCreateInput,
@@ -296,12 +296,7 @@ export class UsersOnboardingService {
   ) {
     const memberId = await this.resolveMemberId(userId, enterpriseId);
 
-    await assertAddressHierarchy({
-      cepId: input.cepId,
-      cityId: input.cityId,
-      stateId: input.stateId,
-      countryId: input.countryId,
-    });
+    await assertActiveCep(input.cepId);
 
     return db.transaction(async (tx) => {
       if (input.adressType === "PRINCIPAL") {
@@ -330,9 +325,8 @@ export class UsersOnboardingService {
         .values({
           memberId,
           cepId: input.cepId,
-          countryId: input.countryId,
-          stateId: input.stateId,
-          cityId: input.cityId,
+          number: input.number.trim(),
+          complement: input.complement?.trim() ?? null,
           adressType: input.adressType,
         })
         .returning();
@@ -414,30 +408,13 @@ export class UsersOnboardingService {
       return row;
     }
 
-    const effective = {
-      cepId: input.cepId ?? existing.cepId,
-      cityId: input.cityId ?? existing.cityId,
-      stateId: input.stateId ?? existing.stateId,
-      countryId: input.countryId ?? existing.countryId,
-      adressType: input.adressType ?? existing.adressType,
-    };
+    const effectiveAdressType = input.adressType ?? existing.adressType;
 
-    const hierarchyChanged =
-      input.cepId !== undefined ||
-      input.countryId !== undefined ||
-      input.stateId !== undefined ||
-      input.cityId !== undefined;
-
-    if (hierarchyChanged) {
-      await assertAddressHierarchy({
-        cepId: effective.cepId,
-        cityId: effective.cityId,
-        stateId: effective.stateId,
-        countryId: effective.countryId,
-      });
+    if (input.cepId !== undefined) {
+      await assertActiveCep(input.cepId);
     }
 
-    if (effective.adressType === "PRINCIPAL") {
+    if (effectiveAdressType === "PRINCIPAL") {
       const conflict = await db
         .select({ id: membersAddress.id })
         .from(membersAddress)
@@ -463,11 +440,10 @@ export class UsersOnboardingService {
       .update(membersAddress)
       .set({
         ...(input.cepId !== undefined ? { cepId: input.cepId } : {}),
-        ...(input.countryId !== undefined
-          ? { countryId: input.countryId }
+        ...(input.number !== undefined ? { number: input.number.trim() } : {}),
+        ...(input.complement !== undefined
+          ? { complement: input.complement?.trim() ?? null }
           : {}),
-        ...(input.stateId !== undefined ? { stateId: input.stateId } : {}),
-        ...(input.cityId !== undefined ? { cityId: input.cityId } : {}),
         ...(input.adressType !== undefined
           ? { adressType: input.adressType }
           : {}),

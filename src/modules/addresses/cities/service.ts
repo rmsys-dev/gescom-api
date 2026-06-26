@@ -67,8 +67,6 @@ export class AddressesCitiesService {
         .values({
           ibgeCode: input.ibgeCode,
           citieName: input.citieName.trim(),
-          citieCode: input.citieCode,
-          citieDigit: input.citieDigit,
           ibs_municipal_tax: input.ibs_municipal_tax,
           stateId: input.stateId,
         })
@@ -142,12 +140,6 @@ export class AddressesCitiesService {
           ...(input.ibgeCode !== undefined ? { ibgeCode: input.ibgeCode } : {}),
           ...(input.citieName !== undefined
             ? { citieName: input.citieName.trim() }
-            : {}),
-          ...(input.citieCode !== undefined
-            ? { citieCode: input.citieCode }
-            : {}),
-          ...(input.citieDigit !== undefined
-            ? { citieDigit: input.citieDigit }
             : {}),
           ...(input.ibs_municipal_tax !== undefined
             ? { ibs_municipal_tax: input.ibs_municipal_tax }

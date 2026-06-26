@@ -12,5 +12,5 @@ export const typeSped = pgTable(
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
   },
-  (t) => [uniqueIndex("type_sped_type_active_unique").on(t.type)],
+  (t) => [uniqueIndex("type_sped_type_unique").on(t.type)],
 );

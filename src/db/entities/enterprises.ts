@@ -8,7 +8,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { statusEnum, adressTypeEnum } from "../enums.js";
-import { ceps, countries, states, cities } from "./addresses.js";
+import { ceps } from "../entities/addresses.js";
 import { tz } from "../functions.js";
 
 //Tabela de empresas
@@ -48,21 +48,14 @@ export const enterprisesAddress = pgTable(
   "enterprises_address",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    number: varchar("number", { length: 255 }).notNull(), //Número
+    complement: varchar("complement", { length: 255 }), //Complemento
     enterpriseId: uuid("enterprise_id")
       .notNull()
       .references(() => enterprises.id, { onDelete: "restrict" }),
     cepId: uuid("cep_id")
       .notNull()
       .references(() => ceps.id, { onDelete: "restrict" }),
-    countryId: uuid("country_id")
-      .notNull()
-      .references(() => countries.id, { onDelete: "restrict" }),
-    stateId: uuid("state_id")
-      .notNull()
-      .references(() => states.id, { onDelete: "restrict" }),
-    cityId: uuid("city_id")
-      .notNull()
-      .references(() => cities.id, { onDelete: "restrict" }),
     adressType: adressTypeEnum("adress_type").notNull(), // Tipo de endereço
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),

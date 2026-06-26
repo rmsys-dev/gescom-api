@@ -57,7 +57,8 @@ export const states = pgTable(
     interstateAliquot: decimal("interstate_aliquot", percentageDecimal).notNull(), //Alíquota interestadual
     fcpAliquot: decimal("fcp_aliquot", percentageDecimal).notNull(), //Alíquota FCP
     borders: integer("borders").notNull(), //Divisas
-    embedDifal: boolean("embed_difal").notNull(), // embutir de DIFAL
+    generate_st: boolean("generate_st").notNull().default(false), // Gerar st
+    embedDifal: boolean("embed_difal").notNull().default(false), // embutir de DIFAL
     ibs_uf_tax: decimal("ibs_uf_tax", percentageDecimal).notNull(), //Alíquota UF IB
     ibs_municipal_tax: decimal("ibs_municipal_tax", percentageDecimal).notNull(), //Alíquota municipal IB
     countryId: uuid("country_id") 
@@ -101,8 +102,6 @@ export const ceps = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     cepNumber: varchar("cep_number", { length: 8 }).notNull(), //CEP
     address: varchar("address", { length: 255 }).notNull(), //Endereço
-    number: varchar("number", { length: 255 }).notNull(), //Número
-    complement: varchar("complement", { length: 255 }), //Complemento
     neighborhood: varchar("neighborhood", { length: 255 }).notNull(), //Bairro
     cityId: uuid("city_id")
       .notNull()
@@ -125,8 +124,6 @@ export const cities = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     ibgeCode: integer("ibge_code").notNull(), //Código IBGE
     citieName: varchar("city_name", { length: 255 }).notNull(), //Nome da cidade
-    citieCode: varchar("city_code", { length: 2 }).notNull(),
-    citieDigit: integer("city_digit").notNull(),
     ibs_municipal_tax: decimal("ibs_municipal_tax", percentageDecimal).notNull(), //Alíquota municipal IB
 
     stateId: uuid("state_id")

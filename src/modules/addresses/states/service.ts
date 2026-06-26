@@ -75,6 +75,7 @@ export class AddressesStatesService {
           interstateAliquot: input.interstateAliquot,
           fcpAliquot: input.fcpAliquot,
           borders: input.borders,
+          generate_st: input.generate_st,
           embedDifal: input.embedDifal,
           ibs_uf_tax: input.ibs_uf_tax,
           ibs_municipal_tax: input.ibs_municipal_tax,
@@ -163,6 +164,9 @@ export class AddressesStatesService {
             ? { fcpAliquot: input.fcpAliquot }
             : {}),
           ...(input.borders !== undefined ? { borders: input.borders } : {}),
+          ...(input.generate_st !== undefined
+            ? { generate_st: input.generate_st }
+            : {}),
           ...(input.embedDifal !== undefined
             ? { embedDifal: input.embedDifal }
             : {}),

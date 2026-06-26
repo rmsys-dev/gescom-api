@@ -1,6 +1,6 @@
 import { relations } from "drizzle-orm";
 import { enterprises, enterprisesAddress } from "../entities/enterprises.js";
-import { ceps, countries, states, cities } from "../entities/addresses.js";
+import { ceps } from "../entities/addresses.js";
 import { enterprisesMembers } from "../entities/members.js";
 import { enterprisesSequences } from "../entities/sequences.js";
 import { departments } from "../entities/departments.js";
@@ -24,18 +24,6 @@ export const enterprisesAddressRelations = relations(
     cep: one(ceps, {
       fields: [enterprisesAddress.cepId],
       references: [ceps.id],
-    }),
-    country: one(countries, {
-      fields: [enterprisesAddress.countryId],
-      references: [countries.id],
-    }),
-    state: one(states, {
-      fields: [enterprisesAddress.stateId],
-      references: [states.id],
-    }),
-    city: one(cities, {
-      fields: [enterprisesAddress.cityId],
-      references: [cities.id],
     }),
   }),
 );

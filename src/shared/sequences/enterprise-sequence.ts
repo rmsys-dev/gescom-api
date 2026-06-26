@@ -15,6 +15,7 @@ const ensureSequenceRow = async (
     .values({ enterpriseId, type, sequence: 0 })
     .onConflictDoNothing({
       target: [enterprisesSequences.enterpriseId, enterprisesSequences.type],
+      where: sql`${enterprisesSequences.deletedAt} is null`,
     });
 };
 

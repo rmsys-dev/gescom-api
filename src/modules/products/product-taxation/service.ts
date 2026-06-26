@@ -112,6 +112,7 @@ export class ProductTaxationService {
           cst_cofins_saida: input.cst_cofins_saida.trim(),
           productsEnterprisesId: input.productsEnterprisesId,
           icmsTaxationId: input.icmsTaxationId,
+          pisCofinsSituationId: input.pisCofinsSituationId,
         })
         .returning();
       if (!row) throw new Error("Falha ao criar tributacao do produto");
@@ -165,6 +166,9 @@ export class ProductTaxationService {
             : {}),
           ...(input.icmsTaxationId !== undefined
             ? { icmsTaxationId: input.icmsTaxationId }
+            : {}),
+          ...(input.pisCofinsSituationId !== undefined
+            ? { pisCofinsSituationId: input.pisCofinsSituationId }
             : {}),
           updatedAt: new Date(),
         })

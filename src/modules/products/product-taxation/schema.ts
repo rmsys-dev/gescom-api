@@ -16,6 +16,7 @@ export const createProductTaxationSchema = z
     cst_cofins_saida: cstCodeSchema,
     productsEnterprisesId: z.string().uuid(),
     icmsTaxationId: z.string().uuid(),
+    pisCofinsSituationId: z.string().uuid(),
   })
   .strict();
 
@@ -27,6 +28,7 @@ export const patchProductTaxationSchema = z
     cst_cofins_saida: cstCodeSchema.optional(),
     productsEnterprisesId: z.string().uuid().optional(),
     icmsTaxationId: z.string().uuid().optional(),
+    pisCofinsSituationId: z.string().uuid().optional(),
   })
   .strict()
   .refine(

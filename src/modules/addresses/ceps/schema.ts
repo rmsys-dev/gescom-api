@@ -24,8 +24,6 @@ export const createCepSchema = z
   .object({
     cepNumber: cepNumberSchema,
     address: z.string().trim().min(1).max(255),
-    number: z.string().trim().min(1).max(255),
-    complement: z.string().trim().max(255).optional(),
     neighborhood: z.string().trim().min(1).max(255),
     cityId: uuidIdSchema("cityId"),
   })
@@ -35,8 +33,6 @@ export const patchCepSchema = z
   .object({
     cepNumber: cepNumberSchema.optional(),
     address: z.string().trim().min(1).max(255).optional(),
-    number: z.string().trim().min(1).max(255).optional(),
-    complement: z.string().trim().max(255).optional(),
     neighborhood: z.string().trim().min(1).max(255).optional(),
     cityId: uuidIdSchema("cityId").optional(),
     softDelete: z.boolean().optional(),
@@ -46,8 +42,6 @@ export const patchCepSchema = z
     (data) =>
       data.cepNumber !== undefined ||
       data.address !== undefined ||
-      data.number !== undefined ||
-      data.complement !== undefined ||
       data.neighborhood !== undefined ||
       data.cityId !== undefined ||
       data.softDelete === true,

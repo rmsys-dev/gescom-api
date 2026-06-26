@@ -31,9 +31,8 @@ export const listEnterpriseAddressesQuerySchema = createPaginationQuerySchema(
 export const createEnterpriseAddressSchema = z
   .object({
     cepId: uuidSchema("cepId"),
-    countryId: uuidSchema("countryId"),
-    stateId: uuidSchema("stateId"),
-    cityId: uuidSchema("cityId"),
+    number: z.string().trim().min(1).max(255),
+    complement: z.string().trim().max(255).optional(),
     adressType: adressTypeSchema,
   })
   .strict();
@@ -41,9 +40,8 @@ export const createEnterpriseAddressSchema = z
 export const patchEnterpriseAddressSchema = z
   .object({
     cepId: uuidSchema("cepId").optional(),
-    countryId: uuidSchema("countryId").optional(),
-    stateId: uuidSchema("stateId").optional(),
-    cityId: uuidSchema("cityId").optional(),
+    number: z.string().trim().min(1).max(255).optional(),
+    complement: z.string().trim().max(255).optional(),
     adressType: adressTypeSchema.optional(),
     softDelete: z.boolean().optional(),
   })
@@ -51,9 +49,8 @@ export const patchEnterpriseAddressSchema = z
   .refine(
     (data) =>
       data.cepId !== undefined ||
-      data.countryId !== undefined ||
-      data.stateId !== undefined ||
-      data.cityId !== undefined ||
+      data.number !== undefined ||
+      data.complement !== undefined ||
       data.adressType !== undefined ||
       data.softDelete === true,
     "Deve haver ao menos um campo para atualizar",

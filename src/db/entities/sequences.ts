@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { integer, pgTable, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { enterprises } from "./enterprises.js";
 import { tz } from "../functions.js";
@@ -18,9 +19,8 @@ export const enterprisesSequences = pgTable(
     deletedAt: tz("deleted_at"),
   },
   (t) => [
-    uniqueIndex("enterprises_sequences_enterprise_type_uidx").on(
-      t.enterpriseId,
-      t.type,
-    ),
+    uniqueIndex("enterprises_sequences_enterprise_type_uidx")
+      .on(t.enterpriseId, t.type)
+      .where(sql`${t.deletedAt} is null`),
   ],
 );

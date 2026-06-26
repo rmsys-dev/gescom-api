@@ -46,7 +46,7 @@ export const paymentTypes = pgTable(
     updatedAt: tz("updated_at"),
   },
   (t) => [
-    uniqueIndex("stock_movements_type_status_unique")
+    uniqueIndex("payment_types_description_active_unique")
       .on(t.description)
       .where(sql`${t.status} = 'ATIVO'`),
   ],
@@ -62,7 +62,7 @@ export const sales = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
     userLegalName: varchar("user_legal_name", { length: 255 }).notNull(),
-    sellerId: uuid("seller_id")
+    sellerId: uuid("seller_id") 
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
     sellerLegalName: varchar("seller_legal_name", { length: 255 }).notNull(),
@@ -101,7 +101,7 @@ export const sales = pgTable(
     )
       .notNull()
       .default("ABERTO"),
-    sourceBudgetSaleId: uuid("source_budget_sale_id").references(
+    sourceBudgetSaleId: uuid("source_budget_sale_id").references( 
       (): AnyPgColumn => sales.id,
       { onDelete: "restrict" },
     ),
@@ -109,7 +109,7 @@ export const sales = pgTable(
     completedionDate: date("completedion_date", { mode: "date" }), // finalizada
     enterprisesId: uuid("enterprises_id")
       .notNull()
-      .references(() => enterprises.id, { onDelete: "restrict" }),
+      .references(() => enterprises.id, { onDelete: "cascade" }),
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
   },
@@ -142,7 +142,7 @@ export const salesItems = pgTable(
   }).notNull(),
   valueAcresce: decimal("value_acresce", { precision: 14, scale: 4 }).notNull(),
   valueTotal: decimal("value_total", { precision: 14, scale: 4 }).notNull(),
-  salesId: uuid("sales_id")
+  salesId: uuid("sales_id") 
     .notNull()
     .references(() => sales.id, { onDelete: "cascade" }),
   productsEnterprisesId: uuid("products_enterprises_id")
@@ -211,11 +211,11 @@ export const salesBudgetConversions = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     enterprisesId: uuid("enterprises_id")
       .notNull()
-      .references(() => enterprises.id, { onDelete: "restrict" }),
-    budgetSaleId: uuid("budget_sale_id")
+      .references(() => enterprises.id, { onDelete: "cascade" }),
+    budgetSaleId: uuid("budget_sale_id") 
       .notNull()
       .references(() => sales.id, { onDelete: "restrict" }),
-    generatedSaleId: uuid("generated_sale_id")
+    generatedSaleId: uuid("generated_sale_id") 
       .notNull()
       .references(() => sales.id, { onDelete: "restrict" }),
     closureKind: budgetConversionKindEnum("closure_kind").notNull(),
@@ -233,14 +233,15 @@ export const salesBudgetConversions = pgTable(
   ],
 );
 
+// Itens da conversão de orçamento para venda (historico auditavel).
 export const salesBudgetConversionItems = pgTable(
   "sales_budget_conversion_items",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    conversionId: uuid("conversion_id")
+    conversionId: uuid("conversion_id") 
       .notNull()
       .references(() => salesBudgetConversions.id, { onDelete: "cascade" }),
-    budgetItemId: uuid("budget_item_id")
+    budgetItemId: uuid("budget_item_id") 
       .notNull()
       .references(() => salesItems.id, { onDelete: "restrict" }),
     saleItemId: uuid("sale_item_id")
@@ -260,7 +261,8 @@ export const salesBudgetConversionItems = pgTable(
   ],
 );
 
-export const salesBudgetUnclosedItems = pgTable(
+// Itens não convertidos em venda (historico auditavel).
+export const salesBudgetUnclosedItems = pgTable(   
   "sales_budget_unclosed_items",
   {
     id: uuid("id").defaultRandom().primaryKey(),
@@ -292,6 +294,7 @@ export const salesBudgetUnclosedItems = pgTable(
   ],
 );
 
+// DEVOLUÇÕES DE VENDA.
 export const salesReturns = pgTable(
   "sales_returns",
   {
@@ -299,10 +302,10 @@ export const salesReturns = pgTable(
     returnNumber: integer("return_number").notNull(),
     saleId: uuid("sale_id")
       .notNull()
-      .references(() => sales.id, { onDelete: "restrict" }),
+      .references(() => sales.id, { onDelete: "cascade" }),
     enterprisesId: uuid("enterprises_id")
       .notNull()
-      .references(() => enterprises.id, { onDelete: "restrict" }),
+      .references(() => enterprises.id, { onDelete: "cascade" }),
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
@@ -325,11 +328,12 @@ export const salesReturns = pgTable(
   ],
 );
 
+// Itens da devolução de venda (historico auditavel).
 export const salesReturnItems = pgTable(
   "sales_return_items",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    salesReturnId: uuid("sales_return_id")
+    salesReturnId: uuid("sales_return_id") 
       .notNull()
       .references(() => salesReturns.id, { onDelete: "cascade" }),
     saleItemId: uuid("sale_item_id")
@@ -373,6 +377,7 @@ export const salesPayments = pgTable(
   ],
 );
 
+// PARCELAS DE PAGAMENTO DE VENDA.
 export const salesDues = pgTable(
   "sales_dues",
   {

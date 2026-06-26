@@ -441,7 +441,7 @@ export class ProductsEnterprisesService {
     } catch (err) {
       if (isPostgresUniqueViolation(err)) {
         throw new ConflictError(
-          "Produto ja vinculado a esta empresa",
+          "Produto ja vinculado a esta empresa ou codigo duplicado",
           "PRODUCT_ENTERPRISE_CONFLICT",
         );
       }
@@ -768,7 +768,7 @@ export class ProductsEnterprisesService {
     } catch (err) {
       if (isPostgresUniqueViolation(err)) {
         throw new ConflictError(
-          "Produto ja vinculado a esta empresa",
+          "Produto ja vinculado a esta empresa ou codigo duplicado",
           "PRODUCT_ENTERPRISE_CONFLICT",
         );
       }

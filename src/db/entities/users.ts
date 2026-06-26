@@ -21,7 +21,7 @@ export const users = pgTable(
     userEmail: varchar("user_email", { length: 255 }).notNull(), // Email
     userPhone: varchar("user_phone", { length: 20 }).notNull(), // Telefone
     status: statusEnum("status").default("ATIVO").notNull(),
-    onboardingCompleted: boolean("onboarding_completed")
+    onboardingCompleted: boolean("onboarding_completed") 
       .default(false)
       .notNull(),
     registeredOn: date("registered_on", { mode: "date" })

@@ -71,9 +71,8 @@ export type PersonalInfoPatchInput = z.infer<typeof personalInfoPatchSchema>;
 export const usersAddressCreateSchema = z
   .object({
     cepId: uuidSchema("cepId"),
-    countryId: uuidSchema("countryId"),
-    stateId: uuidSchema("stateId"),
-    cityId: uuidSchema("cityId"),
+    number: z.string().trim().min(1).max(255),
+    complement: z.string().trim().max(255).optional(),
     adressType: adressTypeSchema,
   })
   .strict();
@@ -81,9 +80,8 @@ export const usersAddressCreateSchema = z
 export const usersAddressPatchSchema = z
   .object({
     cepId: uuidSchema("cepId").optional(),
-    countryId: uuidSchema("countryId").optional(),
-    stateId: uuidSchema("stateId").optional(),
-    cityId: uuidSchema("cityId").optional(),
+    number: z.string().trim().min(1).max(255).optional(),
+    complement: z.string().trim().max(255).optional(),
     adressType: adressTypeSchema.optional(),
     softDelete: z.boolean().optional(),
   })
@@ -91,9 +89,8 @@ export const usersAddressPatchSchema = z
   .refine(
     (data) =>
       data.cepId !== undefined ||
-      data.countryId !== undefined ||
-      data.stateId !== undefined ||
-      data.cityId !== undefined ||
+      data.number !== undefined ||
+      data.complement !== undefined ||
       data.adressType !== undefined ||
       data.softDelete === true,
     "Deve haver ao menos um campo para alteração",

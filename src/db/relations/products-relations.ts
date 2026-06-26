@@ -16,6 +16,7 @@ import {
   productApplication,
   prices,
   promotionalPrices,
+  pisCofinsSituation,
 } from "../entities/products.js";
 import { enterprises } from "../entities/enterprises.js";
 import { typeSped } from "../entities/typeSped.js";
@@ -138,6 +139,10 @@ export const productTaxationRelations = relations(
     icmsTaxation: one(icmsTaxation, {
       fields: [productTaxation.icmsTaxationId],
       references: [icmsTaxation.id],
+    }),
+    pisCofinsSituation: one(pisCofinsSituation, {
+      fields: [productTaxation.pisCofinsSituationId],
+      references: [pisCofinsSituation.id],
     }),
   }),
 );

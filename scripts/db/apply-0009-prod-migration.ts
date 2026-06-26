@@ -140,10 +140,10 @@ try {
   logOk("tabela type_sped");
 
   await sql.unsafe(`
-    CREATE UNIQUE INDEX IF NOT EXISTS "type_sped_type_active_unique"
+    CREATE UNIQUE INDEX IF NOT EXISTS "type_sped_type_unique"
     ON "type_sped" USING btree ("type")
   `);
-  logOk("indice type_sped_type_active_unique");
+  logOk("indice type_sped_type_unique");
 
   const hasLegacyUnits = await tableExists("measurementUnits");
   const hasMeasurementUnits = await tableExists("measurement_units");

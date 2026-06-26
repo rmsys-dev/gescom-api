@@ -24,6 +24,7 @@ export const typeSupplierCustomers = pgTable(
   (t) => [
     uniqueIndex("type_supplier_customers_description_active_unique")
       .on(t.description)
+      .where(sql`${t.status} = 'ATIVO'`),
   ],
 );
 

@@ -21,6 +21,7 @@ export const createStateSchema = z
     interstateAliquot: taxRateSchema,
     fcpAliquot: taxRateSchema,
     borders: z.number().int().min(0),
+    generate_st: z.boolean(),
     embedDifal: z.boolean(),
     ibs_uf_tax: taxRateSchema,
     ibs_municipal_tax: taxRateSchema,
@@ -36,6 +37,7 @@ export const patchStateSchema = z
     interstateAliquot: taxRateSchema.optional(),
     fcpAliquot: taxRateSchema.optional(),
     borders: z.number().int().min(0).optional(),
+    generate_st: z.boolean().optional(),
     embedDifal: z.boolean().optional(),
     ibs_uf_tax: taxRateSchema.optional(),
     ibs_municipal_tax: taxRateSchema.optional(),
@@ -51,6 +53,7 @@ export const patchStateSchema = z
       data.interstateAliquot !== undefined ||
       data.fcpAliquot !== undefined ||
       data.borders !== undefined ||
+      data.generate_st !== undefined ||
       data.embedDifal !== undefined ||
       data.ibs_uf_tax !== undefined ||
       data.ibs_municipal_tax !== undefined ||

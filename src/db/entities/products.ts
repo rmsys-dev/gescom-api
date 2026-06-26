@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { boolean, decimal, integer, uuid } from "drizzle-orm/pg-core";
 import { statusEnum } from "../enums.js";
 import { varchar } from "drizzle-orm/pg-core";
@@ -19,7 +20,11 @@ export const products = pgTable(
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
   },
-  (t) => [uniqueIndex("products_bar_code_active_unique").on(t.barCode)],
+  (t) => [
+    uniqueIndex("products_bar_code_active_unique")
+      .on(t.barCode)
+      .where(sql`${t.status} = 'ATIVO' and ${t.barCode} is not null`),
+  ],
 );
 
 // tabela de unidade de medida. - Global
@@ -33,7 +38,7 @@ export const measurementUnits = pgTable(
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
   },
-  (t) => [uniqueIndex("measurement_units_unit_active_unique").on(t.unit)],
+  (t) => [uniqueIndex("measurement_units_unit_unique").on(t.unit)],
 );
 
 // tipos de produtos. - Global
@@ -51,7 +56,7 @@ export const productTypes = pgTable(
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
   },
-  (t) => [uniqueIndex("products_types_type_active_unique").on(t.type)],
+  (t) => [uniqueIndex("products_types_type_unique").on(t.type)],
 );
 
 
@@ -65,7 +70,7 @@ export const productsNcm = pgTable(
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
   },
-  (t) => [uniqueIndex("products_ncm_ncm_active_unique").on(t.ncm)],
+  (t) => [uniqueIndex("products_ncm_ncm_unique").on(t.ncm)],
 );
 
 // tabela de CEST de produtos. - Global
@@ -77,12 +82,12 @@ export const productsCest = pgTable(
     description: varchar("description", { length: 255 }).notNull(),
     productsNcmId: uuid("products_ncm_id")
       .notNull()
-      .references(() => productsNcm.id, { onDelete: "cascade" }),
+      .references(() => productsNcm.id, { onDelete: "restrict" }),
     createdAt: tz("criado_em").defaultNow().notNull(),
     updatedAt: tz("alterado_em"),
   },
   (t) => [
-    uniqueIndex("products_cest_cest_active_unique").on(t.cest, t.productsNcmId),
+    uniqueIndex("products_cest_cest_ncm_unique").on(t.cest, t.productsNcmId),
   ],
 );
 
@@ -130,10 +135,10 @@ export const icmsTaxation = pgTable(
   "icms_taxation",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    icms: varchar("icms", { length: 255 }).notNull(),
-    icmsRate: decimal("icms_rate", { precision: 14, scale: 2 }),
-    simplesIcmsRate: decimal("simples_icms_rate", { precision: 14, scale: 2 }),
-    description: varchar("description", { length: 255 }).notNull(),
+    icms: varchar("icms", { length: 255 }).notNull(), 
+    icmsRate: decimal("icms_rate", { precision: 14, scale: 2 }), 
+    simplesIcmsRate: decimal("simples_icms_rate", { precision: 14, scale: 2 }), 
+    description: varchar("description", { length: 255 }).notNull(), 
     createdAt: tz("criado_em").defaultNow().notNull(),
     updatedAt: tz("alterado_em"),
   },
@@ -154,9 +159,12 @@ export const productTaxation = pgTable(
     productsEnterprisesId: uuid("products_enterprises_id")
       .notNull()
       .references(() => productsEnterprises.id, { onDelete: "restrict" }),
-    icmsTaxationId: uuid("icms_taxation_id")
+    icmsTaxationId: uuid("icms_taxation_id") 
       .notNull()
-      .references(() => icmsTaxation.id, { onDelete: "cascade" }),
+      .references(() => icmsTaxation.id, { onDelete: "restrict" }),
+    pisCofinsSituationId: uuid("pis_cofins_situation_id")
+      .notNull()
+      .references(() => pisCofinsSituation.id, { onDelete: "restrict" }),
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
   },
@@ -174,10 +182,10 @@ export const pisCofinsSituation = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     cst: varchar("cst", { length: 255 }).notNull(),
     description: varchar("description", { length: 255 }).notNull(),
-    type: pisCofinsTypeEnum("type").notNull(),
-    framing: integer("framing").notNull(),
-    pisRate: decimal("pis_rate", { precision: 14, scale: 4 }),
-    cofinsRate: decimal("cofins_rate", { precision: 14, scale: 4 }),
+    type: pisCofinsTypeEnum("type").notNull(), 
+    framing: integer("framing").notNull(), 
+    pisRate: decimal("pis_rate", { precision: 14, scale: 4 }), 
+    cofinsRate: decimal("cofins_rate", { precision: 14, scale: 4 }), 
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
   },
@@ -193,7 +201,7 @@ export const productGroups = pgTable(
       .notNull()
       .references(() => enterprises.id, { onDelete: "cascade" }),
     description: varchar("description", { length: 255 }).notNull(),
-    profitMargin: decimal("profit_margin", { precision: 14, scale: 4 }),
+    profitMargin: decimal("profit_margin", { precision: 14, scale: 4 }), 
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
   },
@@ -314,6 +322,9 @@ export const productsEnterprises = pgTable(
       t.productId,
       t.enterprisesId,
     ),
+    uniqueIndex("products_enterprises_enterprise_code_unique")
+      .on(t.enterprisesId, t.code)
+      .where(sql`${t.code} is not null`),
   ],
 );
 
@@ -374,9 +385,4 @@ export const promotionalPrices = pgTable(
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
   },
-  (t) => [
-    uniqueIndex("promotional_prices_products_enterprises_id_unique").on(
-      t.productsEnterprisesId,
-    ),
-  ],
 );

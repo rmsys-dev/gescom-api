@@ -314,7 +314,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"cepId\": \"{{cepId}}\",\n  \"countryId\": \"{{countryId}}\",\n  \"stateId\": \"{{stateId}}\",\n  \"cityId\": \"{{cityId}}\",\n  \"adressType\": \"PRINCIPAL\"\n}"
+              "raw": "{\n  \"cepId\": \"{{cepId}}\",\n  \"number\": \"100\",\n  \"complement\": \"Apto 1\",\n  \"adressType\": \"PRINCIPAL\"\n}"
             },
             "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/users/{{userId}}/addresses"
           },

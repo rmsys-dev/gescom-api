@@ -120,6 +120,13 @@
       "when": 1782657800000,
       "tag": "0016_unique_indexes_audit_fix",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1782744200000,
+      "tag": "0017_tricky_joseph",
+      "breakpoints": true
     }
   ]
 }

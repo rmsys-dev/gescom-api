@@ -32,9 +32,9 @@ export const userParamsSchema = z
 export const createUserBodySchema = z
   .object({
     userName: personNameSchema("userName"),
-    userRegistration: registrationSchema,
-    userEmail: emailSchema("userEmail"),
-    userPhone: phoneSchema("userPhone"),
+    userRegistration: registrationSchema.optional(),
+    userEmail: emailSchema("userEmail").optional(),
+    userPhone: phoneSchema("userPhone").optional(),
   })
   .strict();
 
@@ -51,9 +51,9 @@ export const listUsersQuerySchema = createPaginationQuerySchema(100)
 const patchUserFieldsSchema = z
   .object({
     userName: personNameSchema("userName").optional(),
-    userRegistration: registrationSchema.optional(),
-    userEmail: emailSchema("userEmail").optional(),
-    userPhone: phoneSchema("userPhone").optional(),
+    userRegistration: registrationSchema.optional().nullable(),
+    userEmail: emailSchema("userEmail").optional().nullable(),
+    userPhone: phoneSchema("userPhone").optional().nullable(),
   })
   .strict();
 

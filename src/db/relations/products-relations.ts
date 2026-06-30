@@ -140,9 +140,43 @@ export const productTaxationRelations = relations(
       fields: [productTaxation.icmsTaxationId],
       references: [icmsTaxation.id],
     }),
-    pisCofinsSituation: one(pisCofinsSituation, {
-      fields: [productTaxation.pisCofinsSituationId],
+    cstPisEntrada: one(pisCofinsSituation, {
+      fields: [productTaxation.cstPisEntradaId],
       references: [pisCofinsSituation.id],
+      relationName: "productTaxationCstPisEntrada",
+    }),
+    cstPisSaida: one(pisCofinsSituation, {
+      fields: [productTaxation.cstPisSaidaId],
+      references: [pisCofinsSituation.id],
+      relationName: "productTaxationCstPisSaida",
+    }),
+    cstCofinsEntrada: one(pisCofinsSituation, {
+      fields: [productTaxation.cstCofinsEntradaId],
+      references: [pisCofinsSituation.id],
+      relationName: "productTaxationCstCofinsEntrada",
+    }),
+    cstCofinsSaida: one(pisCofinsSituation, {
+      fields: [productTaxation.cstCofinsSaidaId],
+      references: [pisCofinsSituation.id],
+      relationName: "productTaxationCstCofinsSaida",
+    }),
+  }),
+);
+
+export const pisCofinsSituationRelations = relations(
+  pisCofinsSituation,
+  ({ many }) => ({
+    productTaxationsAsCstPisEntrada: many(productTaxation, {
+      relationName: "productTaxationCstPisEntrada",
+    }),
+    productTaxationsAsCstPisSaida: many(productTaxation, {
+      relationName: "productTaxationCstPisSaida",
+    }),
+    productTaxationsAsCstCofinsEntrada: many(productTaxation, {
+      relationName: "productTaxationCstCofinsEntrada",
+    }),
+    productTaxationsAsCstCofinsSaida: many(productTaxation, {
+      relationName: "productTaxationCstCofinsSaida",
     }),
   }),
 );

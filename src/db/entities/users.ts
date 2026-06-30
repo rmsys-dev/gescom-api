@@ -17,9 +17,9 @@ export const users = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     userName: varchar("user_name", { length: 255 }).notNull(),
-    userRegistration: varchar("user_registration", { length: 14 }).notNull(), // CPF/CNPJ
-    userEmail: varchar("user_email", { length: 255 }).notNull(), // Email
-    userPhone: varchar("user_phone", { length: 20 }).notNull(), // Telefone
+    userRegistration: varchar("user_registration", { length: 14 }), // CPF/CNPJ
+    userEmail: varchar("user_email", { length: 255 }), // Email
+    userPhone: varchar("user_phone", { length: 20 }), // Telefone
     status: statusEnum("status").default("ATIVO").notNull(),
     onboardingCompleted: boolean("onboarding_completed") 
       .default(false)
@@ -31,16 +31,7 @@ export const users = pgTable(
     updatedAt: tz("updated_at"),
     deletedAt: tz("deleted_at"),
   },
-  (t) => [
-    uniqueIndex("users_registration_active_unique")
-      .on(t.userRegistration)
-      .where(sql`${t.deletedAt} is null`),
-    uniqueIndex("users_email_active_unique")
-      .on(t.userEmail)
-      .where(sql`${t.userEmail} is not null and ${t.deletedAt} is null`),
-    uniqueIndex("users_phone_active_unique")
-      .on(t.userPhone)
-      .where(sql`${t.userPhone} is not null and ${t.deletedAt} is null`),
+  (t) => [  
     index("users_active_name_idx").on(t.deletedAt, t.userName),
   ],
 );

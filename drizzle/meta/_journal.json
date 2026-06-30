@@ -127,6 +127,20 @@
       "when": 1782744200000,
       "tag": "0017_tricky_joseph",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1782830600000,
+      "tag": "0018_product_taxation_cst_fks",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1782851155437,
+      "tag": "0019_special_kate_bishop",
+      "breakpoints": true
     }
   ]
 }

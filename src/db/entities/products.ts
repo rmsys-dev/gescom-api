@@ -150,21 +150,24 @@ export const productTaxation = pgTable(
   "product_taxation",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    cst_pis_entrada: varchar("cst_pis_entrada", { length: 255 }).notNull(),
-    cst_pis_saida: varchar("cst_pis_saida", { length: 255 }).notNull(),
-    cst_cofins_entrada: varchar("cst_cofins_entrada", {
-      length: 255,
-    }).notNull(),
-    cst_cofins_saida: varchar("cst_cofins_saida", { length: 255 }).notNull(),
+    cstPisEntradaId: uuid("cst_pis_entrada_id")
+      .notNull()
+      .references(() => pisCofinsSituation.id, { onDelete: "restrict" }),
+    cstPisSaidaId: uuid("cst_pis_saida_id")
+      .notNull()
+      .references(() => pisCofinsSituation.id, { onDelete: "restrict" }),
+    cstCofinsEntradaId: uuid("cst_cofins_entrada_id")
+      .notNull()
+      .references(() => pisCofinsSituation.id, { onDelete: "restrict" }),
+    cstCofinsSaidaId: uuid("cst_cofins_saida_id")
+      .notNull()
+      .references(() => pisCofinsSituation.id, { onDelete: "restrict" }),
     productsEnterprisesId: uuid("products_enterprises_id")
       .notNull()
       .references(() => productsEnterprises.id, { onDelete: "restrict" }),
     icmsTaxationId: uuid("icms_taxation_id") 
       .notNull()
-      .references(() => icmsTaxation.id, { onDelete: "restrict" }),
-    pisCofinsSituationId: uuid("pis_cofins_situation_id")
-      .notNull()
-      .references(() => pisCofinsSituation.id, { onDelete: "restrict" }),
+      .references(() => icmsTaxation.id, { onDelete: "restrict" }), 
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
   },

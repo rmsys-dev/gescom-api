@@ -42,19 +42,19 @@ import {
 } from "../../shared/db/tenant-predicates.js";
 import { countRowsWhere } from "../../shared/db/relational-list.js";
 import { findUserByIdScoped } from "./repository.js";
-
-const USER_PATCH_KEYS: (keyof UserPatchColumns)[] = [
-  "userName",
-  "userRegistration",
-  "userEmail",
-  "userPhone",
-];
+import {
+  normalizeUserContactInput,
+  normalizeUserEmail,
+  normalizeUserPhone,
+  normalizeUserRegistration,
+  resolveUserContactField,
+} from "../../shared/users/normalize-user-contact.js";
 
 type UserScalarRow = {
   userName: string;
-  userRegistration: string;
-  userEmail: string;
-  userPhone: string;
+  userRegistration: string | null;
+  userEmail: string | null;
+  userPhone: string | null;
 };
 
 function buildUserPatch(
@@ -62,10 +62,17 @@ function buildUserPatch(
   next: UserScalarRow,
 ): UserPatchColumns {
   const patch: UserPatchColumns = {};
-  for (const key of USER_PATCH_KEYS) {
-    if (next[key] !== existing[key]) {
-      patch[key] = next[key];
-    }
+  if (next.userName !== existing.userName) {
+    patch.userName = next.userName;
+  }
+  if (next.userRegistration !== existing.userRegistration) {
+    patch.userRegistration = next.userRegistration;
+  }
+  if (next.userEmail !== existing.userEmail) {
+    patch.userEmail = next.userEmail;
+  }
+  if (next.userPhone !== existing.userPhone) {
+    patch.userPhone = next.userPhone;
   }
   return patch;
 }
@@ -75,13 +82,18 @@ export type UserGetByIdAccessMode = "self" | "directory";
 type UserPublicProfile = {
   id: string;
   userName: string;
-  userPhone: string;
-  userEmail: string;
+  userPhone: string | null;
+  userEmail: string | null;
   accessMode: UserGetByIdAccessMode;
 };
 
 function mapFullProfile(
-  row: { id: string; userName: string; userPhone: string; userEmail: string },
+  row: {
+    id: string;
+    userName: string;
+    userPhone: string | null;
+    userEmail: string | null;
+  },
   accessMode: UserGetByIdAccessMode,
 ): UserPublicProfile {
   return {
@@ -101,14 +113,20 @@ export class UsersService {
     enterpriseId: string,
     audit: EntityAuditContext,
   ) {
-    const registrationNormalized = normalizeCpfCnpj(input.userRegistration);
-    const emailNormalized = normalizeEmail(input.userEmail);
-    const phone = normalizePhone(input.userPhone);
+    const {
+      userRegistration: registrationNormalized,
+      userEmail: emailNormalized,
+      userPhone: phone,
+    } = normalizeUserContactInput(input);
 
     const [byReg, byEmail, byPhone] = await Promise.all([
-      findUserByRegistration(registrationNormalized),
-      findUserByEmail(emailNormalized),
-      findUserByPhone(phone),
+      registrationNormalized
+        ? findUserByRegistration(registrationNormalized)
+        : Promise.resolve(null),
+      emailNormalized
+        ? findUserByEmail(emailNormalized)
+        : Promise.resolve(null),
+      phone ? findUserByPhone(phone) : Promise.resolve(null),
     ]);
 
     if (byReg) {
@@ -229,27 +247,30 @@ export class UsersService {
 
     const nextName =
       body.userName !== undefined ? body.userName.trim() : existing.userName;
-    const nextRegistration =
-      body.userRegistration !== undefined
-        ? normalizeCpfCnpj(body.userRegistration)
-        : existing.userRegistration;
-    const nextEmail =
-      body.userEmail !== undefined
-        ? normalizeEmail(body.userEmail)
-        : existing.userEmail;
-    const nextPhone =
-      body.userPhone !== undefined
-        ? normalizePhone(body.userPhone)
-        : existing.userPhone;
+    const nextRegistration = resolveUserContactField(
+      body.userRegistration,
+      existing.userRegistration,
+      normalizeUserRegistration,
+    );
+    const nextEmail = resolveUserContactField(
+      body.userEmail,
+      existing.userEmail,
+      normalizeUserEmail,
+    );
+    const nextPhone = resolveUserContactField(
+      body.userPhone,
+      existing.userPhone,
+      normalizeUserPhone,
+    );
 
     const [hitReg, hitEmail, hitPhone] = await Promise.all([
-      nextRegistration !== existing.userRegistration
+      nextRegistration !== existing.userRegistration && nextRegistration
         ? findUserByRegistration(nextRegistration)
         : Promise.resolve(null),
-      nextEmail !== existing.userEmail
+      nextEmail !== existing.userEmail && nextEmail
         ? findUserByEmail(nextEmail)
         : Promise.resolve(null),
-      nextPhone !== existing.userPhone
+      nextPhone !== existing.userPhone && nextPhone
         ? findUserByPhone(nextPhone)
         : Promise.resolve(null),
     ]);
@@ -267,7 +288,6 @@ export class UsersService {
       throw new ConflictError("Telefone já cadastrado", "PHONE_ALREADY_EXISTS");
     }
 
-    //Cria o patch do usuário
     const userPatch = buildUserPatch(existing, {
       userName: nextName,
       userRegistration: nextRegistration,
@@ -275,13 +295,12 @@ export class UsersService {
       userPhone: nextPhone,
     });
 
-    //Verifica se o email ou o registro foram alterados
     const emailChanged = nextEmail !== existing.userEmail;
     const regChanged = nextRegistration !== existing.userRegistration;
-    const needsCredentialSync = emailChanged || regChanged;
+    const needsCredentialSync =
+      (emailChanged && nextEmail !== null) || (regChanged && nextRegistration !== null);
     const needsUserUpdate = Object.keys(userPatch).length > 0;
 
-    //Se não houver alterações no usuário e nas credenciais, retorna o usuário atual
     if (!needsUserUpdate && !needsCredentialSync) {
       return {
         id: existing.id,
@@ -291,7 +310,6 @@ export class UsersService {
       };
     }
 
-    //Atualiza o usuário e as credenciais
     let persistedUser: Awaited<ReturnType<typeof updateUserById>> = null;
 
     await db.transaction(async (tx) => {
@@ -305,7 +323,7 @@ export class UsersService {
         const creds = await findActiveCredentialsByUserId(id, tx);
         const credentialUpdates: Promise<void>[] = [];
         for (const c of creds) {
-          if (c.loginType === "EMAIL" && emailChanged) {
+          if (c.loginType === "EMAIL" && emailChanged && nextEmail) {
             credentialUpdates.push(
               updateCredentialLogin(
                 c.id,
@@ -314,7 +332,7 @@ export class UsersService {
               ),
             );
           }
-          if (c.loginType === "CPF" && regChanged) {
+          if (c.loginType === "CPF" && regChanged && nextRegistration) {
             credentialUpdates.push(
               updateCredentialLogin(
                 c.id,
@@ -331,7 +349,6 @@ export class UsersService {
       }
     });
 
-    //Retorna o usuário atualizado
     const row = persistedUser ?? (await findUserById(id));
     if (!row) {
       throw new NotFoundError("Usuário não encontrado", "USER_NOT_FOUND");

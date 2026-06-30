@@ -156,6 +156,22 @@ export const firstAccessLookup = async (
     requestId: input.requestId,
   });
 
+  if (!user.userEmail) {
+    await writeAudit({
+      event: "FIRST_ACCESS_FAILED",
+      userId: user.id,
+      loginAttempt: input.login,
+      loginType: input.loginType,
+      ipAddress: input.ipAddress,
+      userAgent: input.userAgent,
+      requestId: input.requestId,
+      reason: "Usuario sem e-mail cadastrado",
+    });
+    return genericOk();
+  }
+
+  const recipientEmail = user.userEmail;
+
   const plainCode = generateNumericInviteCode();
   const codeHash = await hashPassword(plainCode);
   const expiresAt = addMinutesFromNow(env.INVITATION_CODE_TTL_MINUTES);
@@ -174,7 +190,7 @@ export const firstAccessLookup = async (
           memberId: approvedMemberId,
           codeHash,
           channel: "EMAIL",
-          sentTo: user.userEmail,
+          sentTo: recipientEmail,
           maxAttempts: env.INVITATION_MAX_ATTEMPTS,
           expiresAt,
           ipAddress: input.ipAddress,
@@ -185,7 +201,7 @@ export const firstAccessLookup = async (
     });
 
     await sendFirstAccessCode({
-      to: user.userEmail,
+      to: recipientEmail,
       code: plainCode,
       userName: user.userName,
     });
@@ -239,7 +255,7 @@ export const firstAccessVerify = async (
     id: string;
     name: string;
     email: string | null;
-    registration: string;
+    registration: string | null;
     onboardingCompleted: boolean;
   };
 }> => {
@@ -321,8 +337,29 @@ export const firstAccessVerify = async (
     );
   }
 
-  const emailNormalized = normalizeEmail(user.userEmail);
-  const registrationNormalized = normalizeCpfCnpj(user.userRegistration);
+  const emailNormalized = user.userEmail
+    ? normalizeEmail(user.userEmail)
+    : null;
+  const registrationNormalized = user.userRegistration
+    ? normalizeCpfCnpj(user.userRegistration)
+    : null;
+
+  if (!emailNormalized || !registrationNormalized) {
+    await writeAudit({
+      event: "FIRST_ACCESS_FAILED",
+      userId: user.id,
+      loginAttempt: input.login,
+      loginType: input.loginType,
+      ipAddress: input.ipAddress,
+      userAgent: input.userAgent,
+      requestId: input.requestId,
+      reason: "Usuario sem e-mail ou CPF/CNPJ cadastrado",
+    });
+    throw new UnauthorizedError(
+      "Nao foi possivel concluir o primeiro acesso",
+      "FIRST_ACCESS_INVALID",
+    );
+  }
 
   const [existingEmailCred, existingCpfCred] = await Promise.all([
     findActiveCredentialByLoginNormalized("EMAIL", emailNormalized),
@@ -357,7 +394,7 @@ export const firstAccessVerify = async (
       {
         userId: user.id,
         loginType: "EMAIL",
-        login: user.userEmail,
+        login: emailNormalized,
         loginNormalized: emailNormalized,
         password: passwordHash,
       },
@@ -368,7 +405,7 @@ export const firstAccessVerify = async (
       {
         userId: user.id,
         loginType: "CPF/CNPJ",
-        login: user.userRegistration,
+        login: registrationNormalized,
         loginNormalized: registrationNormalized,
         password: passwordHash,
       },
@@ -421,7 +458,7 @@ export const firstAccessVerify = async (
       id: user.id,
       name: user.userName,
       email: user.userEmail ?? null,
-      registration: user.userRegistration,
+      registration: user.userRegistration ?? null,
       onboardingCompleted: user.onboardingCompleted,
     },
   };

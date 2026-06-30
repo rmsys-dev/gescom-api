@@ -551,6 +551,15 @@ export const resendMembershipInvitation = async (
   const codeHash = await hashPassword(plainCode);
   const expiresAt = addMinutesFromNow(env.INVITATION_CODE_TTL_MINUTES);
 
+  if (!user.userEmail) {
+    throw new ForbiddenError(
+      "Usuario sem e-mail cadastrado para reenvio de convite",
+      "INVITE_RESEND_NO_EMAIL",
+    );
+  }
+
+  const recipientEmail = user.userEmail;
+
   await db.transaction(async (tx) => {
     await invalidatePendingInvites(
       {
@@ -568,7 +577,7 @@ export const resendMembershipInvitation = async (
         memberId: member.id,
         codeHash,
         channel: "EMAIL",
-        sentTo: user.userEmail,
+        sentTo: recipientEmail,
         maxAttempts: env.INVITATION_MAX_ATTEMPTS,
         expiresAt,
         ipAddress: input.ipAddress,
@@ -579,7 +588,7 @@ export const resendMembershipInvitation = async (
   });
 
   await sendMembershipInviteCode({
-    to: user.userEmail,
+    to: recipientEmail,
     code: plainCode,
     userName: user.userName,
     enterpriseTradeName: enterprise.tradeName,

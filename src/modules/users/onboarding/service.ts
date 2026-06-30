@@ -66,8 +66,8 @@ function mapUserDetailsResponse(
   row: {
     id: string;
     userName: string;
-    userPhone: string;
-    userEmail: string;
+    userPhone: string | null;
+    userEmail: string | null;
     personalInfo?: typeof membersPersonalInfo.$inferSelect | null;
     addresses?: (typeof membersAddress.$inferSelect)[];
     contacts?: (typeof membersContact.$inferSelect)[];

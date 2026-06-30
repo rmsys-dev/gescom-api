@@ -456,9 +456,9 @@ export const findActiveCredentialByLoginNormalized = async (
 export const createUser = async (
   input: {
     userName: string;
-    userRegistration: string;
-    userEmail: string;
-    userPhone: string;
+    userRegistration: string | null;
+    userEmail: string | null;
+    userPhone: string | null;
   },
   executor: DbExecutor = db,
 ): Promise<typeof users.$inferSelect> => {
@@ -476,9 +476,9 @@ export const createUser = async (
 
 export type UserPatchColumns = {
   userName?: string;
-  userRegistration?: string;
-  userEmail?: string;
-  userPhone?: string;
+  userRegistration?: string | null;
+  userEmail?: string | null;
+  userPhone?: string | null;
 };
 
 export const updateUserById = async (
@@ -490,9 +490,9 @@ export const updateUserById = async (
   const setPayload: {
     updatedAt: Date;
     userName?: string;
-    userRegistration?: string;
-    userEmail?: string;
-    userPhone?: string;
+    userRegistration?: string | null;
+    userEmail?: string | null;
+    userPhone?: string | null;
   } = { updatedAt: now };
   if (patch.userName !== undefined) {
     setPayload.userName = patch.userName;

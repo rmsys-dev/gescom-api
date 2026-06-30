@@ -3,32 +3,27 @@ import { createPaginationQuerySchema } from "../../../shared/validation/common-s
 
 export const listProductTaxationQuerySchema = createPaginationQuerySchema(100);
 
-const cstCodeSchema = z
-  .string()
-  .trim()
-  .length(2, "CST deve ter exatamente 2 caracteres");
+const pisCofinsSituationIdSchema = z.string().uuid();
 
 export const createProductTaxationSchema = z
   .object({
-    cst_pis_entrada: cstCodeSchema,
-    cst_pis_saida: cstCodeSchema,
-    cst_cofins_entrada: cstCodeSchema,
-    cst_cofins_saida: cstCodeSchema,
+    cstPisEntradaId: pisCofinsSituationIdSchema,
+    cstPisSaidaId: pisCofinsSituationIdSchema,
+    cstCofinsEntradaId: pisCofinsSituationIdSchema,
+    cstCofinsSaidaId: pisCofinsSituationIdSchema,
     productsEnterprisesId: z.string().uuid(),
     icmsTaxationId: z.string().uuid(),
-    pisCofinsSituationId: z.string().uuid(),
   })
   .strict();
 
 export const patchProductTaxationSchema = z
   .object({
-    cst_pis_entrada: cstCodeSchema.optional(),
-    cst_pis_saida: cstCodeSchema.optional(),
-    cst_cofins_entrada: cstCodeSchema.optional(),
-    cst_cofins_saida: cstCodeSchema.optional(),
+    cstPisEntradaId: pisCofinsSituationIdSchema.optional(),
+    cstPisSaidaId: pisCofinsSituationIdSchema.optional(),
+    cstCofinsEntradaId: pisCofinsSituationIdSchema.optional(),
+    cstCofinsSaidaId: pisCofinsSituationIdSchema.optional(),
     productsEnterprisesId: z.string().uuid().optional(),
     icmsTaxationId: z.string().uuid().optional(),
-    pisCofinsSituationId: z.string().uuid().optional(),
   })
   .strict()
   .refine(

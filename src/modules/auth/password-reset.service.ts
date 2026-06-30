@@ -128,6 +128,22 @@ export const passwordResetRequest = async (
     requestId: input.requestId,
   });
 
+  if (!user.userEmail) {
+    await writeAudit({
+      event: "PASSWORD_RESET_FAILED",
+      userId: user.id,
+      loginAttempt: input.login,
+      loginType: input.loginType,
+      ipAddress: input.ipAddress,
+      userAgent: input.userAgent,
+      requestId: input.requestId,
+      reason: "Usuario sem e-mail cadastrado",
+    });
+    return genericOk();
+  }
+
+  const recipientEmail = user.userEmail;
+
   const plainCode = generateNumericPasswordResetCode();
   const codeHash = await hashPassword(plainCode);
   const expiresAt = addMinutesFromNow(env.PASSWORD_RESET_CODE_TTL_MINUTES);
@@ -140,7 +156,7 @@ export const passwordResetRequest = async (
           userId: user.id,
           codeHash,
           channel: "EMAIL",
-          sentTo: user.userEmail,
+          sentTo: recipientEmail,
           maxAttempts: env.PASSWORD_RESET_MAX_ATTEMPTS,
           expiresAt,
           ipAddress: input.ipAddress,
@@ -151,7 +167,7 @@ export const passwordResetRequest = async (
     });
 
     await sendPasswordResetCode({
-      to: user.userEmail,
+      to: recipientEmail,
       code: plainCode,
       userName: user.userName,
     });

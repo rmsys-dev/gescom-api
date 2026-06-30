@@ -1,0 +1,4818 @@
+{
+  "info": {
+    "name": "Gescom API - Completa (Supabase)",
+    "description": "Collection completa da Gescom API v1 para testes locais conectados ao Supabase.\n\n**Configuração:**\n1. Importe o environment `gescom-api-local-supabase.postman_environment.json`\n2. Preencha `login` e `password` no environment\n3. Execute **Auth > Login** para obter tokens\n4. Use **Auth > Switch Enterprise** se tiver múltiplas empresas\n\n**Variáveis comuns:** `enterpriseId`, `userId`, `memberId`, `productId`, etc.\n\nBase URL padrão: `http://localhost:3000/api/v1` (PORT do .env)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Propaga accessToken do environment para a collection",
+          "const token = pm.environment.get('accessToken');",
+          "if (token) pm.collectionVariables.set('accessToken', token);"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api/v1"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "enterpriseId",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "memberId",
+      "value": ""
+    },
+    {
+      "key": "departmentId",
+      "value": ""
+    },
+    {
+      "key": "memberDepartmentId",
+      "value": ""
+    },
+    {
+      "key": "countryId",
+      "value": ""
+    },
+    {
+      "key": "stateId",
+      "value": ""
+    },
+    {
+      "key": "cityId",
+      "value": ""
+    },
+    {
+      "key": "cepId",
+      "value": ""
+    },
+    {
+      "key": "addressId",
+      "value": ""
+    },
+    {
+      "key": "productId",
+      "value": ""
+    },
+    {
+      "key": "productEnterpriseId",
+      "value": ""
+    },
+    {
+      "key": "productTaxationId",
+      "value": ""
+    },
+    {
+      "key": "productApplicationId",
+      "value": ""
+    },
+    {
+      "key": "unitId",
+      "value": ""
+    },
+    {
+      "key": "typeProductId",
+      "value": ""
+    },
+    {
+      "key": "typeSpedId",
+      "value": ""
+    },
+    {
+      "key": "productsNcmId",
+      "value": ""
+    },
+    {
+      "key": "productsCestId",
+      "value": ""
+    },
+    {
+      "key": "productsAnpId",
+      "value": ""
+    },
+    {
+      "key": "productsNbsId",
+      "value": ""
+    },
+    {
+      "key": "icmsTaxationId",
+      "value": ""
+    },
+    {
+      "key": "pisCofinsSituationId",
+      "value": ""
+    },
+    {
+      "key": "productGroupId",
+      "value": ""
+    },
+    {
+      "key": "productSubgroupId",
+      "value": ""
+    },
+    {
+      "key": "productBrandId",
+      "value": ""
+    },
+    {
+      "key": "priceId",
+      "value": ""
+    },
+    {
+      "key": "promotionalPriceId",
+      "value": ""
+    },
+    {
+      "key": "stockSectorId",
+      "value": ""
+    },
+    {
+      "key": "stockLocationId",
+      "value": ""
+    },
+    {
+      "key": "stockBatchId",
+      "value": ""
+    },
+    {
+      "key": "stockBatchBalanceId",
+      "value": ""
+    },
+    {
+      "key": "stockSectorRentalId",
+      "value": ""
+    },
+    {
+      "key": "stockMinMaxId",
+      "value": ""
+    },
+    {
+      "key": "stockMovementId",
+      "value": ""
+    },
+    {
+      "key": "paymentTypeId",
+      "value": ""
+    },
+    {
+      "key": "saleId",
+      "value": ""
+    },
+    {
+      "key": "saleItemId",
+      "value": ""
+    },
+    {
+      "key": "salesReturnId",
+      "value": ""
+    },
+    {
+      "key": "typeNetworkId",
+      "value": ""
+    },
+    {
+      "key": "typeSupplierCustomerId",
+      "value": ""
+    },
+    {
+      "key": "contactId",
+      "value": ""
+    },
+    {
+      "key": "login",
+      "value": ""
+    },
+    {
+      "key": "password",
+      "value": ""
+    },
+    {
+      "key": "maintainerApiKey",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "00 - Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{healthUrl}}/health"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "01 - Auth",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"loginType\": \"EMAIL\",\n  \"login\": \"{{login}}\",\n  \"password\": \"{{password}}\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data?.accessToken) {",
+                  "  pm.environment.set('accessToken', json.data.accessToken);",
+                  "  pm.collectionVariables.set('accessToken', json.data.accessToken);",
+                  "  pm.environment.set('refreshToken', json.data.refreshToken);",
+                  "  pm.collectionVariables.set('refreshToken', json.data.refreshToken);",
+                  "}",
+                  "if (json.data?.enterprises?.[0]?.id) {",
+                  "  pm.environment.set('enterpriseId', json.data.enterprises[0].id);",
+                  "  pm.collectionVariables.set('enterpriseId', json.data.enterprises[0].id);",
+                  "}",
+                  "pm.test('Status 2xx', () => pm.response.to.be.success);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/refresh",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/logout",
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Switch Enterprise",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/switch-enterprise",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enterpriseId\": \"{{enterpriseId}}\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data?.accessToken) {",
+                  "  pm.environment.set('accessToken', json.data.accessToken);",
+                  "  pm.collectionVariables.set('accessToken', json.data.accessToken);",
+                  "  pm.environment.set('refreshToken', json.data.refreshToken);",
+                  "  pm.collectionVariables.set('refreshToken', json.data.refreshToken);",
+                  "}",
+                  "if (json.data?.enterprises?.[0]?.id) {",
+                  "  pm.environment.set('enterpriseId', json.data.enterprises[0].id);",
+                  "  pm.collectionVariables.set('enterpriseId', json.data.enterprises[0].id);",
+                  "}",
+                  "pm.test('Status 2xx', () => pm.response.to.be.success);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Me",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/me"
+          },
+          "response": []
+        },
+        {
+          "name": "First Access - Lookup",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/first-access/lookup",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{login}}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "First Access - Verify",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/first-access/verify",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"loginType\": \"EMAIL\",\n  \"login\": \"{{login}}\",\n  \"code\": \"000000\",\n  \"password\": \"NovaSenha@123\",\n  \"confirmPassword\": \"NovaSenha@123\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "First Access - Resend",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/first-access/resend",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{login}}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Password Reset - Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/password-reset/request",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{login}}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Password Reset - Verify",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/password-reset/verify",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"loginType\": \"EMAIL\",\n  \"login\": \"{{login}}\",\n  \"code\": \"000000\",\n  \"password\": \"NovaSenha@123\",\n  \"confirmPassword\": \"NovaSenha@123\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Password Reset - Resend",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/password-reset/resend",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{login}}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Invitation - Accept",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/invitations/{{memberId}}/accept",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"loginType\": \"EMAIL\",\n  \"login\": \"{{login}}\",\n  \"password\": \"{{password}}\",\n  \"code\": \"000000\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Invitation - Decline",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/invitations/{{memberId}}/decline",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Teste Postman\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Invitation - Resend",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/invitations/{{memberId}}/resend",
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02 - Maintainer",
+      "item": [
+        {
+          "name": "Criar Enterprise",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Maintainer-Api-Key",
+                "value": "{{maintainerApiKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/maintainer/enterprises",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"registration\": \"12345678000199\",\n  \"legalName\": \"Empresa Teste Postman LTDA\",\n  \"tradeName\": \"Empresa Teste\",\n  \"phone\": \"11999990000\",\n  \"email\": \"empresa.teste@exemplo.com\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Excluir Enterprise",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-Maintainer-Api-Key",
+                "value": "{{maintainerApiKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/maintainer/enterprises/{{enterpriseId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar Department",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Maintainer-Api-Key",
+                "value": "{{maintainerApiKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/maintainer/departments",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Departamento Teste\",\n  \"description\": \"Criado via Postman\",\n  \"permissionReference\": \"vendas\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar Department",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-Maintainer-Api-Key",
+                "value": "{{maintainerApiKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/maintainer/departments/{{departmentId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Atualizado via Postman\"\n}"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03 - Enterprises",
+      "item": [
+        {
+          "name": "Listar Enterprises",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/enterprises?limit=20&offset=0"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar Enterprise",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/enterprises/{{enterpriseId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar Enterprise",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/enterprises/{{enterpriseId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tradeName\": \"Nome Fantasia Atualizado\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Addresses",
+          "item": [
+            {
+              "name": "Listar Endereços",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/addresses"
+              },
+              "response": []
+            },
+            {
+              "name": "Criar Endereço",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/addresses",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"cepId\": \"{{cepId}}\",\n  \"number\": \"100\",\n  \"complement\": \"Sala 1\",\n  \"adressType\": \"PRINCIPAL\"\n}"
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Atualizar Endereço",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/addresses/{{addressId}}",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"number\": \"101\"\n}"
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Product Catalog (Enterprise)",
+          "item": [
+            {
+              "name": "Listar Marcas",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/product-brands"
+              },
+              "response": []
+            },
+            {
+              "name": "Listar Grupos",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/product-groups"
+              },
+              "response": []
+            },
+            {
+              "name": "Listar Subgrupos",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/product-subgroups"
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 - Departments",
+      "item": [
+        {
+          "name": "Listar Departments",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/departments?limit=50&offset=0"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar Department",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/departments/{{departmentId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "05 - Addresses",
+      "item": [
+        {
+          "name": "Countries",
+          "item": [
+            {
+              "name": "Listar Países",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/addresses/countries?limit=20&offset=0"
+              },
+              "response": []
+            },
+            {
+              "name": "Criar País",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/addresses/countries",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"countryCode\": \"BR\",\n  \"countryName\": \"Brasil Teste\",\n  \"cbsTax\": 0,\n  \"isTax\": 0,\n  \"ibs_uf_tax\": 0,\n  \"ibs_municipal_tax\": 0\n}"
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Atualizar País",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/addresses/countries/{{countryId}}",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"countryName\": \"Brasil Atualizado\"\n}"
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "States",
+          "item": [
+            {
+              "name": "Listar Estados",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/addresses/states?limit=20&offset=0&countryId={{countryId}}"
+              },
+              "response": []
+            },
+            {
+              "name": "Criar Estado",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/addresses/states",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"acronym\": \"TS\",\n  \"description\": \"Estado Teste\",\n  \"internalAliquot\": 18,\n  \"interstateAliquot\": 12,\n  \"fcpAliquot\": 0,\n  \"borders\": false,\n  \"generate_st\": false,\n  \"embedDifal\": false,\n  \"ibs_uf_tax\": 0,\n  \"ibs_municipal_tax\": 0,\n  \"countryId\": \"{{countryId}}\"\n}"
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Atualizar Estado",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/addresses/states/{{stateId}}",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Estado Atualizado\"\n}"
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Cities",
+          "item": [
+            {
+              "name": "Listar Cidades",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/addresses/cities?limit=20&offset=0&stateId={{stateId}}"
+              },
+              "response": []
+            },
+            {
+              "name": "Criar Cidade",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/addresses/cities",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"ibgeCode\": \"9999999\",\n  \"citieName\": \"Cidade Teste\",\n  \"ibs_municipal_tax\": 0,\n  \"stateId\": \"{{stateId}}\"\n}"
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Atualizar Cidade",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/addresses/cities/{{cityId}}",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"citieName\": \"Cidade Atualizada\"\n}"
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "CEPs",
+          "item": [
+            {
+              "name": "Listar CEPs",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/addresses/ceps?limit=20&offset=0&cityId={{cityId}}"
+              },
+              "response": []
+            },
+            {
+              "name": "Criar CEP",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/addresses/ceps",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"cepNumber\": \"01310100\",\n  \"address\": \"Av Paulista\",\n  \"neighborhood\": \"Bela Vista\",\n  \"cityId\": \"{{cityId}}\"\n}"
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Atualizar CEP",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/addresses/ceps/{{cepId}}",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"complement\": \"Atualizado\"\n}"
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06 - Members",
+      "item": [
+        {
+          "name": "Listar Members",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/members?limit=20&offset=0"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar Member por Código",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/members/code/1"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar Member",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/members/{{memberId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar Member com User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/members/create-with-user",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user\": {\n    \"userName\": \"Membro Teste Postman\",\n    \"userRegistration\": \"52998224725\",\n    \"userEmail\": \"membro.postman@exemplo.com\",\n    \"userPhone\": \"11999990002\"\n  },\n  \"member\": {\n    \"class\": \"CLIENTE\",\n    \"departments\": [],\n    \"code\": 1001\n  },\n  \"sendEmail\": false\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Convidar Member",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/members/invite",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"member\": {\n    \"class\": \"VENDEDOR\",\n    \"departments\": []\n  },\n  \"inviteEmail\": \"convite@exemplo.com\",\n  \"sendEmail\": false\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Criar Member (user existente)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/members",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"class\": \"CLIENTE\",\n  \"departments\": []\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Vincular Department",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/members/{{memberId}}/departments",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"departmentId\": \"{{departmentId}}\",\n  \"mainDepartment\": true\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar Member Department",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/members/{{memberId}}/departments/{{memberDepartmentId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mainDepartment\": true\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Permissões Default",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/members/{{memberId}}/departments/{{departmentId}}/permissions-default",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"permission\": \"consultar_produtos\",\n  \"status\": true\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Permissões Extra",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/members/{{memberId}}/departments/{{departmentId}}/extra-permissions",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"permission\": \"alterar_produtos\",\n  \"status\": true\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar Member",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/members/{{memberId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"saleLimit\": 10000\n}"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "07 - Users & Onboarding",
+      "item": [
+        {
+          "name": "Listar Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/users?limit=20&offset=0"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/users/{{userId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userName\": \"User Teste\",\n  \"userRegistration\": \"12345678901\",\n  \"userEmail\": \"user.teste@exemplo.com\",\n  \"userPhone\": \"11999990003\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar User",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/users/{{userId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userName\": \"User Atualizado\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Onboarding",
+          "item": [
+            {
+              "name": "Detalhes",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/users/{{userId}}/details"
+              },
+              "response": []
+            },
+            {
+              "name": "Criar Personal Info",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/users/{{userId}}/personal-info",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"gender\": \"MASCULINO\",\n  \"birthDate\": \"1990-01-15\",\n  \"placeOfBirth\": \"São Paulo\"\n}"
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Atualizar Personal Info",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/users/{{userId}}/personal-info",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"placeOfBirth\": \"Campinas\"\n}"
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Criar Endereço User",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/users/{{userId}}/addresses",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"cepId\": \"{{cepId}}\",\n  \"number\": \"200\",\n  \"adressType\": \"PRINCIPAL\"\n}"
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Atualizar Endereço User",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/users/{{userId}}/addresses/{{addressId}}",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"number\": \"201\"\n}"
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Criar Contato",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/users/{{userId}}/contacts",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"11999990004\",\n  \"email\": \"contato@exemplo.com\",\n  \"type\": \"PRINCIPAL\"\n}"
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Atualizar Contato",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/users/{{userId}}/contacts/{{contactId}}",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"11999990005\"\n}"
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Criar Relacionamento",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/users/{{userId}}/relationships",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"maritalStatus\": \"SOLTEIRO\",\n  \"profession\": \"Analista\"\n}"
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Atualizar Relacionamento",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/users/{{userId}}/relationships",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"profession\": \"Desenvolvedor\"\n}"
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Criar Tax Info",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/users/{{userId}}/tax-infos",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"stateRegistration\": \"123456789\"\n}"
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Atualizar Tax Info",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/users/{{userId}}/tax-infos",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"municipalRegistration\": \"987654\"\n}"
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Criar Financial Info",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/users/{{userId}}/financial-info",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"discountLimit\": 10,\n  \"taxRegime\": \"SIMPLES\"\n}"
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Atualizar Financial Info",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/enterprises/{{enterpriseId}}/users/{{userId}}/financial-info",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"discountLimit\": 15\n}"
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "08 - Memberships Types",
+      "item": [
+        {
+          "name": "Type Networks",
+          "item": [
+            {
+              "name": "Listar Type Networks",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/type-networks?limit=20&offset=0"
+              },
+              "response": []
+            },
+            {
+              "name": "Buscar Type Networks por ID",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/type-networks/{{typeNetworkId}}"
+              },
+              "response": []
+            },
+            {
+              "name": "Criar Type Networks",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/type-networks",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Rede Teste\",\n  \"status\": true\n}"
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Atualizar Type Networks",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/type-networks/{{typeNetworkId}}",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Rede Atualizada\"\n}"
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Excluir Type Networks",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/type-networks/{{typeNetworkId}}"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Type Supplier Customers",
+          "item": [
+            {
+              "name": "Listar Type Supplier Customers",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/type-supplier-customers?limit=20&offset=0"
+              },
+              "response": []
+            },
+            {
+              "name": "Buscar Type Supplier Customers por ID",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/type-supplier-customers/{{typeSupplierCustomerId}}"
+              },
+              "response": []
+            },
+            {
+              "name": "Criar Type Supplier Customers",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/type-supplier-customers",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Tipo Fornecedor/Cliente\",\n  \"status\": true\n}"
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Atualizar Type Supplier Customers",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/type-supplier-customers/{{typeSupplierCustomerId}}",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Tipo Atualizado\"\n}"
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Excluir Type Supplier Customers",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/type-supplier-customers/{{typeSupplierCustomerId}}"
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Units",
+      "item": [
+        {
+          "name": "Listar Units",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/units?limit=20&offset=0"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar Units por ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/units/{{unitId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar Units",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/units",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"unit\": \"UN\",\n  \"description\": \"Unidade\",\n  \"compatible\": true\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar Units",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/units/{{unitId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Unidade Atualizada\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Excluir Units",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/units/{{unitId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Type SPED",
+      "item": [
+        {
+          "name": "Listar Type SPED",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/type-sped?limit=20&offset=0"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar Type SPED por ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/type-sped/{{typeSpedId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar Type SPED",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/type-sped",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"00\",\n  \"description\": \"Tipo SPED\",\n  \"generateInventory\": false\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar Type SPED",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/type-sped/{{typeSpedId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Atualizado\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Excluir Type SPED",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/type-sped/{{typeSpedId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Types Products",
+      "item": [
+        {
+          "name": "Listar Types Products",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/types-products?limit=20&offset=0"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar Types Products por ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/types-products/{{typeProductId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar Types Products",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/types-products",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"P\",\n  \"description\": \"Produto\",\n  \"manufacturing\": true,\n  \"sales\": true,\n  \"typeSpedId\": \"{{typeSpedId}}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar Types Products",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/types-products/{{typeProductId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Atualizado\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Excluir Types Products",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/types-products/{{typeProductId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Products NCM",
+      "item": [
+        {
+          "name": "Listar Products NCM",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/products-ncm?limit=20&offset=0"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar Products NCM por ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/products-ncm/{{productsNcmId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar Products NCM",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/products-ncm",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ncm\": \"12345678\",\n  \"description\": \"NCM Teste\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar Products NCM",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/products-ncm/{{productsNcmId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"NCM Atualizado\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Excluir Products NCM",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/products-ncm/{{productsNcmId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Products CEST",
+      "item": [
+        {
+          "name": "Listar Products CEST",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/products-cest?limit=20&offset=0"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar Products CEST por ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/products-cest/{{productsCestId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar Products CEST",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/products-cest",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cest\": \"1234567\",\n  \"description\": \"CEST Teste\",\n  \"productsNcmId\": \"{{productsNcmId}}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar Products CEST",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/products-cest/{{productsCestId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Atualizado\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Excluir Products CEST",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/products-cest/{{productsCestId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Products ANP",
+      "item": [
+        {
+          "name": "Listar Products ANP",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/products-anp?limit=20&offset=0"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar Products ANP por ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/products-anp/{{productsAnpId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar Products ANP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/products-anp",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"anp\": \"123456789\",\n  \"description\": \"ANP Teste\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar Products ANP",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/products-anp/{{productsAnpId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Atualizado\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Excluir Products ANP",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/products-anp/{{productsAnpId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Products NBS",
+      "item": [
+        {
+          "name": "Listar Products NBS",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/products-nbs?limit=20&offset=0"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar Products NBS por ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/products-nbs/{{productsNbsId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar Products NBS",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/products-nbs",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lc116Item\": \"1.01\",\n  \"lc116Description\": \"Desc LC116\",\n  \"nbs\": \"123456789\",\n  \"description\": \"NBS Teste\",\n  \"psOnerosa\": true,\n  \"adqExterior\": false,\n  \"indop\": \"1\",\n  \"cClassTrib\": \"01\",\n  \"cClassTribName\": \"Classe\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar Products NBS",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/products-nbs/{{productsNbsId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Atualizado\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Excluir Products NBS",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/products-nbs/{{productsNbsId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "ICMS Taxation",
+      "item": [
+        {
+          "name": "Listar ICMS Taxation",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/icms-taxation?limit=20&offset=0"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar ICMS Taxation por ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/icms-taxation/{{icmsTaxationId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar ICMS Taxation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/icms-taxation",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"icms\": \"00\",\n  \"description\": \"Tributação ICMS\",\n  \"icmsRate\": 18\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar ICMS Taxation",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/icms-taxation/{{icmsTaxationId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Atualizado\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Excluir ICMS Taxation",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/icms-taxation/{{icmsTaxationId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "PIS COFINS Situation",
+      "item": [
+        {
+          "name": "Listar PIS COFINS Situation",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pis-cofins-situation?limit=20&offset=0"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar PIS COFINS Situation por ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pis-cofins-situation/{{pisCofinsSituationId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar PIS COFINS Situation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/pis-cofins-situation",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cst\": \"01\",\n  \"description\": \"Situação PIS/COFINS\",\n  \"type\": \"SAIDA\",\n  \"framing\": \"TRIBUTADO\",\n  \"pisRate\": 1.65,\n  \"cofinsRate\": 7.6\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar PIS COFINS Situation",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/pis-cofins-situation/{{pisCofinsSituationId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Atualizado\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Excluir PIS COFINS Situation",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pis-cofins-situation/{{pisCofinsSituationId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Product Groups",
+      "item": [
+        {
+          "name": "Listar Product Groups",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/product-groups?limit=20&offset=0"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar Product Groups por ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/product-groups/{{productGroupId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar Product Groups",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/product-groups",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Grupo Teste\",\n  \"profitMargin\": 20\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar Product Groups",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/product-groups/{{productGroupId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Atualizado\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Excluir Product Groups",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/product-groups/{{productGroupId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Product Subgroups",
+      "item": [
+        {
+          "name": "Listar Product Subgroups",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/product-subgroups?limit=20&offset=0"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar Product Subgroups por ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/product-subgroups/{{productSubgroupId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar Product Subgroups",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/product-subgroups",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Subgrupo Teste\",\n  \"generatesComission\": false\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar Product Subgroups",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/product-subgroups/{{productSubgroupId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Atualizado\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Excluir Product Subgroups",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/product-subgroups/{{productSubgroupId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Product Brands",
+      "item": [
+        {
+          "name": "Listar Product Brands",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/product-brands?limit=20&offset=0"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar Product Brands por ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/product-brands/{{productBrandId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar Product Brands",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/product-brands",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Marca Teste\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar Product Brands",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/product-brands/{{productBrandId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Atualizado\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Excluir Product Brands",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/product-brands/{{productBrandId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "09 - Products",
+      "item": [
+        {
+          "name": "Listar Products",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/products?limit=20&offset=0"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar Product",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/products/{{productId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar Product",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/products",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product\": {\n    \"description\": \"Produto Teste Postman\",\n    \"barCode\": \"7891234567890\"\n  },\n  \"enterprise\": {\n    \"description\": \"Produto Empresa Teste\",\n    \"measurementUnitId\": \"{{unitId}}\",\n    \"productTypeId\": \"{{typeProductId}}\",\n    \"productGroupId\": \"{{productGroupId}}\",\n    \"productSubgroupId\": \"{{productSubgroupId}}\",\n    \"productBrandId\": \"{{productBrandId}}\"\n  }\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar Product",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/products/{{productId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Produto Atualizado\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Excluir Product",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/products/{{productId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "10 - Products Enterprises",
+      "item": [
+        {
+          "name": "Listar",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/products-enterprises?limit=20&offset=0"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar por Código",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/products-enterprises/code/1"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar por ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/products-enterprises/{{productEnterpriseId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/products-enterprises",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{productId}}\",\n  \"description\": \"Produto na Empresa\",\n  \"measurementUnitId\": \"{{unitId}}\",\n  \"productTypeId\": \"{{typeProductId}}\",\n  \"productGroupId\": \"{{productGroupId}}\",\n  \"productSubgroupId\": \"{{productSubgroupId}}\",\n  \"productBrandId\": \"{{productBrandId}}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/products-enterprises/{{productEnterpriseId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Atualizado\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Excluir",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/products-enterprises/{{productEnterpriseId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Product Taxation",
+      "item": [
+        {
+          "name": "Listar Product Taxation",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/product-taxation?limit=20&offset=0"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar Product Taxation por ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/product-taxation/{{productTaxationId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar Product Taxation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/product-taxation",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cst_pis_entrada\": \"50\",\n  \"cst_pis_saida\": \"01\",\n  \"cst_cofins_entrada\": \"50\",\n  \"cst_cofins_saida\": \"01\",\n  \"productsEnterprisesId\": \"{{productEnterpriseId}}\",\n  \"icmsTaxationId\": \"{{icmsTaxationId}}\",\n  \"pisCofinsSituationId\": \"{{pisCofinsSituationId}}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar Product Taxation",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/product-taxation/{{productTaxationId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cst_pis_saida\": \"02\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Excluir Product Taxation",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/product-taxation/{{productTaxationId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Product Applications",
+      "item": [
+        {
+          "name": "Listar Product Applications",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/product-applications?limit=20&offset=0"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar Product Applications por ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/product-applications/{{productApplicationId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar Product Applications",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/product-applications",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Aplicação Teste\",\n  \"productsEnterprisesId\": \"{{productEnterpriseId}}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar Product Applications",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/product-applications/{{productApplicationId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Atualizado\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Excluir Product Applications",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/product-applications/{{productApplicationId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Prices",
+      "item": [
+        {
+          "name": "Listar Prices",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/prices?limit=20&offset=0"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar Prices por ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/prices/{{priceId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar Prices",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/prices",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price\": 99.9,\n  \"productsEnterprisesId\": \"{{productEnterpriseId}}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar Prices",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/prices/{{priceId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price\": 109.9\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Excluir Prices",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/prices/{{priceId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Promotional Prices",
+      "item": [
+        {
+          "name": "Listar Promotional Prices",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/promotional-prices?limit=20&offset=0"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar Promotional Prices por ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/promotional-prices/{{promotionalPriceId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar Promotional Prices",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/promotional-prices",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Promoção Teste\",\n  \"price\": 79.9,\n  \"startDate\": \"2026-01-01\",\n  \"endDate\": \"2026-12-31\",\n  \"productsEnterprisesId\": \"{{productEnterpriseId}}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar Promotional Prices",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/promotional-prices/{{promotionalPriceId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price\": 69.9\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Excluir Promotional Prices",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/promotional-prices/{{promotionalPriceId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Stock Sectors",
+      "item": [
+        {
+          "name": "Listar Stock Sectors",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-sectors?limit=20&offset=0"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar Stock Sectors por ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-sectors/{{stockSectorId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar Stock Sectors",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-sectors",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Setor Teste\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar Stock Sectors",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-sectors/{{stockSectorId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Atualizado\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Excluir Stock Sectors",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-sectors/{{stockSectorId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Stock Locations",
+      "item": [
+        {
+          "name": "Listar Stock Locations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-locations?limit=20&offset=0"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar Stock Locations por ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-locations/{{stockLocationId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar Stock Locations",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-locations",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"box\": \"A1\",\n  \"description\": \"Localização A1\",\n  \"stockSectorId\": \"{{stockSectorId}}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar Stock Locations",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-locations/{{stockLocationId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Atualizado\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Excluir Stock Locations",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-locations/{{stockLocationId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Stock Batches",
+      "item": [
+        {
+          "name": "Listar Stock Batches",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-batches?limit=20&offset=0"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar Stock Batches por ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-batches/{{stockBatchId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar Stock Batches",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-batches",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"batchNumber\": \"LOTE-001\",\n  \"productsEnterprisesId\": \"{{productEnterpriseId}}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar Stock Batches",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-batches/{{stockBatchId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"Atualizado\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Excluir Stock Batches",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-batches/{{stockBatchId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Stock Batch Balances",
+      "item": [
+        {
+          "name": "Listar Stock Batch Balances",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-batch-balances?limit=20&offset=0"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar Stock Batch Balances por ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-batch-balances/{{stockBatchBalanceId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar Stock Batch Balances",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-batch-balances",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stockBatchId\": \"{{stockBatchId}}\",\n  \"stockLocationId\": \"{{stockLocationId}}\",\n  \"quantity\": 100\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar Stock Batch Balances",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-batch-balances/{{stockBatchBalanceId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 150\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Excluir Stock Batch Balances",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-batch-balances/{{stockBatchBalanceId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Stock Sectors Rental",
+      "item": [
+        {
+          "name": "Listar Stock Sectors Rental",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-sectors-rental?limit=20&offset=0"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar Stock Sectors Rental por ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-sectors-rental/{{stockSectorRentalId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar Stock Sectors Rental",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-sectors-rental",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productsEnterprisesId\": \"{{productEnterpriseId}}\",\n  \"stockLocationId\": \"{{stockLocationId}}\",\n  \"quantity\": 10\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar Stock Sectors Rental",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-sectors-rental/{{stockSectorRentalId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 20\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Excluir Stock Sectors Rental",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-sectors-rental/{{stockSectorRentalId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Stock Min Max",
+      "item": [
+        {
+          "name": "Listar Stock Min Max",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-min-max?limit=20&offset=0"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar Stock Min Max por ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-min-max/{{stockMinMaxId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar Stock Min Max",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-min-max",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantityMin\": 10,\n  \"quantityMax\": 100,\n  \"productsEnterprisesId\": \"{{productEnterpriseId}}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar Stock Min Max",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-min-max/{{stockMinMaxId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantityMin\": 15\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Excluir Stock Min Max",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-min-max/{{stockMinMaxId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "11 - Stock Movements",
+      "item": [
+        {
+          "name": "Listar Movimentos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-movements?limit=20&offset=0"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar Movimento",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-movements/{{stockMovementId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar Entrada",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-movements",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"ENTRADA\",\n  \"productsEnterprisesId\": \"{{productEnterpriseId}}\",\n  \"quantity\": 50,\n  \"toStockLocationId\": \"{{stockLocationId}}\",\n  \"toStockBatchId\": \"{{stockBatchId}}\",\n  \"notes\": \"Entrada teste Postman\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Criar Saída",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-movements",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"SAIDA\",\n  \"productsEnterprisesId\": \"{{productEnterpriseId}}\",\n  \"quantity\": 5,\n  \"fromStockLocationId\": \"{{stockLocationId}}\",\n  \"fromStockBatchId\": \"{{stockBatchId}}\",\n  \"notes\": \"Saída teste Postman\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Criar Transferência",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/stock-movements",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"TRANSFERENCIA\",\n  \"productsEnterprisesId\": \"{{productEnterpriseId}}\",\n  \"quantity\": 10,\n  \"fromStockLocationId\": \"{{stockLocationId}}\",\n  \"toStockLocationId\": \"{{stockLocationId}}\",\n  \"notes\": \"Transferência teste\"\n}"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Payment Types",
+      "item": [
+        {
+          "name": "Listar Payment Types",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/payment-types?limit=20&offset=0"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar Payment Types por ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/payment-types/{{paymentTypeId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar Payment Types",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/payment-types",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Dinheiro\",\n  \"paymentType\": \"DINHEIRO\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar Payment Types",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/payment-types/{{paymentTypeId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Atualizado\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Excluir Payment Types",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/payment-types/{{paymentTypeId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "12 - Sales",
+      "item": [
+        {
+          "name": "Listar Vendas",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/sales?limit=20&offset=0"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar Venda",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/sales/{{saleId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar Orçamento",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/sales",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"memberId\": \"{{memberId}}\",\n  \"type\": \"ORCAMENTO\",\n  \"items\": [\n    {\n      \"quantity\": 1,\n      \"valueUnit\": 100,\n      \"productsEnterprisesId\": \"{{productEnterpriseId}}\",\n      \"unitId\": \"{{unitId}}\",\n      \"productTypeId\": \"{{typeProductId}}\"\n    }\n  ]\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Criar Venda",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/sales",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"memberId\": \"{{memberId}}\",\n  \"type\": \"VENDA\",\n  \"items\": [\n    {\n      \"quantity\": 2,\n      \"valueUnit\": 50,\n      \"productsEnterprisesId\": \"{{productEnterpriseId}}\",\n      \"unitId\": \"{{unitId}}\",\n      \"productTypeId\": \"{{typeProductId}}\"\n    }\n  ],\n  \"payments\": [\n    {\n      \"paymentTypeId\": \"{{paymentTypeId}}\",\n      \"value\": 100\n    }\n  ]\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar Venda",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/sales/{{saleId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"percentageDiscount\": 5\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Recalcular Totais",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/sales/{{saleId}}/recalculate-totals",
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Converter Orçamento em Venda",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/sales/{{saleId}}/convert-to-sale",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"FINALIZADA\",\n  \"items\": [\n    {\n      \"quantity\": 1,\n      \"valueUnit\": 100,\n      \"productsEnterprisesId\": \"{{productEnterpriseId}}\",\n      \"unitId\": \"{{unitId}}\",\n      \"productTypeId\": \"{{typeProductId}}\"\n    }\n  ]\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Conversões de Orçamento",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/sales/{{saleId}}/budget-conversions"
+          },
+          "response": []
+        },
+        {
+          "name": "Adicionar Item",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/sales/{{saleId}}/items",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 1,\n  \"valueUnit\": 25,\n  \"productsEnterprisesId\": \"{{productEnterpriseId}}\",\n  \"unitId\": \"{{unitId}}\",\n  \"productTypeId\": \"{{typeProductId}}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar Item",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/sales/{{saleId}}/items/{{saleItemId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 2\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Remover Item",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/sales/{{saleId}}/items/{{saleItemId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Returns",
+          "item": [
+            {
+              "name": "Listar Devoluções",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/sales/{{saleId}}/returns"
+              },
+              "response": []
+            },
+            {
+              "name": "Devolução Parcial",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/sales/{{saleId}}/returns/partial",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"notes\": \"Devolução parcial teste\",\n  \"items\": [\n    {\n      \"saleItemId\": \"{{saleItemId}}\",\n      \"quantity\": 1\n    }\n  ]\n}"
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Devolução Total",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/sales/{{saleId}}/returns/full",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"notes\": \"Devolução total teste\"\n}"
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Buscar Devolução",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/sales/{{saleId}}/returns/{{salesReturnId}}"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Analytics",
+          "item": [
+            {
+              "name": "Realized Overview",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/sales/analytics/realized/overview?startDate=2026-01-01&endDate=2026-12-31"
+              },
+              "response": []
+            },
+            {
+              "name": "Realized Compare",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/sales/analytics/realized/compare?startDate=2026-01-01&endDate=2026-12-31&compareStartDate=2025-01-01&compareEndDate=2025-12-31"
+              },
+              "response": []
+            },
+            {
+              "name": "Realized Timeseries",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/sales/analytics/realized/timeseries?startDate=2026-01-01&endDate=2026-12-31&granularity=month"
+              },
+              "response": []
+            },
+            {
+              "name": "Realized By Payment Type",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/sales/analytics/realized/by-payment-type?startDate=2026-01-01&endDate=2026-12-31"
+              },
+              "response": []
+            },
+            {
+              "name": "Realized By Seller",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/sales/analytics/realized/by-seller?startDate=2026-01-01&endDate=2026-12-31"
+              },
+              "response": []
+            },
+            {
+              "name": "Realized By Customer",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/sales/analytics/realized/by-customer?startDate=2026-01-01&endDate=2026-12-31"
+              },
+              "response": []
+            },
+            {
+              "name": "Realized Top Products",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/sales/analytics/realized/top-products?startDate=2026-01-01&endDate=2026-12-31&limit=10"
+              },
+              "response": []
+            },
+            {
+              "name": "Realized By Product Group",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/sales/analytics/realized/by-product-group?startDate=2026-01-01&endDate=2026-12-31"
+              },
+              "response": []
+            },
+            {
+              "name": "Realized By Product Brand",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/sales/analytics/realized/by-product-brand?startDate=2026-01-01&endDate=2026-12-31"
+              },
+              "response": []
+            },
+            {
+              "name": "Realized Returns",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/sales/analytics/realized/returns?startDate=2026-01-01&endDate=2026-12-31"
+              },
+              "response": []
+            },
+            {
+              "name": "Pipeline Overview",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/sales/analytics/pipeline/overview?startDate=2026-01-01&endDate=2026-12-31"
+              },
+              "response": []
+            },
+            {
+              "name": "Pipeline Compare",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/sales/analytics/pipeline/compare?startDate=2026-01-01&endDate=2026-12-31&compareStartDate=2025-01-01&compareEndDate=2025-12-31"
+              },
+              "response": []
+            },
+            {
+              "name": "Pipeline Timeseries",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/sales/analytics/pipeline/timeseries?startDate=2026-01-01&endDate=2026-12-31&granularity=month"
+              },
+              "response": []
+            },
+            {
+              "name": "Pipeline Budgets",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/sales/analytics/pipeline/budgets?startDate=2026-01-01&endDate=2026-12-31"
+              },
+              "response": []
+            },
+            {
+              "name": "Pipeline Budgets Funnel",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/sales/analytics/pipeline/budgets/funnel?startDate=2026-01-01&endDate=2026-12-31"
+              },
+              "response": []
+            },
+            {
+              "name": "Operations Status Breakdown",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/sales/analytics/operations/status-breakdown?startDate=2026-01-01&endDate=2026-12-31"
+              },
+              "response": []
+            },
+            {
+              "name": "Operations Cancellations",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/sales/analytics/operations/cancellations?startDate=2026-01-01&endDate=2026-12-31"
+              },
+              "response": []
+            },
+            {
+              "name": "Receivables Summary",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/sales/analytics/receivables/summary?startDate=2026-01-01&endDate=2026-12-31"
+              },
+              "response": []
+            },
+            {
+              "name": "Receivables Aging",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/sales/analytics/receivables/aging?asOfDate=2026-06-26"
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

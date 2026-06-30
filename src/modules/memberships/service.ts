@@ -18,6 +18,7 @@ import {
   ConflictError,
   InternalServerError,
   NotFoundError,
+  ValidationError,
 } from "../../shared/errors/app-error.js";
 import { addMinutesFromNow } from "../../shared/time/duration.js";
 import { resolveListPagination } from "../../shared/pagination/pagination-params.js";
@@ -72,6 +73,7 @@ import type {
 import type { AuthContext } from "../auth/types.js";
 import { mapUserToApiSummary } from "../../shared/responses/user-public-profile.js";
 import { normalizeMemberListFilters } from "./repository.js";
+import { normalizeUserContactInput } from "../../shared/users/normalize-user-contact.js";
 
 type AuthMeta = {
   ipAddress: string | null;
@@ -82,9 +84,9 @@ type AuthMeta = {
 type MemberUserSummary = {
   id: string;
   userName: string;
-  userRegistration: string;
-  userEmail: string;
-  userPhone: string;
+  userRegistration: string | null;
+  userEmail: string | null;
+  userPhone: string | null;
   addressLine?: string | null;
   cityName?: string | null;
 };
@@ -972,16 +974,20 @@ export class MembershipsService {
     await this.assertEnterpriseExists(enterpriseId);
     await this.assertDepartmentsExistAndActive(input.member.departments);
 
-    const registrationNormalized = normalizeCpfCnpj(
-      input.user.userRegistration,
-    );
-    const emailNormalized = normalizeEmail(input.user.userEmail);
-    const phone = normalizePhone(input.user.userPhone);
+    const {
+      userRegistration: registrationNormalized,
+      userEmail: emailNormalized,
+      userPhone: phone,
+    } = normalizeUserContactInput(input.user);
 
     const [byReg, byEmail, byPhone] = await Promise.all([
-      findUserByRegistration(registrationNormalized),
-      findUserByEmail(emailNormalized),
-      findUserByPhone(phone),
+      registrationNormalized
+        ? findUserByRegistration(registrationNormalized)
+        : Promise.resolve(null),
+      emailNormalized
+        ? findUserByEmail(emailNormalized)
+        : Promise.resolve(null),
+      phone ? findUserByPhone(phone) : Promise.resolve(null),
     ]);
 
     if (byReg) {
@@ -1060,6 +1066,18 @@ export class MembershipsService {
     });
 
     if (input.member.class !== "CLIENTE" && input.sendEmail === true) {
+      if (!result.user.userEmail) {
+        throw new ValidationError(
+          [
+            {
+              path: "user.userEmail",
+              message:
+                "E-mail do usuario e obrigatorio para envio de convite de primeiro acesso",
+            },
+          ],
+          "E-mail do usuario e obrigatorio para envio de convite de primeiro acesso",
+        );
+      }
       await this.queueFirstAccessInviteAfterOnboard({
         userId: result.user.id,
         userEmail: result.user.userEmail,

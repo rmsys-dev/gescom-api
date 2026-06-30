@@ -53,7 +53,7 @@ type LoginResponse = {
     id: string;
     name: string;
     email: string | null;
-    registration: string;
+    registration: string | null;
     onboardingCompleted: boolean;
   };
   enterprises: Array<{
@@ -92,7 +92,7 @@ type MeResponse = {
     id: string;
     name: string;
     email: string | null;
-    registration: string;
+    registration: string | null;
     phone: string | null;
     onboardingCompleted: boolean;
   };
@@ -371,7 +371,7 @@ export class AuthService {
           id: user.id,
           name: user.userName,
           email: user.userEmail ?? null,
-          registration: user.userRegistration,
+          registration: user.userRegistration ?? null,
           phone: user.userPhone ?? null,
           onboardingCompleted: user.onboardingCompleted,
         },
@@ -461,7 +461,7 @@ export class AuthService {
         id: row.id,
         name: row.userName,
         email: row.userEmail ?? null,
-        registration: row.userRegistration,
+        registration: row.userRegistration ?? null,
         phone: row.userPhone ?? null,
         onboardingCompleted: row.onboardingCompleted,
       },

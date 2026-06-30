@@ -2,8 +2,8 @@ import { and, asc, count, eq } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import {
   icmsTaxation,
+  pisCofinsSituation,
   productTaxation,
-  products,
   productsEnterprises,
 } from "../../../db/schema.js";
 import {
@@ -64,6 +64,26 @@ export class ProductTaxationService {
     }
   }
 
+  private async assertPisCofinsSituationExists(pisCofinsSituationId: string) {
+    const row = (
+      await db
+        .select({ id: pisCofinsSituation.id })
+        .from(pisCofinsSituation)
+        .where(eq(pisCofinsSituation.id, pisCofinsSituationId))
+        .limit(1)
+    )[0];
+    if (!row) {
+      throw new NotFoundError(
+        "Situacao PIS/COFINS nao encontrada",
+        "PIS_COFINS_SITUATION_NOT_FOUND",
+      );
+    }
+  }
+
+  private async assertPisCofinsSituationsExist(ids: string[]) {
+    await Promise.all(ids.map((id) => this.assertPisCofinsSituationExists(id)));
+  }
+
   public async list(query: ListProductTaxationQuery = {}) {
     const { limit, offset } = resolveListPagination(query);
     const where = this.scope();
@@ -101,18 +121,23 @@ export class ProductTaxationService {
     await Promise.all([
       this.assertProductExists(input.productsEnterprisesId),
       this.assertIcmsExists(input.icmsTaxationId),
+      this.assertPisCofinsSituationsExist([
+        input.cstPisEntradaId,
+        input.cstPisSaidaId,
+        input.cstCofinsEntradaId,
+        input.cstCofinsSaidaId,
+      ]),
     ]);
     try {
       const [row] = await db
         .insert(productTaxation)
         .values({
-          cst_pis_entrada: input.cst_pis_entrada.trim(),
-          cst_pis_saida: input.cst_pis_saida.trim(),
-          cst_cofins_entrada: input.cst_cofins_entrada.trim(),
-          cst_cofins_saida: input.cst_cofins_saida.trim(),
+          cstPisEntradaId: input.cstPisEntradaId,
+          cstPisSaidaId: input.cstPisSaidaId,
+          cstCofinsEntradaId: input.cstCofinsEntradaId,
+          cstCofinsSaidaId: input.cstCofinsSaidaId,
           productsEnterprisesId: input.productsEnterprisesId,
           icmsTaxationId: input.icmsTaxationId,
-          pisCofinsSituationId: input.pisCofinsSituationId,
         })
         .returning();
       if (!row) throw new Error("Falha ao criar tributacao do produto");
@@ -145,30 +170,36 @@ export class ProductTaxationService {
     if (input.icmsTaxationId) {
       await this.assertIcmsExists(input.icmsTaxationId);
     }
+    const pisCofinsIds = [
+      input.cstPisEntradaId,
+      input.cstPisSaidaId,
+      input.cstCofinsEntradaId,
+      input.cstCofinsSaidaId,
+    ].filter((value): value is string => value !== undefined);
+    if (pisCofinsIds.length > 0) {
+      await this.assertPisCofinsSituationsExist(pisCofinsIds);
+    }
     try {
       const [row] = await db
         .update(productTaxation)
         .set({
-          ...(input.cst_pis_entrada !== undefined
-            ? { cst_pis_entrada: input.cst_pis_entrada.trim() }
+          ...(input.cstPisEntradaId !== undefined
+            ? { cstPisEntradaId: input.cstPisEntradaId }
             : {}),
-          ...(input.cst_pis_saida !== undefined
-            ? { cst_pis_saida: input.cst_pis_saida.trim() }
+          ...(input.cstPisSaidaId !== undefined
+            ? { cstPisSaidaId: input.cstPisSaidaId }
             : {}),
-          ...(input.cst_cofins_entrada !== undefined
-            ? { cst_cofins_entrada: input.cst_cofins_entrada.trim() }
+          ...(input.cstCofinsEntradaId !== undefined
+            ? { cstCofinsEntradaId: input.cstCofinsEntradaId }
             : {}),
-          ...(input.cst_cofins_saida !== undefined
-            ? { cst_cofins_saida: input.cst_cofins_saida.trim() }
+          ...(input.cstCofinsSaidaId !== undefined
+            ? { cstCofinsSaidaId: input.cstCofinsSaidaId }
             : {}),
           ...(input.productsEnterprisesId !== undefined
             ? { productsEnterprisesId: input.productsEnterprisesId }
             : {}),
           ...(input.icmsTaxationId !== undefined
             ? { icmsTaxationId: input.icmsTaxationId }
-            : {}),
-          ...(input.pisCofinsSituationId !== undefined
-            ? { pisCofinsSituationId: input.pisCofinsSituationId }
             : {}),
           updatedAt: new Date(),
         })

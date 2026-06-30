@@ -14,12 +14,12 @@ export const mapAuthUser = (user: {
   id: string;
   userName: string;
   userEmail: string | null;
-  userRegistration: string;
+  userRegistration: string | null;
   onboardingCompleted: boolean;
 }) => ({
   id: user.id,
   name: user.userName,
   email: user.userEmail ?? null,
-  registration: user.userRegistration,
+  registration: user.userRegistration ?? null,
   onboardingCompleted: user.onboardingCompleted,
 });

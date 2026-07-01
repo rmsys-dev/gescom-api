@@ -62,11 +62,11 @@ export const enterprisesMembers = pgTable(
     comissionOnSight: decimal("comission_on_sight", percentageDecimal).notNull().default("0.00"),  // Comissão a vista
     comissionToTerms: decimal("comission_to_terms", percentageDecimal).notNull().default("0.00"),  // Comissão a prazo
     comissionPartial: decimal("comission_partial", percentageDecimal).notNull().default("0.00"),  // Comissão parcial
-    typeSupplierCustomerId: uuid("type_supplier_customer_id").references(
+    typeSupplierCustomerId: uuid("type_supplier_customer_id").references(  
       () => typeSupplierCustomers.id,
       { onDelete: "restrict" },
     ),
-    typeNetworkId: uuid("type_network_id").references(() => typeNetworks.id, {
+    typeNetworkId: uuid("type_network_id").references(() => typeNetworks.id, { 
       onDelete: "restrict",
     }),
     approvedAt: date("approved_at", { mode: "date" }), // Data de aprovação / ativação
@@ -199,9 +199,9 @@ export const membersPersonalInfo = pgTable(
     memberId: uuid("member_id")
       .notNull()
       .references(() => enterprisesMembers.id, { onDelete: "restrict" }),
-    gender: genderEnum("gender"),
-    birthDate: date("birth_date", { mode: "date" }),
-    placeOfBirth: varchar("place_of_birth", { length: 255 }),
+    gender: genderEnum("gender"), // Gênero
+    birthDate: date("birth_date", { mode: "date" }), // Data de nascimento
+    placeOfBirth: varchar("place_of_birth", { length: 255 }), // Cidade de nascimento
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
     deletedAt: tz("deleted_at"),

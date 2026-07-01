@@ -21,6 +21,7 @@ export const statusEnum = pgEnum("status", [
   "ESPECIAL",
   "COBRANCA",
   "NAO_VENDER",
+  "FUNCIONARIO",
 ]);
 
 //Tipo de venda (venda, orçamento, devolução, cancelamento, outro)
@@ -58,7 +59,6 @@ export const typeUserContactEnum = pgEnum("type_user_contact", [
   "FILHO",
   "PAI",
   "MAE",
-  "AMIGO",
   "OUTRO",
 ]);
 
@@ -84,7 +84,7 @@ export const genderEnum = pgEnum("gender", [
   "NÃO_INFORMADO",
 ]);
 
-export const maritalStatusEnum = pgEnum("marital_status", [
+export const maritalStatusEnum = pgEnum("marital_status", [ 
   "SOLTEIRO",
   "CASADO",
   "DIVORCIADO",
@@ -93,7 +93,7 @@ export const maritalStatusEnum = pgEnum("marital_status", [
 ]);
 
 //Status de permissão (permitido, negado)
-export const statusPermissionEnum = pgEnum("status_permission", [
+export const statusPermissionEnum = pgEnum("status_permission", [  
   "ALLOW",
   "DENIED",
 ]);

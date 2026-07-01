@@ -1,8 +1,9 @@
 import { z } from "zod";
+import { statusEnum } from "../../db/schema.js";
 import { createPaginationQuerySchema } from "../../shared/validation/common-schemas.js";
 import { createProductEnterprisePayloadSchema } from "./products-enterprises/schema.js";
 
-const statusSchema = z.enum(["ATIVO", "INATIVO"]);
+const statusSchema = z.enum(statusEnum.enumValues);
 
 export const listProductsQuerySchema = createPaginationQuerySchema(100).extend({
   status: statusSchema.optional(),

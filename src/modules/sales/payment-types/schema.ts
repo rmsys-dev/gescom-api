@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { createPaginationQuerySchema } from "../../../shared/validation/common-schemas.js";
-import { paymentTypeEnum } from "../../../db/schema.js";
+import { paymentTypeEnum, statusEnum } from "../../../db/schema.js";
 
 export const listPaymentTypesQuerySchema = createPaginationQuerySchema(100);
 
-const statusSchema = z.enum(["ATIVO", "INATIVO", "BLOQUEADO", "PENDENTE", "ESPECIAL"]);
+const statusSchema = z.enum(statusEnum.enumValues);
 const paymentTypeSchema = z.enum(paymentTypeEnum.enumValues);
 
 export const createPaymentTypeSchema = z

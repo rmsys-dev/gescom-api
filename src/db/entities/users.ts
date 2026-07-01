@@ -32,6 +32,5 @@ export const users = pgTable(
     deletedAt: tz("deleted_at"),
   },
   (t) => [  
-    index("users_active_name_idx").on(t.deletedAt, t.userName),
   ],
 );

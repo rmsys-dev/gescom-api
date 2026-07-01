@@ -1,13 +1,10 @@
 import { z } from "zod";
+import { statusEnum } from "../../../db/schema.js";
 import { createPaginationQuerySchema } from "../../../shared/validation/common-schemas.js";
 
 export const listStockLocationsQuerySchema = createPaginationQuerySchema(100);
 
-const statusSchema = z.enum([
-  "ATIVO",
-  "INATIVO",
-  "BLOQUEADO",
-]);
+const statusSchema = z.enum(statusEnum.enumValues);
 
 export const createStockLocationSchema = z
   .object({

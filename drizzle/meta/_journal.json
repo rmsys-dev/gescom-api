@@ -141,6 +141,13 @@
       "when": 1782851155437,
       "tag": "0019_special_kate_bishop",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1782928956386,
+      "tag": "0020_flawless_night_nurse",
+      "breakpoints": true
     }
   ]
 }

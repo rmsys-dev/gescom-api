@@ -1,50 +1,16 @@
 import { relations } from "drizzle-orm";
-import { ceps } from "../entities/addresses.js";
-import { enterprisesMembers, userInvitations } from "../entities/members.js";
 import {
-  membersAddress,
-  membersContact,
-  membersRelationships,
-  membersTaxInfos,
-  membersFinancialInfo,
-  membersPersonalInfo,
+  enterprisesMembers,
   memberExtraPermissions,
   membersDepartments,
   memberPermissionsDefault,
+  userInvitations,
 } from "../entities/members.js";
 import { users } from "../entities/users.js";
 import { enterprises } from "../entities/enterprises.js";
 import { departments } from "../entities/departments.js";
 import { typeSupplierCustomers } from "../entities/typeSupplierCustomers.js";
 import { typeNetworks } from "../entities/typeNetworks.js";
-import {
-  usersCredentials,
-  userSessions,
-  passwordResetTokens,
-} from "../entities/authentication.js";
-
-//**RELAÇÕES DE USUÁRIOS**//
-export const usersRelations = relations(users, ({ many }) => ({
-  memberships: many(enterprisesMembers),
-  credentials: many(usersCredentials),
-  passwordResetTokens: many(passwordResetTokens),
-  sessions: many(userSessions),
-}));
-
-//**RELAÇÕES DE INVITAÇÕES DE USUÁRIOS**//
-export const userInvitationsRelations = relations(
-  userInvitations,
-  ({ one }) => ({
-    user: one(users, {
-      fields: [userInvitations.userId],
-      references: [users.id],
-    }),
-    member: one(enterprisesMembers, {
-      fields: [userInvitations.memberId],
-      references: [enterprisesMembers.id],
-    }),
-  }),
-);
 
 //**RELAÇÕES DE MEMBROS DE EMPRESAS**//
 export const enterprisesMembersRelations = relations(
@@ -68,76 +34,6 @@ export const enterprisesMembersRelations = relations(
     }),
     departments: many(membersDepartments),
     invitations: many(userInvitations),
-    personalInfo: one(membersPersonalInfo),
-    addresses: many(membersAddress),
-    contacts: many(membersContact),
-    relationships: one(membersRelationships),
-    taxInfos: one(membersTaxInfos),
-    financialInfo: one(membersFinancialInfo),
-  }),
-);
-
-//**RELAÇÕES DE INFORMAÇÕES PESSOAIS DE MEMBROS**//
-export const membersPersonalInfoRelations = relations(
-  membersPersonalInfo,
-  ({ one }) => ({
-    member: one(enterprisesMembers, {
-      fields: [membersPersonalInfo.memberId],
-      references: [enterprisesMembers.id],
-    }),
-  }),
-);
-
-//**RELAÇÕES DE ENDEREÇOS DE MEMBROS**//
-export const membersAddressRelations = relations(membersAddress, ({ one }) => ({
-  member: one(enterprisesMembers, {
-    fields: [membersAddress.memberId],
-    references: [enterprisesMembers.id],
-  }),
-  cep: one(ceps, {
-    fields: [membersAddress.cepId],
-    references: [ceps.id],
-  }),
-}));
-
-//**RELAÇÕES DE CONTATOS DE MEMBROS**//
-export const membersContactRelations = relations(membersContact, ({ one }) => ({
-  member: one(enterprisesMembers, {
-    fields: [membersContact.memberId],
-    references: [enterprisesMembers.id],
-  }),
-}));
-
-//**RELAÇÕES DE RELACIONAMENTOS DE MEMBROS**//
-export const membersRelationshipsRelations = relations(
-  membersRelationships,
-  ({ one }) => ({
-    member: one(enterprisesMembers, {
-      fields: [membersRelationships.memberId],
-      references: [enterprisesMembers.id],
-    }),
-  }),
-);
-
-//**RELAÇÕES DE INFORMAÇÕES FISCAIS DE MEMBROS**//
-export const membersTaxInfosRelations = relations(
-  membersTaxInfos,
-  ({ one }) => ({
-    member: one(enterprisesMembers, {
-      fields: [membersTaxInfos.memberId],
-      references: [enterprisesMembers.id],
-    }),
-  }),
-);
-
-//**RELAÇÕES DE INFORMAÇÕES FINANCEIRAS DE MEMBROS**//
-export const membersFinancialInfoRelations = relations(
-  membersFinancialInfo,
-  ({ one }) => ({
-    member: one(enterprisesMembers, {
-      fields: [membersFinancialInfo.memberId],
-      references: [enterprisesMembers.id],
-    }),
   }),
 );
 

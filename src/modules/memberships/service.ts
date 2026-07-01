@@ -11,7 +11,7 @@ import {
   memberPermissionsDefault,
   membersDepartments,
   users,
-  membersAddress,
+  usersAddress,
 } from "../../db/schema.js";
 import { env } from "../../config/env.js";
 import {
@@ -103,49 +103,49 @@ const formatAddressLine = (street: string, number: string): string => {
   return parts.join(", ");
 };
 
-const loadPrincipalAddressSummariesByMemberId = async (
-  memberIds: string[],
+const loadPrincipalAddressSummariesByUserId = async (
+  userIds: string[],
 ): Promise<
   Map<string, { addressLine: string | null; cityName: string | null }>
 > => {
-  const uniqueMemberIds = [...new Set(memberIds)];
-  if (uniqueMemberIds.length === 0) {
+  const uniqueUserIds = [...new Set(userIds)];
+  if (uniqueUserIds.length === 0) {
     return new Map();
   }
 
   const rows = await db
     .select({
-      memberId: membersAddress.memberId,
+      userId: usersAddress.userId,
       street: ceps.address,
-      number: membersAddress.number,
+      number: usersAddress.number,
       cityName: cities.citieName,
     })
-    .from(membersAddress)
-    .innerJoin(ceps, eq(membersAddress.cepId, ceps.id))
+    .from(usersAddress)
+    .innerJoin(ceps, eq(usersAddress.cepId, ceps.id))
     .innerJoin(cities, eq(ceps.cityId, cities.id))
     .where(
       and(
-        inArray(membersAddress.memberId, uniqueMemberIds),
-        eq(membersAddress.adressType, "PRINCIPAL"),
-        isNull(membersAddress.deletedAt),
+        inArray(usersAddress.userId, uniqueUserIds),
+        eq(usersAddress.adressType, "PRINCIPAL"),
+        isNull(usersAddress.deletedAt),
         isNull(ceps.deletedAt),
         isNull(cities.deletedAt),
       ),
     );
 
-  const byMemberId = new Map<
+  const byUserId = new Map<
     string,
     { addressLine: string | null; cityName: string | null }
   >();
   for (const row of rows) {
-    if (byMemberId.has(row.memberId)) continue;
+    if (byUserId.has(row.userId)) continue;
     const addressLine = formatAddressLine(row.street, row.number);
-    byMemberId.set(row.memberId, {
+    byUserId.set(row.userId, {
       addressLine: addressLine || null,
       cityName: row.cityName?.trim() || null,
     });
   }
-  return byMemberId;
+  return byUserId;
 };
 
 const formatMembershipPercentage = (value: number) =>
@@ -293,8 +293,12 @@ export class MembershipsService {
     });
 
     const rowsById = new Map(rows.map((row) => [row.id, row]));
-    const addressByMemberId =
-      await loadPrincipalAddressSummariesByMemberId(memberIds);
+    const userIds = idPage.flatMap((row) => {
+      const memberRow = rowsById.get(row.id);
+      return memberRow?.user?.id ? [memberRow.user.id] : [];
+    });
+    const addressByUserId =
+      await loadPrincipalAddressSummariesByUserId(userIds);
 
     const items = memberIds.flatMap((memberId) => {
       const row = rowsById.get(memberId);
@@ -302,7 +306,7 @@ export class MembershipsService {
         return [];
       }
 
-      const address = addressByMemberId.get(memberId);
+      const address = addressByUserId.get(row.user.id);
 
       return [
         mapMemberWithUser({

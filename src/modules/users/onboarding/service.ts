@@ -2,12 +2,12 @@ import { and, asc, eq, isNull, ne } from "drizzle-orm";
 import {
   db,
   enterprisesMembers,
-  membersAddress,
-  membersContact,
-  membersFinancialInfo,
-  membersPersonalInfo,
-  membersRelationships,
-  membersTaxInfos,
+  usersAddress,
+  usersContact,
+  usersPersonalInfo,
+  usersRelationships,
+  usersTaxInfos,
+  usersFinancialInfo,
 } from "../../../db/schema.js";
 import { findMemberIdForUserInEnterprise } from "../repository.js";
 import {
@@ -68,12 +68,12 @@ function mapUserDetailsResponse(
     userName: string;
     userPhone: string | null;
     userEmail: string | null;
-    personalInfo?: typeof membersPersonalInfo.$inferSelect | null;
-    addresses?: (typeof membersAddress.$inferSelect)[];
-    contacts?: (typeof membersContact.$inferSelect)[];
-    relationships?: typeof membersRelationships.$inferSelect | null;
-    taxInfos?: typeof membersTaxInfos.$inferSelect | null;
-    financialInfo?: typeof membersFinancialInfo.$inferSelect | null;
+    personalInfo?: typeof usersPersonalInfo.$inferSelect | null;
+    addresses?: (typeof usersAddress.$inferSelect)[];
+    contacts?: (typeof usersContact.$inferSelect)[];
+    relationships?: typeof usersRelationships.$inferSelect | null;
+    taxInfos?: typeof usersTaxInfos.$inferSelect | null;
+    financialInfo?: typeof usersFinancialInfo.$inferSelect | null;
   },
   readMode: UserGetByIdReadMode,
 ) {
@@ -95,15 +95,14 @@ function mapUserDetailsResponse(
 }
 
 export class UsersOnboardingService {
-  private async resolveMemberId(
+  private async assertActiveMembership(
     userId: string,
     enterpriseId: string,
-  ): Promise<string> {
+  ): Promise<void> {
     const memberId = await findMemberIdForUserInEnterprise(userId, enterpriseId);
     if (!memberId) {
       throw new NotFoundError("Usuario nao encontrado", "USER_NOT_FOUND");
     }
-    return memberId;
   }
 
   public async getUsersWithDetails(
@@ -111,15 +110,15 @@ export class UsersOnboardingService {
     enterpriseId: string,
     readMode: UserGetByIdReadMode,
   ) {
-    const detailsWith = {
+    const userDetailsWith = {
       personalInfo: true as const,
       addresses: {
-        where: isNull(membersAddress.deletedAt),
-        orderBy: [asc(membersAddress.adressType), asc(membersAddress.id)],
+        where: isNull(usersAddress.deletedAt),
+        orderBy: [asc(usersAddress.adressType), asc(usersAddress.id)],
       },
       contacts: {
-        where: isNull(membersContact.deletedAt),
-        orderBy: [asc(membersContact.type), asc(membersContact.id)],
+        where: isNull(usersContact.deletedAt),
+        orderBy: [asc(usersContact.type), asc(usersContact.id)],
       },
       relationships: true as const,
       taxInfos: true as const,
@@ -132,8 +131,9 @@ export class UsersOnboardingService {
         activeMembershipForEnterprise(enterpriseId),
       ),
       with: {
-        ...detailsWith,
-        user: true,
+        user: {
+          with: userDetailsWith,
+        },
         enterprise: true,
       },
     });
@@ -154,12 +154,12 @@ export class UsersOnboardingService {
         userName: membership.user.userName,
         userPhone: membership.user.userPhone,
         userEmail: membership.user.userEmail,
-        personalInfo: membership.personalInfo,
-        addresses: membership.addresses,
-        contacts: membership.contacts,
-        relationships: membership.relationships,
-        taxInfos: membership.taxInfos,
-        financialInfo: membership.financialInfo,
+        personalInfo: membership.user.personalInfo,
+        addresses: membership.user.addresses,
+        contacts: membership.user.contacts,
+        relationships: membership.user.relationships,
+        taxInfos: membership.user.taxInfos,
+        financialInfo: membership.user.financialInfo,
       },
       readMode,
     );
@@ -171,16 +171,16 @@ export class UsersOnboardingService {
     input: PersonalInfoCreateInput,
     audit: EntityAuditContext,
   ) {
-    const memberId = await this.resolveMemberId(userId, enterpriseId);
+    await this.assertActiveMembership(userId, enterpriseId);
 
     return db.transaction(async (tx) => {
       const existing = await tx
-        .select({ id: membersPersonalInfo.id })
-        .from(membersPersonalInfo)
+        .select({ id: usersPersonalInfo.id })
+        .from(usersPersonalInfo)
         .where(
           and(
-            eq(membersPersonalInfo.memberId, memberId),
-            isNull(membersPersonalInfo.deletedAt),
+            eq(usersPersonalInfo.userId, userId),
+            isNull(usersPersonalInfo.deletedAt),
           ),
         )
         .limit(1);
@@ -193,9 +193,9 @@ export class UsersOnboardingService {
       }
 
       const [row] = await tx
-        .insert(membersPersonalInfo)
+        .insert(usersPersonalInfo)
         .values({
-          memberId,
+          userId,
           gender: input.gender,
           birthDate: input.birthDate
             ? parseIsoDateOnly(input.birthDate)
@@ -209,7 +209,7 @@ export class UsersOnboardingService {
       }
 
       await recordCreateAudit({
-        entityType: EntityTypes.MEMBERS_PERSONAL_INFO,
+        entityType: EntityTypes.USERS_PERSONAL_INFO,
         entityId: row.id,
         after: row,
         ctx: withEnterpriseAuditContext(audit, enterpriseId),
@@ -226,15 +226,15 @@ export class UsersOnboardingService {
     input: PersonalInfoPatchInput,
     audit: EntityAuditContext,
   ) {
-    const memberId = await this.resolveMemberId(userId, enterpriseId);
+    await this.assertActiveMembership(userId, enterpriseId);
 
     const rows = await db
       .select()
-      .from(membersPersonalInfo)
+      .from(usersPersonalInfo)
       .where(
         and(
-          eq(membersPersonalInfo.memberId, memberId),
-          isNull(membersPersonalInfo.deletedAt),
+          eq(usersPersonalInfo.userId, userId),
+          isNull(usersPersonalInfo.deletedAt),
         ),
       )
       .limit(1);
@@ -250,7 +250,7 @@ export class UsersOnboardingService {
     const now = new Date();
 
     const [row] = await db
-      .update(membersPersonalInfo)
+      .update(usersPersonalInfo)
       .set({
         ...(input.gender !== undefined ? { gender: input.gender } : {}),
         ...(input.birthDate !== undefined
@@ -263,8 +263,8 @@ export class UsersOnboardingService {
       })
       .where(
         and(
-          eq(membersPersonalInfo.memberId, memberId),
-          isNull(membersPersonalInfo.deletedAt),
+          eq(usersPersonalInfo.userId, userId),
+          isNull(usersPersonalInfo.deletedAt),
         ),
       )
       .returning();
@@ -277,7 +277,7 @@ export class UsersOnboardingService {
     }
 
     await recordEntityAudit({
-      entityType: EntityTypes.MEMBERS_PERSONAL_INFO,
+      entityType: EntityTypes.USERS_PERSONAL_INFO,
       entityId: row.id,
       action: "UPDATE",
       before: toAuditRecord(existing),
@@ -294,20 +294,20 @@ export class UsersOnboardingService {
     input: UsersAddressCreateInput,
     audit: EntityAuditContext,
   ) {
-    const memberId = await this.resolveMemberId(userId, enterpriseId);
+    await this.assertActiveMembership(userId, enterpriseId);
 
     await assertActiveCep(input.cepId);
 
     return db.transaction(async (tx) => {
       if (input.adressType === "PRINCIPAL") {
         const conflict = await tx
-          .select({ id: membersAddress.id })
-          .from(membersAddress)
+          .select({ id: usersAddress.id })
+          .from(usersAddress)
           .where(
             and(
-              eq(membersAddress.memberId, memberId),
-              eq(membersAddress.adressType, "PRINCIPAL"),
-              isNull(membersAddress.deletedAt),
+              eq(usersAddress.userId, userId),
+              eq(usersAddress.adressType, "PRINCIPAL"),
+              isNull(usersAddress.deletedAt),
             ),
           )
           .limit(1);
@@ -321,9 +321,9 @@ export class UsersOnboardingService {
       }
 
       const [row] = await tx
-        .insert(membersAddress)
+        .insert(usersAddress)
         .values({
-          memberId,
+          userId,
           cepId: input.cepId,
           number: input.number.trim(),
           complement: input.complement?.trim() ?? null,
@@ -336,7 +336,7 @@ export class UsersOnboardingService {
       }
 
       await recordCreateAudit({
-        entityType: EntityTypes.MEMBERS_ADDRESS,
+        entityType: EntityTypes.USERS_ADDRESS,
         entityId: row.id,
         after: row,
         ctx: withEnterpriseAuditContext(audit, enterpriseId),
@@ -354,16 +354,16 @@ export class UsersOnboardingService {
     input: UsersAddressPatchInput,
     audit: EntityAuditContext,
   ) {
-    const memberId = await this.resolveMemberId(userId, enterpriseId);
+    await this.assertActiveMembership(userId, enterpriseId);
 
     const rows = await db
       .select()
-      .from(membersAddress)
+      .from(usersAddress)
       .where(
         and(
-          eq(membersAddress.id, addressId),
-          eq(membersAddress.memberId, memberId),
-          isNull(membersAddress.deletedAt),
+          eq(usersAddress.id, addressId),
+          eq(usersAddress.userId, userId),
+          isNull(usersAddress.deletedAt),
         ),
       )
       .limit(1);
@@ -380,13 +380,13 @@ export class UsersOnboardingService {
 
     if (input.softDelete === true) {
       const [row] = await db
-        .update(membersAddress)
+        .update(usersAddress)
         .set(softDeleteValues(now))
         .where(
           and(
-            eq(membersAddress.id, addressId),
-            eq(membersAddress.memberId, memberId),
-            isNull(membersAddress.deletedAt),
+            eq(usersAddress.id, addressId),
+            eq(usersAddress.userId, userId),
+            isNull(usersAddress.deletedAt),
           ),
         )
         .returning();
@@ -399,7 +399,7 @@ export class UsersOnboardingService {
       }
 
       await recordSoftDeleteAudit({
-        entityType: EntityTypes.MEMBERS_ADDRESS,
+        entityType: EntityTypes.USERS_ADDRESS,
         entityId: addressId,
         before: existing,
         after: row,
@@ -416,14 +416,14 @@ export class UsersOnboardingService {
 
     if (effectiveAdressType === "PRINCIPAL") {
       const conflict = await db
-        .select({ id: membersAddress.id })
-        .from(membersAddress)
+        .select({ id: usersAddress.id })
+        .from(usersAddress)
         .where(
           and(
-            eq(membersAddress.memberId, memberId),
-            eq(membersAddress.adressType, "PRINCIPAL"),
-            isNull(membersAddress.deletedAt),
-            ne(membersAddress.id, addressId),
+            eq(usersAddress.userId, userId),
+            eq(usersAddress.adressType, "PRINCIPAL"),
+            isNull(usersAddress.deletedAt),
+            ne(usersAddress.id, addressId),
           ),
         )
         .limit(1);
@@ -437,7 +437,7 @@ export class UsersOnboardingService {
     }
 
     const [row] = await db
-      .update(membersAddress)
+      .update(usersAddress)
       .set({
         ...(input.cepId !== undefined ? { cepId: input.cepId } : {}),
         ...(input.number !== undefined ? { number: input.number.trim() } : {}),
@@ -451,9 +451,9 @@ export class UsersOnboardingService {
       })
       .where(
         and(
-          eq(membersAddress.id, addressId),
-          eq(membersAddress.memberId, memberId),
-          isNull(membersAddress.deletedAt),
+          eq(usersAddress.id, addressId),
+          eq(usersAddress.userId, userId),
+          isNull(usersAddress.deletedAt),
         ),
       )
       .returning();
@@ -466,7 +466,7 @@ export class UsersOnboardingService {
     }
 
     await recordEntityAudit({
-      entityType: EntityTypes.MEMBERS_ADDRESS,
+      entityType: EntityTypes.USERS_ADDRESS,
       entityId: addressId,
       action: "UPDATE",
       before: toAuditRecord(existing),
@@ -482,18 +482,18 @@ export class UsersOnboardingService {
     input: UsersContactCreateInput,
     audit: EntityAuditContext,
   ) {
-    const memberId = await this.resolveMemberId(userId, enterpriseId);
+    await this.assertActiveMembership(userId, enterpriseId);
 
     return db.transaction(async (tx) => {
       if (input.type === "PRINCIPAL") {
         const conflict = await tx
-          .select({ id: membersContact.id })
-          .from(membersContact)
+          .select({ id: usersContact.id })
+          .from(usersContact)
           .where(
             and(
-              eq(membersContact.memberId, memberId),
-              eq(membersContact.type, "PRINCIPAL"),
-              isNull(membersContact.deletedAt),
+              eq(usersContact.userId, userId),
+              eq(usersContact.type, "PRINCIPAL"),
+              isNull(usersContact.deletedAt),
             ),
           )
           .limit(1);
@@ -507,9 +507,9 @@ export class UsersOnboardingService {
       }
 
       const [row] = await tx
-        .insert(membersContact)
+        .insert(usersContact)
         .values({
-          memberId,
+          userId,
           phone: input.phone,
           email: input.email,
           whatsapp: input.whatsapp,
@@ -522,7 +522,7 @@ export class UsersOnboardingService {
       }
 
       await recordCreateAudit({
-        entityType: EntityTypes.MEMBERS_CONTACT,
+        entityType: EntityTypes.USERS_CONTACT,
         entityId: row.id,
         after: row,
         ctx: withEnterpriseAuditContext(audit, enterpriseId),
@@ -540,16 +540,16 @@ export class UsersOnboardingService {
     input: UsersContactPatchInput,
     audit: EntityAuditContext,
   ) {
-    const memberId = await this.resolveMemberId(userId, enterpriseId);
+    await this.assertActiveMembership(userId, enterpriseId);
 
     const rows = await db
       .select()
-      .from(membersContact)
+      .from(usersContact)
       .where(
         and(
-          eq(membersContact.id, contactId),
-          eq(membersContact.memberId, memberId),
-          isNull(membersContact.deletedAt),
+          eq(usersContact.id, contactId),
+          eq(usersContact.userId, userId),
+          isNull(usersContact.deletedAt),
         ),
       )
       .limit(1);
@@ -566,13 +566,13 @@ export class UsersOnboardingService {
 
     if (input.softDelete === true) {
       const [row] = await db
-        .update(membersContact)
+        .update(usersContact) 
         .set(softDeleteValues(now))
         .where(
           and(
-            eq(membersContact.id, contactId),
-            eq(membersContact.memberId, memberId),
-            isNull(membersContact.deletedAt),
+            eq(usersContact.id, contactId),
+            eq(usersContact.userId, userId),
+            isNull(usersContact.deletedAt),
           ),
         )
         .returning();
@@ -585,7 +585,7 @@ export class UsersOnboardingService {
       }
 
       await recordSoftDeleteAudit({
-        entityType: EntityTypes.MEMBERS_CONTACT,
+        entityType: EntityTypes.USERS_CONTACT,
         entityId: contactId,
         before: existing,
         after: row,
@@ -598,14 +598,14 @@ export class UsersOnboardingService {
 
     if (effectiveType === "PRINCIPAL") {
       const conflict = await db
-        .select({ id: membersContact.id })
-        .from(membersContact)
+        .select({ id: usersContact.id })
+        .from(usersContact)
         .where(
           and(
-            eq(membersContact.memberId, memberId),
-            eq(membersContact.type, "PRINCIPAL"),
-            isNull(membersContact.deletedAt),
-            ne(membersContact.id, contactId),
+            eq(usersContact.userId, userId),
+            eq(usersContact.type, "PRINCIPAL"),
+            isNull(usersContact.deletedAt),
+            ne(usersContact.id, contactId),
           ),
         )
         .limit(1);
@@ -619,7 +619,7 @@ export class UsersOnboardingService {
     }
 
     const [row] = await db
-      .update(membersContact)
+      .update(usersContact)
       .set({
         ...(input.phone !== undefined ? { phone: input.phone } : {}),
         ...(input.email !== undefined ? { email: input.email } : {}),
@@ -629,9 +629,9 @@ export class UsersOnboardingService {
       })
       .where(
         and(
-          eq(membersContact.id, contactId),
-          eq(membersContact.memberId, memberId),
-          isNull(membersContact.deletedAt),
+          eq(usersContact.id, contactId),
+          eq(usersContact.userId, userId),
+          isNull(usersContact.deletedAt),
         ),
       )
       .returning();
@@ -644,7 +644,7 @@ export class UsersOnboardingService {
     }
 
     await recordEntityAudit({
-      entityType: EntityTypes.MEMBERS_CONTACT,
+      entityType: EntityTypes.USERS_CONTACT,
       entityId: contactId,
       action: "UPDATE",
       before: toAuditRecord(existing),
@@ -660,16 +660,16 @@ export class UsersOnboardingService {
     input: UsersRelationshipsCreateInput,
     audit: EntityAuditContext,
   ) {
-    const memberId = await this.resolveMemberId(userId, enterpriseId);
+    await this.assertActiveMembership(userId, enterpriseId);
 
     return db.transaction(async (tx) => {
       const existing = await tx
-        .select({ id: membersRelationships.id })
-        .from(membersRelationships)
+        .select({ id: usersRelationships.id })
+        .from(usersRelationships)
         .where(
           and(
-            eq(membersRelationships.memberId, memberId),
-            isNull(membersRelationships.deletedAt),
+            eq(usersRelationships.userId, userId),
+            isNull(usersRelationships.deletedAt),
           ),
         )
         .limit(1);
@@ -682,9 +682,9 @@ export class UsersOnboardingService {
       }
 
       const [row] = await tx
-        .insert(membersRelationships)
+        .insert(usersRelationships)
         .values({
-          memberId,
+          userId,
           maritalStatus: input.maritalStatus,
           spouseName: input.spouseName,
           housingType: input.housingType,
@@ -707,7 +707,7 @@ export class UsersOnboardingService {
       }
 
       await recordCreateAudit({
-        entityType: EntityTypes.MEMBERS_RELATIONSHIPS,
+        entityType: EntityTypes.USERS_RELATIONSHIPS,
         entityId: row.id,
         after: row,
         ctx: withEnterpriseAuditContext(audit, enterpriseId),
@@ -724,15 +724,15 @@ export class UsersOnboardingService {
     input: UsersRelationshipsPatchInput,
     audit: EntityAuditContext,
   ) {
-    const memberId = await this.resolveMemberId(userId, enterpriseId);
+    await this.assertActiveMembership(userId, enterpriseId);
 
     const rows = await db
       .select()
-      .from(membersRelationships)
+      .from(usersRelationships)
       .where(
         and(
-          eq(membersRelationships.memberId, memberId),
-          isNull(membersRelationships.deletedAt),
+          eq(usersRelationships.userId, userId),
+          isNull(usersRelationships.deletedAt),
         ),
       )
       .limit(1);
@@ -748,7 +748,7 @@ export class UsersOnboardingService {
     const now = new Date();
 
     const [row] = await db
-      .update(membersRelationships)
+      .update(usersRelationships)
       .set({
         ...(input.maritalStatus !== undefined
           ? { maritalStatus: input.maritalStatus }
@@ -788,8 +788,8 @@ export class UsersOnboardingService {
       })
       .where(
         and(
-          eq(membersRelationships.memberId, memberId),
-          isNull(membersRelationships.deletedAt),
+          eq(usersRelationships.userId, userId),
+          isNull(usersRelationships.deletedAt),
         ),
       )
       .returning();
@@ -802,7 +802,7 @@ export class UsersOnboardingService {
     }
 
     await recordEntityAudit({
-      entityType: EntityTypes.MEMBERS_RELATIONSHIPS,
+      entityType: EntityTypes.USERS_RELATIONSHIPS,
       entityId: row.id,
       action: "UPDATE",
       before: toAuditRecord(existing),
@@ -818,16 +818,16 @@ export class UsersOnboardingService {
     input: UsersTaxInfosCreateInput,
     audit: EntityAuditContext,
   ) {
-    const memberId = await this.resolveMemberId(userId, enterpriseId);
+    await this.assertActiveMembership(userId, enterpriseId);
 
     return db.transaction(async (tx) => {
       const existing = await tx
-        .select({ id: membersTaxInfos.id })
-        .from(membersTaxInfos)
+        .select({ id: usersTaxInfos.id })
+        .from(usersTaxInfos)
         .where(
           and(
-            eq(membersTaxInfos.memberId, memberId),
-            isNull(membersTaxInfos.deletedAt),
+            eq(usersTaxInfos.userId, userId),
+            isNull(usersTaxInfos.deletedAt),
           ),
         )
         .limit(1);
@@ -840,9 +840,9 @@ export class UsersOnboardingService {
       }
 
       const [row] = await tx
-        .insert(membersTaxInfos)
+        .insert(usersTaxInfos)
         .values({
-          memberId,
+          userId,
           renegotiation: input.renegotiation,
           spc_registration: input.spc_registration,
           spc_registry_date: input.spc_registry_date
@@ -868,7 +868,7 @@ export class UsersOnboardingService {
       }
 
       await recordCreateAudit({
-        entityType: EntityTypes.MEMBERS_TAX_INFOS,
+        entityType: EntityTypes.USERS_TAX_INFOS,
         entityId: row.id,
         after: row,
         ctx: withEnterpriseAuditContext(audit, enterpriseId),
@@ -885,13 +885,13 @@ export class UsersOnboardingService {
     input: UsersTaxInfosPatchInput,
     audit: EntityAuditContext,
   ) {
-    const memberId = await this.resolveMemberId(userId, enterpriseId);
+    await this.assertActiveMembership(userId, enterpriseId);
 
     const rows = await db
       .select()
-      .from(membersTaxInfos)
+      .from(usersTaxInfos)
       .where(
-        and(eq(membersTaxInfos.memberId, memberId), isNull(membersTaxInfos.deletedAt)),
+        and(eq(usersTaxInfos.userId, userId), isNull(usersTaxInfos.deletedAt)),
       )
       .limit(1);
 
@@ -906,7 +906,7 @@ export class UsersOnboardingService {
     const now = new Date();
 
     const [row] = await db
-      .update(membersTaxInfos)
+      .update(usersTaxInfos)
       .set({
         ...(input.renegotiation !== undefined
           ? { renegotiation: input.renegotiation }
@@ -942,7 +942,7 @@ export class UsersOnboardingService {
         ...touchUpdatedAt(now),
       })
       .where(
-        and(eq(membersTaxInfos.memberId, memberId), isNull(membersTaxInfos.deletedAt)),
+        and(eq(usersTaxInfos.userId, userId), isNull(usersTaxInfos.deletedAt)),
       )
       .returning();
 
@@ -954,7 +954,7 @@ export class UsersOnboardingService {
     }
 
     await recordEntityAudit({
-      entityType: EntityTypes.MEMBERS_TAX_INFOS,
+      entityType: EntityTypes.USERS_TAX_INFOS,
       entityId: row.id,
       action: "UPDATE",
       before: toAuditRecord(existing),
@@ -970,16 +970,16 @@ export class UsersOnboardingService {
     input: UsersFinancialInfoCreateInput,
     audit: EntityAuditContext,
   ) {
-    const memberId = await this.resolveMemberId(userId, enterpriseId);
+    await this.assertActiveMembership(userId, enterpriseId);
 
     return db.transaction(async (tx) => {
       const existing = await tx
-        .select({ id: membersFinancialInfo.id })
-        .from(membersFinancialInfo)
+        .select({ id: usersFinancialInfo.id })
+        .from(usersFinancialInfo)
         .where(
           and(
-            eq(membersFinancialInfo.memberId, memberId),
-            isNull(membersFinancialInfo.deletedAt),
+            eq(usersFinancialInfo.userId, userId),
+            isNull(usersFinancialInfo.deletedAt),
           ),
         )
         .limit(1);
@@ -992,9 +992,9 @@ export class UsersOnboardingService {
       }
 
       const [row] = await tx
-        .insert(membersFinancialInfo)
+        .insert(usersFinancialInfo)
         .values({
-          memberId,
+          userId,
           ICMSReduction: decimalToString(input.ICMSReduction),
           discountLimit: decimalToString(input.discountLimit),
           discoutArrangement: input.discoutArrangement,
@@ -1019,7 +1019,7 @@ export class UsersOnboardingService {
       }
 
       await recordCreateAudit({
-        entityType: EntityTypes.MEMBERS_FINANCIAL_INFO,
+        entityType: EntityTypes.USERS_FINANCIAL_INFO,
         entityId: row.id,
         after: row,
         ctx: withEnterpriseAuditContext(audit, enterpriseId),
@@ -1036,15 +1036,15 @@ export class UsersOnboardingService {
     input: UsersFinancialInfoPatchInput,
     audit: EntityAuditContext,
   ) {
-    const memberId = await this.resolveMemberId(userId, enterpriseId);
+    await this.assertActiveMembership(userId, enterpriseId);
 
     const rows = await db
       .select()
-      .from(membersFinancialInfo)
+        .from(usersFinancialInfo)
       .where(
         and(
-          eq(membersFinancialInfo.memberId, memberId),
-          isNull(membersFinancialInfo.deletedAt),
+          eq(usersFinancialInfo.userId, userId),
+          isNull(usersFinancialInfo.deletedAt),
         ),
       )
       .limit(1);
@@ -1060,7 +1060,7 @@ export class UsersOnboardingService {
     const now = new Date();
 
     const [row] = await db
-      .update(membersFinancialInfo)
+      .update(usersFinancialInfo)
       .set({
         ...(input.ICMSReduction !== undefined
           ? { ICMSReduction: decimalToString(input.ICMSReduction) }
@@ -1106,8 +1106,8 @@ export class UsersOnboardingService {
       })
       .where(
         and(
-          eq(membersFinancialInfo.memberId, memberId),
-          isNull(membersFinancialInfo.deletedAt),
+          eq(usersFinancialInfo.userId, userId),
+          isNull(usersFinancialInfo.deletedAt),
         ),
       )
       .returning();
@@ -1120,7 +1120,7 @@ export class UsersOnboardingService {
     }
 
     await recordEntityAudit({
-      entityType: EntityTypes.MEMBERS_FINANCIAL_INFO,
+      entityType: EntityTypes.USERS_FINANCIAL_INFO,
       entityId: row.id,
       action: "UPDATE",
       before: toAuditRecord(existing),

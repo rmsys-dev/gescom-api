@@ -45,12 +45,15 @@ export const users = pgTable(
   },
   (t) => [
     index("users_active_name_idx").on(t.deletedAt, t.userName),
-    uniqueIndex("users_active_name_unique").on(t.deletedAt, t.userName), //Nome de usuário único
-    uniqueIndex("users_active_registration_unique").on(
-      t.deletedAt,
-      t.userRegistration,
-    ), //CPF/CNPJ único
-    uniqueIndex("users_active_email_unique").on(t.deletedAt, t.userEmail), //Email único
+    uniqueIndex("users_active_name_unique")
+      .on(t.userName)
+      .where(sql`${t.deletedAt} is null`), //Nome de usuário único
+    uniqueIndex("users_active_registration_unique")
+      .on(t.userRegistration)
+      .where(sql`${t.deletedAt} is null`), //CPF/CNPJ único
+    uniqueIndex("users_active_email_unique")
+      .on(t.userEmail)
+      .where(sql`${t.deletedAt} is null`), //Email único
   ],
 );
 

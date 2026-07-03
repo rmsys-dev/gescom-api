@@ -320,6 +320,26 @@ export class UsersOnboardingService {
         }
       }
 
+      if (input.stateRegistration !== undefined) {
+        const conflict = await tx
+          .select({ id: usersAddress.id })
+          .from(usersAddress)
+          .where(
+            and(
+              eq(usersAddress.stateRegistration, input.stateRegistration),
+              isNull(usersAddress.deletedAt),
+            ),
+          )
+          .limit(1);
+
+        if (conflict[0]) {
+          throw new ConflictError(
+            "Inscricao estadual ja cadastrada para outro endereco",
+            "USER_ADDRESS_STATE_REGISTRATION_ALREADY_EXISTS",
+          );
+        }
+      }
+
       const [row] = await tx
         .insert(usersAddress)
         .values({
@@ -327,6 +347,7 @@ export class UsersOnboardingService {
           cepId: input.cepId,
           number: input.number.trim(),
           complement: input.complement?.trim() ?? null,
+          stateRegistration: input.stateRegistration,
           adressType: input.adressType,
         })
         .returning();
@@ -436,6 +457,27 @@ export class UsersOnboardingService {
       }
     }
 
+    if (input.stateRegistration !== undefined) {
+      const conflict = await db
+        .select({ id: usersAddress.id })
+        .from(usersAddress)
+        .where(
+          and(
+            eq(usersAddress.stateRegistration, input.stateRegistration),
+            isNull(usersAddress.deletedAt),
+            ne(usersAddress.id, addressId),
+          ),
+        )
+        .limit(1);
+
+      if (conflict[0]) {
+        throw new ConflictError(
+          "Inscricao estadual ja cadastrada para outro endereco",
+          "USER_ADDRESS_STATE_REGISTRATION_ALREADY_EXISTS",
+        );
+      }
+    }
+
     const [row] = await db
       .update(usersAddress)
       .set({
@@ -443,6 +485,9 @@ export class UsersOnboardingService {
         ...(input.number !== undefined ? { number: input.number.trim() } : {}),
         ...(input.complement !== undefined
           ? { complement: input.complement?.trim() ?? null }
+          : {}),
+        ...(input.stateRegistration !== undefined
+          ? { stateRegistration: input.stateRegistration }
           : {}),
         ...(input.adressType !== undefined
           ? { adressType: input.adressType }
@@ -848,7 +893,6 @@ export class UsersOnboardingService {
           spc_registry_date: input.spc_registry_date
             ? parseIsoDateOnly(input.spc_registry_date)
             : undefined,
-          stateRegistration: input.stateRegistration,
           municipalRegistration: input.municipalRegistration,
           suframa_registration: input.suframa_registration,
           userLegalName: input.userLegalName,
@@ -916,9 +960,6 @@ export class UsersOnboardingService {
           : {}),
         ...(input.spc_registry_date !== undefined
           ? { spc_registry_date: parseIsoDateOnly(input.spc_registry_date) }
-          : {}),
-        ...(input.stateRegistration !== undefined
-          ? { stateRegistration: input.stateRegistration }
           : {}),
         ...(input.municipalRegistration !== undefined
           ? { municipalRegistration: input.municipalRegistration }

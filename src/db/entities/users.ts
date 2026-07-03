@@ -45,15 +45,9 @@ export const users = pgTable(
   },
   (t) => [
     index("users_active_name_idx").on(t.deletedAt, t.userName),
-    uniqueIndex("users_active_name_unique")
-      .on(t.userName)
-      .where(sql`${t.deletedAt} is null`), //Nome de usuário único
-    uniqueIndex("users_active_registration_unique")
-      .on(t.userRegistration)
-      .where(sql`${t.deletedAt} is null`), //CPF/CNPJ único
-    uniqueIndex("users_active_email_unique")
-      .on(t.userEmail)
-      .where(sql`${t.deletedAt} is null`), //Email único
+    uniqueIndex("users_active_identity_unique")
+      .on(t.userName, t.userRegistration, t.userEmail)
+      .where(sql`${t.deletedAt} is null`), // Combinação nome + CPF/CNPJ + email única
   ],
 );
 
@@ -86,6 +80,7 @@ export const usersAddress = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     number: varchar("number", { length: 255 }).notNull(), //Número
     complement: varchar("complement", { length: 255 }), //Complemento
+    stateRegistration: varchar("state_registration", { length: 255 }),
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
@@ -101,6 +96,11 @@ export const usersAddress = pgTable(
     uniqueIndex("users_address_principal_active_unique")
       .on(t.userId)
       .where(sql`${t.deletedAt} is null and ${t.adressType} = 'PRINCIPAL'`),
+    uniqueIndex("users_address_state_registration_active_unique")
+      .on(t.stateRegistration)
+      .where(
+        sql`${t.deletedAt} is null and ${t.stateRegistration} is not null`,
+      ),
     index("users_address_user_active_idx").on(t.userId, t.deletedAt),
   ],
 );
@@ -179,7 +179,6 @@ export const usersTaxInfos = pgTable(
     renegotiation: boolean("renegotiation"),
     spc_registration: varchar("spc_registration", { length: 255 }),
     spc_registry_date: date("spc_registry_date", { mode: "date" }),
-    stateRegistration: varchar("state_registration", { length: 255 }),
     municipalRegistration: varchar("municipal_registration", {
       length: 255,
     }),

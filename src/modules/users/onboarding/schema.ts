@@ -73,6 +73,7 @@ export const usersAddressCreateSchema = z
     cepId: uuidSchema("cepId"),
     number: z.string().trim().min(1).max(255),
     complement: z.string().trim().max(255).optional(),
+    stateRegistration: nonEmptyText255Schema("stateRegistration").optional(),
     adressType: adressTypeSchema,
   })
   .strict();
@@ -82,6 +83,7 @@ export const usersAddressPatchSchema = z
     cepId: uuidSchema("cepId").optional(),
     number: z.string().trim().min(1).max(255).optional(),
     complement: z.string().trim().max(255).optional(),
+    stateRegistration: nonEmptyText255Schema("stateRegistration").optional(),
     adressType: adressTypeSchema.optional(),
     softDelete: z.boolean().optional(),
   })
@@ -91,6 +93,7 @@ export const usersAddressPatchSchema = z
       data.cepId !== undefined ||
       data.number !== undefined ||
       data.complement !== undefined ||
+      data.stateRegistration !== undefined ||
       data.adressType !== undefined ||
       data.softDelete === true,
     "Deve haver ao menos um campo para alteração",
@@ -179,7 +182,6 @@ export const usersTaxInfosCreateSchema = z
     renegotiation: z.boolean().optional(),
     spc_registration: nonEmptyText255Schema("spc_registration").optional(),
     spc_registry_date: dateOnlyIsoSchema("spc_registry_date").optional(),
-    stateRegistration: nonEmptyText255Schema("stateRegistration").optional(),
     municipalRegistration: nonEmptyText255Schema(
       "municipalRegistration",
     ).optional(),

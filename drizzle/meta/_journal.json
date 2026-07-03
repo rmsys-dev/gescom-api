@@ -183,6 +183,13 @@
       "when": 1783100434402,
       "tag": "0025_friendly_bruce_banner",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1783106889545,
+      "tag": "0026_fearless_infant_terrible",
+      "breakpoints": true
     }
   ]
 }

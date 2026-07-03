@@ -176,6 +176,13 @@
       "when": 1783085805713,
       "tag": "0024_open_mandarin",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1783100434402,
+      "tag": "0025_friendly_bruce_banner",
+      "breakpoints": true
     }
   ]
 }

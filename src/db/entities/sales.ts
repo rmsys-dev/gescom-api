@@ -32,7 +32,7 @@ import {
   productsEnterprises,
 } from "./products.js";
 import { stockSectors, stockLocations, stockBatches } from "./stock.js";
-import { tz, percentageDecimal } from "../functions.js";
+import { tz, percentageDecimal, valorDuasCasasDecimais, valorQuatroCasasDecimais } from "../functions.js";
 
 // TIPOS DE PAGAMENTO.
 export const paymentTypes = pgTable(
@@ -61,37 +61,26 @@ export const sales = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
-    userLegalName: varchar("user_legal_name", { length: 255 }).notNull(),
+    userLegalName: varchar("user_legal_name", { length: 255 }).notNull(), 
     sellerId: uuid("seller_id") 
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
-    sellerLegalName: varchar("seller_legal_name", { length: 255 }).notNull(),
-    memberId: uuid("member_id").references(() => enterprisesMembers.id, {
+    sellerLegalName: varchar("seller_legal_name", { length: 255 }).notNull(), 
+    memberId: uuid("member_id").references(() => enterprisesMembers.id, { 
       onDelete: "restrict",
     }),
-    type: saleTypeEnum("type").notNull(),
-    subTotal: decimal("sub_total", { precision: 14, scale: 2 }).notNull(),
+    memberLegalName: varchar("member_legal_name", { length: 255 }), 
+    type: saleTypeEnum("type").notNull(), 
+    subTotal: decimal("sub_total", valorDuasCasasDecimais).notNull(),
     percentageDiscount: decimal("percentage_discount", percentageDecimal),
-    discountValuetems: decimal("discount_value_items", {
-      precision: 14,
-      scale: 2,
-    }),
-    valueDiscountFinancial: decimal("value_discount_financial", {
-      precision: 14,
-      scale: 2,
-    }),
+    discountValuetems: decimal("discount_value_items", valorDuasCasasDecimais),
+    valueDiscountFinancial: decimal("value_discount_financial", valorDuasCasasDecimais),
     percentageAcresce: decimal("percentage_acresce", percentageDecimal),
-    valueAcresceItems: decimal("value_acresce_items", {
-      precision: 14,
-      scale: 2,
-    }),
-    valueAcresceFinancial: decimal("value_acresce_financial", {
-      precision: 14,
-      scale: 2,
-    }),
-    valuePie: decimal("value_pie", { precision: 14, scale: 2 }),
-    valueService: decimal("value_service", { precision: 14, scale: 2 }),
-    valueLiquid: decimal("value_liquid", { precision: 14, scale: 2 }),
+    valueAcresceItems: decimal("value_acresce_items", valorDuasCasasDecimais),
+    valueAcresceFinancial: decimal("value_acresce_financial", valorDuasCasasDecimais),
+    valuePie: decimal("value_pie", valorDuasCasasDecimais), 
+    valueService: decimal("value_service", valorDuasCasasDecimais),
+    valueLiquid: decimal("value_liquid", valorDuasCasasDecimais),
     status: saleStatusEnum("status").notNull(),
     returnSituation: saleReturnSituationEnum("return_situation")
       .notNull()
@@ -134,14 +123,11 @@ export const salesItems = pgTable(
   "sales_items",
   {
   id: uuid("id").defaultRandom().primaryKey(),
-  quantity: decimal("quantity", { precision: 14, scale: 4 }).notNull(),
-  valueUnit: decimal("value_unit", { precision: 14, scale: 4 }).notNull(),
-  valueDiscount: decimal("value_discount", {
-    precision: 14,
-    scale: 4,
-  }).notNull(),
-  valueAcresce: decimal("value_acresce", { precision: 14, scale: 4 }).notNull(),
-  valueTotal: decimal("value_total", { precision: 14, scale: 4 }).notNull(),
+  quantity: decimal("quantity", valorQuatroCasasDecimais).notNull(),
+  valueUnit: decimal("value_unit", valorQuatroCasasDecimais).notNull(),
+  valueDiscount: decimal("value_discount", valorQuatroCasasDecimais).notNull(),
+  valueAcresce: decimal("value_acresce", valorQuatroCasasDecimais).notNull(),
+  valueTotal: decimal("value_total", valorQuatroCasasDecimais).notNull(),
   salesId: uuid("sales_id") 
     .notNull()
     .references(() => sales.id, { onDelete: "cascade" }),
@@ -166,16 +152,10 @@ export const salesItems = pgTable(
   stockBatchId: uuid("stock_batch_id").references(() => stockBatches.id, {
     onDelete: "restrict",
   }),
-  quantityReturned: decimal("quantity_returned", {
-    precision: 14,
-    scale: 4,
-  })
+  quantityReturned: decimal("quantity_returned", valorQuatroCasasDecimais)
     .notNull()
     .default("0"),
-  quantityConverted: decimal("quantity_converted", {
-    precision: 14,
-    scale: 4,
-  })
+  quantityConverted: decimal("quantity_converted", valorQuatroCasasDecimais)
     .notNull()
     .default("0"),
   sourceBudgetItemId: uuid("source_budget_item_id").references(
@@ -247,7 +227,7 @@ export const salesBudgetConversionItems = pgTable(
     saleItemId: uuid("sale_item_id")
       .notNull()
       .references(() => salesItems.id, { onDelete: "restrict" }),
-    quantity: decimal("quantity", { precision: 14, scale: 4 }).notNull(),
+    quantity: decimal("quantity", valorQuatroCasasDecimais).notNull(),
     createdAt: tz("created_at").defaultNow().notNull(),
   },
   (t) => [
@@ -272,10 +252,7 @@ export const salesBudgetUnclosedItems = pgTable(
     budgetItemId: uuid("budget_item_id")
       .notNull()
       .references(() => salesItems.id, { onDelete: "restrict" }),
-    quantityNotConverted: decimal("quantity_not_converted", {
-      precision: 14,
-      scale: 4,
-    }).notNull(),
+    quantityNotConverted: decimal("quantity_not_converted", valorQuatroCasasDecimais).notNull(),
     justification: varchar("justification", { length: 500 }).notNull(),
     userId: uuid("user_id")
       .notNull()
@@ -311,7 +288,7 @@ export const salesReturns = pgTable(
       .references(() => users.id, { onDelete: "restrict" }),
     status: saleReturnStatusEnum("status").notNull().default("ABERTA"),
     kind: saleReturnKindEnum("kind").notNull(),
-    valueTotal: decimal("value_total", { precision: 14, scale: 2 }).notNull(),
+    valueTotal: decimal("value_total", valorDuasCasasDecimais).notNull(),
     notes: varchar("notes", { length: 500 }),
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
@@ -339,9 +316,9 @@ export const salesReturnItems = pgTable(
     saleItemId: uuid("sale_item_id")
       .notNull()
       .references(() => salesItems.id, { onDelete: "restrict" }),
-    quantity: decimal("quantity", { precision: 14, scale: 4 }).notNull(),
-    valueUnit: decimal("value_unit", { precision: 14, scale: 4 }).notNull(),
-    valueTotal: decimal("value_total", { precision: 14, scale: 4 }).notNull(),
+    quantity: decimal("quantity", valorQuatroCasasDecimais).notNull(),
+    valueUnit: decimal("value_unit", valorQuatroCasasDecimais).notNull(),
+    valueTotal: decimal("value_total", valorDuasCasasDecimais).notNull(),
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
   },
@@ -359,7 +336,7 @@ export const salesPayments = pgTable(
   "sales_payments",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    valueTotal: decimal("value_total", { precision: 14, scale: 2 }).notNull(), // VALOR TOTAL DO PAGAMENTO
+    valueTotal: decimal("value_total", valorDuasCasasDecimais).notNull(), // VALOR TOTAL DO PAGAMENTO
     paymentTypeId: uuid("payment_type_id")
       .notNull()
       .references(() => paymentTypes.id, { onDelete: "restrict" }), // TIPO DE PAGAMENTO
@@ -382,10 +359,7 @@ export const salesDues = pgTable(
   "sales_dues",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    valueInstallment: decimal("value_installment", {
-      precision: 14,
-      scale: 2,
-    }).notNull(), // VALOR DA PARCELA
+    valueInstallment: decimal("value_installment", valorDuasCasasDecimais).notNull(), // VALOR DA PARCELA
     dueDate: tz("due_date").notNull(), // DATA DE VENCIMENTO
     salesPaymentId: uuid("sales_payment_id")
       .notNull()

@@ -20,7 +20,7 @@ import {
   statusEnum,
   typeUserContactEnum,
 } from "../enums.js";
-import { tz } from "../functions.js";
+import { tz, percentageDecimal, valorDuasCasasDecimais } from "../functions.js";
 import { ceps } from "./addresses.js";
 
 //Tabela de usuários
@@ -145,7 +145,7 @@ export const usersRelationships = pgTable(
       length: 255,
     }),
     professionTime: integer("profession_time"),
-    income: decimal("income", { precision: 10, scale: 2 }),
+    income: decimal("income", valorDuasCasasDecimais), 
     linkWithSeller: boolean("link_with_seller"),
     toWarmUp: boolean("to_warm_up"),
     userId: uuid("user_id")
@@ -210,48 +210,21 @@ export const usersFinancialInfo = pgTable(
   "users_financial_info",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    ICMSReduction: decimal("icms_reduction", {
-      precision: 10,
-      scale: 2,
-    }), // Redução de ICMS
-    discountLimit: decimal("discount_limit", {
-      precision: 10,
-      scale: 2,
-    }), // Limite de desconto
+    ICMSReduction: decimal("icms_reduction", percentageDecimal), // Redução de ICMS
+    discountLimit: decimal("discount_limit", percentageDecimal), // Limite de desconto
     discoutArrangement: varchar("discout_arrangement", {
       length: 255,
-    }), // Arrangement de desconto
+    }), // Tipo de desconto
     creditType: creditTypeEnum("credit_type"),
-    requestAmount: decimal("request_amount", {
-      precision: 10,
-      scale: 2,
-    }), // Valor solicitado
-    budgetPrice: decimal("budget_price", {
-      precision: 10,
-      scale: 2,
-    }), // Preço orçado
+    requestAmount: decimal("request_amount", valorDuasCasasDecimais), // Valor solicitado
+    budgetPrice: decimal("budget_price", valorDuasCasasDecimais), // Preço orçado
     taxRegime: varchar("tax_regime", { length: 255 }), // Regime tributário
     purchaseOrder: boolean("purchase_order"), // Pedido de compra
-    prevRate: decimal("prev_rate", {
-      precision: 10,
-      scale: 2,
-    }), // Taxa anterior
-    ratTax: decimal("rat_tax", {
-      precision: 10,
-      scale: 2,
-    }), // Taxa RAT
-    reductionRate: decimal("reduction_rate", {
-      precision: 10,
-      scale: 2,
-    }), // Taxa de redução
-    senarTax: decimal("senar_tax", {
-      precision: 10,
-      scale: 2,
-    }), // Taxa SENAR
-    sale_discount: decimal("sale_discount", {
-      precision: 10,
-      scale: 2,
-    }), // Desconto de venda
+    prevRate: decimal("prev_rate", percentageDecimal), // Taxa anterior
+    ratTax: decimal("rat_tax", percentageDecimal), // Taxa RAT
+    reductionRate: decimal("reduction_rate", percentageDecimal), // Taxa de redução
+    senarTax: decimal("senar_tax", percentageDecimal), // Taxa SENAR
+    sale_discount: decimal("sale_discount", percentageDecimal), // Desconto de venda
     sendNF: boolean("send_nf"), // Enviar NF
     userId: uuid("user_id") // Vínculo usuário-empresa
       .notNull()

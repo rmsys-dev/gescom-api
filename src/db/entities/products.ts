@@ -6,8 +6,7 @@ import { pgTable, uniqueIndex, index } from "drizzle-orm/pg-core";
 import { enterprises } from "./enterprises.js";
 import { typeSped } from "./typeSped.js";
 import { pisCofinsTypeEnum } from "../enums.js";
-import { tz } from "../functions.js";
-import { percentageDecimal } from "../functions.js";
+import { tz, percentageDecimal, valorQuatroCasasDecimais, valorDuasCasasDecimais } from "../functions.js";
 
 //tabela de produtos. - Global
 export const products = pgTable(
@@ -136,8 +135,8 @@ export const icmsTaxation = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     icms: varchar("icms", { length: 255 }).notNull(), 
-    icmsRate: decimal("icms_rate", { precision: 14, scale: 2 }), 
-    simplesIcmsRate: decimal("simples_icms_rate", { precision: 14, scale: 2 }), 
+    icmsRate: decimal("icms_rate", percentageDecimal), 
+    simplesIcmsRate: decimal("simples_icms_rate", percentageDecimal), 
     description: varchar("description", { length: 255 }).notNull(), 
     createdAt: tz("criado_em").defaultNow().notNull(),
     updatedAt: tz("alterado_em"),
@@ -187,8 +186,8 @@ export const pisCofinsSituation = pgTable(
     description: varchar("description", { length: 255 }).notNull(),
     type: pisCofinsTypeEnum("type").notNull(), 
     framing: integer("framing").notNull(), 
-    pisRate: decimal("pis_rate", { precision: 14, scale: 4 }), 
-    cofinsRate: decimal("cofins_rate", { precision: 14, scale: 4 }), 
+    pisRate: decimal("pis_rate", percentageDecimal), 
+    cofinsRate: decimal("cofins_rate", percentageDecimal), 
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
   },
@@ -204,7 +203,7 @@ export const productGroups = pgTable(
       .notNull()
       .references(() => enterprises.id, { onDelete: "cascade" }),
     description: varchar("description", { length: 255 }).notNull(),
-    profitMargin: decimal("profit_margin", { precision: 14, scale: 4 }), 
+    profitMargin: decimal("profit_margin", percentageDecimal),  
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
   },
@@ -227,7 +226,7 @@ export const productSubgroups = pgTable(
       .references(() => enterprises.id, { onDelete: "cascade" }),
     description: varchar("description", { length: 255 }).notNull(),
     generatesComission: boolean("generates_comission").notNull().default(false), // Gera comissão
-    comissionOnSightSeller: decimal("comission_on_sight_seller", percentageDecimal)
+    comissionOnSightSeller: decimal("comission_on_sight_seller", percentageDecimal) 
       .notNull()
       .default("0.00"), // Comissão a vista do vendedor
     comissionToTermsSeller: decimal("comission_to_terms_seller", percentageDecimal)
@@ -355,11 +354,11 @@ export const prices = pgTable(
   "prices",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    price: decimal("price", { precision: 14, scale: 4 }).notNull(),   // preço de venda
-    averageCost: decimal("average_cost", { precision: 14, scale: 4 }), // custo médio
-    actualRealCost: decimal("actual_real_cost", { precision: 14, scale: 4 }), // custo real
-    previousCost: decimal("previous_cost", { precision: 14, scale: 4 }), // custo anterior
-    priceCost: decimal("price_cost", { precision: 14, scale: 4 }), // custo atual.
+    price: decimal("price", valorDuasCasasDecimais).notNull(),   // preço de venda
+    averageCost: decimal("average_cost", valorQuatroCasasDecimais), // custo médio
+    actualRealCost: decimal("actual_real_cost", valorQuatroCasasDecimais), // custo real
+    previousCost: decimal("previous_cost", valorQuatroCasasDecimais), // custo anterior
+    priceCost: decimal("price_cost", valorQuatroCasasDecimais), // custo atual.
     productsEnterprisesId: uuid("products_enterprises_id")
       .notNull()
       .references(() => productsEnterprises.id, { onDelete: "restrict" }),
@@ -379,7 +378,7 @@ export const promotionalPrices = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     description: varchar("description", { length: 255 }),
-    price: decimal("price", { precision: 14, scale: 4 }).notNull(),
+    price: decimal("price", valorDuasCasasDecimais).notNull(),
     startDate: tz("start_date").notNull(),
     endDate: tz("end_date").notNull(),
     productsEnterprisesId: uuid("products_enterprises_id")

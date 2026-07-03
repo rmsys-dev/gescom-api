@@ -162,6 +162,20 @@
       "when": 1783022609828,
       "tag": "0022_broken_miek",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1783082076015,
+      "tag": "0023_slow_namor",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1783085805713,
+      "tag": "0024_open_mandarin",
+      "breakpoints": true
     }
   ]
 }

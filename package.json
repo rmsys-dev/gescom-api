@@ -28,6 +28,8 @@
     "db:apply:members-profile-tables": "tsx scripts/db/apply-members-profile-tables.ts",
     "db:apply:enterprises-members-limits": "tsx scripts/db/apply-enterprises-members-limits.ts",
     "db:apply:0017-prod": "tsx scripts/db/apply-0017-product-taxation-pis-cofins.ts",
+    "db:apply:0020": "tsx scripts/db/apply-0020-enums.ts",
+    "db:apply:0021": "tsx scripts/db/apply-0021-mixed-iron-monger.ts",
     "db:verify:members-profile": "tsx scripts/db/verify-members-profile-schema.ts",
     "db:verify:enterprises-members": "tsx scripts/db/verify-enterprises-members-schema.ts",
     "db:backup:snapshot": "tsx scripts/db/capture-pre-migration-snapshot.ts",

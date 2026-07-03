@@ -17,7 +17,7 @@ import {
 import { productsEnterprises } from "./products.js";
 import { enterprises } from "./enterprises.js";
 import { users } from "./users.js";
-import { tz } from "../functions.js";
+import { tz, valorQuatroCasasDecimais } from "../functions.js";
 
 // SETOR DE ESTOQUE
 export const stockSectors = pgTable(
@@ -214,27 +214,11 @@ export const stockMovements = pgTable(
         onDelete: "restrict",
       },
     ),
-    quantity: decimal("quantity", { precision: 14, scale: 4 }).notNull(), // QUANTIDADE MOVIMENTADA
-    fromQuantityBefore: decimal("from_quantity_before", {
-      // QUANTIDADE ANTES DO MOVIMENTO
-      precision: 14,
-      scale: 4,
-    }),
-    fromQuantityAfter: decimal("from_quantity_after", {
-      // QUANTIDADE DEPOIS DO MOVIMENTO
-      precision: 14,
-      scale: 4,
-    }),
-    toQuantityBefore: decimal("to_quantity_before", {
-      // QUANTIDADE ANTES DO MOVIMENTO
-      precision: 14,
-      scale: 4,
-    }),
-    toQuantityAfter: decimal("to_quantity_after", {
-      // QUANTIDADE DEPOIS DO MOVIMENTO
-      precision: 14,
-      scale: 4,
-    }),
+    quantity: decimal("quantity", valorQuatroCasasDecimais).notNull(), // QUANTIDADE MOVIMENTADA
+    fromQuantityBefore: decimal("from_quantity_before", valorQuatroCasasDecimais), // QUANTIDADE ANTES DO MOVIMENTO
+    fromQuantityAfter: decimal("from_quantity_after", valorQuatroCasasDecimais), // QUANTIDADE DEPOIS DO MOVIMENTO
+    toQuantityBefore: decimal("to_quantity_before", valorQuatroCasasDecimais), // QUANTIDADE ANTES DO MOVIMENTO
+    toQuantityAfter: decimal("to_quantity_after", valorQuatroCasasDecimais), // QUANTIDADE DEPOIS DO MOVIMENTO
     userId: uuid("user_id").references(() => users.id, {
       // USUÁRIO QUE REALIZOU O MOVIMENTO
       onDelete: "set null",

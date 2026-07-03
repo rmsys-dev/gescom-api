@@ -68,7 +68,7 @@ export const creditTypeEnum = pgEnum("credit_type", ["MENSAL", "GERAL"]);
 //Tipo de moradia (alugado, próprio, doado, emprestado, outro)
 export const housingTypeEnum = pgEnum("housing_type", [
   "ALUGADO",
-  "PRÓPRIO",
+  "PROPRIO",
   "DOADO",
   "EMPRESTADO",
   "OUTRO",

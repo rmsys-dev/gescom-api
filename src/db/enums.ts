@@ -63,10 +63,7 @@ export const typeUserContactEnum = pgEnum("type_user_contact", [
 ]);
 
 //Tipo de crédito (crédito, débito, outro)
-export const creditTypeEnum = pgEnum("credit_type", [
-  "MENSAL",
-  "GERAL"
-]);
+export const creditTypeEnum = pgEnum("credit_type", ["MENSAL", "GERAL"]);
 
 //Tipo de moradia (alugado, próprio, doado, emprestado, outro)
 export const housingTypeEnum = pgEnum("housing_type", [
@@ -81,10 +78,10 @@ export const housingTypeEnum = pgEnum("housing_type", [
 export const genderEnum = pgEnum("gender", [
   "FEMININO",
   "MASCULINO",
-  "NÃO_INFORMADO",
+  "NAO_INFORMADO",
 ]);
 
-export const maritalStatusEnum = pgEnum("marital_status", [ 
+export const maritalStatusEnum = pgEnum("marital_status", [
   "SOLTEIRO",
   "CASADO",
   "DIVORCIADO",
@@ -93,7 +90,7 @@ export const maritalStatusEnum = pgEnum("marital_status", [
 ]);
 
 //Status de permissão (permitido, negado)
-export const statusPermissionEnum = pgEnum("status_permission", [  
+export const statusPermissionEnum = pgEnum("status_permission", [
   "ALLOW",
   "DENIED",
 ]);
@@ -286,10 +283,9 @@ export const budgetConversionKindEnum = pgEnum("budget_conversion_kind", [
 ]);
 
 //Tipo de cliente (classificacao de clientes, cliente, fornecedor)
-export const typeClassificationCustomersEnum = pgEnum("type_classification_customers", [
-  "TODOS",
-  "CLIENTE",
-  "FORNECEDOR"
-]);
+export const typeClassificationCustomersEnum = pgEnum(
+  "type_classification_customers",
+  ["TODOS", "CLIENTE", "FORNECEDOR"],
+);
 
 export const saleOriginEnum = pgEnum("sale_origin", ["WEB", "MOBILE"]);

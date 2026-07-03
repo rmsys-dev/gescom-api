@@ -736,11 +736,11 @@ export class UsersOnboardingService {
           rentalPeriod: input.rentalPeriod,
           motherName: input.motherName,
           fatherName: input.fatherName,
-          profession: input.profession,
-          professionDescription: input.professionDescription,
+          workplace: input.workplace,
+          workAddress: input.workAddress,
+          departmentLabor: input.departmentLabor,
           professionTime: input.professionTime,
           income: decimalToString(input.income),
-          linkWithSeller: input.linkWithSeller,
           toWarmUp: input.toWarmUp,
         })
         .returning();
@@ -813,20 +813,20 @@ export class UsersOnboardingService {
         ...(input.fatherName !== undefined
           ? { fatherName: input.fatherName }
           : {}),
-        ...(input.profession !== undefined
-          ? { profession: input.profession }
+        ...(input.workplace !== undefined
+          ? { workplace: input.workplace }
           : {}),
-        ...(input.professionDescription !== undefined
-          ? { professionDescription: input.professionDescription }
+        ...(input.workAddress !== undefined
+          ? { workAddress: input.workAddress }
+          : {}),
+        ...(input.departmentLabor !== undefined
+          ? { departmentLabor: input.departmentLabor }
           : {}),
         ...(input.professionTime !== undefined
           ? { professionTime: input.professionTime }
           : {}),
         ...(input.income !== undefined
           ? { income: decimalToString(input.income) }
-          : {}),
-        ...(input.linkWithSeller !== undefined
-          ? { linkWithSeller: input.linkWithSeller }
           : {}),
         ...(input.toWarmUp !== undefined ? { toWarmUp: input.toWarmUp } : {}),
         ...touchUpdatedAt(now),
@@ -901,7 +901,9 @@ export class UsersOnboardingService {
             ? parseIsoDateOnly(input.sefaz_Date)
             : undefined,
           governmentEntity: input.governmentEntity,
-          benefitCode: input.benefitCode,
+          governmentReductionRate: decimalToString(
+            input.governmentReductionRate,
+          ),
         })
         .returning();
 
@@ -977,8 +979,12 @@ export class UsersOnboardingService {
         ...(input.governmentEntity !== undefined
           ? { governmentEntity: input.governmentEntity }
           : {}),
-        ...(input.benefitCode !== undefined
-          ? { benefitCode: input.benefitCode }
+        ...(input.governmentReductionRate !== undefined
+          ? {
+              governmentReductionRate: decimalToString(
+                input.governmentReductionRate,
+              ),
+            }
           : {}),
         ...touchUpdatedAt(now),
       })

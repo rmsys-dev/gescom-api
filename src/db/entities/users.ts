@@ -136,18 +136,16 @@ export const usersRelationships = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     maritalStatus: maritalStatusEnum("marital_status"),
     spouseName: varchar("spouse_name", { length: 255 }),
-    housingType: housingTypeEnum("housing_type"),
-    rentalPeriod: integer("rental_period"),
+    housingType: housingTypeEnum("housing_type"), 
+    rentalPeriod: varchar("rental_period", { length: 255 }), 
     motherName: varchar("mother_name", { length: 255 }),
     fatherName: varchar("father_name", { length: 255 }),
-    profession: varchar("profession", { length: 255 }),
-    professionDescription: varchar("profession_description", {
-      length: 255,
-    }),
-    professionTime: integer("profession_time"),
+    workplace: varchar("workplace", { length: 255 }), 
+    workAddress: varchar("work_address", { length: 255 }), 
+    departmentLabor: varchar("department_labor", { length: 255 }), 
+    professionTime: varchar("profession_time", { length: 255 }), 
     income: decimal("income", valorDuasCasasDecimais), 
-    linkWithSeller: boolean("link_with_seller"),
-    toWarmUp: boolean("to_warm_up"),
+    toWarmUp: boolean("to_warm_up"), 
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
@@ -160,14 +158,6 @@ export const usersRelationships = pgTable(
       .on(t.userId)
       .where(sql`${t.deletedAt} is null`),
     check("users_relationships_income_non_negative", sql`${t.income} >= 0`),
-    check(
-      "users_relationships_profession_time_non_negative",
-      sql`${t.professionTime} >= 0`,
-    ),
-    check(
-      "users_relationships_rental_period_non_negative",
-      sql`${t.rentalPeriod} is null or ${t.rentalPeriod} >= 0`,
-    ),
   ],
 );
 
@@ -177,7 +167,7 @@ export const usersTaxInfos = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     renegotiation: boolean("renegotiation"),
-    spc_registration: varchar("spc_registration", { length: 255 }),
+    spc_registration: boolean("spc_registration").default(false),
     spc_registry_date: date("spc_registry_date", { mode: "date" }),
     municipalRegistration: varchar("municipal_registration", {
       length: 255,
@@ -188,8 +178,8 @@ export const usersTaxInfos = pgTable(
     userLegalName: varchar("user_legal_name", { length: 255 }),
     r3_code: integer("r3_code"),
     sefaz_Date: date("sefaz_date", { mode: "date" }),
-    governmentEntity: varchar("government_entity", { length: 255 }),
-    benefitCode: varchar("benefit_code", { length: 255 }),
+    governmentEntity: varchar("government_entity", { length: 1 }),
+    governmentReductionRate: decimal("government_reduction_rate", percentageDecimal),
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),

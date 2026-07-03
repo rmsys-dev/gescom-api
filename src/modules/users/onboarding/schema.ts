@@ -146,14 +146,14 @@ export const usersRelationshipsCreateSchema = z
     maritalStatus: maritalStatusSchema.optional(),  
     spouseName: personNameSchema("spouseName").optional(),  
     housingType: housingTypeSchema.optional(),  
-    rentalPeriod: z.coerce.number().int().min(0).optional(),  
-    motherName: personNameSchema("motherName").optional(),  
+    rentalPeriod: nonEmptyText255Schema("rentalPeriod").optional(),
+    motherName: personNameSchema("motherName").optional(),
     fatherName: personNameSchema("fatherName").optional(),
-    profession: personNameSchema("profession").optional(), 
-    professionDescription: personNameSchema("professionDescription").optional(), 
-    professionTime: z.coerce.number().int().min(0).optional(),
+    workplace: nonEmptyText255Schema("workplace").optional(),
+    workAddress: nonEmptyText255Schema("workAddress").optional(),
+    departmentLabor: nonEmptyText255Schema("departmentLabor").optional(),
+    professionTime: nonEmptyText255Schema("professionTime").optional(),
     income: z.coerce.number().min(0).optional(),
-    linkWithSeller: z.boolean().optional(),
     toWarmUp: z.boolean().optional(),
   })
   .strict();
@@ -180,7 +180,7 @@ export type UsersRelationshipsPatchInput = z.infer<
 export const usersTaxInfosCreateSchema = z
   .object({
     renegotiation: z.boolean().optional(),
-    spc_registration: nonEmptyText255Schema("spc_registration").optional(),
+    spc_registration: z.boolean().optional(),
     spc_registry_date: dateOnlyIsoSchema("spc_registry_date").optional(),
     municipalRegistration: nonEmptyText255Schema(
       "municipalRegistration",
@@ -191,8 +191,8 @@ export const usersTaxInfosCreateSchema = z
     userLegalName: nonEmptyText255Schema("userLegalName").optional(),
     r3_code: z.coerce.number().int().min(0).optional(),
     sefaz_Date: dateOnlyIsoSchema("sefaz_Date").optional(),
-    governmentEntity: nonEmptyText255Schema("governmentEntity").optional(),
-    benefitCode: nonEmptyText255Schema("benefitCode").optional(),
+    governmentEntity: z.string().length(1).optional(),
+    governmentReductionRate: z.coerce.number().min(0).max(100).optional(),
   })
   .strict();
 

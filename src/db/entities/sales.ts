@@ -124,10 +124,15 @@ export const salesItems = pgTable(
   {
   id: uuid("id").defaultRandom().primaryKey(),
   quantity: decimal("quantity", valorQuatroCasasDecimais).notNull(),
-  valueUnit: decimal("value_unit", valorQuatroCasasDecimais).notNull(),
-  valueDiscount: decimal("value_discount", valorQuatroCasasDecimais).notNull(),
+  valueUnit: decimal("value_unit", valorQuatroCasasDecimais).notNull(), 
+  valueDiscount: decimal("value_discount", valorQuatroCasasDecimais).notNull(), 
   valueAcresce: decimal("value_acresce", valorQuatroCasasDecimais).notNull(),
   valueTotal: decimal("value_total", valorQuatroCasasDecimais).notNull(),
+  averageCost: decimal("average_cost", valorQuatroCasasDecimais), // custo médio
+  actualRealCost: decimal("actual_real_cost", valorQuatroCasasDecimais), // custo real
+  priceCost: decimal("price_cost", valorQuatroCasasDecimais), // custo atual
+  priceSale: decimal("price_sale", valorQuatroCasasDecimais), // preço de venda
+    
   salesId: uuid("sales_id") 
     .notNull()
     .references(() => sales.id, { onDelete: "cascade" }),

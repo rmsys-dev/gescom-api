@@ -197,6 +197,13 @@
       "when": 1783110893404,
       "tag": "0027_slimy_absorbing_man",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1783115000000,
+      "tag": "0028_entity_profile_sales_sync",
+      "breakpoints": true
     }
   ]
 }

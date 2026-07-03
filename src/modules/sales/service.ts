@@ -15,6 +15,7 @@ import { db } from "../../db/index.js";
 import {
   enterprisesMembers,
   paymentTypes,
+  prices,
   productTypes,
   productsEnterprises,
   sales,
@@ -177,6 +178,13 @@ const toUtcDateKey = (date: Date) => {
 };
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+type PriceSnapshot = {
+  averageCost: string | null;
+  actualRealCost: string | null;
+  priceCost: string | null;
+  priceSale: string | null;
+};
 
 export type SaleAuthContext = {
   userId: string;
@@ -679,6 +687,44 @@ export class SalesService {  // Servico de vendas
     }
   }
 
+  private async loadPriceSnapshot(
+    tx: Tx | typeof db,
+    productsEnterprisesId: string,
+  ): Promise<PriceSnapshot | null> {
+    const row = (
+      await tx
+        .select({
+          averageCost: prices.averageCost,
+          actualRealCost: prices.actualRealCost,
+          priceCost: prices.priceCost,
+          price: prices.price,
+        })
+        .from(prices)
+        .where(eq(prices.productsEnterprisesId, productsEnterprisesId))
+        .limit(1)
+    )[0];
+
+    if (!row) return null;
+
+    return {
+      averageCost: row.averageCost,
+      actualRealCost: row.actualRealCost,
+      priceCost: row.priceCost,
+      priceSale: row.price,
+    };
+  }
+
+  private priceSnapshotFromBudgetItem(
+    budgetItem: typeof salesItems.$inferSelect,
+  ): PriceSnapshot {
+    return {
+      averageCost: budgetItem.averageCost,
+      actualRealCost: budgetItem.actualRealCost,
+      priceCost: budgetItem.priceCost,
+      priceSale: budgetItem.priceSale,
+    };
+  }
+
   private mapItemInputToInsert(
     saleId: string,
     item: CreateSaleItemInput,
@@ -689,6 +735,7 @@ export class SalesService {  // Servico de vendas
       sellerLegalName: string;
     },
     origin: SaleOrigin,
+    priceSnapshot?: PriceSnapshot | null,
   ) {
     const valueTotal = computeItemValueTotal(
       item.quantity,
@@ -702,6 +749,10 @@ export class SalesService {  // Servico de vendas
       valueDiscount: item.valueDiscount.toString(),
       valueAcresce: item.valueAcresce.toString(),
       valueTotal: valueTotal.toString(),
+      averageCost: priceSnapshot?.averageCost ?? null,
+      actualRealCost: priceSnapshot?.actualRealCost ?? null,
+      priceCost: priceSnapshot?.priceCost ?? null,
+      priceSale: priceSnapshot?.priceSale ?? null,
       salesId: saleId,
       productsEnterprisesId: item.productsEnterprisesId,
       unitid: item.unitId,
@@ -1566,6 +1617,11 @@ export class SalesService {  // Servico de vendas
             `items.${i}.valueDiscount`,
           );
 
+          const priceSnapshot = await this.loadPriceSnapshot(
+            tx,
+            itemInput.productsEnterprisesId,
+          );
+
           const [inserted] = await tx
             .insert(salesItems)
             .values(
@@ -1574,6 +1630,7 @@ export class SalesService {  // Servico de vendas
                 itemInput,
                 actor,
                 this.resolveItemLaunchOrigin(itemInput.origin, gescomClient),
+                priceSnapshot,
               ),
             )
             .returning();
@@ -2137,6 +2194,8 @@ export class SalesService {  // Servico de vendas
             `${itemPath}.valueDiscount`,
           );
 
+          const priceSnapshot = this.priceSnapshotFromBudgetItem(budgetItem);
+
           const [inserted] = await tx
             .insert(salesItems)
             .values({
@@ -2145,6 +2204,7 @@ export class SalesService {  // Servico de vendas
                 itemInput,
                 actor,
                 this.resolveItemLaunchOrigin(itemInput.origin, gescomClient),
+                priceSnapshot,
               ),
               sourceBudgetItemId: budgetItem.id,
               quantityConverted: formatQuantity(convertQuantity),
@@ -2353,6 +2413,11 @@ export class SalesService {  // Servico de vendas
         "body.valueDiscount",
       );
 
+      const priceSnapshot = await this.loadPriceSnapshot(
+        tx,
+        input.productsEnterprisesId,
+      );
+
       const [inserted] = await tx
         .insert(salesItems)
         .values(
@@ -2361,6 +2426,7 @@ export class SalesService {  // Servico de vendas
             input,
             actor,
             this.resolveItemLaunchOrigin(input.origin, gescomClient),
+            priceSnapshot,
           ),
         )
         .returning();

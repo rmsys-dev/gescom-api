@@ -1,0 +1,290 @@
+{
+  "info": {
+    "_postman_id": "gescom-api-products-ncm",
+    "name": "Gescom API — NCM",
+    "description": "Coleção do módulo **NCM** (5 endpoints).\n\nGerado em: 2026-07-07T18:54:07.587Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "NCM",
+      "item": [
+        {
+          "name": "GET Listar raiz",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products-ncm",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products-ncm"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "disabled": false
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "disabled": false
+                },
+                {
+                  "key": "status",
+                  "value": "ABERTA",
+                  "disabled": true
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Permissão: `consultar_ncm_produtos`\n\nQuery schema: `listProductsNcmQuerySchema`\n\nFonte: `src\\modules\\products\\products-ncm\\routes.ts`"
+          },
+          "response": []
+        },
+        {
+          "name": "POST Criar raiz",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products-ncm",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products-ncm"
+              ]
+            },
+            "description": "Permissão: `incluir_ncm_produtos`\n\nBody schema: `createProductsNcmSchema`\n\nFonte: `src\\modules\\products\\products-ncm\\routes.ts`",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": ":productsNcmId",
+          "item": [
+            {
+              "name": "DELETE Excluir productsNcmId",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/products-ncm/{{productsNcmId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "products-ncm",
+                    "{{productsNcmId}}"
+                  ]
+                },
+                "description": "Permissão: `excluir_ncm_produtos`\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `productsNcmParamsSchema`\n\nFonte: `src\\modules\\products\\products-ncm\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "GET Obter productsNcmId",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/products-ncm/{{productsNcmId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "products-ncm",
+                    "{{productsNcmId}}"
+                  ]
+                },
+                "description": "Permissão: `consultar_ncm_produtos`\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `productsNcmParamsSchema`\n\nFonte: `src\\modules\\products\\products-ncm\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH Atualizar productsNcmId",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/products-ncm/{{productsNcmId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "products-ncm",
+                    "{{productsNcmId}}"
+                  ]
+                },
+                "description": "Permissão: `alterar_ncm_produtos`\n\nBody schema: `patchProductsNcmSchema`\n\nParams schema: `productsNcmParamsSchema`\n\nFonte: `src\\modules\\products\\products-ncm\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Campos parciais conforme schema\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "enterpriseId",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "memberId",
+      "value": ""
+    },
+    {
+      "key": "departmentId",
+      "value": ""
+    },
+    {
+      "key": "saleId",
+      "value": ""
+    },
+    {
+      "key": "saleItemId",
+      "value": ""
+    },
+    {
+      "key": "productEnterpriseId",
+      "value": ""
+    },
+    {
+      "key": "unitId",
+      "value": ""
+    },
+    {
+      "key": "productTypeId",
+      "value": ""
+    },
+    {
+      "key": "paymentTypeId",
+      "value": ""
+    },
+    {
+      "key": "cepId",
+      "value": ""
+    },
+    {
+      "key": "maintainerApiKey",
+      "value": ""
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ]
+}

@@ -1,977 +1,855 @@
-#!/usr/bin/env node
 /**
- * Gera a collection Postman completa da Gescom API.
- * Execute: node postman-collections/generate-complete-collection.mjs
+ * Gera coleções Postman v2.1 a partir dos arquivos routes.ts do projeto.
+ * Uso: node postman-collections/generate-complete-collection.mjs
  */
-import { writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import fs from "node:fs";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const ROOT = path.resolve(__dirname, "..");
+const SRC = path.join(ROOT, "src");
+const OUT_DIR = path.join(ROOT, "postman-collections");
 
-const bearer = [{ key: "Authorization", value: "Bearer {{accessToken}}" }];
-const maintainer = [{ key: "X-Maintainer-Api-Key", value: "{{maintainerApiKey}}" }];
-const jsonContent = [{ key: "Content-Type", value: "application/json" }];
+const API_PREFIX = "/api/v1";
+const HTTP_METHODS = ["get", "post", "put", "patch", "delete"];
 
-function headers(auth) {
-  if (auth === "bearer") return [...bearer];
-  if (auth === "maintainer") return [...maintainer, ...jsonContent];
-  if (auth === "json") return [...jsonContent];
+/** Exemplos de body por nome de schema Zod (quando conhecido). */
+const BODY_EXAMPLES = {
+  loginSchema: {
+    loginType: "EMAIL",
+    login: "usuario@exemplo.com",
+    password: "senha123",
+  },
+  refreshSchema: { refreshToken: "{{refreshToken}}" },
+  switchEnterpriseSchema: { enterpriseId: "{{enterpriseId}}" },
+  firstAccessLookupSchema: { email: "usuario@exemplo.com" },
+  firstAccessVerifySchema: {
+    loginType: "EMAIL",
+    login: "usuario@exemplo.com",
+    code: "123456",
+    password: "novaSenha123",
+    confirmPassword: "novaSenha123",
+  },
+  firstAccessResendSchema: { email: "usuario@exemplo.com" },
+  passwordResetRequestSchema: { email: "usuario@exemplo.com" },
+  passwordResetVerifySchema: {
+    loginType: "EMAIL",
+    login: "usuario@exemplo.com",
+    code: "123456",
+    password: "novaSenha123",
+    confirmPassword: "novaSenha123",
+  },
+  passwordResetResendSchema: { email: "usuario@exemplo.com" },
+  invitationAcceptPublicSchema: {
+    loginType: "EMAIL",
+    login: "usuario@exemplo.com",
+    password: "senha123",
+    code: "123456",
+  },
+  invitationDeclineSchema: { reason: "Não tenho interesse no momento" },
+  createUnitSchema: { unit: "UN", description: "UNIDADE", compatible: "PC" },
+  patchUnitSchema: { description: "UNIDADE ATUALIZADA" },
+  createEnterpriseSchema: {
+    registration: "12345678000199",
+    legalName: "EMPRESA EXEMPLO LTDA",
+    tradeName: "EMPRESA EXEMPLO",
+    phone: "+5511999999999",
+    email: "contato@exemplo.com",
+  },
+  patchEnterpriseSchema: { tradeName: "NOVO NOME FANTASIA" },
+  createUserBodySchema: {
+    userName: "João Silva",
+    userRegistration: "12345678901",
+    userEmail: "joao@exemplo.com",
+    userPhone: "+5511988888888",
+  },
+  patchUserBodySchema: { userName: "João Silva Atualizado" },
+  createMembershipSchema: {
+    userId: "{{userId}}",
+    class: "CLIENTE",
+    departments: [{ departmentId: "{{departmentId}}", mainDepartment: true }],
+  },
+  createOnboardMembershipSchema: {
+    user: {
+      userName: "Maria Souza",
+      userEmail: "maria@exemplo.com",
+    },
+    member: {
+      class: "CLIENTE",
+      departments: [{ departmentId: "{{departmentId}}", mainDepartment: true }],
+    },
+    sendEmail: true,
+  },
+  inviteMembershipBodySchema: {
+    member: {
+      class: "CLIENTE",
+      departments: [{ departmentId: "{{departmentId}}", mainDepartment: true }],
+    },
+    inviteEmail: "convidado@exemplo.com",
+    sendEmail: true,
+  },
+  addMemberDepartmentSchema: {
+    departmentId: "{{departmentId}}",
+    mainDepartment: false,
+  },
+  patchMemberDepartmentSchema: { mainDepartment: true },
+  patchMemberDepartmentPermissionBodySchema: {
+    permissions: ["consultar_vendas"],
+  },
+  patchMembershipSchema: { status: "ATIVO" },
+  createSaleSchema: {
+    memberId: "{{memberId}}",
+    type: "ORCAMENTO",
+    status: "ABERTA",
+    items: [
+      {
+        quantity: 1,
+        valueUnit: 100,
+        valueDiscount: 0,
+        valueAcresce: 0,
+        productsEnterprisesId: "{{productEnterpriseId}}",
+        unitId: "{{unitId}}",
+        productTypeId: "{{productTypeId}}",
+      },
+    ],
+    payments: [{ paymentTypeId: "{{paymentTypeId}}", value: 100 }],
+  },
+  patchSaleSchema: { status: "FINALIZADA" },
+  convertBudgetToSaleSchema: {
+    status: "FINALIZADA",
+    items: [],
+    payments: [{ paymentTypeId: "{{paymentTypeId}}", value: 100 }],
+  },
+  createSaleItemSchema: {
+    quantity: 1,
+    valueUnit: 50,
+    valueDiscount: 0,
+    valueAcresce: 0,
+    productsEnterprisesId: "{{productEnterpriseId}}",
+    unitId: "{{unitId}}",
+    productTypeId: "{{productTypeId}}",
+  },
+  patchSaleItemSchema: { quantity: 2 },
+  createPartialReturnSchema: {
+    notes: "Devolução parcial",
+    items: [{ saleItemId: "{{saleItemId}}", quantity: 1 }],
+  },
+  createFullReturnSchema: { notes: "Devolução total" },
+  personalInfoCreateSchema: {
+    gender: "MASCULINO",
+    birthDate: "1990-01-15",
+    placeOfBirth: "São Paulo",
+  },
+  personalInfoPatchSchema: { placeOfBirth: "Campinas" },
+  usersAddressCreateSchema: {
+    cepId: "{{cepId}}",
+    number: "100",
+    complement: "Apto 12",
+    adressType: "RESIDENCIAL",
+  },
+  usersAddressPatchSchema: { number: "200" },
+  usersContactCreateSchema: {
+    contactType: "CELULAR",
+    contactValue: "+5511977777777",
+    isMain: true,
+  },
+  usersContactPatchSchema: { isMain: false },
+  usersRelationshipsCreateSchema: { maritalStatus: "SOLTEIRO" },
+  usersRelationshipsPatchSchema: { housingType: "PROPRIO" },
+  usersTaxInfosCreateSchema: { taxpayerType: "CONTRIBUINTE" },
+  usersTaxInfosPatchSchema: { stateRegistration: "123456789" },
+  usersFinancialInfoCreateSchema: { creditType: "A_VISTA" },
+  usersFinancialInfoPatchSchema: { creditLimit: 5000 },
+};
+
+/** Query params comuns por padrão de nome de schema. */
+const QUERY_HINTS = {
+  list: ["limit", "offset"],
+  analyticsPeriod: [
+    "periodPreset",
+    "dateFrom",
+    "dateTo",
+    "timezone",
+    "compareMode",
+    "sellerId",
+    "memberId",
+    "paymentTypeId",
+  ],
+  analyticsRanking: ["limit", "periodPreset", "dateFrom", "dateTo"],
+  analyticsTimeseries: ["granularity", "periodPreset", "dateFrom", "dateTo"],
+  analyticsTopProducts: ["sortBy", "limit", "periodPreset", "dateFrom", "dateTo"],
+  analyticsOperations: ["periodPreset", "dateFrom", "dateTo"],
+  analyticsReceivables: ["periodPreset", "dateFrom", "dateTo"],
+  listSales: [
+    "limit",
+    "offset",
+    "type",
+    "status",
+    "budgetClosureSituation",
+    "userId",
+    "sellerId",
+    "orderNumber",
+    "seller",
+    "client",
+  ],
+  listMembers: [
+    "limit",
+    "offset",
+    "userId",
+    "code",
+    "class",
+    "status",
+    "postSalesStatus",
+    "registration",
+    "email",
+    "phone",
+  ],
+  listUsers: ["limit", "offset", "registration", "email", "phone"],
+  listProducts: ["limit", "offset", "status", "search"],
+};
+
+function readFile(filePath) {
+  return fs.readFileSync(filePath, "utf8");
+}
+
+function resolveImportPath(fromFile, importPath) {
+  const withoutExt = importPath.replace(/\.js$/, "");
+  const abs = path.resolve(path.dirname(fromFile), withoutExt);
+  const candidates = [`${abs}.ts`, `${abs}/routes.ts`, `${abs}/index.ts`];
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
+function parseImports(content, fromFile) {
+  const imports = new Map();
+  const re =
+    /import\s*\{([^}]+)\}\s*from\s*["']([^"']+)["']/g;
+  let match;
+  while ((match = re.exec(content))) {
+    const names = match[1]
+      .split(",")
+      .map((n) => n.trim().split(/\s+as\s+/).pop().trim());
+    const resolved = resolveImportPath(fromFile, match[2]);
+    if (!resolved) continue;
+    for (const name of names) {
+      if (name.endsWith("Router")) imports.set(name, resolved);
+    }
+  }
+  return imports;
+}
+
+function extractRouteBlock(content, startIndex) {
+  let depth = 0;
+  let i = startIndex;
+  while (i < content.length) {
+    const ch = content[i];
+    if (ch === "(") depth++;
+    if (ch === ")") {
+      depth--;
+      if (depth === 0) return content.slice(startIndex, i + 1);
+    }
+    i++;
+  }
+  return content.slice(startIndex);
+}
+
+function inferQueryParams(schemaName) {
+  if (!schemaName) return [];
+  const lower = schemaName.toLowerCase();
+  if (lower.includes("pagination") || lower.startsWith("list")) {
+    if (lower.includes("sales")) return QUERY_HINTS.listSales;
+    if (lower.includes("member")) return QUERY_HINTS.listMembers;
+    if (lower.includes("user")) return QUERY_HINTS.listUsers;
+    if (lower.includes("product") && !lower.includes("enterprise"))
+      return QUERY_HINTS.listProducts;
+    return QUERY_HINTS.list;
+  }
+  if (lower.includes("analyticsperiod")) return QUERY_HINTS.analyticsPeriod;
+  if (lower.includes("analyticsranking")) return QUERY_HINTS.analyticsRanking;
+  if (lower.includes("analyticstimeseries")) return QUERY_HINTS.analyticsTimeseries;
+  if (lower.includes("analyticstopproducts")) return QUERY_HINTS.analyticsTopProducts;
+  if (lower.includes("analyticsoperations")) return QUERY_HINTS.analyticsOperations;
+  if (lower.includes("analyticsreceivables")) return QUERY_HINTS.analyticsReceivables;
   return [];
 }
 
-function req(name, method, path, opts = {}) {
-  const { auth = "bearer", body, query, description } = opts;
-  const request = {
-    method,
-    header: headers(auth),
-    url: path.startsWith("{{") ? path : `{{baseUrl}}${path}`,
+function parseRouteDefinitions(content, routerVarName) {
+  const routes = [];
+  const methodRe = new RegExp(
+    `${routerVarName}\\.(get|post|put|patch|delete)\\(`,
+    "g",
+  );
+  let match;
+  while ((match = methodRe.exec(content))) {
+    const block = extractRouteBlock(content, match.index + match[0].length - 1);
+    const pathMatch = block.match(/^\(\s*[\r\n\s]*"([^"]+)"/);
+    if (!pathMatch) continue;
+
+    const method = match[1].toUpperCase();
+    const routePath = pathMatch[1];
+
+    const bodySchema = block.match(/body:\s*(\w+)/)?.[1] ?? null;
+    const querySchema = block.match(/query:\s*(\w+)/)?.[1] ?? null;
+    const paramsSchema = block.match(/params:\s*(\w+)/)?.[1] ?? null;
+
+    const needsAuth = block.includes("authMiddleware");
+    const needsTenant = block.includes("tenantMiddleware");
+    const needsMaintainer = block.includes("requireMaintainerApiKey");
+
+    const permissionMatch =
+      block.match(/requirePermission\("([^"]+)"\)/) ??
+      block.match(/requireAnyPermission\(\[([^\]]+)\]\)/);
+    const permission = permissionMatch
+      ? permissionMatch[1].replace(/"/g, "").replace(/\s*,\s*/g, " | ")
+      : null;
+
+    routes.push({
+      method,
+      path: routePath,
+      bodySchema,
+      querySchema,
+      paramsSchema,
+      needsAuth,
+      needsTenant,
+      needsMaintainer,
+      permission,
+    });
+  }
+  return routes;
+}
+
+function parseRouterMounts(content, routerVarName) {
+  const mounts = [];
+  const useRe = new RegExp(`${routerVarName}\\.use\\(`, "g");
+  let match;
+  while ((match = useRe.exec(content))) {
+    const block = extractRouteBlock(content, match.index + match[0].length - 1);
+    const pathMatch = block.match(/^\(\s*[\r\n\s]*"([^"]+)"/);
+    const routerMatch = block.match(/,\s*[\r\n\s]*(\w+Router)/);
+    if (pathMatch && routerMatch) {
+      mounts.push({ mountPath: pathMatch[1], routerName: routerMatch[1] });
+    }
+  }
+  return mounts;
+}
+
+function getRouterVarName(content) {
+  const match = content.match(/const\s+(\w+Router)\s*=\s*Router/);
+  return match?.[1] ?? null;
+}
+
+function joinPaths(base, segment) {
+  const a = base.replace(/\/+$/, "");
+  const b = segment.replace(/^\/+/, "");
+  if (!b) return a || "/";
+  return `${a}/${b}`.replace(/\/+/g, "/");
+}
+
+function collectRoutes(filePath, mountPath, visited = new Set()) {
+  const key = `${filePath}::${mountPath}`;
+  if (visited.has(key)) return [];
+  visited.add(key);
+
+  const content = readFile(filePath);
+  const routerVar = getRouterVarName(content);
+  if (!routerVar) return [];
+
+  const imports = parseImports(content, filePath);
+  const endpoints = [];
+
+  for (const route of parseRouteDefinitions(content, routerVar)) {
+    endpoints.push({
+      ...route,
+      fullPath: joinPaths(mountPath, route.path),
+      sourceFile: path.relative(ROOT, filePath),
+    });
+  }
+
+  for (const mount of parseRouterMounts(content, routerVar)) {
+    const childFile = imports.get(mount.routerName);
+    if (!childFile) continue;
+    const childMount = joinPaths(mountPath, mount.mountPath);
+    endpoints.push(...collectRoutes(childFile, childMount, visited));
+  }
+
+  return endpoints;
+}
+
+function toPostmanPath(fullPath) {
+  return fullPath
+    .split("/")
+    .filter(Boolean)
+    .map((segment) => {
+      if (segment.startsWith(":")) {
+        const name = segment.slice(1);
+        return `{{${name}}}`;
+      }
+      return segment;
+    });
+}
+
+function buildRawUrl(fullPath) {
+  const segments = toPostmanPath(fullPath);
+  return {
+    raw: `{{baseUrl}}${fullPath.replace(/:([a-zA-Z0-9_]+)/g, "{{$1}}")}`,
+    host: ["{{baseUrl}}"],
+    path: segments,
   };
-  if (body !== undefined) {
-    request.header = [...request.header, ...jsonContent.filter((h) => !request.header.some((x) => x.key === h.key))];
-    request.body = { mode: "raw", raw: typeof body === "string" ? body : JSON.stringify(body, null, 2) };
+}
+
+function buildHeaders(endpoint) {
+  const headers = [{ key: "Content-Type", value: "application/json" }];
+
+  if (endpoint.needsMaintainer) {
+    headers.push({
+      key: "x-maintainer-api-key",
+      value: "{{maintainerApiKey}}",
+    });
+    return headers;
   }
-  if (query) {
-    const rawPath = path.startsWith("{{") ? path : `{{baseUrl}}${path}`;
-    const sep = rawPath.includes("?") ? "&" : "?";
-    const qs = query.map((q) => `${q.key}=${q.value}`).join("&");
-    request.url = `${rawPath}${sep}${qs}`;
+
+  if (endpoint.needsAuth) {
+    headers.push({
+      key: "Authorization",
+      value: "Bearer {{accessToken}}",
+    });
   }
-  const item = { name, request, response: [] };
-  if (description) item.description = description;
+
+  return headers;
+}
+
+function buildQuery(endpoint) {
+  const params = inferQueryParams(endpoint.querySchema);
+  if (params.length === 0) return undefined;
+
+  const defaults = {
+    limit: "20",
+    offset: "0",
+    periodPreset: "this_month",
+    timezone: "America/Sao_Paulo",
+    compareMode: "none",
+    granularity: "day",
+    sortBy: "revenue",
+    type: "ORCAMENTO",
+    status: "ABERTA",
+  };
+
+  return params.map((key) => ({
+    key,
+    value: defaults[key] ?? "",
+    disabled: !["limit", "offset", "periodPreset"].includes(key),
+  }));
+}
+
+function buildBody(endpoint) {
+  if (!["POST", "PUT", "PATCH"].includes(endpoint.method)) return undefined;
+  if (endpoint.bodySchema === "emptyBodySchema") return undefined;
+
+  const example =
+    BODY_EXAMPLES[endpoint.bodySchema] ??
+    (endpoint.bodySchema?.startsWith("patch")
+      ? { description: "Campos parciais conforme schema" }
+      : endpoint.bodySchema?.startsWith("create")
+        ? { description: "Corpo conforme schema do módulo" }
+        : null);
+
+  if (!example) return undefined;
+
+  return {
+    mode: "raw",
+    raw: JSON.stringify(example, null, 2),
+    options: { raw: { language: "json" } },
+  };
+}
+
+function buildRequestName(endpoint) {
+  const actionMap = {
+    GET: endpoint.path.includes(":") ? "Obter" : "Listar",
+    POST: "Criar",
+    PATCH: "Atualizar",
+    PUT: "Substituir",
+    DELETE: "Excluir",
+  };
+  const segment = endpoint.path.split("/").filter(Boolean).pop() ?? "raiz";
+  const label = segment.startsWith(":") ? segment.slice(1) : segment;
+  return `${endpoint.method} ${actionMap[endpoint.method] ?? endpoint.method} ${label}`;
+}
+
+function buildDescription(endpoint) {
+  const lines = [];
+  if (endpoint.permission) lines.push(`Permissão: \`${endpoint.permission}\``);
+  if (endpoint.needsTenant) lines.push("Requer contexto de empresa (tenant) no token.");
+  if (endpoint.bodySchema) lines.push(`Body schema: \`${endpoint.bodySchema}\``);
+  if (endpoint.querySchema) lines.push(`Query schema: \`${endpoint.querySchema}\``);
+  if (endpoint.paramsSchema) lines.push(`Params schema: \`${endpoint.paramsSchema}\``);
+  lines.push(`Fonte: \`${endpoint.sourceFile}\``);
+  return lines.join("\n\n");
+}
+
+function createRequestItem(endpoint) {
+  const item = {
+    name: buildRequestName(endpoint),
+    request: {
+      method: endpoint.method,
+      header: buildHeaders(endpoint),
+      url: buildRawUrl(endpoint.fullPath),
+      description: buildDescription(endpoint),
+    },
+    response: [],
+  };
+
+  const query = buildQuery(endpoint);
+  if (query) item.request.url.query = query;
+
+  const body = buildBody(endpoint);
+  if (body) item.request.body = body;
+
   return item;
 }
 
-function folder(name, items, description) {
-  const f = { name, item: items };
-  if (description) f.description = description;
-  return f;
+function folderKey(fullPath) {
+  const withoutApi = fullPath.replace(/^\/api\/v1\/?/, "");
+  const parts = withoutApi.split("/").filter(Boolean);
+  if (parts.length === 0) return "Raiz";
+  return parts[0];
 }
 
-const loginTestScript = {
-  listen: "test",
-  script: {
-    type: "text/javascript",
-    exec: [
-      "const json = pm.response.json();",
-      "if (json.data?.accessToken) {",
-      "  pm.environment.set('accessToken', json.data.accessToken);",
-      "  pm.collectionVariables.set('accessToken', json.data.accessToken);",
-      "  pm.environment.set('refreshToken', json.data.refreshToken);",
-      "  pm.collectionVariables.set('refreshToken', json.data.refreshToken);",
-      "}",
-      "if (json.data?.enterprises?.[0]?.id) {",
-      "  pm.environment.set('enterpriseId', json.data.enterprises[0].id);",
-      "  pm.collectionVariables.set('enterpriseId', json.data.enterprises[0].id);",
-      "}",
-      "pm.test('Status 2xx', () => pm.response.to.be.success);",
-    ],
-  },
-};
-
-function withLoginTest(item) {
-  return { ...item, event: [loginTestScript] };
+function subFolderKey(fullPath) {
+  const withoutApi = fullPath.replace(/^\/api\/v1\/?/, "");
+  const parts = withoutApi.split("/").filter(Boolean);
+  if (parts.length <= 1) return null;
+  return parts.slice(1).join(" / ");
 }
 
-function crudFolder(baseName, basePath, idVar, createBody, patchBody, opts = {}) {
-  const id = `{{${idVar}}}`;
-  const listQuery = opts.listQuery ?? [{ key: "limit", value: "20" }, { key: "offset", value: "0" }];
-  return folder(baseName, [
-    req(`Listar ${baseName}`, "GET", basePath, { query: listQuery }),
-    req(`Buscar ${baseName} por ID`, "GET", `${basePath}/${id}`),
-    req(`Criar ${baseName}`, "POST", basePath, { body: createBody }),
-    req(`Atualizar ${baseName}`, "PATCH", `${basePath}/${id}`, { body: patchBody }),
-    req(`Excluir ${baseName}`, "DELETE", `${basePath}/${id}`),
-  ]);
-}
+function nestFolders(endpoints) {
+  const top = new Map();
 
-const collection = {
-  info: {
-    name: "Gescom API - Completa (Supabase)",
-    description:
-      "Collection completa da Gescom API v1 para testes locais conectados ao Supabase.\n\n" +
-      "**Configuração:**\n" +
-      "1. Importe o environment `gescom-api-local-supabase.postman_environment.json`\n" +
-      "2. Preencha `login` e `password` no environment\n" +
-      "3. Execute **Auth > Login** para obter tokens\n" +
-      "4. Use **Auth > Switch Enterprise** se tiver múltiplas empresas\n\n" +
-      "**Variáveis comuns:** `enterpriseId`, `userId`, `memberId`, `productId`, etc.\n\n" +
-      "Base URL padrão: `http://localhost:3000/api/v1` (PORT do .env)",
-    schema: "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-  },
-  auth: {
-    type: "bearer",
-    bearer: [{ key: "token", value: "{{accessToken}}", type: "string" }],
-  },
-  event: [
-    {
-      listen: "prerequest",
-      script: {
-        type: "text/javascript",
-        exec: [
-          "// Propaga accessToken do environment para a collection",
-          "const token = pm.environment.get('accessToken');",
-          "if (token) pm.collectionVariables.set('accessToken', token);",
-        ],
-      },
-    },
-  ],
-  variable: [
-    { key: "baseUrl", value: "http://localhost:3000/api/v1" },
-    { key: "accessToken", value: "" },
-    { key: "refreshToken", value: "" },
-    { key: "enterpriseId", value: "" },
-    { key: "userId", value: "" },
-    { key: "memberId", value: "" },
-    { key: "departmentId", value: "" },
-    { key: "memberDepartmentId", value: "" },
-    { key: "countryId", value: "" },
-    { key: "stateId", value: "" },
-    { key: "cityId", value: "" },
-    { key: "cepId", value: "" },
-    { key: "addressId", value: "" },
-    { key: "productId", value: "" },
-    { key: "productEnterpriseId", value: "" },
-    { key: "productTaxationId", value: "" },
-    { key: "productApplicationId", value: "" },
-    { key: "unitId", value: "" },
-    { key: "typeProductId", value: "" },
-    { key: "typeSpedId", value: "" },
-    { key: "productsNcmId", value: "" },
-    { key: "productsCestId", value: "" },
-    { key: "productsAnpId", value: "" },
-    { key: "productsNbsId", value: "" },
-    { key: "icmsTaxationId", value: "" },
-    { key: "pisCofinsSituationId", value: "" },
-    { key: "productGroupId", value: "" },
-    { key: "productSubgroupId", value: "" },
-    { key: "productBrandId", value: "" },
-    { key: "priceId", value: "" },
-    { key: "promotionalPriceId", value: "" },
-    { key: "stockSectorId", value: "" },
-    { key: "stockLocationId", value: "" },
-    { key: "stockBatchId", value: "" },
-    { key: "stockBatchBalanceId", value: "" },
-    { key: "stockSectorRentalId", value: "" },
-    { key: "stockMinMaxId", value: "" },
-    { key: "stockMovementId", value: "" },
-    { key: "paymentTypeId", value: "" },
-    { key: "saleId", value: "" },
-    { key: "saleItemId", value: "" },
-    { key: "salesReturnId", value: "" },
-    { key: "typeNetworkId", value: "" },
-    { key: "typeSupplierCustomerId", value: "" },
-    { key: "contactId", value: "" },
-    { key: "login", value: "" },
-    { key: "password", value: "" },
-    { key: "maintainerApiKey", value: "" },
-  ],
-  item: [
-    folder("00 - Health", [
-      req("Health Check", "GET", "{{healthUrl}}/health", { auth: "none" }),
-    ]),
+  for (const endpoint of endpoints) {
+    const topKey = folderKey(endpoint.fullPath);
+    if (!top.has(topKey)) top.set(topKey, new Map());
 
-    folder("01 - Auth", [
-      withLoginTest(
-        req("Login", "POST", "/auth/login", {
-          auth: "json",
-          body: {
-            loginType: "EMAIL",
-            login: "{{login}}",
-            password: "{{password}}",
-          },
-        }),
-      ),
-      req("Refresh Token", "POST", "/auth/refresh", {
-        auth: "json",
-        body: { refreshToken: "{{refreshToken}}" },
-      }),
-      req("Logout", "POST", "/auth/logout", { auth: "bearer", body: {} }),
-      withLoginTest(
-        req("Switch Enterprise", "POST", "/auth/switch-enterprise", {
-          auth: "bearer",
-          body: { enterpriseId: "{{enterpriseId}}" },
-        }),
-      ),
-      req("Me", "GET", "/auth/me", { auth: "bearer" }),
-      req("First Access - Lookup", "POST", "/auth/first-access/lookup", {
-        auth: "json",
-        body: { email: "{{login}}" },
-      }),
-      req("First Access - Verify", "POST", "/auth/first-access/verify", {
-        auth: "json",
-        body: {
-          loginType: "EMAIL",
-          login: "{{login}}",
-          code: "000000",
-          password: "NovaSenha@123",
-          confirmPassword: "NovaSenha@123",
-        },
-      }),
-      req("First Access - Resend", "POST", "/auth/first-access/resend", {
-        auth: "json",
-        body: { email: "{{login}}" },
-      }),
-      req("Password Reset - Request", "POST", "/auth/password-reset/request", {
-        auth: "json",
-        body: { email: "{{login}}" },
-      }),
-      req("Password Reset - Verify", "POST", "/auth/password-reset/verify", {
-        auth: "json",
-        body: {
-          loginType: "EMAIL",
-          login: "{{login}}",
-          code: "000000",
-          password: "NovaSenha@123",
-          confirmPassword: "NovaSenha@123",
-        },
-      }),
-      req("Password Reset - Resend", "POST", "/auth/password-reset/resend", {
-        auth: "json",
-        body: { email: "{{login}}" },
-      }),
-      req("Invitation - Accept", "POST", "/auth/invitations/{{memberId}}/accept", {
-        auth: "json",
-        body: {
-          loginType: "EMAIL",
-          login: "{{login}}",
-          password: "{{password}}",
-          code: "000000",
-        },
-      }),
-      req("Invitation - Decline", "POST", "/auth/invitations/{{memberId}}/decline", {
-        auth: "bearer",
-        body: { reason: "Teste Postman" },
-      }),
-      req("Invitation - Resend", "POST", "/auth/invitations/{{memberId}}/resend", {
-        auth: "bearer",
-        body: {},
-      }),
-    ]),
-
-    folder("02 - Maintainer", [
-      req("Criar Enterprise", "POST", "/maintainer/enterprises", {
-        auth: "maintainer",
-        body: {
-          registration: "12345678000199",
-          legalName: "Empresa Teste Postman LTDA",
-          tradeName: "Empresa Teste",
-          phone: "11999990000",
-          email: "empresa.teste@exemplo.com",
-        },
-      }),
-      req("Excluir Enterprise", "DELETE", "/maintainer/enterprises/{{enterpriseId}}", {
-        auth: "maintainer",
-      }),
-      req("Criar Department", "POST", "/maintainer/departments", {
-        auth: "maintainer",
-        body: {
-          name: "Departamento Teste",
-          description: "Criado via Postman",
-          permissionReference: "vendas",
-        },
-      }),
-      req("Atualizar Department", "PATCH", "/maintainer/departments/{{departmentId}}", {
-        auth: "maintainer",
-        body: { description: "Atualizado via Postman" },
-      }),
-    ]),
-
-    folder("03 - Enterprises", [
-      req("Listar Enterprises", "GET", "/enterprises", {
-        query: [{ key: "limit", value: "20" }, { key: "offset", value: "0" }],
-      }),
-      req("Buscar Enterprise", "GET", "/enterprises/{{enterpriseId}}"),
-      req("Atualizar Enterprise", "PATCH", "/enterprises/{{enterpriseId}}", {
-        body: { tradeName: "Nome Fantasia Atualizado" },
-      }),
-      folder("Addresses", [
-        req("Listar Endereços", "GET", "/enterprises/{{enterpriseId}}/addresses"),
-        req("Criar Endereço", "POST", "/enterprises/{{enterpriseId}}/addresses", {
-          body: { cepId: "{{cepId}}", number: "100", complement: "Sala 1", adressType: "PRINCIPAL" },
-        }),
-        req("Atualizar Endereço", "PATCH", "/enterprises/{{enterpriseId}}/addresses/{{addressId}}", {
-          body: { number: "101" },
-        }),
-      ]),
-      folder("Product Catalog (Enterprise)", [
-        req("Listar Marcas", "GET", "/enterprises/{{enterpriseId}}/product-brands"),
-        req("Listar Grupos", "GET", "/enterprises/{{enterpriseId}}/product-groups"),
-        req("Listar Subgrupos", "GET", "/enterprises/{{enterpriseId}}/product-subgroups"),
-      ]),
-    ]),
-
-    folder("04 - Departments", [
-      req("Listar Departments", "GET", "/departments", {
-        query: [{ key: "limit", value: "50" }, { key: "offset", value: "0" }],
-      }),
-      req("Buscar Department", "GET", "/departments/{{departmentId}}"),
-    ]),
-
-    folder("05 - Addresses", [
-      folder("Countries", [
-        req("Listar Países", "GET", "/addresses/countries", {
-          query: [{ key: "limit", value: "20" }, { key: "offset", value: "0" }],
-        }),
-        req("Criar País", "POST", "/addresses/countries", {
-          body: {
-            countryCode: "BR",
-            countryName: "Brasil Teste",
-            cbsTax: 0,
-            isTax: 0,
-            ibs_uf_tax: 0,
-            ibs_municipal_tax: 0,
-          },
-        }),
-        req("Atualizar País", "PATCH", "/addresses/countries/{{countryId}}", {
-          body: { countryName: "Brasil Atualizado" },
-        }),
-      ]),
-      folder("States", [
-        req("Listar Estados", "GET", "/addresses/states", {
-          query: [
-            { key: "limit", value: "20" },
-            { key: "offset", value: "0" },
-            { key: "countryId", value: "{{countryId}}" },
-          ],
-        }),
-        req("Criar Estado", "POST", "/addresses/states", {
-          body: {
-            acronym: "TS",
-            description: "Estado Teste",
-            internalAliquot: 18,
-            interstateAliquot: 12,
-            fcpAliquot: 0,
-            borders: false,
-            generate_st: false,
-            embedDifal: false,
-            ibs_uf_tax: 0,
-            ibs_municipal_tax: 0,
-            countryId: "{{countryId}}",
-          },
-        }),
-        req("Atualizar Estado", "PATCH", "/addresses/states/{{stateId}}", {
-          body: { description: "Estado Atualizado" },
-        }),
-      ]),
-      folder("Cities", [
-        req("Listar Cidades", "GET", "/addresses/cities", {
-          query: [
-            { key: "limit", value: "20" },
-            { key: "offset", value: "0" },
-            { key: "stateId", value: "{{stateId}}" },
-          ],
-        }),
-        req("Criar Cidade", "POST", "/addresses/cities", {
-          body: {
-            ibgeCode: "9999999",
-            citieName: "Cidade Teste",
-            ibs_municipal_tax: 0,
-            stateId: "{{stateId}}",
-          },
-        }),
-        req("Atualizar Cidade", "PATCH", "/addresses/cities/{{cityId}}", {
-          body: { citieName: "Cidade Atualizada" },
-        }),
-      ]),
-      folder("CEPs", [
-        req("Listar CEPs", "GET", "/addresses/ceps", {
-          query: [
-            { key: "limit", value: "20" },
-            { key: "offset", value: "0" },
-            { key: "cityId", value: "{{cityId}}" },
-          ],
-        }),
-        req("Criar CEP", "POST", "/addresses/ceps", {
-          body: {
-            cepNumber: "01310100",
-            address: "Av Paulista",
-            neighborhood: "Bela Vista",
-            cityId: "{{cityId}}",
-          },
-        }),
-        req("Atualizar CEP", "PATCH", "/addresses/ceps/{{cepId}}", {
-          body: { complement: "Atualizado" },
-        }),
-      ]),
-    ]),
-
-    folder("06 - Members", [
-      req("Listar Members", "GET", "/enterprises/{{enterpriseId}}/members", {
-        query: [{ key: "limit", value: "20" }, { key: "offset", value: "0" }],
-      }),
-      req("Buscar Member por Código", "GET", "/enterprises/{{enterpriseId}}/members/code/1"),
-      req("Buscar Member", "GET", "/enterprises/{{enterpriseId}}/members/{{memberId}}"),
-      req("Criar Member com User", "POST", "/enterprises/{{enterpriseId}}/members/create-with-user", {
-        body: {
-          user: {
-            userName: "Membro Teste Postman",
-            userRegistration: "52998224725",
-            userEmail: "membro.postman@exemplo.com",
-            userPhone: "11999990002",
-          },
-          member: { class: "CLIENTE", departments: [], code: 1001 },
-          sendEmail: false,
-        },
-      }),
-      req("Convidar Member", "POST", "/enterprises/{{enterpriseId}}/members/invite", {
-        body: {
-          member: { class: "VENDEDOR", departments: [] },
-          inviteEmail: "convite@exemplo.com",
-          sendEmail: false,
-        },
-      }),
-      req("Criar Member (user existente)", "POST", "/enterprises/{{enterpriseId}}/members", {
-        body: { userId: "{{userId}}", class: "CLIENTE", departments: [] },
-      }),
-      req("Vincular Department", "POST", "/enterprises/{{enterpriseId}}/members/{{memberId}}/departments", {
-        body: { departmentId: "{{departmentId}}", mainDepartment: true },
-      }),
-      req("Atualizar Member Department", "PATCH", "/enterprises/{{enterpriseId}}/members/{{memberId}}/departments/{{memberDepartmentId}}", {
-        body: { mainDepartment: true },
-      }),
-      req("Permissões Default", "PATCH", "/enterprises/{{enterpriseId}}/members/{{memberId}}/departments/{{departmentId}}/permissions-default", {
-        body: { permission: "consultar_produtos", status: true },
-      }),
-      req("Permissões Extra", "PATCH", "/enterprises/{{enterpriseId}}/members/{{memberId}}/departments/{{departmentId}}/extra-permissions", {
-        body: { permission: "alterar_produtos", status: true },
-      }),
-      req("Atualizar Member", "PATCH", "/enterprises/{{enterpriseId}}/members/{{memberId}}", {
-        body: { saleLimit: 10000 },
-      }),
-    ]),
-
-    folder("07 - Users & Onboarding", [
-      req("Listar Users", "GET", "/enterprises/{{enterpriseId}}/users", {
-        query: [{ key: "limit", value: "20" }, { key: "offset", value: "0" }],
-      }),
-      req("Buscar User", "GET", "/enterprises/{{enterpriseId}}/users/{{userId}}"),
-      req("Criar User", "POST", "/enterprises/{{enterpriseId}}/users", {
-        body: {
-          userName: "User Teste",
-          userRegistration: "12345678901",
-          userEmail: "user.teste@exemplo.com",
-          userPhone: "11999990003",
-        },
-      }),
-      req("Atualizar User", "PATCH", "/enterprises/{{enterpriseId}}/users/{{userId}}", {
-        body: { userName: "User Atualizado" },
-      }),
-      folder("Onboarding", [
-        req("Detalhes", "GET", "/enterprises/{{enterpriseId}}/users/{{userId}}/details"),
-        req("Criar Personal Info", "POST", "/enterprises/{{enterpriseId}}/users/{{userId}}/personal-info", {
-          body: { gender: "MASCULINO", birthDate: "1990-01-15", placeOfBirth: "São Paulo" },
-        }),
-        req("Atualizar Personal Info", "PATCH", "/enterprises/{{enterpriseId}}/users/{{userId}}/personal-info", {
-          body: { placeOfBirth: "Campinas" },
-        }),
-        req("Criar Endereço User", "POST", "/enterprises/{{enterpriseId}}/users/{{userId}}/addresses", {
-          body: { cepId: "{{cepId}}", number: "200", adressType: "PRINCIPAL" },
-        }),
-        req("Atualizar Endereço User", "PATCH", "/enterprises/{{enterpriseId}}/users/{{userId}}/addresses/{{addressId}}", {
-          body: { number: "201" },
-        }),
-        req("Criar Contato", "POST", "/enterprises/{{enterpriseId}}/users/{{userId}}/contacts", {
-          body: { phone: "11999990004", email: "contato@exemplo.com", type: "PRINCIPAL" },
-        }),
-        req("Atualizar Contato", "PATCH", "/enterprises/{{enterpriseId}}/users/{{userId}}/contacts/{{contactId}}", {
-          body: { phone: "11999990005" },
-        }),
-        req("Criar Relacionamento", "POST", "/enterprises/{{enterpriseId}}/users/{{userId}}/relationships", {
-          body: { maritalStatus: "SOLTEIRO", profession: "Analista" },
-        }),
-        req("Atualizar Relacionamento", "PATCH", "/enterprises/{{enterpriseId}}/users/{{userId}}/relationships", {
-          body: { profession: "Desenvolvedor" },
-        }),
-        req("Criar Tax Info", "POST", "/enterprises/{{enterpriseId}}/users/{{userId}}/tax-infos", {
-          body: { stateRegistration: "123456789" },
-        }),
-        req("Atualizar Tax Info", "PATCH", "/enterprises/{{enterpriseId}}/users/{{userId}}/tax-infos", {
-          body: { municipalRegistration: "987654" },
-        }),
-        req("Criar Financial Info", "POST", "/enterprises/{{enterpriseId}}/users/{{userId}}/financial-info", {
-          body: { discountLimit: 10, taxRegime: "SIMPLES" },
-        }),
-        req("Atualizar Financial Info", "PATCH", "/enterprises/{{enterpriseId}}/users/{{userId}}/financial-info", {
-          body: { discountLimit: 15 },
-        }),
-      ]),
-    ]),
-
-    folder("08 - Memberships Types", [
-      crudFolder("Type Networks", "/type-networks", "typeNetworkId", { description: "Rede Teste", status: true }, { description: "Rede Atualizada" }),
-      crudFolder(
-        "Type Supplier Customers",
-        "/type-supplier-customers",
-        "typeSupplierCustomerId",
-        { description: "Tipo Fornecedor/Cliente", status: true },
-        { description: "Tipo Atualizado" },
-      ),
-    ]),
-
-    crudFolder("Units", "/units", "unitId", { unit: "UN", description: "Unidade", compatible: true }, { description: "Unidade Atualizada" }),
-    crudFolder("Type SPED", "/type-sped", "typeSpedId", { type: "00", description: "Tipo SPED", generateInventory: false }, { description: "Atualizado" }),
-    crudFolder("Types Products", "/types-products", "typeProductId", { type: "P", description: "Produto", manufacturing: true, sales: true, typeSpedId: "{{typeSpedId}}" }, { description: "Atualizado" }),
-    crudFolder("Products NCM", "/products-ncm", "productsNcmId", { ncm: "12345678", description: "NCM Teste" }, { description: "NCM Atualizado" }),
-    crudFolder("Products CEST", "/products-cest", "productsCestId", { cest: "1234567", description: "CEST Teste", productsNcmId: "{{productsNcmId}}" }, { description: "Atualizado" }),
-    crudFolder("Products ANP", "/products-anp", "productsAnpId", { anp: "123456789", description: "ANP Teste" }, { description: "Atualizado" }),
-    crudFolder(
-      "Products NBS",
-      "/products-nbs",
-      "productsNbsId",
-      {
-        lc116Item: "1.01",
-        lc116Description: "Desc LC116",
-        nbs: "123456789",
-        description: "NBS Teste",
-        psOnerosa: true,
-        adqExterior: false,
-        indop: "1",
-        cClassTrib: "01",
-        cClassTribName: "Classe",
-      },
-      { description: "Atualizado" },
-    ),
-    crudFolder("ICMS Taxation", "/icms-taxation", "icmsTaxationId", { icms: "00", description: "Tributação ICMS", icmsRate: 18 }, { description: "Atualizado" }),
-    crudFolder(
-      "PIS COFINS Situation",
-      "/pis-cofins-situation",
-      "pisCofinsSituationId",
-      { cst: "01", description: "Situação PIS/COFINS", type: "SAIDA", framing: "TRIBUTADO", pisRate: 1.65, cofinsRate: 7.6 },
-      { description: "Atualizado" },
-    ),
-    crudFolder("Product Groups", "/product-groups", "productGroupId", { description: "Grupo Teste", profitMargin: 20 }, { description: "Atualizado" }),
-    crudFolder(
-      "Product Subgroups",
-      "/product-subgroups",
-      "productSubgroupId",
-      { description: "Subgrupo Teste", generatesComission: false },
-      { description: "Atualizado" },
-    ),
-    crudFolder("Product Brands", "/product-brands", "productBrandId", { description: "Marca Teste" }, { description: "Atualizado" }),
-
-    folder("09 - Products", [
-      req("Listar Products", "GET", "/products", {
-        query: [{ key: "limit", value: "20" }, { key: "offset", value: "0" }],
-      }),
-      req("Buscar Product", "GET", "/products/{{productId}}"),
-      req("Criar Product", "POST", "/products", {
-        body: {
-          product: { description: "Produto Teste Postman", barCode: "7891234567890" },
-          enterprise: {
-            description: "Produto Empresa Teste",
-            measurementUnitId: "{{unitId}}",
-            productTypeId: "{{typeProductId}}",
-            productGroupId: "{{productGroupId}}",
-            productSubgroupId: "{{productSubgroupId}}",
-            productBrandId: "{{productBrandId}}",
-          },
-        },
-      }),
-      req("Atualizar Product", "PATCH", "/products/{{productId}}", {
-        body: { description: "Produto Atualizado" },
-      }),
-      req("Excluir Product", "DELETE", "/products/{{productId}}"),
-    ]),
-
-    folder("10 - Products Enterprises", [
-      req("Listar", "GET", "/products-enterprises", {
-        query: [{ key: "limit", value: "20" }, { key: "offset", value: "0" }],
-      }),
-      req("Buscar por Código", "GET", "/products-enterprises/code/1"),
-      req("Buscar por ID", "GET", "/products-enterprises/{{productEnterpriseId}}"),
-      req("Criar", "POST", "/products-enterprises", {
-        body: {
-          productId: "{{productId}}",
-          description: "Produto na Empresa",
-          measurementUnitId: "{{unitId}}",
-          productTypeId: "{{typeProductId}}",
-          productGroupId: "{{productGroupId}}",
-          productSubgroupId: "{{productSubgroupId}}",
-          productBrandId: "{{productBrandId}}",
-        },
-      }),
-      req("Atualizar", "PATCH", "/products-enterprises/{{productEnterpriseId}}", {
-        body: { description: "Atualizado" },
-      }),
-      req("Excluir", "DELETE", "/products-enterprises/{{productEnterpriseId}}"),
-    ]),
-
-    crudFolder(
-      "Product Taxation",
-      "/product-taxation",
-      "productTaxationId",
-      {
-        cst_pis_entrada: "50",
-        cst_pis_saida: "01",
-        cst_cofins_entrada: "50",
-        cst_cofins_saida: "01",
-        productsEnterprisesId: "{{productEnterpriseId}}",
-        icmsTaxationId: "{{icmsTaxationId}}",
-        pisCofinsSituationId: "{{pisCofinsSituationId}}",
-      },
-      { cst_pis_saida: "02" },
-    ),
-    crudFolder(
-      "Product Applications",
-      "/product-applications",
-      "productApplicationId",
-      { description: "Aplicação Teste", productsEnterprisesId: "{{productEnterpriseId}}" },
-      { description: "Atualizado" },
-    ),
-    crudFolder(
-      "Prices",
-      "/prices",
-      "priceId",
-      { price: 99.9, productsEnterprisesId: "{{productEnterpriseId}}" },
-      { price: 109.9 },
-    ),
-    crudFolder(
-      "Promotional Prices",
-      "/promotional-prices",
-      "promotionalPriceId",
-      {
-        description: "Promoção Teste",
-        price: 79.9,
-        startDate: "2026-01-01",
-        endDate: "2026-12-31",
-        productsEnterprisesId: "{{productEnterpriseId}}",
-      },
-      { price: 69.9 },
-    ),
-
-    crudFolder("Stock Sectors", "/stock-sectors", "stockSectorId", { description: "Setor Teste" }, { description: "Atualizado" }),
-    crudFolder(
-      "Stock Locations",
-      "/stock-locations",
-      "stockLocationId",
-      { box: "A1", description: "Localização A1", stockSectorId: "{{stockSectorId}}" },
-      { description: "Atualizado" },
-    ),
-    crudFolder(
-      "Stock Batches",
-      "/stock-batches",
-      "stockBatchId",
-      { batchNumber: "LOTE-001", productsEnterprisesId: "{{productEnterpriseId}}" },
-      { notes: "Atualizado" },
-    ),
-    crudFolder(
-      "Stock Batch Balances",
-      "/stock-batch-balances",
-      "stockBatchBalanceId",
-      { stockBatchId: "{{stockBatchId}}", stockLocationId: "{{stockLocationId}}", quantity: 100 },
-      { quantity: 150 },
-    ),
-    crudFolder(
-      "Stock Sectors Rental",
-      "/stock-sectors-rental",
-      "stockSectorRentalId",
-      { productsEnterprisesId: "{{productEnterpriseId}}", stockLocationId: "{{stockLocationId}}", quantity: 10 },
-      { quantity: 20 },
-    ),
-    crudFolder(
-      "Stock Min Max",
-      "/stock-min-max",
-      "stockMinMaxId",
-      { quantityMin: 10, quantityMax: 100, productsEnterprisesId: "{{productEnterpriseId}}" },
-      { quantityMin: 15 },
-    ),
-
-    folder("11 - Stock Movements", [
-      req("Listar Movimentos", "GET", "/stock-movements", {
-        query: [{ key: "limit", value: "20" }, { key: "offset", value: "0" }],
-      }),
-      req("Buscar Movimento", "GET", "/stock-movements/{{stockMovementId}}"),
-      req("Criar Entrada", "POST", "/stock-movements", {
-        body: {
-          type: "ENTRADA",
-          productsEnterprisesId: "{{productEnterpriseId}}",
-          quantity: 50,
-          toStockLocationId: "{{stockLocationId}}",
-          toStockBatchId: "{{stockBatchId}}",
-          notes: "Entrada teste Postman",
-        },
-      }),
-      req("Criar Saída", "POST", "/stock-movements", {
-        body: {
-          type: "SAIDA",
-          productsEnterprisesId: "{{productEnterpriseId}}",
-          quantity: 5,
-          fromStockLocationId: "{{stockLocationId}}",
-          fromStockBatchId: "{{stockBatchId}}",
-          notes: "Saída teste Postman",
-        },
-      }),
-      req("Criar Transferência", "POST", "/stock-movements", {
-        body: {
-          type: "TRANSFERENCIA",
-          productsEnterprisesId: "{{productEnterpriseId}}",
-          quantity: 10,
-          fromStockLocationId: "{{stockLocationId}}",
-          toStockLocationId: "{{stockLocationId}}",
-          notes: "Transferência teste",
-        },
-      }),
-    ]),
-
-    crudFolder("Payment Types", "/payment-types", "paymentTypeId", { description: "Dinheiro", paymentType: "DINHEIRO" }, { description: "Atualizado" }),
-
-    folder("12 - Sales", [
-      req("Listar Vendas", "GET", "/sales", {
-        query: [{ key: "limit", value: "20" }, { key: "offset", value: "0" }],
-      }),
-      req("Buscar Venda", "GET", "/sales/{{saleId}}"),
-      req("Criar Orçamento", "POST", "/sales", {
-        body: {
-          memberId: "{{memberId}}",
-          type: "ORCAMENTO",
-          items: [
-            {
-              quantity: 1,
-              valueUnit: 100,
-              productsEnterprisesId: "{{productEnterpriseId}}",
-              unitId: "{{unitId}}",
-              productTypeId: "{{typeProductId}}",
-            },
-          ],
-        },
-      }),
-      req("Criar Venda", "POST", "/sales", {
-        body: {
-          memberId: "{{memberId}}",
-          type: "VENDA",
-          items: [
-            {
-              quantity: 2,
-              valueUnit: 50,
-              productsEnterprisesId: "{{productEnterpriseId}}",
-              unitId: "{{unitId}}",
-              productTypeId: "{{typeProductId}}",
-            },
-          ],
-          payments: [{ paymentTypeId: "{{paymentTypeId}}", value: 100 }],
-        },
-      }),
-      req("Atualizar Venda", "PATCH", "/sales/{{saleId}}", {
-        body: { percentageDiscount: 5 },
-      }),
-      req("Recalcular Totais", "POST", "/sales/{{saleId}}/recalculate-totals", { body: {} }),
-      req("Converter Orçamento em Venda", "POST", "/sales/{{saleId}}/convert-to-sale", {
-        body: {
-          status: "FINALIZADA",
-          items: [
-            {
-              quantity: 1,
-              valueUnit: 100,
-              productsEnterprisesId: "{{productEnterpriseId}}",
-              unitId: "{{unitId}}",
-              productTypeId: "{{typeProductId}}",
-            },
-          ],
-        },
-      }),
-      req("Conversões de Orçamento", "GET", "/sales/{{saleId}}/budget-conversions"),
-      req("Adicionar Item", "POST", "/sales/{{saleId}}/items", {
-        body: {
-          quantity: 1,
-          valueUnit: 25,
-          productsEnterprisesId: "{{productEnterpriseId}}",
-          unitId: "{{unitId}}",
-          productTypeId: "{{typeProductId}}",
-        },
-      }),
-      req("Atualizar Item", "PATCH", "/sales/{{saleId}}/items/{{saleItemId}}", {
-        body: { quantity: 2 },
-      }),
-      req("Remover Item", "DELETE", "/sales/{{saleId}}/items/{{saleItemId}}"),
-      folder("Returns", [
-        req("Listar Devoluções", "GET", "/sales/{{saleId}}/returns"),
-        req("Devolução Parcial", "POST", "/sales/{{saleId}}/returns/partial", {
-          body: { notes: "Devolução parcial teste", items: [{ saleItemId: "{{saleItemId}}", quantity: 1 }] },
-        }),
-        req("Devolução Total", "POST", "/sales/{{saleId}}/returns/full", {
-          body: { notes: "Devolução total teste" },
-        }),
-        req("Buscar Devolução", "GET", "/sales/{{saleId}}/returns/{{salesReturnId}}"),
-      ]),
-      folder("Analytics", [
-        req("Realized Overview", "GET", "/sales/analytics/realized/overview", {
-          query: [
-            { key: "startDate", value: "2026-01-01" },
-            { key: "endDate", value: "2026-12-31" },
-          ],
-        }),
-        req("Realized Compare", "GET", "/sales/analytics/realized/compare", {
-          query: [
-            { key: "startDate", value: "2026-01-01" },
-            { key: "endDate", value: "2026-12-31" },
-            { key: "compareStartDate", value: "2025-01-01" },
-            { key: "compareEndDate", value: "2025-12-31" },
-          ],
-        }),
-        req("Realized Timeseries", "GET", "/sales/analytics/realized/timeseries", {
-          query: [
-            { key: "startDate", value: "2026-01-01" },
-            { key: "endDate", value: "2026-12-31" },
-            { key: "granularity", value: "month" },
-          ],
-        }),
-        req("Realized By Payment Type", "GET", "/sales/analytics/realized/by-payment-type", {
-          query: [{ key: "startDate", value: "2026-01-01" }, { key: "endDate", value: "2026-12-31" }],
-        }),
-        req("Realized By Seller", "GET", "/sales/analytics/realized/by-seller", {
-          query: [{ key: "startDate", value: "2026-01-01" }, { key: "endDate", value: "2026-12-31" }],
-        }),
-        req("Realized By Customer", "GET", "/sales/analytics/realized/by-customer", {
-          query: [{ key: "startDate", value: "2026-01-01" }, { key: "endDate", value: "2026-12-31" }],
-        }),
-        req("Realized Top Products", "GET", "/sales/analytics/realized/top-products", {
-          query: [{ key: "startDate", value: "2026-01-01" }, { key: "endDate", value: "2026-12-31" }, { key: "limit", value: "10" }],
-        }),
-        req("Realized By Product Group", "GET", "/sales/analytics/realized/by-product-group", {
-          query: [{ key: "startDate", value: "2026-01-01" }, { key: "endDate", value: "2026-12-31" }],
-        }),
-        req("Realized By Product Brand", "GET", "/sales/analytics/realized/by-product-brand", {
-          query: [{ key: "startDate", value: "2026-01-01" }, { key: "endDate", value: "2026-12-31" }],
-        }),
-        req("Realized Returns", "GET", "/sales/analytics/realized/returns", {
-          query: [{ key: "startDate", value: "2026-01-01" }, { key: "endDate", value: "2026-12-31" }],
-        }),
-        req("Pipeline Overview", "GET", "/sales/analytics/pipeline/overview", {
-          query: [{ key: "startDate", value: "2026-01-01" }, { key: "endDate", value: "2026-12-31" }],
-        }),
-        req("Pipeline Compare", "GET", "/sales/analytics/pipeline/compare", {
-          query: [
-            { key: "startDate", value: "2026-01-01" },
-            { key: "endDate", value: "2026-12-31" },
-            { key: "compareStartDate", value: "2025-01-01" },
-            { key: "compareEndDate", value: "2025-12-31" },
-          ],
-        }),
-        req("Pipeline Timeseries", "GET", "/sales/analytics/pipeline/timeseries", {
-          query: [
-            { key: "startDate", value: "2026-01-01" },
-            { key: "endDate", value: "2026-12-31" },
-            { key: "granularity", value: "month" },
-          ],
-        }),
-        req("Pipeline Budgets", "GET", "/sales/analytics/pipeline/budgets", {
-          query: [{ key: "startDate", value: "2026-01-01" }, { key: "endDate", value: "2026-12-31" }],
-        }),
-        req("Pipeline Budgets Funnel", "GET", "/sales/analytics/pipeline/budgets/funnel", {
-          query: [{ key: "startDate", value: "2026-01-01" }, { key: "endDate", value: "2026-12-31" }],
-        }),
-        req("Operations Status Breakdown", "GET", "/sales/analytics/operations/status-breakdown", {
-          query: [{ key: "startDate", value: "2026-01-01" }, { key: "endDate", value: "2026-12-31" }],
-        }),
-        req("Operations Cancellations", "GET", "/sales/analytics/operations/cancellations", {
-          query: [{ key: "startDate", value: "2026-01-01" }, { key: "endDate", value: "2026-12-31" }],
-        }),
-        req("Receivables Summary", "GET", "/sales/analytics/receivables/summary", {
-          query: [{ key: "startDate", value: "2026-01-01" }, { key: "endDate", value: "2026-12-31" }],
-        }),
-        req("Receivables Aging", "GET", "/sales/analytics/receivables/aging", {
-          query: [{ key: "asOfDate", value: "2026-06-26" }],
-        }),
-      ]),
-    ]),
-  ],
-};
-
-const environment = {
-  id: "gescom-local-supabase-prod",
-  name: "Gescom API - Local + Supabase (Produção)",
-  values: [
-    { key: "baseUrl", value: "http://localhost:3000/api/v1", type: "default", enabled: true },
-    { key: "healthUrl", value: "http://localhost:3000", type: "default", enabled: true },
-    { key: "port", value: "3000", type: "default", enabled: true },
-    { key: "supabaseEnv", value: "production", type: "default", enabled: true },
-    { key: "supabaseProjectRef", value: "qxecmcnxzpefwecscera", type: "default", enabled: true },
-    { key: "supabaseRegion", value: "aws-1-sa-east-1", type: "default", enabled: true },
-    { key: "maintainerApiKey", value: "7vGqPPnLSkr9IPvkfsSbX5Dq7QAfjsHS", type: "secret", enabled: true },
-    { key: "login", value: "", type: "default", enabled: true },
-    { key: "password", value: "", type: "secret", enabled: true },
-    { key: "accessToken", value: "", type: "secret", enabled: true },
-    { key: "refreshToken", value: "", type: "secret", enabled: true },
-    { key: "enterpriseId", value: "", type: "default", enabled: true },
-    { key: "userId", value: "", type: "default", enabled: true },
-    { key: "memberId", value: "", type: "default", enabled: true },
-    { key: "departmentId", value: "", type: "default", enabled: true },
-    { key: "memberDepartmentId", value: "", type: "default", enabled: true },
-    { key: "countryId", value: "", type: "default", enabled: true },
-    { key: "stateId", value: "", type: "default", enabled: true },
-    { key: "cityId", value: "", type: "default", enabled: true },
-    { key: "cepId", value: "", type: "default", enabled: true },
-    { key: "addressId", value: "", type: "default", enabled: true },
-    { key: "productId", value: "", type: "default", enabled: true },
-    { key: "productEnterpriseId", value: "", type: "default", enabled: true },
-    { key: "productTaxationId", value: "", type: "default", enabled: true },
-    { key: "productApplicationId", value: "", type: "default", enabled: true },
-    { key: "unitId", value: "", type: "default", enabled: true },
-    { key: "typeProductId", value: "", type: "default", enabled: true },
-    { key: "typeSpedId", value: "", type: "default", enabled: true },
-    { key: "productsNcmId", value: "", type: "default", enabled: true },
-    { key: "productsCestId", value: "", type: "default", enabled: true },
-    { key: "productsAnpId", value: "", type: "default", enabled: true },
-    { key: "productsNbsId", value: "", type: "default", enabled: true },
-    { key: "icmsTaxationId", value: "", type: "default", enabled: true },
-    { key: "pisCofinsSituationId", value: "", type: "default", enabled: true },
-    { key: "productGroupId", value: "", type: "default", enabled: true },
-    { key: "productSubgroupId", value: "", type: "default", enabled: true },
-    { key: "productBrandId", value: "", type: "default", enabled: true },
-    { key: "priceId", value: "", type: "default", enabled: true },
-    { key: "promotionalPriceId", value: "", type: "default", enabled: true },
-    { key: "stockSectorId", value: "", type: "default", enabled: true },
-    { key: "stockLocationId", value: "", type: "default", enabled: true },
-    { key: "stockBatchId", value: "", type: "default", enabled: true },
-    { key: "stockBatchBalanceId", value: "", type: "default", enabled: true },
-    { key: "stockSectorRentalId", value: "", type: "default", enabled: true },
-    { key: "stockMinMaxId", value: "", type: "default", enabled: true },
-    { key: "stockMovementId", value: "", type: "default", enabled: true },
-    { key: "paymentTypeId", value: "", type: "default", enabled: true },
-    { key: "saleId", value: "", type: "default", enabled: true },
-    { key: "saleItemId", value: "", type: "default", enabled: true },
-    { key: "salesReturnId", value: "", type: "default", enabled: true },
-    { key: "typeNetworkId", value: "", type: "default", enabled: true },
-    { key: "typeSupplierCustomerId", value: "", type: "default", enabled: true },
-    { key: "contactId", value: "", type: "default", enabled: true },
-    { key: "jwtIssuer", value: "gescom_api", type: "default", enabled: true },
-    { key: "jwtAudience", value: "gescom_web_app", type: "default", enabled: true },
-  ],
-  _postman_variable_scope: "environment",
-};
-
-const testEnvironment = {
-  ...environment,
-  id: "gescom-local-supabase-test",
-  name: "Gescom API - Local + Supabase (Teste)",
-  values: environment.values.map((v) =>
-    v.key === "supabaseEnv"
-      ? { ...v, value: "test" }
-      : v.key === "supabaseProjectRef"
-        ? { ...v, value: "ytunacsixoenbomtzkte" }
-        : v,
-  ),
-};
-
-const collectionPath = join(__dirname, "gescom-api-complete.postman_collection.json");
-const envProdPath = join(__dirname, "gescom-api-local-supabase.postman_environment.json");
-const envTestPath = join(__dirname, "gescom-api-local-supabase-test.postman_environment.json");
-
-writeFileSync(collectionPath, JSON.stringify(collection, null, 2), "utf8");
-writeFileSync(envProdPath, JSON.stringify(environment, null, 2), "utf8");
-writeFileSync(envTestPath, JSON.stringify(testEnvironment, null, 2), "utf8");
-
-function countRequests(items) {
-  let n = 0;
-  for (const item of items) {
-    if (item.request) n++;
-    if (item.item) n += countRequests(item.item);
+    const subKey = subFolderKey(endpoint.fullPath) ?? "_root";
+    const subMap = top.get(topKey);
+    if (!subMap.has(subKey)) subMap.set(subKey, []);
+    subMap.get(subKey).push(endpoint);
   }
-  return n;
+
+  const folders = [];
+
+  for (const [topName, subMap] of [...top.entries()].sort(([a], [b]) =>
+    a.localeCompare(b),
+  )) {
+    const subFolders = [];
+
+    for (const [subName, items] of [...subMap.entries()].sort(([a], [b]) =>
+      a.localeCompare(b),
+    )) {
+      const sorted = items.sort((a, b) => {
+        const pathCmp = a.fullPath.localeCompare(b.fullPath);
+        return pathCmp !== 0 ? pathCmp : a.method.localeCompare(b.method);
+      });
+
+      if (subName === "_root") {
+        subFolders.push(...sorted.map(createRequestItem));
+      } else {
+        subFolders.push({
+          name: subName,
+          item: sorted.map(createRequestItem),
+        });
+      }
+    }
+
+    folders.push({
+      name: formatFolderName(topName),
+      item: subFolders,
+    });
+  }
+
+  return folders;
 }
 
-console.log(`Collection gerada: ${collectionPath}`);
-console.log(`Environment produção: ${envProdPath}`);
-console.log(`Environment teste: ${envTestPath}`);
-console.log(`Total de requests: ${countRequests(collection.item)}`);
+function formatFolderName(key) {
+  const names = {
+    auth: "Auth",
+    addresses: "Endereços",
+    enterprises: "Empresas",
+    departments: "Departamentos",
+    maintainer: "Maintainer",
+    units: "Unidades de Medida",
+    "types-products": "Tipos de Produto",
+    "type-sped": "Tipos SPED",
+    "products-ncm": "NCM",
+    "products-cest": "CEST",
+    "products-anp": "ANP",
+    "products-nbs": "NBS",
+    "icms-taxation": "Tributação ICMS",
+    "product-groups": "Grupos de Produto",
+    "product-subgroups": "Subgrupos de Produto",
+    "product-brands": "Marcas de Produto",
+    "pis-cofins-situation": "Situação PIS/COFINS",
+    "stock-sectors": "Setores de Estoque",
+    "stock-locations": "Locações de Estoque",
+    "stock-batches": "Lotes de Estoque",
+    "stock-batch-balances": "Saldos de Lote",
+    "payment-types": "Tipos de Pagamento",
+    products: "Produtos",
+    "products-enterprises": "Produtos por Empresa",
+    "product-taxation": "Tributação de Produto",
+    "product-applications": "Aplicações de Produto",
+    prices: "Preços",
+    "promotional-prices": "Preços Promocionais",
+    "stock-sectors-rental": "Aluguel de Setores",
+    "stock-min-max": "Estoque Mín/Máx",
+    "stock-movements": "Movimentos de Estoque",
+    sales: "Vendas",
+    "type-networks": "Tipos de Rede",
+    "type-supplier-customers": "Tipos Fornecedor/Cliente",
+  };
+  return names[key] ?? key;
+}
+
+function createHealthRequest() {
+  return {
+    name: "GET Health Check",
+    request: {
+      method: "GET",
+      header: [],
+      url: {
+        raw: "{{baseUrl}}/health",
+        host: ["{{baseUrl}}"],
+        path: ["health"],
+      },
+      description: "Verifica se o servidor está operacional.",
+    },
+    response: [],
+  };
+}
+
+function createLoginTests() {
+  return {
+    listen: "test",
+    script: {
+      type: "text/javascript",
+      exec: [
+        "const json = pm.response.json();",
+        "const data = json?.data ?? json;",
+        "if (data?.accessToken) pm.collectionVariables.set('accessToken', data.accessToken);",
+        "if (data?.refreshToken) pm.collectionVariables.set('refreshToken', data.refreshToken);",
+        "if (data?.user?.id) pm.collectionVariables.set('userId', data.user.id);",
+        "if (data?.activeEnterprise?.id) pm.collectionVariables.set('enterpriseId', data.activeEnterprise.id);",
+      ],
+    },
+  };
+}
+
+function createCollection(endpoints) {
+  const items = [createHealthRequest(), ...nestFolders(endpoints)];
+
+  const collection = {
+    info: {
+      _postman_id: "gescom-api-complete",
+      name: "Gescom API — Completa",
+      description:
+        "Coleção gerada automaticamente a partir dos arquivos `routes.ts` do projeto gescom-api.\n\n" +
+        `Total de endpoints: ${endpoints.length}\n` +
+        `Gerado em: ${new Date().toISOString()}\n\n` +
+        "**Fluxo sugerido:**\n" +
+        "1. `GET /health`\n" +
+        "2. `POST /api/v1/auth/login`\n" +
+        "3. `POST /api/v1/auth/switch-enterprise` (se necessário)\n" +
+        "4. Demais rotas com Bearer token\n\n" +
+        "Rotas **Maintainer** usam `x-maintainer-api-key` em vez de Bearer.",
+      schema:
+        "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    },
+    item: items,
+    variable: [
+      { key: "baseUrl", value: "http://localhost:3000" },
+      { key: "accessToken", value: "" },
+      { key: "refreshToken", value: "" },
+      { key: "enterpriseId", value: "" },
+      { key: "userId", value: "" },
+      { key: "memberId", value: "" },
+      { key: "departmentId", value: "" },
+      { key: "saleId", value: "" },
+      { key: "saleItemId", value: "" },
+      { key: "productEnterpriseId", value: "" },
+      { key: "unitId", value: "" },
+      { key: "productTypeId", value: "" },
+      { key: "paymentTypeId", value: "" },
+      { key: "cepId", value: "" },
+      { key: "maintainerApiKey", value: "" },
+    ],
+    event: [
+      {
+        listen: "prerequest",
+        script: {
+          type: "text/javascript",
+          exec: [""],
+        },
+      },
+      {
+        listen: "test",
+        script: {
+          type: "text/javascript",
+          exec: [""],
+        },
+      },
+    ],
+  };
+
+  attachLoginScript(collection);
+  return collection;
+}
+
+function attachLoginScript(collection) {
+  const walk = (items) => {
+    for (const item of items) {
+      if (item.item) {
+        walk(item.item);
+        continue;
+      }
+      if (item.request?.url?.raw?.includes("/auth/login")) {
+        item.event = [createLoginTests()];
+      }
+    }
+  };
+  walk(collection.item);
+}
+
+function createEnvironment(name, baseUrl) {
+  return {
+    id: `gescom-api-${name}`,
+    name: `Gescom API — ${name}`,
+    values: [
+      { key: "baseUrl", value: baseUrl, type: "default", enabled: true },
+      { key: "accessToken", value: "", type: "secret", enabled: true },
+      { key: "refreshToken", value: "", type: "secret", enabled: true },
+      { key: "enterpriseId", value: "", type: "default", enabled: true },
+      { key: "userId", value: "", type: "default", enabled: true },
+      { key: "memberId", value: "", type: "default", enabled: true },
+      { key: "departmentId", value: "", type: "default", enabled: true },
+      { key: "saleId", value: "", type: "default", enabled: true },
+      { key: "saleItemId", value: "", type: "default", enabled: true },
+      { key: "productEnterpriseId", value: "", type: "default", enabled: true },
+      { key: "unitId", value: "", type: "default", enabled: true },
+      { key: "productTypeId", value: "", type: "default", enabled: true },
+      { key: "paymentTypeId", value: "", type: "default", enabled: true },
+      { key: "cepId", value: "", type: "default", enabled: true },
+      {
+        key: "maintainerApiKey",
+        value: "",
+        type: "secret",
+        enabled: true,
+      },
+    ],
+    _postman_variable_scope: "environment",
+  };
+}
+
+function splitByModule(endpoints) {
+  const groups = new Map();
+  for (const ep of endpoints) {
+    const key = folderKey(ep.fullPath);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(ep);
+  }
+  return groups;
+}
+
+function createModuleCollection(moduleKey, endpoints) {
+  const label = formatFolderName(moduleKey);
+  const collection = createCollection(endpoints);
+  collection.info._postman_id = `gescom-api-${moduleKey}`;
+  collection.info.name = `Gescom API — ${label}`;
+  collection.info.description =
+    `Coleção do módulo **${label}** (${endpoints.length} endpoints).\n\n` +
+    `Gerado em: ${new Date().toISOString()}\n\n` +
+    "Use o ambiente `gescom-api-local.postman_environment.json` para variáveis.";
+  collection.item = nestFolders(endpoints);
+  if (moduleKey === "auth") {
+    collection.item = [createHealthRequest(), ...collection.item];
+  }
+  attachLoginScript(collection);
+  return collection;
+}
+
+function writeJson(fileName, data) {
+  const outPath = path.join(OUT_DIR, fileName);
+  fs.writeFileSync(outPath, JSON.stringify(data, null, 2), "utf8");
+  return outPath;
+}
+
+function main() {
+  const v1Index = path.join(SRC, "routes", "v1", "index.ts");
+  const content = readFile(v1Index);
+  const imports = parseImports(content, v1Index);
+  const routerVar = getRouterVarName(content) ?? "v1Router";
+
+  let endpoints = [];
+
+  for (const mount of parseRouterMounts(content, routerVar)) {
+    const childFile = imports.get(mount.routerName);
+    if (!childFile) {
+      console.warn(`Router não resolvido: ${mount.routerName}`);
+      continue;
+    }
+    const mountPath = joinPaths(API_PREFIX, mount.mountPath);
+    endpoints.push(...collectRoutes(childFile, mountPath));
+  }
+
+  const seen = new Set();
+  endpoints = endpoints
+    .filter((ep) => {
+      const key = `${ep.method} ${ep.fullPath}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => {
+      const pathCmp = a.fullPath.localeCompare(b.fullPath);
+      return pathCmp !== 0 ? pathCmp : a.method.localeCompare(b.method);
+    });
+
+  if (!fs.existsSync(OUT_DIR)) fs.mkdirSync(OUT_DIR, { recursive: true });
+
+  const completePath = writeJson(
+    "gescom-api-complete.postman_collection.json",
+    createCollection(endpoints),
+  );
+
+  const moduleGroups = splitByModule(endpoints);
+  const modulePaths = [];
+  for (const [moduleKey, moduleEndpoints] of [...moduleGroups.entries()].sort()) {
+    const modulePath = writeJson(
+      `gescom-api-${moduleKey}.postman_collection.json`,
+      createModuleCollection(moduleKey, moduleEndpoints),
+    );
+    modulePaths.push(modulePath);
+  }
+
+  const envLocal = writeJson(
+    "gescom-api-local.postman_environment.json",
+    createEnvironment("Local", "http://localhost:3000"),
+  );
+
+  const summary = {
+    generatedAt: new Date().toISOString(),
+    totalEndpoints: endpoints.length,
+    completeCollection: path.basename(completePath),
+    moduleCollections: modulePaths.map((p) => path.basename(p)),
+    environment: path.basename(envLocal),
+  };
+
+  writeJson("generation-summary.json", summary);
+
+  console.log(`✓ ${endpoints.length} endpoints mapeados`);
+  console.log(`✓ Coleção completa: ${completePath}`);
+  console.log(`✓ ${modulePaths.length} coleções por módulo`);
+  console.log(`✓ Ambiente: ${envLocal}`);
+}
+
+main();

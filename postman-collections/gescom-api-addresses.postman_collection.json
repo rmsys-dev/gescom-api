@@ -1,0 +1,621 @@
+{
+  "info": {
+    "_postman_id": "gescom-api-addresses",
+    "name": "Gescom API — Endereços",
+    "description": "Coleção do módulo **Endereços** (12 endpoints).\n\nGerado em: 2026-07-07T18:54:07.576Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Endereços",
+      "item": [
+        {
+          "name": "ceps",
+          "item": [
+            {
+              "name": "GET Listar raiz",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/addresses/ceps",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "addresses",
+                    "ceps"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "20",
+                      "disabled": false
+                    },
+                    {
+                      "key": "offset",
+                      "value": "0",
+                      "disabled": false
+                    }
+                  ]
+                },
+                "description": "Query schema: `listCepsQuerySchema`\n\nFonte: `src\\modules\\addresses\\ceps\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "POST Criar raiz",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/addresses/ceps",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "addresses",
+                    "ceps"
+                  ]
+                },
+                "description": "Permissão: `incluir_enderecos`\n\nBody schema: `createCepSchema`\n\nFonte: `src\\modules\\addresses\\ceps\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "ceps / :cepId",
+          "item": [
+            {
+              "name": "PATCH Atualizar cepId",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/addresses/ceps/{{cepId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "addresses",
+                    "ceps",
+                    "{{cepId}}"
+                  ]
+                },
+                "description": "Permissão: `alterar_enderecos`\n\nBody schema: `patchCepSchema`\n\nParams schema: `cepParamsSchema`\n\nFonte: `src\\modules\\addresses\\ceps\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Campos parciais conforme schema\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "cities",
+          "item": [
+            {
+              "name": "GET Listar raiz",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/addresses/cities",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "addresses",
+                    "cities"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "20",
+                      "disabled": false
+                    },
+                    {
+                      "key": "offset",
+                      "value": "0",
+                      "disabled": false
+                    }
+                  ]
+                },
+                "description": "Query schema: `listCitiesQuerySchema`\n\nFonte: `src\\modules\\addresses\\cities\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "POST Criar raiz",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/addresses/cities",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "addresses",
+                    "cities"
+                  ]
+                },
+                "description": "Permissão: `incluir_enderecos`\n\nBody schema: `createCitySchema`\n\nFonte: `src\\modules\\addresses\\cities\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "cities / :cityId",
+          "item": [
+            {
+              "name": "PATCH Atualizar cityId",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/addresses/cities/{{cityId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "addresses",
+                    "cities",
+                    "{{cityId}}"
+                  ]
+                },
+                "description": "Permissão: `alterar_enderecos`\n\nBody schema: `patchCitySchema`\n\nParams schema: `cityParamsSchema`\n\nFonte: `src\\modules\\addresses\\cities\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Campos parciais conforme schema\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "countries",
+          "item": [
+            {
+              "name": "GET Listar raiz",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/addresses/countries",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "addresses",
+                    "countries"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "20",
+                      "disabled": false
+                    },
+                    {
+                      "key": "offset",
+                      "value": "0",
+                      "disabled": false
+                    }
+                  ]
+                },
+                "description": "Query schema: `listCountriesQuerySchema`\n\nFonte: `src\\modules\\addresses\\countries\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "POST Criar raiz",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/addresses/countries",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "addresses",
+                    "countries"
+                  ]
+                },
+                "description": "Permissão: `incluir_enderecos`\n\nBody schema: `createCountrySchema`\n\nFonte: `src\\modules\\addresses\\countries\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "countries / :countryId",
+          "item": [
+            {
+              "name": "PATCH Atualizar countryId",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/addresses/countries/{{countryId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "addresses",
+                    "countries",
+                    "{{countryId}}"
+                  ]
+                },
+                "description": "Permissão: `alterar_enderecos`\n\nBody schema: `patchCountrySchema`\n\nParams schema: `countryParamsSchema`\n\nFonte: `src\\modules\\addresses\\countries\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Campos parciais conforme schema\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "states",
+          "item": [
+            {
+              "name": "GET Listar raiz",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/addresses/states",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "addresses",
+                    "states"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "20",
+                      "disabled": false
+                    },
+                    {
+                      "key": "offset",
+                      "value": "0",
+                      "disabled": false
+                    }
+                  ]
+                },
+                "description": "Query schema: `listStatesQuerySchema`\n\nFonte: `src\\modules\\addresses\\states\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "POST Criar raiz",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/addresses/states",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "addresses",
+                    "states"
+                  ]
+                },
+                "description": "Permissão: `incluir_enderecos`\n\nBody schema: `createStateSchema`\n\nFonte: `src\\modules\\addresses\\states\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "states / :stateId",
+          "item": [
+            {
+              "name": "PATCH Atualizar stateId",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/addresses/states/{{stateId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "addresses",
+                    "states",
+                    "{{stateId}}"
+                  ]
+                },
+                "description": "Permissão: `alterar_enderecos`\n\nBody schema: `patchStateSchema`\n\nParams schema: `stateParamsSchema`\n\nFonte: `src\\modules\\addresses\\states\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Campos parciais conforme schema\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "enterpriseId",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "memberId",
+      "value": ""
+    },
+    {
+      "key": "departmentId",
+      "value": ""
+    },
+    {
+      "key": "saleId",
+      "value": ""
+    },
+    {
+      "key": "saleItemId",
+      "value": ""
+    },
+    {
+      "key": "productEnterpriseId",
+      "value": ""
+    },
+    {
+      "key": "unitId",
+      "value": ""
+    },
+    {
+      "key": "productTypeId",
+      "value": ""
+    },
+    {
+      "key": "paymentTypeId",
+      "value": ""
+    },
+    {
+      "key": "cepId",
+      "value": ""
+    },
+    {
+      "key": "maintainerApiKey",
+      "value": ""
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ]
+}

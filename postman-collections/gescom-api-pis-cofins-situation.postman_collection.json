@@ -1,0 +1,280 @@
+{
+  "info": {
+    "_postman_id": "gescom-api-pis-cofins-situation",
+    "name": "Gescom API — Situação PIS/COFINS",
+    "description": "Coleção do módulo **Situação PIS/COFINS** (5 endpoints).\n\nGerado em: 2026-07-07T18:54:07.581Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Situação PIS/COFINS",
+      "item": [
+        {
+          "name": "GET Listar raiz",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pis-cofins-situation",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pis-cofins-situation"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "disabled": false
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Permissão: `consultar_situacao_pis_cofins`\n\nQuery schema: `listPisCofinsSituationQuerySchema`\n\nFonte: `src\\modules\\products\\pis-cofins-situation\\routes.ts`"
+          },
+          "response": []
+        },
+        {
+          "name": "POST Criar raiz",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pis-cofins-situation",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pis-cofins-situation"
+              ]
+            },
+            "description": "Permissão: `incluir_situacao_pis_cofins`\n\nBody schema: `createPisCofinsSituationSchema`\n\nFonte: `src\\modules\\products\\pis-cofins-situation\\routes.ts`",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": ":pisCofinsSituationId",
+          "item": [
+            {
+              "name": "DELETE Excluir pisCofinsSituationId",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/pis-cofins-situation/{{pisCofinsSituationId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "pis-cofins-situation",
+                    "{{pisCofinsSituationId}}"
+                  ]
+                },
+                "description": "Permissão: `excluir_situacao_pis_cofins`\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `pisCofinsSituationParamsSchema`\n\nFonte: `src\\modules\\products\\pis-cofins-situation\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "GET Obter pisCofinsSituationId",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/pis-cofins-situation/{{pisCofinsSituationId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "pis-cofins-situation",
+                    "{{pisCofinsSituationId}}"
+                  ]
+                },
+                "description": "Permissão: `consultar_situacao_pis_cofins`\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `pisCofinsSituationParamsSchema`\n\nFonte: `src\\modules\\products\\pis-cofins-situation\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH Atualizar pisCofinsSituationId",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/pis-cofins-situation/{{pisCofinsSituationId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "pis-cofins-situation",
+                    "{{pisCofinsSituationId}}"
+                  ]
+                },
+                "description": "Permissão: `alterar_situacao_pis_cofins`\n\nBody schema: `patchPisCofinsSituationSchema`\n\nParams schema: `pisCofinsSituationParamsSchema`\n\nFonte: `src\\modules\\products\\pis-cofins-situation\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Campos parciais conforme schema\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "enterpriseId",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "memberId",
+      "value": ""
+    },
+    {
+      "key": "departmentId",
+      "value": ""
+    },
+    {
+      "key": "saleId",
+      "value": ""
+    },
+    {
+      "key": "saleItemId",
+      "value": ""
+    },
+    {
+      "key": "productEnterpriseId",
+      "value": ""
+    },
+    {
+      "key": "unitId",
+      "value": ""
+    },
+    {
+      "key": "productTypeId",
+      "value": ""
+    },
+    {
+      "key": "paymentTypeId",
+      "value": ""
+    },
+    {
+      "key": "cepId",
+      "value": ""
+    },
+    {
+      "key": "maintainerApiKey",
+      "value": ""
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ]
+}

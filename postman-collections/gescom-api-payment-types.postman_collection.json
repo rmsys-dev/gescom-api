@@ -1,0 +1,280 @@
+{
+  "info": {
+    "_postman_id": "gescom-api-payment-types",
+    "name": "Gescom API — Tipos de Pagamento",
+    "description": "Coleção do módulo **Tipos de Pagamento** (5 endpoints).\n\nGerado em: 2026-07-07T18:54:07.580Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Tipos de Pagamento",
+      "item": [
+        {
+          "name": "GET Listar raiz",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payment-types",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payment-types"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "disabled": false
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Permissão: `consultar_tipos_pagamento`\n\nQuery schema: `listPaymentTypesQuerySchema`\n\nFonte: `src\\modules\\sales\\payment-types\\routes.ts`"
+          },
+          "response": []
+        },
+        {
+          "name": "POST Criar raiz",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payment-types",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payment-types"
+              ]
+            },
+            "description": "Permissão: `incluir_tipos_pagamento`\n\nBody schema: `createPaymentTypeSchema`\n\nFonte: `src\\modules\\sales\\payment-types\\routes.ts`",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": ":paymentTypeId",
+          "item": [
+            {
+              "name": "DELETE Excluir paymentTypeId",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/payment-types/{{paymentTypeId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "payment-types",
+                    "{{paymentTypeId}}"
+                  ]
+                },
+                "description": "Permissão: `excluir_tipos_pagamento`\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `paymentTypeParamsSchema`\n\nFonte: `src\\modules\\sales\\payment-types\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "GET Obter paymentTypeId",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/payment-types/{{paymentTypeId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "payment-types",
+                    "{{paymentTypeId}}"
+                  ]
+                },
+                "description": "Permissão: `consultar_tipos_pagamento`\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `paymentTypeParamsSchema`\n\nFonte: `src\\modules\\sales\\payment-types\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH Atualizar paymentTypeId",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/payment-types/{{paymentTypeId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "payment-types",
+                    "{{paymentTypeId}}"
+                  ]
+                },
+                "description": "Permissão: `alterar_tipos_pagamento`\n\nBody schema: `patchPaymentTypeSchema`\n\nParams schema: `paymentTypeParamsSchema`\n\nFonte: `src\\modules\\sales\\payment-types\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Campos parciais conforme schema\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "enterpriseId",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "memberId",
+      "value": ""
+    },
+    {
+      "key": "departmentId",
+      "value": ""
+    },
+    {
+      "key": "saleId",
+      "value": ""
+    },
+    {
+      "key": "saleItemId",
+      "value": ""
+    },
+    {
+      "key": "productEnterpriseId",
+      "value": ""
+    },
+    {
+      "key": "unitId",
+      "value": ""
+    },
+    {
+      "key": "productTypeId",
+      "value": ""
+    },
+    {
+      "key": "paymentTypeId",
+      "value": ""
+    },
+    {
+      "key": "cepId",
+      "value": ""
+    },
+    {
+      "key": "maintainerApiKey",
+      "value": ""
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ]
+}

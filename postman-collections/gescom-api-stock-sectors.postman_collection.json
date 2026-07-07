@@ -1,0 +1,280 @@
+{
+  "info": {
+    "_postman_id": "gescom-api-stock-sectors",
+    "name": "Gescom API — Setores de Estoque",
+    "description": "Coleção do módulo **Setores de Estoque** (5 endpoints).\n\nGerado em: 2026-07-07T18:54:07.591Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Setores de Estoque",
+      "item": [
+        {
+          "name": "GET Listar raiz",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/stock-sectors",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "stock-sectors"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "disabled": false
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Permissão: `consultar_setores_estoque`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `listStockSectorsQuerySchema`\n\nFonte: `src\\modules\\stock\\stock-sectors\\routes.ts`"
+          },
+          "response": []
+        },
+        {
+          "name": "POST Criar raiz",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/stock-sectors",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "stock-sectors"
+              ]
+            },
+            "description": "Permissão: `incluir_setores_estoque`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createStockSectorSchema`\n\nFonte: `src\\modules\\stock\\stock-sectors\\routes.ts`",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": ":stockSectorId",
+          "item": [
+            {
+              "name": "DELETE Excluir stockSectorId",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/stock-sectors/{{stockSectorId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "stock-sectors",
+                    "{{stockSectorId}}"
+                  ]
+                },
+                "description": "Permissão: `excluir_setores_estoque`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `stockSectorParamsSchema`\n\nFonte: `src\\modules\\stock\\stock-sectors\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "GET Obter stockSectorId",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/stock-sectors/{{stockSectorId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "stock-sectors",
+                    "{{stockSectorId}}"
+                  ]
+                },
+                "description": "Permissão: `consultar_setores_estoque`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `stockSectorParamsSchema`\n\nFonte: `src\\modules\\stock\\stock-sectors\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH Atualizar stockSectorId",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/stock-sectors/{{stockSectorId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "stock-sectors",
+                    "{{stockSectorId}}"
+                  ]
+                },
+                "description": "Permissão: `alterar_setores_estoque`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `patchStockSectorSchema`\n\nParams schema: `stockSectorParamsSchema`\n\nFonte: `src\\modules\\stock\\stock-sectors\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Campos parciais conforme schema\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "enterpriseId",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "memberId",
+      "value": ""
+    },
+    {
+      "key": "departmentId",
+      "value": ""
+    },
+    {
+      "key": "saleId",
+      "value": ""
+    },
+    {
+      "key": "saleItemId",
+      "value": ""
+    },
+    {
+      "key": "productEnterpriseId",
+      "value": ""
+    },
+    {
+      "key": "unitId",
+      "value": ""
+    },
+    {
+      "key": "productTypeId",
+      "value": ""
+    },
+    {
+      "key": "paymentTypeId",
+      "value": ""
+    },
+    {
+      "key": "cepId",
+      "value": ""
+    },
+    {
+      "key": "maintainerApiKey",
+      "value": ""
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,266 @@
+{
+  "info": {
+    "_postman_id": "gescom-api-maintainer",
+    "name": "Gescom API — Maintainer",
+    "description": "Coleção do módulo **Maintainer** (4 endpoints).\n\nGerado em: 2026-07-07T18:54:07.580Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Maintainer",
+      "item": [
+        {
+          "name": "departments",
+          "item": [
+            {
+              "name": "POST Criar raiz",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "x-maintainer-api-key",
+                    "value": "{{maintainerApiKey}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/maintainer/departments",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "maintainer",
+                    "departments"
+                  ]
+                },
+                "description": "Body schema: `createDepartmentSchema`\n\nFonte: `src\\modules\\maintainer\\departments\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "departments / :departmentId",
+          "item": [
+            {
+              "name": "PATCH Atualizar departmentId",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "x-maintainer-api-key",
+                    "value": "{{maintainerApiKey}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/maintainer/departments/{{departmentId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "maintainer",
+                    "departments",
+                    "{{departmentId}}"
+                  ]
+                },
+                "description": "Body schema: `patchDepartmentSchema`\n\nParams schema: `departmentParamsSchema`\n\nFonte: `src\\modules\\maintainer\\departments\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Campos parciais conforme schema\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "enterprises",
+          "item": [
+            {
+              "name": "POST Criar raiz",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "x-maintainer-api-key",
+                    "value": "{{maintainerApiKey}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/maintainer/enterprises",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "maintainer",
+                    "enterprises"
+                  ]
+                },
+                "description": "Body schema: `createEnterpriseSchema`\n\nFonte: `src\\modules\\maintainer\\enterprises\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"registration\": \"12345678000199\",\n  \"legalName\": \"EMPRESA EXEMPLO LTDA\",\n  \"tradeName\": \"EMPRESA EXEMPLO\",\n  \"phone\": \"+5511999999999\",\n  \"email\": \"contato@exemplo.com\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "enterprises / :enterpriseId",
+          "item": [
+            {
+              "name": "DELETE Excluir enterpriseId",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "x-maintainer-api-key",
+                    "value": "{{maintainerApiKey}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/maintainer/enterprises/{{enterpriseId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "maintainer",
+                    "enterprises",
+                    "{{enterpriseId}}"
+                  ]
+                },
+                "description": "Body schema: `emptyBodySchema`\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `enterpriseParamsSchema`\n\nFonte: `src\\modules\\maintainer\\enterprises\\routes.ts`"
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "enterpriseId",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "memberId",
+      "value": ""
+    },
+    {
+      "key": "departmentId",
+      "value": ""
+    },
+    {
+      "key": "saleId",
+      "value": ""
+    },
+    {
+      "key": "saleItemId",
+      "value": ""
+    },
+    {
+      "key": "productEnterpriseId",
+      "value": ""
+    },
+    {
+      "key": "unitId",
+      "value": ""
+    },
+    {
+      "key": "productTypeId",
+      "value": ""
+    },
+    {
+      "key": "paymentTypeId",
+      "value": ""
+    },
+    {
+      "key": "cepId",
+      "value": ""
+    },
+    {
+      "key": "maintainerApiKey",
+      "value": ""
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ]
+}

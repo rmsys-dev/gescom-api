@@ -1,0 +1,290 @@
+{
+  "info": {
+    "_postman_id": "gescom-api-product-subgroups",
+    "name": "Gescom API — Subgrupos de Produto",
+    "description": "Coleção do módulo **Subgrupos de Produto** (5 endpoints).\n\nGerado em: 2026-07-07T18:54:07.583Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Subgrupos de Produto",
+      "item": [
+        {
+          "name": "GET Listar raiz",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/product-subgroups",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "product-subgroups"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "disabled": false
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "disabled": false
+                },
+                {
+                  "key": "status",
+                  "value": "ABERTA",
+                  "disabled": true
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Permissão: `consultar_subgrupos_produto`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `listProductSubgroupsQuerySchema`\n\nFonte: `src\\modules\\products\\product-subgroups\\routes.ts`"
+          },
+          "response": []
+        },
+        {
+          "name": "POST Criar raiz",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/product-subgroups",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "product-subgroups"
+              ]
+            },
+            "description": "Permissão: `incluir_subgrupos_produto`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createProductSubgroupSchema`\n\nFonte: `src\\modules\\products\\product-subgroups\\routes.ts`",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": ":productSubgroupId",
+          "item": [
+            {
+              "name": "DELETE Excluir productSubgroupId",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/product-subgroups/{{productSubgroupId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "product-subgroups",
+                    "{{productSubgroupId}}"
+                  ]
+                },
+                "description": "Permissão: `excluir_subgrupos_produto`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `productSubgroupParamsSchema`\n\nFonte: `src\\modules\\products\\product-subgroups\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "GET Obter productSubgroupId",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/product-subgroups/{{productSubgroupId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "product-subgroups",
+                    "{{productSubgroupId}}"
+                  ]
+                },
+                "description": "Permissão: `consultar_subgrupos_produto`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `productSubgroupParamsSchema`\n\nFonte: `src\\modules\\products\\product-subgroups\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH Atualizar productSubgroupId",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/product-subgroups/{{productSubgroupId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "product-subgroups",
+                    "{{productSubgroupId}}"
+                  ]
+                },
+                "description": "Permissão: `alterar_subgrupos_produto`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `patchProductSubgroupSchema`\n\nParams schema: `productSubgroupParamsSchema`\n\nFonte: `src\\modules\\products\\product-subgroups\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Campos parciais conforme schema\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "enterpriseId",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "memberId",
+      "value": ""
+    },
+    {
+      "key": "departmentId",
+      "value": ""
+    },
+    {
+      "key": "saleId",
+      "value": ""
+    },
+    {
+      "key": "saleItemId",
+      "value": ""
+    },
+    {
+      "key": "productEnterpriseId",
+      "value": ""
+    },
+    {
+      "key": "unitId",
+      "value": ""
+    },
+    {
+      "key": "productTypeId",
+      "value": ""
+    },
+    {
+      "key": "paymentTypeId",
+      "value": ""
+    },
+    {
+      "key": "cepId",
+      "value": ""
+    },
+    {
+      "key": "maintainerApiKey",
+      "value": ""
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ]
+}

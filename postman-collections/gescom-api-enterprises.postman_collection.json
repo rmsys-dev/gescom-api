@@ -1,0 +1,2264 @@
+{
+  "info": {
+    "_postman_id": "gescom-api-enterprises",
+    "name": "Gescom API — Empresas",
+    "description": "Coleção do módulo **Empresas** (49 endpoints).\n\nGerado em: 2026-07-07T18:54:07.578Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Empresas",
+      "item": [
+        {
+          "name": "GET Listar raiz",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/enterprises",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "enterprises"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "disabled": false
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Permissão: `consultar_empresas`\n\nQuery schema: `listEnterprisesQuerySchema`\n\nFonte: `src\\modules\\enterprises\\routes.ts`"
+          },
+          "response": []
+        },
+        {
+          "name": ":enterpriseId",
+          "item": [
+            {
+              "name": "GET Obter enterpriseId",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}"
+                  ]
+                },
+                "description": "Permissão: `consultar_empresas`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `enterpriseParamsSchema`\n\nFonte: `src\\modules\\enterprises\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH Atualizar enterpriseId",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}"
+                  ]
+                },
+                "description": "Permissão: `alterar_empresas`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `patchEnterpriseSchema`\n\nParams schema: `enterpriseParamsSchema`\n\nFonte: `src\\modules\\enterprises\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"tradeName\": \"NOVO NOME FANTASIA\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":enterpriseId / addresses",
+          "item": [
+            {
+              "name": "GET Listar raiz",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/addresses",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "addresses"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "20",
+                      "disabled": false
+                    },
+                    {
+                      "key": "offset",
+                      "value": "0",
+                      "disabled": false
+                    }
+                  ]
+                },
+                "description": "Permissão: `consultar_enderecos`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `listEnterpriseAddressesQuerySchema`\n\nParams schema: `enterpriseAddressEnterpriseParamsSchema`\n\nFonte: `src\\modules\\enterprises\\enterprise-addresses\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "POST Criar raiz",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/addresses",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "addresses"
+                  ]
+                },
+                "description": "Permissão: `incluir_enderecos`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createEnterpriseAddressSchema`\n\nParams schema: `enterpriseAddressEnterpriseParamsSchema`\n\nFonte: `src\\modules\\enterprises\\enterprise-addresses\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":enterpriseId / addresses / :addressId",
+          "item": [
+            {
+              "name": "PATCH Atualizar addressId",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/addresses/{{addressId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "addresses",
+                    "{{addressId}}"
+                  ]
+                },
+                "description": "Permissão: `alterar_enderecos`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `patchEnterpriseAddressSchema`\n\nParams schema: `enterpriseAddressParamsSchema`\n\nFonte: `src\\modules\\enterprises\\enterprise-addresses\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Campos parciais conforme schema\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":enterpriseId / members",
+          "item": [
+            {
+              "name": "GET Listar raiz",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/members",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "members"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "20",
+                      "disabled": false
+                    },
+                    {
+                      "key": "offset",
+                      "value": "0",
+                      "disabled": false
+                    },
+                    {
+                      "key": "userId",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "code",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "class",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "status",
+                      "value": "ABERTA",
+                      "disabled": true
+                    },
+                    {
+                      "key": "postSalesStatus",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "registration",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "email",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "phone",
+                      "value": "",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Permissão: `consultar_membros`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `listMembersQuerySchema`\n\nParams schema: `membershipEnterpriseParamsSchema`\n\nFonte: `src\\modules\\memberships\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "POST Criar raiz",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/members",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "members"
+                  ]
+                },
+                "description": "Permissão: `incluir_membros`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createMembershipSchema`\n\nParams schema: `membershipEnterpriseParamsSchema`\n\nFonte: `src\\modules\\memberships\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"class\": \"CLIENTE\",\n  \"departments\": [\n    {\n      \"departmentId\": \"{{departmentId}}\",\n      \"mainDepartment\": true\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":enterpriseId / members / :memberId",
+          "item": [
+            {
+              "name": "GET Obter memberId",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/members/{{memberId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "members",
+                    "{{memberId}}"
+                  ]
+                },
+                "description": "Permissão: `consultar_membros`\n\nRequer contexto de empresa (tenant) no token.\n\nParams schema: `membershipPatchParamsSchema`\n\nFonte: `src\\modules\\memberships\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH Atualizar memberId",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/members/{{memberId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "members",
+                    "{{memberId}}"
+                  ]
+                },
+                "description": "Permissão: `alterar_membros`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `patchMembershipSchema`\n\nParams schema: `membershipPatchParamsSchema`\n\nFonte: `src\\modules\\memberships\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"ATIVO\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":enterpriseId / members / :memberId / departments",
+          "item": [
+            {
+              "name": "POST Criar departments",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/members/{{memberId}}/departments",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "members",
+                    "{{memberId}}",
+                    "departments"
+                  ]
+                },
+                "description": "Permissão: `alterar_membros`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `addMemberDepartmentSchema`\n\nParams schema: `memberDepartmentBaseParamsSchema`\n\nFonte: `src\\modules\\memberships\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"departmentId\": \"{{departmentId}}\",\n  \"mainDepartment\": false\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":enterpriseId / members / :memberId / departments / :departmentId / extra-permissions",
+          "item": [
+            {
+              "name": "PATCH Atualizar extra-permissions",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/members/{{memberId}}/departments/{{departmentId}}/extra-permissions",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "members",
+                    "{{memberId}}",
+                    "departments",
+                    "{{departmentId}}",
+                    "extra-permissions"
+                  ]
+                },
+                "description": "Permissão: `alterar_permissoes`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `patchMemberDepartmentPermissionBodySchema`\n\nParams schema: `membershipMemberDepartmentParamsSchema`\n\nFonte: `src\\modules\\memberships\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"permissions\": [\n    \"consultar_vendas\"\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":enterpriseId / members / :memberId / departments / :departmentId / permissions-default",
+          "item": [
+            {
+              "name": "PATCH Atualizar permissions-default",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/members/{{memberId}}/departments/{{departmentId}}/permissions-default",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "members",
+                    "{{memberId}}",
+                    "departments",
+                    "{{departmentId}}",
+                    "permissions-default"
+                  ]
+                },
+                "description": "Permissão: `alterar_permissoes`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `patchMemberDepartmentPermissionBodySchema`\n\nParams schema: `membershipMemberDepartmentParamsSchema`\n\nFonte: `src\\modules\\memberships\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"permissions\": [\n    \"consultar_vendas\"\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":enterpriseId / members / :memberId / departments / :memberDepartmentId",
+          "item": [
+            {
+              "name": "PATCH Atualizar memberDepartmentId",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/members/{{memberId}}/departments/{{memberDepartmentId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "members",
+                    "{{memberId}}",
+                    "departments",
+                    "{{memberDepartmentId}}"
+                  ]
+                },
+                "description": "Permissão: `alterar_membros`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `patchMemberDepartmentSchema`\n\nParams schema: `memberDepartmentParamsSchema`\n\nFonte: `src\\modules\\memberships\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"mainDepartment\": true\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":enterpriseId / members / code / :code",
+          "item": [
+            {
+              "name": "GET Obter code",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/members/code/{{code}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "members",
+                    "code",
+                    "{{code}}"
+                  ]
+                },
+                "description": "Permissão: `consultar_membros`\n\nRequer contexto de empresa (tenant) no token.\n\nParams schema: `membershipCodeParamsSchema`\n\nFonte: `src\\modules\\memberships\\routes.ts`"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":enterpriseId / members / create-with-user",
+          "item": [
+            {
+              "name": "POST Criar create-with-user",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/members/create-with-user",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "members",
+                    "create-with-user"
+                  ]
+                },
+                "description": "Permissão: `incluir_usuarios`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createOnboardMembershipSchema`\n\nParams schema: `membershipEnterpriseParamsSchema`\n\nFonte: `src\\modules\\memberships\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"user\": {\n    \"userName\": \"Maria Souza\",\n    \"userEmail\": \"maria@exemplo.com\"\n  },\n  \"member\": {\n    \"class\": \"CLIENTE\",\n    \"departments\": [\n      {\n        \"departmentId\": \"{{departmentId}}\",\n        \"mainDepartment\": true\n      }\n    ]\n  },\n  \"sendEmail\": true\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":enterpriseId / members / invite",
+          "item": [
+            {
+              "name": "POST Criar invite",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/members/invite",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "members",
+                    "invite"
+                  ]
+                },
+                "description": "Permissão: `incluir_membros`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `inviteMembershipBodySchema`\n\nParams schema: `membershipEnterpriseParamsSchema`\n\nFonte: `src\\modules\\memberships\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"member\": {\n    \"class\": \"CLIENTE\",\n    \"departments\": [\n      {\n        \"departmentId\": \"{{departmentId}}\",\n        \"mainDepartment\": true\n      }\n    ]\n  },\n  \"inviteEmail\": \"convidado@exemplo.com\",\n  \"sendEmail\": true\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":enterpriseId / product-brands",
+          "item": [
+            {
+              "name": "GET Listar raiz",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/product-brands",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "product-brands"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "20",
+                      "disabled": false
+                    },
+                    {
+                      "key": "offset",
+                      "value": "0",
+                      "disabled": false
+                    },
+                    {
+                      "key": "status",
+                      "value": "ABERTA",
+                      "disabled": true
+                    },
+                    {
+                      "key": "search",
+                      "value": "",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Permissão: `consultar_marcas_produto`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `listProductBrandsQuerySchema`\n\nFonte: `src\\modules\\products\\product-brands\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "POST Criar raiz",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/product-brands",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "product-brands"
+                  ]
+                },
+                "description": "Permissão: `incluir_marcas_produto`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createProductBrandSchema`\n\nFonte: `src\\modules\\products\\product-brands\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":enterpriseId / product-brands / :productBrandId",
+          "item": [
+            {
+              "name": "DELETE Excluir productBrandId",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/product-brands/{{productBrandId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "product-brands",
+                    "{{productBrandId}}"
+                  ]
+                },
+                "description": "Permissão: `excluir_marcas_produto`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `productBrandParamsSchema`\n\nFonte: `src\\modules\\products\\product-brands\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "GET Obter productBrandId",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/product-brands/{{productBrandId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "product-brands",
+                    "{{productBrandId}}"
+                  ]
+                },
+                "description": "Permissão: `consultar_marcas_produto`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `productBrandParamsSchema`\n\nFonte: `src\\modules\\products\\product-brands\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH Atualizar productBrandId",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/product-brands/{{productBrandId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "product-brands",
+                    "{{productBrandId}}"
+                  ]
+                },
+                "description": "Permissão: `alterar_marcas_produto`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `patchProductBrandSchema`\n\nParams schema: `productBrandParamsSchema`\n\nFonte: `src\\modules\\products\\product-brands\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Campos parciais conforme schema\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":enterpriseId / product-groups",
+          "item": [
+            {
+              "name": "GET Listar raiz",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/product-groups",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "product-groups"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "20",
+                      "disabled": false
+                    },
+                    {
+                      "key": "offset",
+                      "value": "0",
+                      "disabled": false
+                    },
+                    {
+                      "key": "status",
+                      "value": "ABERTA",
+                      "disabled": true
+                    },
+                    {
+                      "key": "search",
+                      "value": "",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Permissão: `consultar_grupos_produto`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `listProductGroupsQuerySchema`\n\nFonte: `src\\modules\\products\\product-groups\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "POST Criar raiz",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/product-groups",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "product-groups"
+                  ]
+                },
+                "description": "Permissão: `incluir_grupos_produto`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createProductGroupSchema`\n\nFonte: `src\\modules\\products\\product-groups\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":enterpriseId / product-groups / :productGroupId",
+          "item": [
+            {
+              "name": "DELETE Excluir productGroupId",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/product-groups/{{productGroupId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "product-groups",
+                    "{{productGroupId}}"
+                  ]
+                },
+                "description": "Permissão: `excluir_grupos_produto`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `productGroupParamsSchema`\n\nFonte: `src\\modules\\products\\product-groups\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "GET Obter productGroupId",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/product-groups/{{productGroupId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "product-groups",
+                    "{{productGroupId}}"
+                  ]
+                },
+                "description": "Permissão: `consultar_grupos_produto`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `productGroupParamsSchema`\n\nFonte: `src\\modules\\products\\product-groups\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH Atualizar productGroupId",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/product-groups/{{productGroupId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "product-groups",
+                    "{{productGroupId}}"
+                  ]
+                },
+                "description": "Permissão: `alterar_grupos_produto`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `patchProductGroupSchema`\n\nParams schema: `productGroupParamsSchema`\n\nFonte: `src\\modules\\products\\product-groups\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Campos parciais conforme schema\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":enterpriseId / product-subgroups",
+          "item": [
+            {
+              "name": "GET Listar raiz",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/product-subgroups",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "product-subgroups"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "20",
+                      "disabled": false
+                    },
+                    {
+                      "key": "offset",
+                      "value": "0",
+                      "disabled": false
+                    },
+                    {
+                      "key": "status",
+                      "value": "ABERTA",
+                      "disabled": true
+                    },
+                    {
+                      "key": "search",
+                      "value": "",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Permissão: `consultar_subgrupos_produto`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `listProductSubgroupsQuerySchema`\n\nFonte: `src\\modules\\products\\product-subgroups\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "POST Criar raiz",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/product-subgroups",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "product-subgroups"
+                  ]
+                },
+                "description": "Permissão: `incluir_subgrupos_produto`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createProductSubgroupSchema`\n\nFonte: `src\\modules\\products\\product-subgroups\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":enterpriseId / product-subgroups / :productSubgroupId",
+          "item": [
+            {
+              "name": "DELETE Excluir productSubgroupId",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/product-subgroups/{{productSubgroupId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "product-subgroups",
+                    "{{productSubgroupId}}"
+                  ]
+                },
+                "description": "Permissão: `excluir_subgrupos_produto`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `productSubgroupParamsSchema`\n\nFonte: `src\\modules\\products\\product-subgroups\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "GET Obter productSubgroupId",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/product-subgroups/{{productSubgroupId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "product-subgroups",
+                    "{{productSubgroupId}}"
+                  ]
+                },
+                "description": "Permissão: `consultar_subgrupos_produto`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `productSubgroupParamsSchema`\n\nFonte: `src\\modules\\products\\product-subgroups\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH Atualizar productSubgroupId",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/product-subgroups/{{productSubgroupId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "product-subgroups",
+                    "{{productSubgroupId}}"
+                  ]
+                },
+                "description": "Permissão: `alterar_subgrupos_produto`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `patchProductSubgroupSchema`\n\nParams schema: `productSubgroupParamsSchema`\n\nFonte: `src\\modules\\products\\product-subgroups\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Campos parciais conforme schema\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":enterpriseId / users",
+          "item": [
+            {
+              "name": "GET Listar raiz",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/users",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "users"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "20",
+                      "disabled": false
+                    },
+                    {
+                      "key": "offset",
+                      "value": "0",
+                      "disabled": false
+                    },
+                    {
+                      "key": "registration",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "email",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "phone",
+                      "value": "",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Permissão: `consultar_usuarios`\n\nQuery schema: `listUsersQuerySchema`\n\nParams schema: `usersEnterpriseParamsSchema`\n\nFonte: `src\\modules\\users\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "POST Criar raiz",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/users",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "users"
+                  ]
+                },
+                "description": "Permissão: `incluir_usuarios`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createUserBodySchema`\n\nParams schema: `usersEnterpriseParamsSchema`\n\nFonte: `src\\modules\\users\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"userName\": \"João Silva\",\n  \"userRegistration\": \"12345678901\",\n  \"userEmail\": \"joao@exemplo.com\",\n  \"userPhone\": \"+5511988888888\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":enterpriseId / users / :userId",
+          "item": [
+            {
+              "name": "GET Obter userId",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/users/{{userId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "users",
+                    "{{userId}}"
+                  ]
+                },
+                "description": "Requer contexto de empresa (tenant) no token.\n\nParams schema: `userEnterpriseAndIdParamsSchema`\n\nFonte: `src\\modules\\users\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH Atualizar userId",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/users/{{userId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "users",
+                    "{{userId}}"
+                  ]
+                },
+                "description": "Requer contexto de empresa (tenant) no token.\n\nBody schema: `patchUserBodySchema`\n\nParams schema: `userEnterpriseAndIdParamsSchema`\n\nFonte: `src\\modules\\users\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"userName\": \"João Silva Atualizado\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":enterpriseId / users / :userId / addresses",
+          "item": [
+            {
+              "name": "POST Criar addresses",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/users/{{userId}}/addresses",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "users",
+                    "{{userId}}",
+                    "addresses"
+                  ]
+                },
+                "description": "Requer contexto de empresa (tenant) no token.\n\nBody schema: `usersAddressCreateSchema`\n\nParams schema: `userDetailsParamsSchema`\n\nFonte: `src\\modules\\users\\onboarding\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"cepId\": \"{{cepId}}\",\n  \"number\": \"100\",\n  \"complement\": \"Apto 12\",\n  \"adressType\": \"RESIDENCIAL\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":enterpriseId / users / :userId / addresses / :addressId",
+          "item": [
+            {
+              "name": "PATCH Atualizar addressId",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/users/{{userId}}/addresses/{{addressId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "users",
+                    "{{userId}}",
+                    "addresses",
+                    "{{addressId}}"
+                  ]
+                },
+                "description": "Requer contexto de empresa (tenant) no token.\n\nBody schema: `usersAddressPatchSchema`\n\nParams schema: `usersAddressParamsSchema`\n\nFonte: `src\\modules\\users\\onboarding\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"number\": \"200\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":enterpriseId / users / :userId / contacts",
+          "item": [
+            {
+              "name": "POST Criar contacts",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/users/{{userId}}/contacts",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "users",
+                    "{{userId}}",
+                    "contacts"
+                  ]
+                },
+                "description": "Requer contexto de empresa (tenant) no token.\n\nBody schema: `usersContactCreateSchema`\n\nParams schema: `userDetailsParamsSchema`\n\nFonte: `src\\modules\\users\\onboarding\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"contactType\": \"CELULAR\",\n  \"contactValue\": \"+5511977777777\",\n  \"isMain\": true\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":enterpriseId / users / :userId / contacts / :contactId",
+          "item": [
+            {
+              "name": "PATCH Atualizar contactId",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/users/{{userId}}/contacts/{{contactId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "users",
+                    "{{userId}}",
+                    "contacts",
+                    "{{contactId}}"
+                  ]
+                },
+                "description": "Requer contexto de empresa (tenant) no token.\n\nBody schema: `usersContactPatchSchema`\n\nParams schema: `usersContactParamsSchema`\n\nFonte: `src\\modules\\users\\onboarding\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"isMain\": false\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":enterpriseId / users / :userId / details",
+          "item": [
+            {
+              "name": "GET Listar details",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/users/{{userId}}/details",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "users",
+                    "{{userId}}",
+                    "details"
+                  ]
+                },
+                "description": "Requer contexto de empresa (tenant) no token.\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `userDetailsParamsSchema`\n\nFonte: `src\\modules\\users\\onboarding\\routes.ts`"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":enterpriseId / users / :userId / financial-info",
+          "item": [
+            {
+              "name": "PATCH Atualizar financial-info",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/users/{{userId}}/financial-info",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "users",
+                    "{{userId}}",
+                    "financial-info"
+                  ]
+                },
+                "description": "Requer contexto de empresa (tenant) no token.\n\nBody schema: `usersFinancialInfoPatchSchema`\n\nParams schema: `userDetailsParamsSchema`\n\nFonte: `src\\modules\\users\\onboarding\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"creditLimit\": 5000\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "POST Criar financial-info",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/users/{{userId}}/financial-info",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "users",
+                    "{{userId}}",
+                    "financial-info"
+                  ]
+                },
+                "description": "Requer contexto de empresa (tenant) no token.\n\nBody schema: `usersFinancialInfoCreateSchema`\n\nParams schema: `userDetailsParamsSchema`\n\nFonte: `src\\modules\\users\\onboarding\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"creditType\": \"A_VISTA\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":enterpriseId / users / :userId / personal-info",
+          "item": [
+            {
+              "name": "PATCH Atualizar personal-info",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/users/{{userId}}/personal-info",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "users",
+                    "{{userId}}",
+                    "personal-info"
+                  ]
+                },
+                "description": "Requer contexto de empresa (tenant) no token.\n\nBody schema: `personalInfoPatchSchema`\n\nParams schema: `userDetailsParamsSchema`\n\nFonte: `src\\modules\\users\\onboarding\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"placeOfBirth\": \"Campinas\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "POST Criar personal-info",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/users/{{userId}}/personal-info",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "users",
+                    "{{userId}}",
+                    "personal-info"
+                  ]
+                },
+                "description": "Requer contexto de empresa (tenant) no token.\n\nBody schema: `personalInfoCreateSchema`\n\nParams schema: `userDetailsParamsSchema`\n\nFonte: `src\\modules\\users\\onboarding\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"gender\": \"MASCULINO\",\n  \"birthDate\": \"1990-01-15\",\n  \"placeOfBirth\": \"São Paulo\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":enterpriseId / users / :userId / relationships",
+          "item": [
+            {
+              "name": "PATCH Atualizar relationships",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/users/{{userId}}/relationships",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "users",
+                    "{{userId}}",
+                    "relationships"
+                  ]
+                },
+                "description": "Requer contexto de empresa (tenant) no token.\n\nBody schema: `usersRelationshipsPatchSchema`\n\nParams schema: `userDetailsParamsSchema`\n\nFonte: `src\\modules\\users\\onboarding\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"housingType\": \"PROPRIO\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "POST Criar relationships",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/users/{{userId}}/relationships",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "users",
+                    "{{userId}}",
+                    "relationships"
+                  ]
+                },
+                "description": "Requer contexto de empresa (tenant) no token.\n\nBody schema: `usersRelationshipsCreateSchema`\n\nParams schema: `userDetailsParamsSchema`\n\nFonte: `src\\modules\\users\\onboarding\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"maritalStatus\": \"SOLTEIRO\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":enterpriseId / users / :userId / tax-infos",
+          "item": [
+            {
+              "name": "PATCH Atualizar tax-infos",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/users/{{userId}}/tax-infos",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "users",
+                    "{{userId}}",
+                    "tax-infos"
+                  ]
+                },
+                "description": "Requer contexto de empresa (tenant) no token.\n\nBody schema: `usersTaxInfosPatchSchema`\n\nParams schema: `userDetailsParamsSchema`\n\nFonte: `src\\modules\\users\\onboarding\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"stateRegistration\": \"123456789\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "POST Criar tax-infos",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/enterprises/{{enterpriseId}}/users/{{userId}}/tax-infos",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "enterprises",
+                    "{{enterpriseId}}",
+                    "users",
+                    "{{userId}}",
+                    "tax-infos"
+                  ]
+                },
+                "description": "Requer contexto de empresa (tenant) no token.\n\nBody schema: `usersTaxInfosCreateSchema`\n\nParams schema: `userDetailsParamsSchema`\n\nFonte: `src\\modules\\users\\onboarding\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"taxpayerType\": \"CONTRIBUINTE\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "enterpriseId",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "memberId",
+      "value": ""
+    },
+    {
+      "key": "departmentId",
+      "value": ""
+    },
+    {
+      "key": "saleId",
+      "value": ""
+    },
+    {
+      "key": "saleItemId",
+      "value": ""
+    },
+    {
+      "key": "productEnterpriseId",
+      "value": ""
+    },
+    {
+      "key": "unitId",
+      "value": ""
+    },
+    {
+      "key": "productTypeId",
+      "value": ""
+    },
+    {
+      "key": "paymentTypeId",
+      "value": ""
+    },
+    {
+      "key": "cepId",
+      "value": ""
+    },
+    {
+      "key": "maintainerApiKey",
+      "value": ""
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ]
+}

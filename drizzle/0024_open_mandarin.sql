@@ -1,10 +1,32 @@
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'users_financial_info'
+      AND column_name = 'budget_price'
+  ) THEN
+    ALTER TABLE "users_financial_info" RENAME COLUMN "budget_price" TO "credit_limit";
+  END IF;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'users_financial_info'
+      AND column_name = 'reduction_rate'
+  ) THEN
+    ALTER TABLE "users_financial_info" RENAME COLUMN "reduction_rate" TO "billing_commission";
+  END IF;
+END $$;--> statement-breakpoint
 ALTER TABLE "users_financial_info" ALTER COLUMN "icms_reduction" SET DATA TYPE numeric(15, 10);--> statement-breakpoint
 ALTER TABLE "users_financial_info" ALTER COLUMN "discount_limit" SET DATA TYPE numeric(15, 10);--> statement-breakpoint
 ALTER TABLE "users_financial_info" ALTER COLUMN "request_amount" SET DATA TYPE numeric(15, 2);--> statement-breakpoint
-ALTER TABLE "users_financial_info" ALTER COLUMN "budget_price" SET DATA TYPE numeric(15, 2);--> statement-breakpoint
+ALTER TABLE "users_financial_info" ALTER COLUMN "credit_limit" SET DATA TYPE numeric(15, 2);--> statement-breakpoint
 ALTER TABLE "users_financial_info" ALTER COLUMN "prev_rate" SET DATA TYPE numeric(15, 10);--> statement-breakpoint
 ALTER TABLE "users_financial_info" ALTER COLUMN "rat_tax" SET DATA TYPE numeric(15, 10);--> statement-breakpoint
-ALTER TABLE "users_financial_info" ALTER COLUMN "reduction_rate" SET DATA TYPE numeric(15, 10);--> statement-breakpoint
+ALTER TABLE "users_financial_info" ALTER COLUMN "billing_commission" SET DATA TYPE numeric(15, 10);--> statement-breakpoint
 ALTER TABLE "users_financial_info" ALTER COLUMN "senar_tax" SET DATA TYPE numeric(15, 10);--> statement-breakpoint
 ALTER TABLE "users_financial_info" ALTER COLUMN "sale_discount" SET DATA TYPE numeric(15, 10);--> statement-breakpoint
 ALTER TABLE "users_relationships" ALTER COLUMN "income" SET DATA TYPE numeric(15, 2);--> statement-breakpoint

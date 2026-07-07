@@ -12,10 +12,16 @@ if (!connectionString) {
 
 const sql = postgres(connectionString, { prepare: false, max: 1 });
 
-const snapshot: Record<string, unknown> = {
+type MigrationSnapshot = {
+  capturedAt: string;
+  tables: Record<string, number>;
+  migrations: { id: number; hash: string; created_at: Date }[];
+};
+
+const snapshot: MigrationSnapshot = {
   capturedAt: new Date().toISOString(),
-  tables: {} as Record<string, number>,
-  migrations: [] as { id: number; hash: string; created_at: Date }[],
+  tables: {},
+  migrations: [],
 };
 
 try {

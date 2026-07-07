@@ -1,0 +1,1846 @@
+{
+  "info": {
+    "_postman_id": "gescom-api-sales",
+    "name": "Gescom API — Vendas",
+    "description": "Coleção do módulo **Vendas** (33 endpoints).\n\nGerado em: 2026-07-07T18:54:07.588Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Vendas",
+      "item": [
+        {
+          "name": "GET Listar raiz",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "disabled": false
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "disabled": false
+                },
+                {
+                  "key": "type",
+                  "value": "ORCAMENTO",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "ABERTA",
+                  "disabled": true
+                },
+                {
+                  "key": "budgetClosureSituation",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "userId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "sellerId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "orderNumber",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "seller",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "client",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Permissão: `consultar_vendas`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `listSalesQuerySchema`\n\nFonte: `src\\modules\\sales\\routes.ts`"
+          },
+          "response": []
+        },
+        {
+          "name": "POST Criar raiz",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales"
+              ]
+            },
+            "description": "Permissão: `incluir_vendas`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createSaleSchema`\n\nFonte: `src\\modules\\sales\\routes.ts`",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"memberId\": \"{{memberId}}\",\n  \"type\": \"ORCAMENTO\",\n  \"status\": \"ABERTA\",\n  \"items\": [\n    {\n      \"quantity\": 1,\n      \"valueUnit\": 100,\n      \"valueDiscount\": 0,\n      \"valueAcresce\": 0,\n      \"productsEnterprisesId\": \"{{productEnterpriseId}}\",\n      \"unitId\": \"{{unitId}}\",\n      \"productTypeId\": \"{{productTypeId}}\"\n    }\n  ],\n  \"payments\": [\n    {\n      \"paymentTypeId\": \"{{paymentTypeId}}\",\n      \"value\": 100\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": ":saleId",
+          "item": [
+            {
+              "name": "GET Obter saleId",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/{{saleId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "{{saleId}}"
+                  ]
+                },
+                "description": "Permissão: `consultar_vendas`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `saleParamsSchema`\n\nFonte: `src\\modules\\sales\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH Atualizar saleId",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/{{saleId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "{{saleId}}"
+                  ]
+                },
+                "description": "Permissão: `alterar_vendas`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `patchSaleSchema`\n\nParams schema: `saleParamsSchema`\n\nFonte: `src\\modules\\sales\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"FINALIZADA\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":saleId / budget-conversions",
+          "item": [
+            {
+              "name": "GET Obter budget-conversions",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/{{saleId}}/budget-conversions",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "{{saleId}}",
+                    "budget-conversions"
+                  ]
+                },
+                "description": "Permissão: `consultar_vendas`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `saleParamsSchema`\n\nFonte: `src\\modules\\sales\\routes.ts`"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":saleId / convert-to-sale",
+          "item": [
+            {
+              "name": "POST Criar convert-to-sale",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/{{saleId}}/convert-to-sale",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "{{saleId}}",
+                    "convert-to-sale"
+                  ]
+                },
+                "description": "Permissão: `gerar_vendas | alterar_vendas`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `convertBudgetToSaleSchema`\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `saleParamsSchema`\n\nFonte: `src\\modules\\sales\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"FINALIZADA\",\n  \"items\": [],\n  \"payments\": [\n    {\n      \"paymentTypeId\": \"{{paymentTypeId}}\",\n      \"value\": 100\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":saleId / items",
+          "item": [
+            {
+              "name": "POST Criar items",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/{{saleId}}/items",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "{{saleId}}",
+                    "items"
+                  ]
+                },
+                "description": "Permissão: `alterar_vendas`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createSaleItemSchema`\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `saleParamsSchema`\n\nFonte: `src\\modules\\sales\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"quantity\": 1,\n  \"valueUnit\": 50,\n  \"valueDiscount\": 0,\n  \"valueAcresce\": 0,\n  \"productsEnterprisesId\": \"{{productEnterpriseId}}\",\n  \"unitId\": \"{{unitId}}\",\n  \"productTypeId\": \"{{productTypeId}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":saleId / items / :saleItemId",
+          "item": [
+            {
+              "name": "DELETE Excluir saleItemId",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/{{saleId}}/items/{{saleItemId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "{{saleId}}",
+                    "items",
+                    "{{saleItemId}}"
+                  ]
+                },
+                "description": "Permissão: `alterar_vendas`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `saleItemParamsSchema`\n\nFonte: `src\\modules\\sales\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH Atualizar saleItemId",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/{{saleId}}/items/{{saleItemId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "{{saleId}}",
+                    "items",
+                    "{{saleItemId}}"
+                  ]
+                },
+                "description": "Permissão: `alterar_vendas`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `patchSaleItemSchema`\n\nParams schema: `saleItemParamsSchema`\n\nFonte: `src\\modules\\sales\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"quantity\": 2\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":saleId / recalculate-totals",
+          "item": [
+            {
+              "name": "POST Criar recalculate-totals",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/{{saleId}}/recalculate-totals",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "{{saleId}}",
+                    "recalculate-totals"
+                  ]
+                },
+                "description": "Permissão: `alterar_vendas`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `saleParamsSchema`\n\nFonte: `src\\modules\\sales\\routes.ts`"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":saleId / returns",
+          "item": [
+            {
+              "name": "GET Listar raiz",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/{{saleId}}/returns",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "{{saleId}}",
+                    "returns"
+                  ]
+                },
+                "description": "Permissão: `consultar_devolucoes_vendas`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `saleParamsSchema`\n\nFonte: `src\\modules\\sales\\returns\\routes.ts`"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":saleId / returns / :salesReturnId",
+          "item": [
+            {
+              "name": "GET Obter salesReturnId",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/{{saleId}}/returns/{{salesReturnId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "{{saleId}}",
+                    "returns",
+                    "{{salesReturnId}}"
+                  ]
+                },
+                "description": "Permissão: `consultar_devolucoes_vendas`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `salesReturnIdParamsSchema`\n\nFonte: `src\\modules\\sales\\returns\\routes.ts`"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":saleId / returns / full",
+          "item": [
+            {
+              "name": "POST Criar full",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/{{saleId}}/returns/full",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "{{saleId}}",
+                    "returns",
+                    "full"
+                  ]
+                },
+                "description": "Permissão: `incluir_devolucoes_vendas`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createFullReturnSchema`\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `saleParamsSchema`\n\nFonte: `src\\modules\\sales\\returns\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"notes\": \"Devolução total\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":saleId / returns / partial",
+          "item": [
+            {
+              "name": "POST Criar partial",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/{{saleId}}/returns/partial",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "{{saleId}}",
+                    "returns",
+                    "partial"
+                  ]
+                },
+                "description": "Permissão: `incluir_devolucoes_vendas`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createPartialReturnSchema`\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `saleParamsSchema`\n\nFonte: `src\\modules\\sales\\returns\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"notes\": \"Devolução parcial\",\n  \"items\": [\n    {\n      \"saleItemId\": \"{{saleItemId}}\",\n      \"quantity\": 1\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "analytics / operations / cancellations",
+          "item": [
+            {
+              "name": "GET Listar cancellations",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/analytics/operations/cancellations",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "analytics",
+                    "operations",
+                    "cancellations"
+                  ],
+                  "query": [
+                    {
+                      "key": "periodPreset",
+                      "value": "this_month",
+                      "disabled": false
+                    },
+                    {
+                      "key": "dateFrom",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "dateTo",
+                      "value": "",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Query schema: `analyticsOperationsQuerySchema`\n\nFonte: `src\\modules\\sales\\analytics\\routes.ts`"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "analytics / operations / status-breakdown",
+          "item": [
+            {
+              "name": "GET Listar status-breakdown",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/analytics/operations/status-breakdown",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "analytics",
+                    "operations",
+                    "status-breakdown"
+                  ],
+                  "query": [
+                    {
+                      "key": "periodPreset",
+                      "value": "this_month",
+                      "disabled": false
+                    },
+                    {
+                      "key": "dateFrom",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "dateTo",
+                      "value": "",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Query schema: `analyticsOperationsQuerySchema`\n\nFonte: `src\\modules\\sales\\analytics\\routes.ts`"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "analytics / pipeline / budgets",
+          "item": [
+            {
+              "name": "GET Listar budgets",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/analytics/pipeline/budgets",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "analytics",
+                    "pipeline",
+                    "budgets"
+                  ],
+                  "query": [
+                    {
+                      "key": "periodPreset",
+                      "value": "this_month",
+                      "disabled": false
+                    },
+                    {
+                      "key": "dateFrom",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "dateTo",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "timezone",
+                      "value": "America/Sao_Paulo",
+                      "disabled": true
+                    },
+                    {
+                      "key": "compareMode",
+                      "value": "none",
+                      "disabled": true
+                    },
+                    {
+                      "key": "sellerId",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "memberId",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "paymentTypeId",
+                      "value": "",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Query schema: `analyticsPeriodQuerySchema`\n\nFonte: `src\\modules\\sales\\analytics\\routes.ts`"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "analytics / pipeline / budgets / funnel",
+          "item": [
+            {
+              "name": "GET Listar funnel",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/analytics/pipeline/budgets/funnel",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "analytics",
+                    "pipeline",
+                    "budgets",
+                    "funnel"
+                  ],
+                  "query": [
+                    {
+                      "key": "periodPreset",
+                      "value": "this_month",
+                      "disabled": false
+                    },
+                    {
+                      "key": "dateFrom",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "dateTo",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "timezone",
+                      "value": "America/Sao_Paulo",
+                      "disabled": true
+                    },
+                    {
+                      "key": "compareMode",
+                      "value": "none",
+                      "disabled": true
+                    },
+                    {
+                      "key": "sellerId",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "memberId",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "paymentTypeId",
+                      "value": "",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Query schema: `analyticsPeriodQuerySchema`\n\nFonte: `src\\modules\\sales\\analytics\\routes.ts`"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "analytics / pipeline / compare",
+          "item": [
+            {
+              "name": "GET Listar compare",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/analytics/pipeline/compare",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "analytics",
+                    "pipeline",
+                    "compare"
+                  ],
+                  "query": [
+                    {
+                      "key": "periodPreset",
+                      "value": "this_month",
+                      "disabled": false
+                    },
+                    {
+                      "key": "dateFrom",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "dateTo",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "timezone",
+                      "value": "America/Sao_Paulo",
+                      "disabled": true
+                    },
+                    {
+                      "key": "compareMode",
+                      "value": "none",
+                      "disabled": true
+                    },
+                    {
+                      "key": "sellerId",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "memberId",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "paymentTypeId",
+                      "value": "",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Query schema: `analyticsPeriodQuerySchema`\n\nFonte: `src\\modules\\sales\\analytics\\routes.ts`"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "analytics / pipeline / overview",
+          "item": [
+            {
+              "name": "GET Listar overview",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/analytics/pipeline/overview",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "analytics",
+                    "pipeline",
+                    "overview"
+                  ],
+                  "query": [
+                    {
+                      "key": "periodPreset",
+                      "value": "this_month",
+                      "disabled": false
+                    },
+                    {
+                      "key": "dateFrom",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "dateTo",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "timezone",
+                      "value": "America/Sao_Paulo",
+                      "disabled": true
+                    },
+                    {
+                      "key": "compareMode",
+                      "value": "none",
+                      "disabled": true
+                    },
+                    {
+                      "key": "sellerId",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "memberId",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "paymentTypeId",
+                      "value": "",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Query schema: `analyticsPeriodQuerySchema`\n\nFonte: `src\\modules\\sales\\analytics\\routes.ts`"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "analytics / pipeline / timeseries",
+          "item": [
+            {
+              "name": "GET Listar timeseries",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/analytics/pipeline/timeseries",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "analytics",
+                    "pipeline",
+                    "timeseries"
+                  ],
+                  "query": [
+                    {
+                      "key": "granularity",
+                      "value": "day",
+                      "disabled": true
+                    },
+                    {
+                      "key": "periodPreset",
+                      "value": "this_month",
+                      "disabled": false
+                    },
+                    {
+                      "key": "dateFrom",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "dateTo",
+                      "value": "",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Query schema: `analyticsTimeseriesQuerySchema`\n\nFonte: `src\\modules\\sales\\analytics\\routes.ts`"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "analytics / realized / by-customer",
+          "item": [
+            {
+              "name": "GET Listar by-customer",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/analytics/realized/by-customer",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "analytics",
+                    "realized",
+                    "by-customer"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "20",
+                      "disabled": false
+                    },
+                    {
+                      "key": "periodPreset",
+                      "value": "this_month",
+                      "disabled": false
+                    },
+                    {
+                      "key": "dateFrom",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "dateTo",
+                      "value": "",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Query schema: `analyticsRankingQuerySchema`\n\nFonte: `src\\modules\\sales\\analytics\\routes.ts`"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "analytics / realized / by-payment-type",
+          "item": [
+            {
+              "name": "GET Listar by-payment-type",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/analytics/realized/by-payment-type",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "analytics",
+                    "realized",
+                    "by-payment-type"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "20",
+                      "disabled": false
+                    },
+                    {
+                      "key": "periodPreset",
+                      "value": "this_month",
+                      "disabled": false
+                    },
+                    {
+                      "key": "dateFrom",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "dateTo",
+                      "value": "",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Query schema: `analyticsRankingQuerySchema`\n\nFonte: `src\\modules\\sales\\analytics\\routes.ts`"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "analytics / realized / by-product-brand",
+          "item": [
+            {
+              "name": "GET Listar by-product-brand",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/analytics/realized/by-product-brand",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "analytics",
+                    "realized",
+                    "by-product-brand"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "20",
+                      "disabled": false
+                    },
+                    {
+                      "key": "periodPreset",
+                      "value": "this_month",
+                      "disabled": false
+                    },
+                    {
+                      "key": "dateFrom",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "dateTo",
+                      "value": "",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Query schema: `analyticsRankingQuerySchema`\n\nFonte: `src\\modules\\sales\\analytics\\routes.ts`"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "analytics / realized / by-product-group",
+          "item": [
+            {
+              "name": "GET Listar by-product-group",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/analytics/realized/by-product-group",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "analytics",
+                    "realized",
+                    "by-product-group"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "20",
+                      "disabled": false
+                    },
+                    {
+                      "key": "periodPreset",
+                      "value": "this_month",
+                      "disabled": false
+                    },
+                    {
+                      "key": "dateFrom",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "dateTo",
+                      "value": "",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Query schema: `analyticsRankingQuerySchema`\n\nFonte: `src\\modules\\sales\\analytics\\routes.ts`"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "analytics / realized / by-seller",
+          "item": [
+            {
+              "name": "GET Listar by-seller",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/analytics/realized/by-seller",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "analytics",
+                    "realized",
+                    "by-seller"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "20",
+                      "disabled": false
+                    },
+                    {
+                      "key": "periodPreset",
+                      "value": "this_month",
+                      "disabled": false
+                    },
+                    {
+                      "key": "dateFrom",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "dateTo",
+                      "value": "",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Query schema: `analyticsRankingQuerySchema`\n\nFonte: `src\\modules\\sales\\analytics\\routes.ts`"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "analytics / realized / compare",
+          "item": [
+            {
+              "name": "GET Listar compare",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/analytics/realized/compare",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "analytics",
+                    "realized",
+                    "compare"
+                  ],
+                  "query": [
+                    {
+                      "key": "periodPreset",
+                      "value": "this_month",
+                      "disabled": false
+                    },
+                    {
+                      "key": "dateFrom",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "dateTo",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "timezone",
+                      "value": "America/Sao_Paulo",
+                      "disabled": true
+                    },
+                    {
+                      "key": "compareMode",
+                      "value": "none",
+                      "disabled": true
+                    },
+                    {
+                      "key": "sellerId",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "memberId",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "paymentTypeId",
+                      "value": "",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Query schema: `analyticsPeriodQuerySchema`\n\nFonte: `src\\modules\\sales\\analytics\\routes.ts`"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "analytics / realized / overview",
+          "item": [
+            {
+              "name": "GET Listar overview",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/analytics/realized/overview",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "analytics",
+                    "realized",
+                    "overview"
+                  ],
+                  "query": [
+                    {
+                      "key": "periodPreset",
+                      "value": "this_month",
+                      "disabled": false
+                    },
+                    {
+                      "key": "dateFrom",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "dateTo",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "timezone",
+                      "value": "America/Sao_Paulo",
+                      "disabled": true
+                    },
+                    {
+                      "key": "compareMode",
+                      "value": "none",
+                      "disabled": true
+                    },
+                    {
+                      "key": "sellerId",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "memberId",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "paymentTypeId",
+                      "value": "",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Query schema: `analyticsPeriodQuerySchema`\n\nFonte: `src\\modules\\sales\\analytics\\routes.ts`"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "analytics / realized / returns",
+          "item": [
+            {
+              "name": "GET Listar returns",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/analytics/realized/returns",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "analytics",
+                    "realized",
+                    "returns"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "20",
+                      "disabled": false
+                    },
+                    {
+                      "key": "periodPreset",
+                      "value": "this_month",
+                      "disabled": false
+                    },
+                    {
+                      "key": "dateFrom",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "dateTo",
+                      "value": "",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Query schema: `analyticsRankingQuerySchema`\n\nFonte: `src\\modules\\sales\\analytics\\routes.ts`"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "analytics / realized / timeseries",
+          "item": [
+            {
+              "name": "GET Listar timeseries",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/analytics/realized/timeseries",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "analytics",
+                    "realized",
+                    "timeseries"
+                  ],
+                  "query": [
+                    {
+                      "key": "granularity",
+                      "value": "day",
+                      "disabled": true
+                    },
+                    {
+                      "key": "periodPreset",
+                      "value": "this_month",
+                      "disabled": false
+                    },
+                    {
+                      "key": "dateFrom",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "dateTo",
+                      "value": "",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Query schema: `analyticsTimeseriesQuerySchema`\n\nFonte: `src\\modules\\sales\\analytics\\routes.ts`"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "analytics / realized / top-products",
+          "item": [
+            {
+              "name": "GET Listar top-products",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/analytics/realized/top-products",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "analytics",
+                    "realized",
+                    "top-products"
+                  ],
+                  "query": [
+                    {
+                      "key": "sortBy",
+                      "value": "revenue",
+                      "disabled": true
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20",
+                      "disabled": false
+                    },
+                    {
+                      "key": "periodPreset",
+                      "value": "this_month",
+                      "disabled": false
+                    },
+                    {
+                      "key": "dateFrom",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "dateTo",
+                      "value": "",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Query schema: `analyticsTopProductsQuerySchema`\n\nFonte: `src\\modules\\sales\\analytics\\routes.ts`"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "analytics / receivables / aging",
+          "item": [
+            {
+              "name": "GET Listar aging",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/analytics/receivables/aging",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "analytics",
+                    "receivables",
+                    "aging"
+                  ],
+                  "query": [
+                    {
+                      "key": "periodPreset",
+                      "value": "this_month",
+                      "disabled": false
+                    },
+                    {
+                      "key": "dateFrom",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "dateTo",
+                      "value": "",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Query schema: `analyticsReceivablesQuerySchema`\n\nFonte: `src\\modules\\sales\\analytics\\routes.ts`"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "analytics / receivables / summary",
+          "item": [
+            {
+              "name": "GET Listar summary",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/analytics/receivables/summary",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "analytics",
+                    "receivables",
+                    "summary"
+                  ],
+                  "query": [
+                    {
+                      "key": "periodPreset",
+                      "value": "this_month",
+                      "disabled": false
+                    },
+                    {
+                      "key": "dateFrom",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "dateTo",
+                      "value": "",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "Query schema: `analyticsReceivablesQuerySchema`\n\nFonte: `src\\modules\\sales\\analytics\\routes.ts`"
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "enterpriseId",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "memberId",
+      "value": ""
+    },
+    {
+      "key": "departmentId",
+      "value": ""
+    },
+    {
+      "key": "saleId",
+      "value": ""
+    },
+    {
+      "key": "saleItemId",
+      "value": ""
+    },
+    {
+      "key": "productEnterpriseId",
+      "value": ""
+    },
+    {
+      "key": "unitId",
+      "value": ""
+    },
+    {
+      "key": "productTypeId",
+      "value": ""
+    },
+    {
+      "key": "paymentTypeId",
+      "value": ""
+    },
+    {
+      "key": "cepId",
+      "value": ""
+    },
+    {
+      "key": "maintainerApiKey",
+      "value": ""
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ]
+}

@@ -23,8 +23,7 @@ import { enterprises } from "./enterprises.js";
 import { departments } from "./departments.js";
 import { typeSupplierCustomers } from "./typeSupplierCustomers.js";
 import { typeNetworks } from "./typeNetworks.js";
-import { tz } from "../functions.js";
-import { percentageDecimal } from "../functions.js";
+import { tz, percentageDecimal, valorDuasCasasDecimais } from "../functions.js";
 
 //Tabela de membros de empresas
 export const enterprisesMembers = pgTable(
@@ -33,18 +32,10 @@ export const enterprisesMembers = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
 
     code: integer("code"), // Código do membro
-    status: statusEnum("status").default("ATIVO").notNull(), // Status
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "restrict" }), // Usuário
-    enterpriseId: uuid("enterprise_id")
-      .notNull()
-      .references(() => enterprises.id, { onDelete: "restrict" }), // Empresa
+    status: statusEnum("status").default("PENDENTE").notNull(), // Status da venda.
+    postSalesStatus: statusEnum("post_sales_status").default("PENDENTE").notNull(), // Status pós-venda
     class: memberClassEnum("class").notNull(), // Classe
     observations: varchar("observations", { length: 500 }), // Observações
-    includedBy: uuid("included_by")
-      .notNull()
-      .references(() => users.id, { onDelete: "restrict" }), // Incluído por
     registeredOn: date("registered_on", { mode: "date" })
       .default(sql`CURRENT_DATE`)
       .notNull(),
@@ -66,6 +57,17 @@ export const enterprisesMembers = pgTable(
     comissionPartial: decimal("comission_partial", percentageDecimal)
       .notNull()
       .default("0.00"), // Comissão parcial
+    notifyMaturity: boolean("notify_maturity").default(false).notNull(), // Notificar vencimento
+    rentalPrice: decimal("rental_price", valorDuasCasasDecimais).notNull().default("0.00"), // Preço de aluguel
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }), // Usuário
+    enterpriseId: uuid("enterprise_id")
+      .notNull()
+      .references(() => enterprises.id, { onDelete: "restrict" }), // Empresa
+    includedBy: uuid("included_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }), // Incluído por
     typeSupplierCustomerId: uuid("type_supplier_customer_id").references(
       () => typeSupplierCustomers.id,
       { onDelete: "restrict" },

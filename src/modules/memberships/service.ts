@@ -151,6 +151,9 @@ const loadPrincipalAddressSummariesByUserId = async (
 const formatMembershipPercentage = (value: number) =>
   Math.round(value * 100) / 100;
 
+const formatMembershipMonetary = (value: number) =>
+  Math.round(value * 100) / 100;
+
 const mapMembershipSalesFieldsToInsert = (
   input: Pick<
     CreateMembershipInput,
@@ -160,6 +163,8 @@ const mapMembershipSalesFieldsToInsert = (
     | "comissionOnSight"
     | "comissionToTerms"
     | "comissionPartial"
+    | "notifyMaturity"
+    | "rentalPrice"
   >,
 ): Partial<typeof enterprisesMembers.$inferInsert> => ({
   ...(input.saleLimit !== undefined
@@ -196,6 +201,14 @@ const mapMembershipSalesFieldsToInsert = (
         ).toFixed(2),
       }
     : {}),
+  ...(input.notifyMaturity !== undefined
+    ? { notifyMaturity: input.notifyMaturity }
+    : {}),
+  ...(input.rentalPrice !== undefined
+    ? {
+        rentalPrice: formatMembershipMonetary(input.rentalPrice).toFixed(2),
+      }
+    : {}),
 });
 
 const mapMembershipSalesFieldsToPatch = (
@@ -207,6 +220,7 @@ const mapMemberWithUser = ({ member, user }: MemberWithUserRow) => ({
   id: member.id,
   code: member.code,
   status: member.status,
+  postSalesStatus: member.postSalesStatus,
   userId: member.userId,
   enterpriseId: member.enterpriseId,
   class: member.class,
@@ -216,6 +230,8 @@ const mapMemberWithUser = ({ member, user }: MemberWithUserRow) => ({
   comissionOnSight: member.comissionOnSight,
   comissionToTerms: member.comissionToTerms,
   comissionPartial: member.comissionPartial,
+  notifyMaturity: member.notifyMaturity,
+  rentalPrice: member.rentalPrice,
   includedBy: member.includedBy,
   registeredOn: member.registeredOn,
   approvedAt: member.approvedAt,
@@ -249,6 +265,11 @@ export class MembershipsService {
     }
     if (filters.status !== undefined) {
       memberFilters.push(eq(enterprisesMembers.status, filters.status));
+    }
+    if (filters.postSalesStatus !== undefined) {
+      memberFilters.push(
+        eq(enterprisesMembers.postSalesStatus, filters.postSalesStatus),
+      );
     }
     if (filters.registration !== undefined) {
       memberFilters.push(eq(users.userRegistration, filters.registration));
@@ -549,6 +570,8 @@ export class MembershipsService {
         | "comissionOnSight"
         | "comissionToTerms"
         | "comissionPartial"
+        | "notifyMaturity"
+        | "rentalPrice"
       >;
     },
     tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
@@ -1139,6 +1162,9 @@ export class MembershipsService {
 
     if (input.class !== undefined) setValues.class = input.class;
     if (input.code !== undefined) setValues.code = input.code;
+    if (input.postSalesStatus !== undefined) {
+      setValues.postSalesStatus = input.postSalesStatus;
+    }
     Object.assign(setValues, mapMembershipSalesFieldsToPatch(input));
 
     if (isDeleteOperation) {

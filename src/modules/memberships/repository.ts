@@ -10,6 +10,7 @@ export const normalizeMemberListFilters = (query: {
   code?: number;
   class?: (typeof enterprisesMembers.$inferSelect)["class"];
   status?: (typeof enterprisesMembers.$inferSelect)["status"];
+  postSalesStatus?: (typeof enterprisesMembers.$inferSelect)["postSalesStatus"];
   registration?: string;
   email?: string;
   phone?: string;
@@ -18,6 +19,7 @@ export const normalizeMemberListFilters = (query: {
   code: query.code,
   class: query.class,
   status: query.status,
+  postSalesStatus: query.postSalesStatus,
   registration: query.registration
     ? normalizeCpfCnpj(query.registration)
     : undefined,

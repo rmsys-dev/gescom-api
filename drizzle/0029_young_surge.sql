@@ -1,0 +1,3 @@
+DROP INDEX "users_address_principal_active_unique";--> statement-breakpoint
+DROP INDEX "users_address_state_registration_active_unique";--> statement-breakpoint
+CREATE UNIQUE INDEX "users_address_state_registration_adress_type_active_unique" ON "users_address" USING btree ("user_id","state_registration","adress_type") WHERE "users_address"."deleted_at" is null and "users_address"."state_registration" is not null;

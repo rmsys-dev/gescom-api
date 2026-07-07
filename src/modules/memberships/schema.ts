@@ -21,6 +21,7 @@ export const listMembersQuerySchema = createPaginationQuerySchema(100)
     code: z.coerce.number().int().optional(),
     class: z.enum(memberClassEnum.enumValues).optional(),
     status: z.enum(statusEnum.enumValues).optional(),
+    postSalesStatus: z.enum(statusEnum.enumValues).optional(),
     registration: registrationSchema.optional(),
     email: emailSchema("email").optional(),
     phone: phoneSchema("phone").optional(),
@@ -39,6 +40,8 @@ const membershipSalesFieldsSchema = z
     comissionOnSight: membershipPercentageSchema.optional(),
     comissionToTerms: membershipPercentageSchema.optional(),
     comissionPartial: membershipPercentageSchema.optional(),
+    notifyMaturity: z.boolean().optional(),
+    rentalPrice: z.coerce.number().min(0).optional(),
   })
   .strict();
 
@@ -50,7 +53,9 @@ const hasMembershipSalesField = (
   data.receiptLimitDiscount !== undefined ||
   data.comissionOnSight !== undefined ||
   data.comissionToTerms !== undefined ||
-  data.comissionPartial !== undefined;
+  data.comissionPartial !== undefined ||
+  data.notifyMaturity !== undefined ||
+  data.rentalPrice !== undefined;
 
 //Esquema de empresa de membro
 export const membershipEnterpriseParamsSchema = z
@@ -191,6 +196,7 @@ export const patchMembershipSchema = z
     code: z.coerce.number().int().nullable().optional(),
     class: z.enum(memberClassEnum.enumValues).optional(),
     status: z.enum(statusEnum.enumValues).optional(),
+    postSalesStatus: z.enum(statusEnum.enumValues).optional(),
     // Se `true`, o back define `deleted_at` com a data/hora do servidor (soft delete)
     softDelete: z.boolean().optional(),
   })
@@ -200,6 +206,7 @@ export const patchMembershipSchema = z
       data.code !== undefined ||
       data.class !== undefined ||
       data.status !== undefined ||
+      data.postSalesStatus !== undefined ||
       data.softDelete === true ||
       hasMembershipSalesField(data),
     "Deve haver ao menos um campo para atualizar",

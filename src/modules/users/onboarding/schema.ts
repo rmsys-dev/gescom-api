@@ -193,6 +193,9 @@ export const usersTaxInfosCreateSchema = z
     sefaz_Date: dateOnlyIsoSchema("sefaz_Date").optional(),
     governmentEntity: z.string().length(1).optional(),
     governmentReductionRate: z.coerce.number().min(0).max(100).optional(),
+    identityDocument: nonEmptyText255Schema("identityDocument").optional(),
+    partnerName1: personNameSchema("partnerName1").optional(),
+    partnerName2: personNameSchema("partnerName2").optional(),
   })
   .strict();
 
@@ -217,18 +220,19 @@ export const usersFinancialInfoCreateSchema = z
   .object({
     ICMSReduction: z.coerce.number().min(0).max(100).optional(),
     discountLimit: z.coerce.number().min(0).max(100).optional(),
-    discoutArrangement: nonEmptyText255Schema("discoutArrangement").optional(),
+    discoutArrangement: z.coerce.number().min(0).max(100).optional(),
     creditType: creditTypeSchema.optional(),
     requestAmount: z.coerce.number().min(0).optional(),
-    budgetPrice: z.coerce.number().min(0).optional(),
+    creditLimit: z.coerce.number().min(0).optional(),
     taxRegime: nonEmptyText255Schema("taxRegime").optional(),
     purchaseOrder: z.boolean().optional(),
     prevRate: z.coerce.number().min(0).max(100).optional(),
     ratTax: z.coerce.number().min(0).max(100).optional(),
-    reductionRate: z.coerce.number().min(0).max(100).optional(),
+    billingCommission: z.coerce.number().min(0).max(100).optional(),
     senarTax: z.coerce.number().min(0).max(100).optional(),
     sale_discount: z.coerce.number().min(0).max(100).optional(),
     sendNF: z.boolean().optional(),
+    quotedPrice: z.boolean().optional(),
   })
   .strict();
 

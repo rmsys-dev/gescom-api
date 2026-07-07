@@ -80,7 +80,7 @@ export const usersAddress = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     number: varchar("number", { length: 255 }).notNull(), //Número
     complement: varchar("complement", { length: 255 }), //Complemento
-    stateRegistration: varchar("state_registration", { length: 255 }),
+    stateRegistration: varchar("state_registration", { length: 255 }), //Inscrição estadual
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
@@ -93,14 +93,9 @@ export const usersAddress = pgTable(
     deletedAt: tz("deleted_at"),
   },
   (t) => [
-    uniqueIndex("users_address_principal_active_unique")
-      .on(t.userId)
-      .where(sql`${t.deletedAt} is null and ${t.adressType} = 'PRINCIPAL'`),
-    uniqueIndex("users_address_state_registration_active_unique")
-      .on(t.stateRegistration)
-      .where(
-        sql`${t.deletedAt} is null and ${t.stateRegistration} is not null`,
-      ),
+    uniqueIndex("users_address_state_registration_adress_type_active_unique")
+      .on(t.userId, t.stateRegistration, t.adressType)
+      .where(sql`${t.deletedAt} is null and ${t.stateRegistration} is not null`),
     index("users_address_user_active_idx").on(t.userId, t.deletedAt),
   ],
 );
@@ -167,19 +162,22 @@ export const usersTaxInfos = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     renegotiation: boolean("renegotiation"),
-    spc_registration: boolean("spc_registration").default(false),
-    spc_registry_date: date("spc_registry_date", { mode: "date" }),
+    spc_registration: boolean("spc_registration").default(false), 
+    spc_registry_date: date("spc_registry_date", { mode: "date" }), 
     municipalRegistration: varchar("municipal_registration", {
       length: 255,
     }),
     suframa_registration: varchar("suframa_registration", {
       length: 255,
     }),
-    userLegalName: varchar("user_legal_name", { length: 255 }),
+    userLegalName: varchar("user_legal_name", { length: 255 }),  // nome fantasia
     r3_code: integer("r3_code"),
     sefaz_Date: date("sefaz_date", { mode: "date" }),
     governmentEntity: varchar("government_entity", { length: 1 }),
-    governmentReductionRate: decimal("government_reduction_rate", percentageDecimal),
+    governmentReductionRate: decimal("government_reduction_rate", percentageDecimal), 
+    identityDocument: varchar("identity_document", { length: 255 }),  // Documento de identidade
+    partnerName1: varchar("partner_name1", { length: 255 }), // Nome do socio1
+    partnerName2: varchar("partner_name2", { length: 255 }), // Nome do socio2    
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
@@ -201,20 +199,19 @@ export const usersFinancialInfo = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     ICMSReduction: decimal("icms_reduction", percentageDecimal), // Redução de ICMS
     discountLimit: decimal("discount_limit", percentageDecimal), // Limite de desconto
-    discoutArrangement: varchar("discout_arrangement", {
-      length: 255,
-    }), // Tipo de desconto
-    creditType: creditTypeEnum("credit_type"),
+    discoutArrangement: decimal("discout_arrangement", percentageDecimal), // desconto acerto 
+    creditType: creditTypeEnum("credit_type"), // tipo de crédito
     requestAmount: decimal("request_amount", valorDuasCasasDecimais), // Valor solicitado
-    budgetPrice: decimal("budget_price", valorDuasCasasDecimais), // Preço orçado
+    creditLimit: decimal("credit_limit", valorDuasCasasDecimais), // Limite de crédito
     taxRegime: varchar("tax_regime", { length: 255 }), // Regime tributário
     purchaseOrder: boolean("purchase_order"), // Pedido de compra
-    prevRate: decimal("prev_rate", percentageDecimal), // Taxa anterior
-    ratTax: decimal("rat_tax", percentageDecimal), // Taxa RAT
-    reductionRate: decimal("reduction_rate", percentageDecimal), // Taxa de redução
+    prevRate: decimal("prev_rate", percentageDecimal), // taxa prevista
+    ratTax: decimal("rat_tax", percentageDecimal), // Taxa RAT    
+    billingCommission: decimal("billing_commission", percentageDecimal), // Taxa de comissão de faturamento    
     senarTax: decimal("senar_tax", percentageDecimal), // Taxa SENAR
     sale_discount: decimal("sale_discount", percentageDecimal), // Desconto de venda
     sendNF: boolean("send_nf"), // Enviar NF
+    quotedPrice: boolean("quoted_price").default(true).notNull(), // Informar Preço no orcamento.
     userId: uuid("user_id") // Vínculo usuário-empresa
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
@@ -240,7 +237,7 @@ export const usersFinancialInfo = pgTable(
     ),
     check(
       "users_financial_info_budget_price_non_negative",
-      sql`${t.budgetPrice} >= 0`,
+      sql`${t.creditLimit} >= 0`,
     ),
     check(
       "users_financial_info_prev_rate_range",
@@ -252,7 +249,7 @@ export const usersFinancialInfo = pgTable(
     ),
     check(
       "users_financial_info_reduction_rate_range",
-      sql`${t.reductionRate} >= 0 and ${t.reductionRate} <= 100`,
+      sql`${t.billingCommission} >= 0 and ${t.billingCommission} <= 100`,
     ),
     check(
       "users_financial_info_senar_tax_range",

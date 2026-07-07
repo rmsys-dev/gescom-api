@@ -326,7 +326,9 @@ export class UsersOnboardingService {
           .from(usersAddress)
           .where(
             and(
+              eq(usersAddress.userId, userId),
               eq(usersAddress.stateRegistration, input.stateRegistration),
+              eq(usersAddress.adressType, input.adressType),
               isNull(usersAddress.deletedAt),
             ),
           )
@@ -334,7 +336,7 @@ export class UsersOnboardingService {
 
         if (conflict[0]) {
           throw new ConflictError(
-            "Inscricao estadual ja cadastrada para outro endereco",
+            "Inscricao estadual ja cadastrada para este tipo de endereco",
             "USER_ADDRESS_STATE_REGISTRATION_ALREADY_EXISTS",
           );
         }
@@ -463,7 +465,9 @@ export class UsersOnboardingService {
         .from(usersAddress)
         .where(
           and(
+            eq(usersAddress.userId, userId),
             eq(usersAddress.stateRegistration, input.stateRegistration),
+            eq(usersAddress.adressType, effectiveAdressType),
             isNull(usersAddress.deletedAt),
             ne(usersAddress.id, addressId),
           ),
@@ -472,7 +476,7 @@ export class UsersOnboardingService {
 
       if (conflict[0]) {
         throw new ConflictError(
-          "Inscricao estadual ja cadastrada para outro endereco",
+          "Inscricao estadual ja cadastrada para este tipo de endereco",
           "USER_ADDRESS_STATE_REGISTRATION_ALREADY_EXISTS",
         );
       }
@@ -904,6 +908,9 @@ export class UsersOnboardingService {
           governmentReductionRate: decimalToString(
             input.governmentReductionRate,
           ),
+          identityDocument: input.identityDocument,
+          partnerName1: input.partnerName1,
+          partnerName2: input.partnerName2,
         })
         .returning();
 
@@ -986,6 +993,15 @@ export class UsersOnboardingService {
               ),
             }
           : {}),
+        ...(input.identityDocument !== undefined
+          ? { identityDocument: input.identityDocument }
+          : {}),
+        ...(input.partnerName1 !== undefined
+          ? { partnerName1: input.partnerName1 }
+          : {}),
+        ...(input.partnerName2 !== undefined
+          ? { partnerName2: input.partnerName2 }
+          : {}),
         ...touchUpdatedAt(now),
       })
       .where(
@@ -1044,18 +1060,19 @@ export class UsersOnboardingService {
           userId,
           ICMSReduction: decimalToString(input.ICMSReduction),
           discountLimit: decimalToString(input.discountLimit),
-          discoutArrangement: input.discoutArrangement,
+          discoutArrangement: decimalToString(input.discoutArrangement),
           creditType: input.creditType,
           requestAmount: decimalToString(input.requestAmount),
-          budgetPrice: decimalToString(input.budgetPrice),
+          creditLimit: decimalToString(input.creditLimit),
           taxRegime: input.taxRegime,
           purchaseOrder: input.purchaseOrder,
           prevRate: decimalToString(input.prevRate),
           ratTax: decimalToString(input.ratTax),
-          reductionRate: decimalToString(input.reductionRate),
+          billingCommission: decimalToString(input.billingCommission),
           senarTax: decimalToString(input.senarTax),
           sale_discount: decimalToString(input.sale_discount),
           sendNF: input.sendNF,
+          quotedPrice: input.quotedPrice,
         })
         .returning();
 
@@ -1116,7 +1133,9 @@ export class UsersOnboardingService {
           ? { discountLimit: decimalToString(input.discountLimit) }
           : {}),
         ...(input.discoutArrangement !== undefined
-          ? { discoutArrangement: input.discoutArrangement }
+          ? {
+              discoutArrangement: decimalToString(input.discoutArrangement),
+            }
           : {}),
         ...(input.creditType !== undefined
           ? { creditType: input.creditType }
@@ -1124,8 +1143,8 @@ export class UsersOnboardingService {
         ...(input.requestAmount !== undefined
           ? { requestAmount: decimalToString(input.requestAmount) }
           : {}),
-        ...(input.budgetPrice !== undefined
-          ? { budgetPrice: decimalToString(input.budgetPrice) }
+        ...(input.creditLimit !== undefined
+          ? { creditLimit: decimalToString(input.creditLimit) }
           : {}),
         ...(input.taxRegime !== undefined
           ? { taxRegime: input.taxRegime }
@@ -1139,8 +1158,8 @@ export class UsersOnboardingService {
         ...(input.ratTax !== undefined
           ? { ratTax: decimalToString(input.ratTax) }
           : {}),
-        ...(input.reductionRate !== undefined
-          ? { reductionRate: decimalToString(input.reductionRate) }
+        ...(input.billingCommission !== undefined
+          ? { billingCommission: decimalToString(input.billingCommission) }
           : {}),
         ...(input.senarTax !== undefined
           ? { senarTax: decimalToString(input.senarTax) }
@@ -1149,6 +1168,9 @@ export class UsersOnboardingService {
           ? { sale_discount: decimalToString(input.sale_discount) }
           : {}),
         ...(input.sendNF !== undefined ? { sendNF: input.sendNF } : {}),
+        ...(input.quotedPrice !== undefined
+          ? { quotedPrice: input.quotedPrice }
+          : {}),
         ...touchUpdatedAt(now),
       })
       .where(

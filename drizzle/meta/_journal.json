@@ -204,6 +204,20 @@
       "when": 1783115000000,
       "tag": "0028_entity_profile_sales_sync",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1783369064049,
+      "tag": "0029_young_surge",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1783435393124,
+      "tag": "0030_closed_thanos",
+      "breakpoints": true
     }
   ]
 }

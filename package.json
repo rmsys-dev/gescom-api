@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit",
     "start": "node dist/server.js",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
+    "db:migrate": "tsx scripts/db/apply-pending-migrations.ts",
     "db:check-migrations": "tsx scripts/db/check-migrations-status.ts",
     "db:check-pending-migrations": "tsx scripts/db/check-pending-migration-files.ts",
     "db:compare-prod-schema": "tsx scripts/db/compare-prod-schema.ts",

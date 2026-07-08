@@ -61,7 +61,7 @@ export const stockLocations = pgTable(
       t.box,
     ),
     index("stock_locations_sector_idx").on(t.stockSectorId), // INDEX DE SETOR DE ESTOQUE
-    index("stock_locations_box_idx").on(t.box), // INDEX DE BOX    
+    index("stock_locations_box_idx").on(t.box), // INDEX DE BOX
   ],
 );
 
@@ -112,10 +112,6 @@ export const stockSectorsRental = pgTable(
       // INDEX ÚNICO DE PRODUTO EMPRESA E LOCAÇÃO
       t.productsEnterprisesId,
       t.stockLocationId,
-    ),
-    check(
-      "stock_sectors_rental_quantity_non_negative", // VERIFICA SE A QUANTIDADE É NÃO NEGATIVA
-      sql`${t.quantity} >= 0`,
     ),
   ],
 );
@@ -215,7 +211,10 @@ export const stockMovements = pgTable(
       },
     ),
     quantity: decimal("quantity", valorQuatroCasasDecimais).notNull(), // QUANTIDADE MOVIMENTADA
-    fromQuantityBefore: decimal("from_quantity_before", valorQuatroCasasDecimais), // QUANTIDADE ANTES DO MOVIMENTO
+    fromQuantityBefore: decimal(
+      "from_quantity_before",
+      valorQuatroCasasDecimais,
+    ), // QUANTIDADE ANTES DO MOVIMENTO
     fromQuantityAfter: decimal("from_quantity_after", valorQuatroCasasDecimais), // QUANTIDADE DEPOIS DO MOVIMENTO
     toQuantityBefore: decimal("to_quantity_before", valorQuatroCasasDecimais), // QUANTIDADE ANTES DO MOVIMENTO
     toQuantityAfter: decimal("to_quantity_after", valorQuatroCasasDecimais), // QUANTIDADE DEPOIS DO MOVIMENTO

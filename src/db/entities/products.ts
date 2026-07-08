@@ -25,12 +25,9 @@ export const products = pgTable(
     updatedAt: tz("updated_at"),
   },
   (t) => [
-    uniqueIndex("products_bar_code_active_unique")
-      .on(t.barCode)
-      .where(sql`${t.status} = 'ATIVO' and ${t.barCode} is not null`),
-    uniqueIndex("products_description_active_unique")
-      .on(t.description)
-      .where(sql`${t.status} = 'ATIVO' and ${t.description} is not null`),
+    uniqueIndex("products_description_bar_code_active_unique")
+      .on(t.description, t.barCode)
+      .where(sql`${t.status} = 'ATIVO'`),
   ],
 );
 

@@ -225,6 +225,13 @@
       "when": 1783530624648,
       "tag": "0031_fluffy_thaddeus_ross",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1783531483288,
+      "tag": "0032_clear_puppet_master",
+      "breakpoints": true
     }
   ]
 }

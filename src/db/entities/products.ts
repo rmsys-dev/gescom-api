@@ -6,7 +6,12 @@ import { pgTable, uniqueIndex, index } from "drizzle-orm/pg-core";
 import { enterprises } from "./enterprises.js";
 import { typeSped } from "./typeSped.js";
 import { pisCofinsTypeEnum } from "../enums.js";
-import { tz, percentageDecimal, valorQuatroCasasDecimais, valorDuasCasasDecimais } from "../functions.js";
+import {
+  tz,
+  percentageDecimal,
+  valorQuatroCasasDecimais,
+  valorDuasCasasDecimais,
+} from "../functions.js";
 
 //tabela de produtos. - Global
 export const products = pgTable(
@@ -23,6 +28,9 @@ export const products = pgTable(
     uniqueIndex("products_bar_code_active_unique")
       .on(t.barCode)
       .where(sql`${t.status} = 'ATIVO' and ${t.barCode} is not null`),
+    uniqueIndex("products_description_active_unique")
+      .on(t.description)
+      .where(sql`${t.status} = 'ATIVO' and ${t.description} is not null`),
   ],
 );
 
@@ -45,7 +53,7 @@ export const productTypes = pgTable(
   "products_types",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    type: varchar("type", { length: 255 }).notNull(),  
+    type: varchar("type", { length: 255 }).notNull(),
     description: varchar("description", { length: 255 }).notNull(),
     manufacturing: boolean("manufacturing").notNull().default(false), // se fabricado o tipo produto.
     sales: boolean("sales").notNull().default(false), // se faz venda.
@@ -57,7 +65,6 @@ export const productTypes = pgTable(
   },
   (t) => [uniqueIndex("products_types_type_unique").on(t.type)],
 );
-
 
 // NCM de produtos. - Global
 export const productsNcm = pgTable(
@@ -134,10 +141,10 @@ export const icmsTaxation = pgTable(
   "icms_taxation",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    icms: varchar("icms", { length: 255 }).notNull(), 
-    icmsRate: decimal("icms_rate", percentageDecimal), 
-    simplesIcmsRate: decimal("simples_icms_rate", percentageDecimal), 
-    description: varchar("description", { length: 255 }).notNull(), 
+    icms: varchar("icms", { length: 255 }).notNull(),
+    icmsRate: decimal("icms_rate", percentageDecimal),
+    simplesIcmsRate: decimal("simples_icms_rate", percentageDecimal),
+    description: varchar("description", { length: 255 }).notNull(),
     createdAt: tz("criado_em").defaultNow().notNull(),
     updatedAt: tz("alterado_em"),
   },
@@ -164,9 +171,9 @@ export const productTaxation = pgTable(
     productsEnterprisesId: uuid("products_enterprises_id")
       .notNull()
       .references(() => productsEnterprises.id, { onDelete: "restrict" }),
-    icmsTaxationId: uuid("icms_taxation_id") 
+    icmsTaxationId: uuid("icms_taxation_id")
       .notNull()
-      .references(() => icmsTaxation.id, { onDelete: "restrict" }), 
+      .references(() => icmsTaxation.id, { onDelete: "restrict" }),
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
   },
@@ -184,10 +191,10 @@ export const pisCofinsSituation = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     cst: varchar("cst", { length: 255 }).notNull(),
     description: varchar("description", { length: 255 }).notNull(),
-    type: pisCofinsTypeEnum("type").notNull(), 
-    framing: integer("framing").notNull(), 
-    pisRate: decimal("pis_rate", percentageDecimal), 
-    cofinsRate: decimal("cofins_rate", percentageDecimal), 
+    type: pisCofinsTypeEnum("type").notNull(),
+    framing: integer("framing").notNull(),
+    pisRate: decimal("pis_rate", percentageDecimal),
+    cofinsRate: decimal("cofins_rate", percentageDecimal),
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
   },
@@ -203,7 +210,7 @@ export const productGroups = pgTable(
       .notNull()
       .references(() => enterprises.id, { onDelete: "cascade" }),
     description: varchar("description", { length: 255 }).notNull(),
-    profitMargin: decimal("profit_margin", percentageDecimal),  
+    profitMargin: decimal("profit_margin", percentageDecimal),
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
   },
@@ -226,22 +233,40 @@ export const productSubgroups = pgTable(
       .references(() => enterprises.id, { onDelete: "cascade" }),
     description: varchar("description", { length: 255 }).notNull(),
     generatesComission: boolean("generates_comission").notNull().default(false), // Gera comissão
-    comissionOnSightSeller: decimal("comission_on_sight_seller", percentageDecimal) 
+    comissionOnSightSeller: decimal(
+      "comission_on_sight_seller",
+      percentageDecimal,
+    )
       .notNull()
       .default("0.00"), // Comissão a vista do vendedor
-    comissionToTermsSeller: decimal("comission_to_terms_seller", percentageDecimal)
+    comissionToTermsSeller: decimal(
+      "comission_to_terms_seller",
+      percentageDecimal,
+    )
       .notNull()
       .default("0.00"), // Comissão a prazo do vendedor
-    comissionPartialSeller: decimal("comission_partial_seller", percentageDecimal)
+    comissionPartialSeller: decimal(
+      "comission_partial_seller",
+      percentageDecimal,
+    )
       .notNull()
       .default("0.00"), // Comissão parcial do vendedor
-    comissionOnSightManager: decimal("comission_on_sight_manager", percentageDecimal)
+    comissionOnSightManager: decimal(
+      "comission_on_sight_manager",
+      percentageDecimal,
+    )
       .notNull()
       .default("0.00"), // Comissão a vista do gerente
-    comissionToTermsManager: decimal("comission_to_terms_manager", percentageDecimal)
+    comissionToTermsManager: decimal(
+      "comission_to_terms_manager",
+      percentageDecimal,
+    )
       .notNull()
       .default("0.00"), // Comissão a prazo do gerente
-    comissionPartialManager: decimal("comission_partial_manager", percentageDecimal)
+    comissionPartialManager: decimal(
+      "comission_partial_manager",
+      percentageDecimal,
+    )
       .notNull()
       .default("0.00"), // Comissão parcial do gerente
     createdAt: tz("created_at").defaultNow().notNull(),
@@ -354,7 +379,7 @@ export const prices = pgTable(
   "prices",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    price: decimal("price", valorDuasCasasDecimais).notNull(),   // preço de venda
+    price: decimal("price", valorDuasCasasDecimais).notNull(), // preço de venda
     averageCost: decimal("average_cost", valorQuatroCasasDecimais), // custo médio
     actualRealCost: decimal("actual_real_cost", valorQuatroCasasDecimais), // custo real
     previousCost: decimal("previous_cost", valorQuatroCasasDecimais), // custo anterior
@@ -373,18 +398,15 @@ export const prices = pgTable(
 );
 
 // TABELA DE PRECOS PROMOCIONAIS. - Fechado por tenant
-export const promotionalPrices = pgTable(
-  "promotional_prices",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    description: varchar("description", { length: 255 }),
-    price: decimal("price", valorDuasCasasDecimais).notNull(),
-    startDate: tz("start_date").notNull(),
-    endDate: tz("end_date").notNull(),
-    productsEnterprisesId: uuid("products_enterprises_id")
-      .notNull()
-      .references(() => productsEnterprises.id, { onDelete: "restrict" }),
-    createdAt: tz("created_at").defaultNow().notNull(),
-    updatedAt: tz("updated_at"),
-  },
-);
+export const promotionalPrices = pgTable("promotional_prices", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  description: varchar("description", { length: 255 }),
+  price: decimal("price", valorDuasCasasDecimais).notNull(),
+  startDate: tz("start_date").notNull(),
+  endDate: tz("end_date").notNull(),
+  productsEnterprisesId: uuid("products_enterprises_id")
+    .notNull()
+    .references(() => productsEnterprises.id, { onDelete: "restrict" }),
+  createdAt: tz("created_at").defaultNow().notNull(),
+  updatedAt: tz("updated_at"),
+});

@@ -1,0 +1,1 @@
+ALTER TABLE "stock_sectors_rental" DROP CONSTRAINT "stock_sectors_rental_quantity_non_negative";

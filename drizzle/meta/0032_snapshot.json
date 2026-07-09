@@ -1,6 +1,6 @@
 {
-  "id": "02854132-8b59-4493-8562-f13b06422f5d",
-  "prevId": "22f2c81f-b6f7-46ee-84e8-75ad5be93767",
+  "id": "2279faeb-37c9-41ed-80cb-b2a915dd7b92",
+  "prevId": "02854132-8b59-4493-8562-f13b06422f5d",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -7953,12 +7953,7 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {
-        "stock_sectors_rental_quantity_non_negative": {
-          "name": "stock_sectors_rental_quantity_non_negative",
-          "value": "\"stock_sectors_rental\".\"quantity\" >= 0"
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.type_supplier_customers": {

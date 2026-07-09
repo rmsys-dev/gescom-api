@@ -19,6 +19,9 @@ if (!connectionString) {
 }
 
 const migrations = [
+  { file: "0022_broken_miek.sql", when: 1783022609828 },
+  { file: "0026_fearless_infant_terrible.sql", when: 1783106889545 },
+  { file: "0027_slimy_absorbing_man.sql", when: 1783110893404 },
   { file: "0024_open_mandarin.sql", when: 1783085805713 },
   { file: "0028_entity_profile_sales_sync.sql", when: 1783115000000 },
   { file: "0029_young_surge.sql", when: 1783369064049 },

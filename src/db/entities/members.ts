@@ -23,7 +23,7 @@ import { enterprises } from "./enterprises.js";
 import { departments } from "./departments.js";
 import { typeSupplierCustomers } from "./typeSupplierCustomers.js";
 import { typeNetworks } from "./typeNetworks.js";
-import { tz, percentageDecimal, valorDuasCasasDecimais } from "../functions.js";
+import { tz, percentageDecimal } from "../functions.js";
 
 //Tabela de membros de empresas
 export const enterprisesMembers = pgTable(
@@ -58,7 +58,6 @@ export const enterprisesMembers = pgTable(
       .notNull()
       .default("0.00"), // Comissão parcial
     notifyMaturity: boolean("notify_maturity").default(false).notNull(), // Notificar vencimento
-    rentalPrice: decimal("rental_price", valorDuasCasasDecimais).notNull().default("0.00"), // Preço de aluguel
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }), // Usuário

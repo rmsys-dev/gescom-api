@@ -22,6 +22,7 @@ import {
   saleTypeEnum,
   statusEnum,
   paymentTypeEnum,
+  saleServiceTypeEnum,
 } from "../enums.js";
 import { users } from "./users.js";
 import { enterprisesMembers } from "./members.js";
@@ -69,33 +70,44 @@ export const sales = pgTable(
     memberId: uuid("member_id").references(() => enterprisesMembers.id, { 
       onDelete: "restrict",
     }),
-    memberLegalName: varchar("member_legal_name", { length: 255 }), 
     type: saleTypeEnum("type").notNull(), 
     subTotal: decimal("sub_total", valorDuasCasasDecimais).notNull(),
-    percentageDiscount: decimal("percentage_discount", percentageDecimal),
-    discountValuetems: decimal("discount_value_items", valorDuasCasasDecimais),
-    valueDiscountFinancial: decimal("value_discount_financial", valorDuasCasasDecimais),
-    percentageAcresce: decimal("percentage_acresce", percentageDecimal),
-    valueAcresceItems: decimal("value_acresce_items", valorDuasCasasDecimais),
-    valueAcresceFinancial: decimal("value_acresce_financial", valorDuasCasasDecimais),
-    valuePie: decimal("value_pie", valorDuasCasasDecimais), 
-    valueService: decimal("value_service", valorDuasCasasDecimais),
-    valueLiquid: decimal("value_liquid", valorDuasCasasDecimais),
-    status: saleStatusEnum("status").notNull(),
+    discountValuetems: decimal("discount_value_items", valorDuasCasasDecimais), // valor do desconto nos itens
+    valueAcresceItems: decimal("value_acresce_items", valorDuasCasasDecimais), // valor do acrescimo nos itens
+    percentageDiscountPie: decimal("percentage_discount_pie", percentageDecimal), // percentagem de desconto financeiro em pecas
+    valueDiscountFinancialPie: decimal("value_discount_financial_pie", valorDuasCasasDecimais), // valor do desconto financeiro em pecas
+    percentageDiscountService: decimal("percentage_discount_service", percentageDecimal), // percentagem de desconto financeiro em servicos
+    valueDiscountFinancialService: decimal("value_discount_financial_service", valorDuasCasasDecimais), // valor do desconto financeiro em servicos
+    percentageAcrescePie: decimal("percentage_acresce_pie", percentageDecimal), // percentagem de acrescimo financeiro em pecas
+    valueAcresceFinancialPie: decimal("value_acresce_financial_pie", valorDuasCasasDecimais), // valor do acrescimo financeiro em pecas
+    percentageAcresceService: decimal("percentage_acresce_service", percentageDecimal), // percentagem de acrescimo financeiro em servicos
+    valueAcresceFinancialService: decimal("value_acresce_financial_service", valorDuasCasasDecimais), // valor do acrescimo financeiro em servicos
+    valuePie: decimal("value_pie", valorDuasCasasDecimais), // valor do Peças
+    valueService: decimal("value_service", valorDuasCasasDecimais), // valor do serviço
+    valueLiquid: decimal("value_liquid", valorDuasCasasDecimais), // valor líquido
+    status: saleStatusEnum("status").notNull(), // status da venda
     returnSituation: saleReturnSituationEnum("return_situation")
       .notNull()
-      .default("SEM_DEVOLUCAO"),
+      .default("SEM_DEVOLUCAO"), // situação de devolução
     budgetClosureSituation: budgetClosureSituationEnum(
       "budget_closure_situation",
     )
       .notNull()
-      .default("ABERTO"),
+      .default("ABERTO"),  // situação de fechamento do orçamento
     sourceBudgetSaleId: uuid("source_budget_sale_id").references( 
       (): AnyPgColumn => sales.id,
       { onDelete: "restrict" },
-    ),
-    origin: saleOriginEnum("origin").default("WEB"),
-    completedionDate: date("completedion_date", { mode: "date" }), // finalizada
+    ), 
+    origin: saleOriginEnum("origin").default("WEB"), // origem da venda
+    completedionDate: date("completedion_date", { mode: "date" }), // data de finalização da venda
+    
+    vehicleMileage: integer("vehicle_mileage"), // quilometragem do veículo
+    observations: varchar("observations", { length: 500 }), // observações
+    defect: varchar("defect", { length: 500 }), // defeito ( problema no equipamento/veiculo)
+    serviceType: saleServiceTypeEnum("service_type").notNull().default("SERVICO"), // tipo de serviço  
+    userModificationServiceId: uuid("user_modification_service_id").references(() => users.id, { onDelete: "restrict" }), // usuário que modificou o serviço
+    dateModificationService: date("date_modification_service", { mode: "date" }), // data de modificação do serviço
+    userClosedServiceId: uuid("user_closed_service_id").references(() => users.id, { onDelete: "restrict" }), // usuário que fechou o serviço
     enterprisesId: uuid("enterprises_id")
       .notNull()
       .references(() => enterprises.id, { onDelete: "cascade" }),
@@ -186,6 +198,28 @@ export const salesItems = pgTable(
       t.productsEnterprisesId,
     ),
     index("sales_items_seller_id_idx").on(t.sellerId),
+  ],
+);
+
+// Membros da venda.
+export const salesMembers = pgTable(
+  "sales_members",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    salesId: uuid("sales_id")
+      .notNull()
+      .references(() => sales.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    userLegalName: varchar("user_legal_name", { length: 255 }).notNull(), // NOME LEGAL DO USUÁRIO
+    memberLegalName: varchar("member_legal_name", { length: 255 }), 
+    percentageComissionMember: decimal("percentage_comission_member", percentageDecimal).notNull().default("0.00"), // Percentagem de comissão do membro
+    createdAt: tz("created_at").defaultNow().notNull(),
+    updatedAt: tz("updated_at"),
+  },
+  (t) => [
+    uniqueIndex("sales_members_sales_id_unique").on(t.salesId),
   ],
 );
 

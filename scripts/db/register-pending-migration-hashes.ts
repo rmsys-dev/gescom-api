@@ -1,3 +1,10 @@
+/**
+ * Registra apenas o hash da migracao em drizzle.__drizzle_migrations,
+ * SEM executar o SQL. Use somente quando o schema ja foi aplicado manualmente.
+ * Para aplicar migracoes pendentes de verdade, prefira:
+ *   npm run db:repair-pending-migration-sql
+ *   npm run db:migrate
+ */
 import "dotenv/config";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";

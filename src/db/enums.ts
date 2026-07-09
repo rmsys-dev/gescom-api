@@ -110,13 +110,14 @@ export const adressTypeEnum = pgEnum("adress_type", [
 //Tipo de documento (venda, orçamento)
 export const documentTypeEnum = pgEnum("document_type", ["VENDA", "ORCAMENTO"]);
 
-//Status de venda (aberta, finalizada, cancelada)
+//Status de venda (aberta, finalizada, cancelada, inativa)
 export const saleStatusEnum = pgEnum("sale_status", [
   "ABERTA",
   "FINALIZADA",
   "CANCELADA",
+  "INATIVA",
 ]);
-export const loginTypeEnum = pgEnum("login_type", ["EMAIL", "CPF"]);
+export const loginTypeEnum = pgEnum("login_type", ["EMAIL", "CPF"]);  
 
 //Propósito de convite (primeiro acesso, aceitação de membro)
 export const invitePurposeEnum = pgEnum("invite_purpose", [
@@ -289,3 +290,21 @@ export const typeClassificationCustomersEnum = pgEnum(
 );
 
 export const saleOriginEnum = pgEnum("sale_origin", ["WEB", "MOBILE"]);
+
+// tipo de combustiveis
+export const fuelTypeEnum = pgEnum("fuel_type", ["GASOLINA", "ALCOOL", "DIESEL", "ELETRICO"]);
+
+// tipo de proprietario (proprietario, locatario)
+export const ownerTypeEnum = pgEnum("owner_type", ["PROPRIETARIO", "LOCATARIO", "OUTROS"]); 
+
+// tipo de veiculos ( Truck, Toco, Van, Carroceria, Outros)
+export const vehicleTypeEnum = pgEnum("vehicle_type", ["TRUCK", "TOCO", "CAVALO MECANICO", "VAN", "UTILITARIO", "OUTROS"]);
+
+// tipo de carroceria ( Nao aplicavel, Aberta, Fechada, Semi-Fechada, Outros )
+export const bodyTypeEnum = pgEnum("body_type", ["NAO_APLICAVEL", "ABERTA", "FECHADA/BAU", "GRANELERA", "PORTA CONTAINER", "SIDER"]);
+
+// tipo de eixo ( Simples, Duplo, Triplo, Quadruplo, Outros )
+export const axleTypeEnum = pgEnum("axle_type", ["VEICULO 2 EIXOS", "VEICULO 3 EIXOS", "VEICULO 4 EIXOS", "VEICULO 5 EIXOS", "VEICULO 6 EIXOS", "VEICULO 7 EIXOS", "VEICULO 8 EIXOS", "VEICULO 9 EIXOS", "VEICULO 10 EIXOS", "VEICULO ACIMA 10 EIXOS"]);
+
+// tipo de serviço ( serviço, garantia )
+export const saleServiceTypeEnum = pgEnum("sale_service_type", ["SERVICO", "GARANTIA"]);

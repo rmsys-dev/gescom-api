@@ -14,6 +14,77 @@ const decimalOpt = z.number().optional();
 const percentageOpt = z.number().min(0).max(100).optional();
 const monetaryOpt = z.number().min(0).optional();
 
+const saleFinancialAdjustmentsSchema = {
+  percentageDiscountPie: decimalOpt,
+  valueDiscountFinancialPie: decimalOpt,
+  percentageDiscountService: decimalOpt,
+  valueDiscountFinancialService: decimalOpt,
+  percentageAcrescePie: decimalOpt,
+  valueAcresceFinancialPie: decimalOpt,
+  percentageAcresceService: decimalOpt,
+  valueAcresceFinancialService: decimalOpt,
+};
+
+const patchSaleFinancialAdjustmentsSchema = {
+  /** Percentual 0–100 sobre valuePie; gera valueDiscountFinancialPie no recalculo. */
+  percentageDiscountPie: percentageOpt.nullable(),
+  valueDiscountFinancialPie: monetaryOpt,
+  /** Percentual 0–100 sobre valueService; gera valueDiscountFinancialService no recalculo. */
+  percentageDiscountService: percentageOpt.nullable(),
+  valueDiscountFinancialService: monetaryOpt,
+  /** Percentual 0–100 sobre valuePie; gera valueAcresceFinancialPie no recalculo. */
+  percentageAcrescePie: percentageOpt.nullable(),
+  valueAcresceFinancialPie: monetaryOpt,
+  /** Percentual 0–100 sobre valueService; gera valueAcresceFinancialService no recalculo. */
+  percentageAcresceService: percentageOpt.nullable(),
+  valueAcresceFinancialService: monetaryOpt,
+};
+
+const assertExclusivePercentageOrValue = (
+  data: Record<string, unknown>,
+  ctx: z.RefinementCtx,
+  percentageKey: string,
+  valueKey: string,
+) => {
+  if (data[percentageKey] != null && data[valueKey] !== undefined) {
+    ctx.addIssue({
+      code: "custom",
+      path: [valueKey],
+      message: `Informe apenas ${percentageKey} ou ${valueKey}, nao ambos`,
+    });
+  }
+};
+
+const refineSaleFinancialAdjustments = (
+  data: Record<string, unknown>,
+  ctx: z.RefinementCtx,
+) => {
+  assertExclusivePercentageOrValue(
+    data,
+    ctx,
+    "percentageDiscountPie",
+    "valueDiscountFinancialPie",
+  );
+  assertExclusivePercentageOrValue(
+    data,
+    ctx,
+    "percentageDiscountService",
+    "valueDiscountFinancialService",
+  );
+  assertExclusivePercentageOrValue(
+    data,
+    ctx,
+    "percentageAcrescePie",
+    "valueAcresceFinancialPie",
+  );
+  assertExclusivePercentageOrValue(
+    data,
+    ctx,
+    "percentageAcresceService",
+    "valueAcresceFinancialService",
+  );
+};
+
 export const computeItemValueTotal = (
   quantity: number,
   valueUnit: number,
@@ -76,12 +147,9 @@ export const createSaleSchema = z
     memberId: z.string().uuid(),
     sellerId: z.string().uuid().optional(),
     type: saleTypeSchema,
-    percentageDiscount: decimalOpt,
     discountValuetems: decimalOpt,
-    valueDiscountFinancial: decimalOpt,
-    percentageAcresce: decimalOpt,
     valueAcresceItems: decimalOpt,
-    valueAcresceFinancial: decimalOpt,
+    ...saleFinancialAdjustmentsSchema,
     /** Opcional; default ABERTA. Informe FINALIZADA apenas ao criar venda ja fechada (com payments). */
     status: saleStatusSchema.default("ABERTA"),
     /** Canal de fechamento; somente ao criar ja FINALIZADA. */
@@ -127,16 +195,9 @@ export const patchSaleSchema = z
     memberId: z.string().uuid().optional(),
     sellerId: z.string().uuid().optional(),
     status: saleStatusSchema.optional(),
-    /** Percentual 0–100 sobre subTotal; gera valueDiscountFinancial no recalculo. */
-    percentageDiscount: percentageOpt.nullable(),
     discountValuetems: decimalOpt,
-    /** Valor monetario manual; gera percentageDiscount no recalculo. Nao enviar com percentageDiscount. */
-    valueDiscountFinancial: monetaryOpt,
-    /** Percentual 0–100 sobre subTotal; gera valueAcresceFinancial no recalculo. */
-    percentageAcresce: percentageOpt.nullable(),
     valueAcresceItems: decimalOpt,
-    /** Valor monetario manual; gera percentageAcresce no recalculo. Nao enviar com percentageAcresce. */
-    valueAcresceFinancial: monetaryOpt,
+    ...patchSaleFinancialAdjustmentsSchema,
     valueLiquid: z.number().min(0).optional(),
     completedionDate: z.coerce.date().nullable().optional(),
     /** Recalcula subTotal (soma dos itens) e valueLiquid a partir dos ajustes do cabecalho. */
@@ -157,29 +218,7 @@ export const patchSaleSchema = z
       });
     }
 
-    if (
-      data.percentageDiscount != null &&
-      data.valueDiscountFinancial !== undefined
-    ) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["valueDiscountFinancial"],
-        message:
-          "Informe apenas percentageDiscount ou valueDiscountFinancial, nao ambos",
-      });
-    }
-
-    if (
-      data.percentageAcresce != null &&
-      data.valueAcresceFinancial !== undefined
-    ) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["valueAcresceFinancial"],
-        message:
-          "Informe apenas percentageAcresce ou valueAcresceFinancial, nao ambos",
-      });
-    }
+    refineSaleFinancialAdjustments(data, ctx);
 
     if (data.origin !== undefined && data.status !== "FINALIZADA") {
       ctx.addIssue({
@@ -264,12 +303,9 @@ export const convertBudgetToSaleSchema = z
     sellerId: z.string().uuid().optional(),
     memberId: z.string().uuid().optional(),
     items: z.array(convertBudgetItemInputSchema).min(1),
-    percentageDiscount: decimalOpt,
     discountValuetems: decimalOpt,
-    valueDiscountFinancial: decimalOpt,
-    percentageAcresce: decimalOpt,
     valueAcresceItems: decimalOpt,
-    valueAcresceFinancial: decimalOpt,
+    ...saleFinancialAdjustmentsSchema,
     payments: z.array(salePaymentInputSchema).optional(),
     /** Canal de fechamento; somente com status FINALIZADA. */
     origin: saleOriginSchema.optional(),

@@ -140,6 +140,7 @@ export const usersRelationships = pgTable(
     departmentLabor: varchar("department_labor", { length: 255 }), 
     professionTime: varchar("profession_time", { length: 255 }), 
     income: decimal("income", valorDuasCasasDecimais), 
+    rentalPrice: decimal("rental_price", valorDuasCasasDecimais), // Preço de aluguel
     toWarmUp: boolean("to_warm_up"), 
     userId: uuid("user_id")
       .notNull()

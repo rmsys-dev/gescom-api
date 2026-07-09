@@ -20,6 +20,8 @@
     "db:backup:snapshot": "tsx scripts/db/capture-pre-migration-snapshot.ts",
     "db:push": "drizzle-kit push",
     "db:register:pending-migration-hashes": "tsx scripts/db/register-pending-migration-hashes.ts",
+    "db:repair-pending-migration-sql": "tsx scripts/db/repair-pending-migration-sql.ts",
+    "db:sync-pending-migration-hashes": "tsx scripts/db/repair-pending-migration-sql.ts --sync-hashes-only",
     "postman:generate": "node postman-collections/generate-complete-collection.mjs"
   },
   "dependencies": {

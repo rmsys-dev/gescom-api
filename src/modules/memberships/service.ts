@@ -164,7 +164,6 @@ const mapMembershipSalesFieldsToInsert = (
     | "comissionToTerms"
     | "comissionPartial"
     | "notifyMaturity"
-    | "rentalPrice"
   >,
 ): Partial<typeof enterprisesMembers.$inferInsert> => ({
   ...(input.saleLimit !== undefined
@@ -204,11 +203,6 @@ const mapMembershipSalesFieldsToInsert = (
   ...(input.notifyMaturity !== undefined
     ? { notifyMaturity: input.notifyMaturity }
     : {}),
-  ...(input.rentalPrice !== undefined
-    ? {
-        rentalPrice: formatMembershipMonetary(input.rentalPrice).toFixed(2),
-      }
-    : {}),
 });
 
 const mapMembershipSalesFieldsToPatch = (
@@ -231,7 +225,6 @@ const mapMemberWithUser = ({ member, user }: MemberWithUserRow) => ({
   comissionToTerms: member.comissionToTerms,
   comissionPartial: member.comissionPartial,
   notifyMaturity: member.notifyMaturity,
-  rentalPrice: member.rentalPrice,
   includedBy: member.includedBy,
   registeredOn: member.registeredOn,
   approvedAt: member.approvedAt,
@@ -571,7 +564,6 @@ export class MembershipsService {
         | "comissionToTerms"
         | "comissionPartial"
         | "notifyMaturity"
-        | "rentalPrice"
       >;
     },
     tx: Parameters<Parameters<typeof db.transaction>[0]>[0],

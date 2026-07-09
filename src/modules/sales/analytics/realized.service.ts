@@ -49,7 +49,11 @@ const fetchRealizedKpis = async (
         salesCount: sql<string>`count(*)`,
         pieRevenue: sql<string>`coalesce(sum(${sales.valuePie}), 0)`,
         serviceRevenue: sql<string>`coalesce(sum(${sales.valueService}), 0)`,
-        discountTotal: sql<string>`coalesce(sum(coalesce(${sales.discountValuetems}, 0) + coalesce(${sales.valueDiscountFinancial}, 0)), 0)`,
+        discountTotal: sql<string>`coalesce(sum(
+          coalesce(${sales.discountValuetems}, 0)
+          + coalesce(${sales.valueDiscountFinancialPie}, 0)
+          + coalesce(${sales.valueDiscountFinancialService}, 0)
+        ), 0)`,
       })
       .from(sales)
       .where(scope),

@@ -326,16 +326,41 @@ export const createSaleItemSchema = saleItemInputSchema;
 
 const budgetClosureSituationSchema = z.enum(["ABERTO", "PARCIAL", "FECHADO"]);
 
-export const listSalesQuerySchema = createPaginationQuerySchema(100).extend({
-  type: saleTypeSchema.optional(),
-  status: saleStatusSchema.optional(),
-  budgetClosureSituation: budgetClosureSituationSchema.optional(),
-  userId: z.string().uuid().optional(),
-  sellerId: z.string().uuid().optional(),
-  orderNumber: z.coerce.number().int().positive().optional(),
-  seller: optionalTrimmedStringSchema("seller", 255).optional(),
-  client: optionalTrimmedStringSchema("client", 255).optional(),
-});
+export const listSalesQuerySchema = createPaginationQuerySchema(100)
+  .extend({
+    type: saleTypeSchema.optional(),
+    status: saleStatusSchema.optional(),
+    budgetClosureSituation: budgetClosureSituationSchema.optional(),
+    userId: z.string().uuid().optional(),
+    sellerId: z.string().uuid().optional(),
+    memberId: z.string().uuid().optional(),
+    orderNumber: z.coerce.number().int().positive().optional(),
+    seller: optionalTrimmedStringSchema("seller", 255).optional(),
+    client: optionalTrimmedStringSchema("client", 255).optional(),
+    dateFrom: dateOnlyIsoSchema("dateFrom").optional(),
+    dateTo: dateOnlyIsoSchema("dateTo").optional(),
+  })
+  .superRefine((data, ctx) => {
+    const hasFrom = data.dateFrom !== undefined;
+    const hasTo = data.dateTo !== undefined;
+
+    if (hasFrom !== hasTo) {
+      ctx.addIssue({
+        code: "custom",
+        path: hasFrom ? ["dateTo"] : ["dateFrom"],
+        message: "Informe dateFrom e dateTo juntos",
+      });
+      return;
+    }
+
+    if (data.dateFrom && data.dateTo && data.dateFrom > data.dateTo) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["dateTo"],
+        message: "dateTo deve ser >= dateFrom",
+      });
+    }
+  });
 
 export const patchSaleItemSchema = z
   .object({

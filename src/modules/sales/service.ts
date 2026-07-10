@@ -4,11 +4,14 @@ import {
   count,
   desc,
   eq,
+  gte,
   ilike,
   inArray,
   isNull,
+  lte,
   notInArray,
   or,
+  sql,
   type SQL,
 } from "drizzle-orm";
 import { db } from "../../db/index.js";
@@ -80,6 +83,7 @@ import {
   resolveSaleClosingOrigin,
   type SaleOrigin,
 } from "./sale-origin.js";
+import { effectiveCompletionDateSql } from "./analytics/scope.js";
 import {
   computeItemValueTotal,
   convertBudgetItemInputSchema,
@@ -537,6 +541,19 @@ export class SalesService {  // Servico de vendas
         )!,
       );
     }
+    if (query?.memberId) {
+      filters.push(eq(sales.memberId, query.memberId));
+    }
+    if (query?.dateFrom && query?.dateTo) {
+      const timezone = "America/Sao_Paulo";
+      const effective = effectiveCompletionDateSql(timezone);
+      filters.push(
+        and(
+          gte(effective, sql`${query.dateFrom}::date`),
+          lte(effective, sql`${query.dateTo}::date`),
+        )!,
+      );
+    }
     return and(...filters);
   }
 
@@ -651,6 +668,27 @@ export class SalesService {  // Servico de vendas
           },
         ],
         "Orcamento fechado",
+      );
+    }
+  }
+
+  private async assertVendaDoesNotAcceptService(
+    saleType: "VENDA" | "ORCAMENTO",
+    productTypeId: string,
+    path: string,
+  ) {
+    if (saleType !== "VENDA") return;
+    const typeCode = await getProductTypeCode(productTypeId);
+    if (typeCode && isServiceProductType(typeCode)) {
+      throw new ValidationError(
+        [
+          {
+            path,
+            message:
+              "Venda nao aceita produto do tipo servico (09). Use ordem de servico quando disponivel.",
+          },
+        ],
+        "Produto servico nao permitido em venda",
       );
     }
   }
@@ -2092,6 +2130,11 @@ export class SalesService {  // Servico de vendas
           const itemInput = input.items[i];
 
           if (input.type === "VENDA") {
+            await this.assertVendaDoesNotAcceptService(
+              input.type,
+              itemInput.productTypeId,
+              `items.${i}.productTypeId`,
+            );
             await assertSaleItemStockAvailable(
               tx,
               enterpriseId,
@@ -2903,6 +2946,11 @@ export class SalesService {  // Servico de vendas
       this.assertBudgetEditableForItems(sale);
 
       if (sale.type === "VENDA") {
+        await this.assertVendaDoesNotAcceptService(
+          sale.type,
+          input.productTypeId,
+          "body.productTypeId",
+        );
         await assertSaleItemStockAvailable(tx, enterpriseId, input, "body");
       } else {
         await validateSaleItemStock(enterpriseId, input, "body");
@@ -3071,6 +3119,20 @@ export class SalesService {  // Servico de vendas
 
       const merged = this.mergeSaleItemPatch(existing, input);
       this.assertBudgetItemEditable(sale, existing, merged.quantity);
+
+      if (sale.type === "VENDA") {
+        const existingTypeCode = await getProductTypeCode(existing.productTypeId);
+        const existingIsService =
+          existingTypeCode != null &&
+          isServiceProductType(existingTypeCode);
+        if (!existingIsService) {
+          await this.assertVendaDoesNotAcceptService(
+            sale.type,
+            merged.productTypeId,
+            "body.productTypeId",
+          );
+        }
+      }
 
       await this.assertItemLineDiscountWithinMemberLimitForSeller(
         tx,

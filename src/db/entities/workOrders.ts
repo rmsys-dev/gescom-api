@@ -1,9 +1,10 @@
 import { sql } from "drizzle-orm";
 import { pgTable, varchar, uuid, integer, decimal, uniqueIndex } from "drizzle-orm/pg-core";
-import { tz, valorQuatroCasasDecimais } from "../functions.js";
+import { percentageDecimal, tz, valorQuatroCasasDecimais } from "../functions.js";
 import { enterprisesMembers } from "./members.js";
 import { fuelTypeEnum, ownerTypeEnum, vehicleTypeEnum, bodyTypeEnum, axleTypeEnum, statusEnum } from "../enums.js";
 import { states } from "./addresses.js";
+import { salesItems } from "./sales.js";
 
 // tabela de veículos ( global para todas as empresas)
 export const vehicles = pgTable("vehicles", {
@@ -41,8 +42,8 @@ export const vehicles = pgTable("vehicles", {
 export const vehiclesEnterprisesMembers = pgTable("vehicles_enterprises_members", {
     id: uuid("id").defaultRandom().primaryKey(),
     status: statusEnum("status").default("ATIVO").notNull(), // status do veiculo          
-    vehiclesId: uuid("vehicles_id").references(() => vehicles.id).notNull(),
-    enterprisesMembersId: uuid("enterprises_members_id").references(() => enterprisesMembers.id).notNull(),
+    vehiclesId: uuid("vehicles_id").references(() => vehicles.id).notNull(), // veículo
+    enterprisesMembersId: uuid("enterprises_members_id").references(() => enterprisesMembers.id).notNull(), // empresa membro
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
 },
@@ -53,3 +54,19 @@ export const vehiclesEnterprisesMembers = pgTable("vehicles_enterprises_members"
   ],
 ); 
 
+// tabela de relacionamento entre membro da empresa e item de venda
+ export const enterprisesMemberSalesItems = pgTable("enterprises_member_sales_items", {
+    id: uuid("id").defaultRandom().primaryKey(),
+    enterprisesMembersId: uuid("enterprises_members_id").references(() => enterprisesMembers.id).notNull(), // empresa membro   
+    salesItemsId: uuid("sales_items_id").references(() => salesItems.id).notNull(), // item de venda
+    comissionService: decimal("comission_service", percentageDecimal)
+      .notNull()
+      .default("0.00"), // Comissão de serviço
+    createdAt: tz("created_at").defaultNow().notNull(),
+    updatedAt: tz("updated_at"),
+},
+(t) => [
+    uniqueIndex("enterprises_member_sales_items_unique")
+      .on(t.enterprisesMembersId, t.salesItemsId)
+  ],
+);

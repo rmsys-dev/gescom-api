@@ -10,6 +10,7 @@ import {
   salesReturnItems,
   salesReturns,
   salesDues,
+  salesMembers,
 } from "../entities/sales.js";
 import { users } from "../entities/users.js";
 import { enterprisesMembers } from "../entities/members.js";
@@ -63,6 +64,17 @@ export const salesRelations = relations(sales, ({ one, many }) => ({
   returns: many(salesReturns),
   budgetConversions: many(salesBudgetConversions, {
     relationName: "budgetConversions",
+  }),
+  saleMember: one(salesMembers, {
+    fields: [sales.id],
+    references: [salesMembers.salesId],
+  }),
+}));
+
+export const salesMembersRelations = relations(salesMembers, ({ one }) => ({
+  sale: one(sales, {
+    fields: [salesMembers.salesId],
+    references: [sales.id],
   }),
 }));
 

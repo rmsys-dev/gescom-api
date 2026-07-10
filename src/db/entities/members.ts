@@ -57,6 +57,9 @@ export const enterprisesMembers = pgTable(
     comissionPartial: decimal("comission_partial", percentageDecimal)
       .notNull()
       .default("0.00"), // Comissão parcial
+    comissionService: decimal("comission_service", percentageDecimal)
+      .notNull()
+      .default("0.00"), // Comissão de serviço
     notifyMaturity: boolean("notify_maturity").default(false).notNull(), // Notificar vencimento
     userId: uuid("user_id")
       .notNull()

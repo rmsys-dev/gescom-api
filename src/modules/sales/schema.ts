@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  cpfCnpjSchema,
   createPaginationQuerySchema,
   dateOnlyIsoSchema,
   optionalTrimmedStringSchema,
@@ -13,6 +14,15 @@ const saleOriginSchema = z.enum(["WEB", "MOBILE"]);
 const decimalOpt = z.number().optional();
 const percentageOpt = z.number().min(0).max(100).optional();
 const monetaryOpt = z.number().min(0).optional();
+
+const saleServiceTypeSchema = z.enum(["SERVICO", "GARANTIA"]);
+
+const saleServiceFieldsSchema = {
+  vehicleMileage: z.number().int().min(0).optional(),
+  observations: z.string().trim().max(500).optional(),
+  defect: z.string().trim().max(500).optional(),
+  serviceType: saleServiceTypeSchema.optional(),
+};
 
 const saleFinancialAdjustmentsSchema = {
   percentageDiscountPie: decimalOpt,
@@ -141,6 +151,60 @@ export const salePaymentInputSchema = z
   })
   .strict();
 
+const saleMemberCepSchema = z.preprocess(
+  (value) => {
+    if (typeof value !== "string") {
+      return value;
+    }
+    const digits = value.replace(/\D/g, "");
+    return digits === "" ? undefined : digits;
+  },
+  z
+    .string()
+    .length(8, "Campo 'memberCep' deve conter 8 digitos")
+    .optional(),
+);
+
+const saleMemberStateSchema = z.preprocess(
+  (value) => {
+    if (typeof value !== "string") {
+      return value;
+    }
+    const trimmed = value.trim();
+    return trimmed === "" ? undefined : trimmed.toUpperCase();
+  },
+  z
+    .string()
+    .length(2, "Campo 'memberState' deve ter 2 caracteres")
+    .optional(),
+);
+
+const optionalRegistrationSchema = z.preprocess(
+  (value) => {
+    if (typeof value !== "string") {
+      return value;
+    }
+    const trimmed = value.trim();
+    return trimmed === "" ? undefined : trimmed;
+  },
+  cpfCnpjSchema("registration").optional(),
+);
+
+/** Overrides parciais do snapshot do cliente na venda (sales_members). */
+export const saleMemberOverrideSchema = z
+  .object({
+    memberLegalName: optionalTrimmedStringSchema("memberLegalName", 255),
+    memberAddress: optionalTrimmedStringSchema("memberAddress", 255),
+    memberSector: optionalTrimmedStringSchema("memberSector", 255),
+    memberCep: saleMemberCepSchema,
+    memberCity: optionalTrimmedStringSchema("memberCity", 255),
+    memberState: saleMemberStateSchema,
+    registration: optionalRegistrationSchema,
+    memberPhone: optionalTrimmedStringSchema("memberPhone", 20),
+    memberMobile: optionalTrimmedStringSchema("memberMobile", 20),
+  })
+  .strict();
+
 export const createSaleSchema = z
   .object({
     orderNumber: z.number().int().positive().optional(),
@@ -150,6 +214,7 @@ export const createSaleSchema = z
     discountValuetems: decimalOpt,
     valueAcresceItems: decimalOpt,
     ...saleFinancialAdjustmentsSchema,
+    ...saleServiceFieldsSchema,
     /** Opcional; default ABERTA. Informe FINALIZADA apenas ao criar venda ja fechada (com payments). */
     status: saleStatusSchema.default("ABERTA"),
     /** Canal de fechamento; somente ao criar ja FINALIZADA. */
@@ -157,6 +222,8 @@ export const createSaleSchema = z
     items: z.array(saleItemInputSchema).min(1),
     /** Pagamentos e parcelas somente ao criar ja FINALIZADA. */
     payments: z.array(salePaymentInputSchema).optional(),
+    /** Overrides opcionais do snapshot do cliente (sales_members). */
+    member: saleMemberOverrideSchema.optional(),
   })
   .strict()
   .superRefine((data, ctx) => {
@@ -198,6 +265,7 @@ export const patchSaleSchema = z
     discountValuetems: decimalOpt,
     valueAcresceItems: decimalOpt,
     ...patchSaleFinancialAdjustmentsSchema,
+    ...saleServiceFieldsSchema,
     valueLiquid: z.number().min(0).optional(),
     completedionDate: z.coerce.date().nullable().optional(),
     /** Recalcula subTotal (soma dos itens) e valueLiquid a partir dos ajustes do cabecalho. */
@@ -206,6 +274,8 @@ export const patchSaleSchema = z
     payments: z.array(salePaymentInputSchema).min(1).optional(),
     /** Canal onde a venda foi fechada; somente com status FINALIZADA. */
     origin: saleOriginSchema.optional(),
+    /** Overrides opcionais do snapshot do cliente (sales_members). */
+    member: saleMemberOverrideSchema.optional(),
   })
   .strict()
   .superRefine((data, ctx) => {
@@ -306,9 +376,12 @@ export const convertBudgetToSaleSchema = z
     discountValuetems: decimalOpt,
     valueAcresceItems: decimalOpt,
     ...saleFinancialAdjustmentsSchema,
+    ...saleServiceFieldsSchema,
     payments: z.array(salePaymentInputSchema).optional(),
     /** Canal de fechamento; somente com status FINALIZADA. */
     origin: saleOriginSchema.optional(),
+    /** Overrides opcionais do snapshot do cliente (sales_members). */
+    member: saleMemberOverrideSchema.optional(),
   })
   .strict()
   .superRefine((data, ctx) => {
@@ -360,6 +433,7 @@ export const convertBudgetToSaleSchema = z
   });
 
 export type SalePaymentInput = z.infer<typeof salePaymentInputSchema>;
+export type SaleMemberOverrideInput = z.infer<typeof saleMemberOverrideSchema>;
 export type CreateSaleInput = z.infer<typeof createSaleSchema>;
 export type PatchSaleInput = z.infer<typeof patchSaleSchema>;
 export type CreateSaleItemInput = z.infer<typeof createSaleItemSchema>;

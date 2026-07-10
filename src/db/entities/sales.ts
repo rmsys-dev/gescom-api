@@ -99,14 +99,12 @@ export const sales = pgTable(
       { onDelete: "restrict" },
     ), 
     origin: saleOriginEnum("origin").default("WEB"), // origem da venda
-    completedionDate: date("completedion_date", { mode: "date" }), // data de finalização da venda
-    
+    completedionDate: date("completedion_date", { mode: "date" }), // data de finalização da venda    
     vehicleMileage: integer("vehicle_mileage"), // quilometragem do veículo
     observations: varchar("observations", { length: 500 }), // observações
     defect: varchar("defect", { length: 500 }), // defeito ( problema no equipamento/veiculo)
     serviceType: saleServiceTypeEnum("service_type").notNull().default("SERVICO"), // tipo de serviço  
     userModificationServiceId: uuid("user_modification_service_id").references(() => users.id, { onDelete: "restrict" }), // usuário que modificou o serviço
-    dateModificationService: date("date_modification_service", { mode: "date" }), // data de modificação do serviço
     userClosedServiceId: uuid("user_closed_service_id").references(() => users.id, { onDelete: "restrict" }), // usuário que fechou o serviço
     enterprisesId: uuid("enterprises_id")
       .notNull()
@@ -189,9 +187,9 @@ export const salesItems = pgTable(
   sellerLegalName: varchar("seller_legal_name", { length: 255 }).notNull(), // NOME LEGAL DO VENDEDOR
   PercentageComissionSeller: decimal("percentage_comission_seller", percentageDecimal).notNull().default("0.00"),  // Percentagem de comissão do vendedor
   PercentageComissionManager: decimal("percentage_comission_manager", percentageDecimal).notNull().default("0.00"),  // Percentagem de comissão do gerente
-  origin: saleOriginEnum("origin").notNull().default("WEB"),  
-  createdAt: tz("created_at").defaultNow().notNull(),
-  updatedAt: tz("updated_at"),
+  origin: saleOriginEnum("origin").notNull().default("WEB"),  // origem da venda
+  createdAt: tz("created_at").defaultNow().notNull(), // data de criação da venda
+  updatedAt: tz("updated_at"), // data de atualização da venda
   },
   (t) => [
     index("sales_items_products_enterprises_id_idx").on(
@@ -208,13 +206,16 @@ export const salesMembers = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     salesId: uuid("sales_id")
       .notNull()
-      .references(() => sales.id, { onDelete: "cascade" }),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "restrict" }),
-    userLegalName: varchar("user_legal_name", { length: 255 }).notNull(), // NOME LEGAL DO USUÁRIO
-    memberLegalName: varchar("member_legal_name", { length: 255 }), 
-    percentageComissionMember: decimal("percentage_comission_member", percentageDecimal).notNull().default("0.00"), // Percentagem de comissão do membro
+      .references(() => sales.id, { onDelete: "cascade" }), 
+    memberLegalName: varchar("member_legal_name", { length: 255 }),  // nome legal do membro
+    memberAddress: varchar("member_address", { length: 255 }),  // endereço do membro
+    memberSector: varchar("member_sector", { length: 255 }),  // setor do membro
+    memberCep: varchar("member_cep", { length: 8 }),  // cep do membro
+    memberCity: varchar("member_city", { length: 255 }),  // cidade do membro
+    memberState: varchar("member_state", { length: 2 }),  // estado do membro'
+    registration: varchar("registration", { length: 14 }), // CPF/CNPJ
+    memberPhone: varchar("member_phone", { length: 20 }), // telefone do membro
+    memberMobile: varchar("member_mobile", { length: 20 }), // celular do membro
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
   },

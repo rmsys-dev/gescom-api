@@ -14,6 +14,7 @@ import {
 import { db } from "../../db/index.js";
 import {
   enterprisesMembers,
+  membersDepartments,
   paymentTypes,
   prices,
   productTypes,
@@ -24,9 +25,18 @@ import {
   salesBudgetUnclosedItems,
   salesDues,
   salesItems,
+  salesMembers,
   salesPayments,
   users,
+  usersAddress,
+  usersContact,
 } from "../../db/schema.js";
+import {
+  ceps,
+  cities,
+  states,
+} from "../../db/entities/addresses.js";
+import { departments } from "../../db/entities/departments.js";
 import {
   ConflictError,
   ForbiddenError,
@@ -79,6 +89,7 @@ import {
   type ListSalesQuery,
   type PatchSaleInput,
   type PatchSaleItemInput,
+  type SaleMemberOverrideInput,
   type SalePaymentInput,
 } from "./schema.js";
 import type { z } from "zod";
@@ -240,6 +251,167 @@ const buildSaleFinancialAdjustmentValues = (
   return patch;
 };
 
+type SaleServiceFieldInput = {
+  vehicleMileage?: number;
+  observations?: string;
+  defect?: string;
+  serviceType?: "SERVICO" | "GARANTIA";
+};
+
+const buildSaleServiceFieldValues = (
+  input: SaleServiceFieldInput,
+): Partial<typeof sales.$inferInsert> => {
+  const patch: Partial<typeof sales.$inferInsert> = {};
+  if (input.vehicleMileage !== undefined) {
+    patch.vehicleMileage = input.vehicleMileage;
+  }
+  if (input.observations !== undefined) {
+    patch.observations = input.observations.trim().toUpperCase();
+  }
+  if (input.defect !== undefined) {
+    patch.defect = input.defect.trim().toUpperCase();
+  }
+  if (input.serviceType !== undefined) {
+    patch.serviceType = input.serviceType;
+  }
+  return patch;
+};
+
+type SaleMemberSnapshot = {
+  memberLegalName: string | null;
+  memberAddress: string | null;
+  memberSector: string | null;
+  memberCep: string | null;
+  memberCity: string | null;
+  memberState: string | null;
+  registration: string | null;
+  memberPhone: string | null;
+  memberMobile: string | null;
+};
+
+const SALE_MEMBER_SNAPSHOT_KEYS = [
+  "memberLegalName",
+  "memberAddress",
+  "memberSector",
+  "memberCep",
+  "memberCity",
+  "memberState",
+  "registration",
+  "memberPhone",
+  "memberMobile",
+] as const satisfies readonly (keyof SaleMemberSnapshot)[];
+
+const normalizeSaleMemberOverrides = (
+  input?: SaleMemberOverrideInput,
+): Partial<SaleMemberSnapshot> => {
+  if (!input) {
+    return {};
+  }
+
+  const result: Partial<SaleMemberSnapshot> = {};
+
+  if (input.memberLegalName !== undefined) {
+    result.memberLegalName = input.memberLegalName.trim().toUpperCase();
+  }
+  if (input.memberAddress !== undefined) {
+    result.memberAddress = input.memberAddress.trim().toUpperCase();
+  }
+  if (input.memberSector !== undefined) {
+    result.memberSector = input.memberSector.trim().toUpperCase();
+  }
+  if (input.memberCep !== undefined) {
+    result.memberCep = input.memberCep.trim();
+  }
+  if (input.memberCity !== undefined) {
+    result.memberCity = input.memberCity.trim().toUpperCase();
+  }
+  if (input.memberState !== undefined) {
+    result.memberState = input.memberState.trim().toUpperCase();
+  }
+  if (input.registration !== undefined) {
+    result.registration = input.registration.trim();
+  }
+  if (input.memberPhone !== undefined) {
+    result.memberPhone = input.memberPhone.trim();
+  }
+  if (input.memberMobile !== undefined) {
+    result.memberMobile = input.memberMobile.trim();
+  }
+
+  return result;
+};
+
+const mergeSaleMemberSnapshot = (
+  base: SaleMemberSnapshot,
+  overrides?: Partial<SaleMemberSnapshot>,
+): SaleMemberSnapshot => {
+  if (!overrides) {
+    return { ...base };
+  }
+
+  const result = { ...base };
+  for (const key of SALE_MEMBER_SNAPSHOT_KEYS) {
+    if (overrides[key] !== undefined) {
+      result[key] = overrides[key]!;
+    }
+  }
+  return result;
+};
+
+const formatSaleMemberAddressLine = (street: string, number: string) => {
+  const parts = [street.trim(), number.trim()].filter((part) => part.length > 0);
+  return parts.join(", ");
+};
+
+const getPostgresConstraintName = (err: unknown): string | undefined => {
+  let current: unknown = err;
+  for (let depth = 0; depth < 4 && current != null; depth++) {
+    if (
+      typeof current === "object" &&
+      "constraint_name" in current &&
+      typeof (current as { constraint_name?: unknown }).constraint_name ===
+        "string"
+    ) {
+      return (current as { constraint_name: string }).constraint_name;
+    }
+    if (
+      typeof current === "object" &&
+      "constraint" in current &&
+      typeof (current as { constraint?: unknown }).constraint === "string"
+    ) {
+      return (current as { constraint: string }).constraint;
+    }
+    current =
+      typeof current === "object" &&
+      current !== null &&
+      "cause" in current
+        ? (current as { cause: unknown }).cause
+        : undefined;
+  }
+  return undefined;
+};
+
+const mapSaleUniqueViolation = (err: unknown): ConflictError | null => {
+  if (!isPostgresUniqueViolation(err)) return null;
+  const constraint = getPostgresConstraintName(err);
+  if (constraint === "sales_payments_sales_id_payment_type_id_unique") {
+    return new ConflictError(
+      "Tipo de pagamento duplicado na mesma venda",
+      "SALE_PAYMENT_TYPE_DUPLICATE",
+    );
+  }
+  if (constraint === "sales_dues_sales_payment_id_due_date_unique") {
+    return new ConflictError(
+      "Data de vencimento duplicada para o mesmo pagamento",
+      "SALE_DUE_DATE_DUPLICATE",
+    );
+  }
+  return new ConflictError(
+    "Venda em conflito (numero do pedido)",
+    "SALE_CONFLICT",
+  );
+};
+
 /** Chave YYYY-MM-DD (UTC) para comparar vencimentos sem repetir o mesmo dia. */
 const toUtcDateKey = (date: Date) => {
   const y = date.getUTCFullYear();
@@ -295,6 +467,12 @@ const saleWithMemberSelect = {
   sourceBudgetSaleId: sales.sourceBudgetSaleId,
   origin: sales.origin,
   completedionDate: sales.completedionDate,
+  vehicleMileage: sales.vehicleMileage,
+  observations: sales.observations,
+  defect: sales.defect,
+  serviceType: sales.serviceType,
+  userModificationServiceId: sales.userModificationServiceId,
+  userClosedServiceId: sales.userClosedServiceId,
   enterprisesId: sales.enterprisesId,
   createdAt: sales.createdAt,
   updatedAt: sales.updatedAt,
@@ -352,7 +530,12 @@ export class SalesService {  // Servico de vendas
       filters.push(ilike(sales.sellerLegalName, `%${query.seller}%`));
     }
     if (query?.client) {
-      filters.push(ilike(users.userName, `%${query.client}%`));
+      filters.push(
+        or(
+          ilike(users.userName, `%${query.client}%`),
+          ilike(salesMembers.memberLegalName, `%${query.client}%`),
+        )!,
+      );
     }
     return and(...filters);
   }
@@ -365,7 +548,8 @@ export class SalesService {  // Servico de vendas
         enterprisesMembers,
         eq(sales.memberId, enterprisesMembers.id),
       )
-      .leftJoin(users, eq(enterprisesMembers.userId, users.id));
+      .leftJoin(users, eq(enterprisesMembers.userId, users.id))
+      .leftJoin(salesMembers, eq(salesMembers.salesId, sales.id));
   }
 
   private listCountFromWithMemberJoins() {
@@ -376,7 +560,8 @@ export class SalesService {  // Servico de vendas
         enterprisesMembers,
         eq(sales.memberId, enterprisesMembers.id),
       )
-      .leftJoin(users, eq(enterprisesMembers.userId, users.id));
+      .leftJoin(users, eq(enterprisesMembers.userId, users.id))
+      .leftJoin(salesMembers, eq(salesMembers.salesId, sales.id));
   }
 
   private mapSaleItemResponse(
@@ -1419,6 +1604,215 @@ export class SalesService {  // Servico de vendas
     }
   }
 
+  private async buildSaleMemberSnapshot(
+    tx: Tx | typeof db,
+    enterpriseId: string,
+    memberId: string,
+  ): Promise<SaleMemberSnapshot> {
+    const memberRow = (
+      await tx
+        .select({
+          userId: enterprisesMembers.userId,
+          userName: users.userName,
+          userRegistration: users.userRegistration,
+        })
+        .from(enterprisesMembers)
+        .innerJoin(users, eq(enterprisesMembers.userId, users.id))
+        .where(
+          and(
+            eq(enterprisesMembers.id, memberId),
+            eq(enterprisesMembers.enterpriseId, enterpriseId),
+            eq(enterprisesMembers.status, "ATIVO"),
+            isNull(enterprisesMembers.deletedAt),
+          ),
+        )
+        .limit(1)
+    )[0];
+
+    if (!memberRow) {
+      throw new NotFoundError(
+        "Membro cliente nao encontrado na empresa",
+        "SALE_CLIENT_MEMBER_NOT_FOUND",
+      );
+    }
+
+    const [addressRow, contactRow, departmentRow] = await Promise.all([
+      tx
+        .select({
+          street: ceps.address,
+          number: usersAddress.number,
+          cepNumber: ceps.cepNumber,
+          cityName: cities.citieName,
+          stateAcronym: states.acronym,
+        })
+        .from(usersAddress)
+        .innerJoin(ceps, eq(usersAddress.cepId, ceps.id))
+        .innerJoin(cities, eq(ceps.cityId, cities.id))
+        .innerJoin(states, eq(cities.stateId, states.id))
+        .where(
+          and(
+            eq(usersAddress.userId, memberRow.userId),
+            eq(usersAddress.adressType, "PRINCIPAL"),
+            isNull(usersAddress.deletedAt),
+            isNull(ceps.deletedAt),
+            isNull(cities.deletedAt),
+            isNull(states.deletedAt),
+          ),
+        )
+        .limit(1)
+        .then((rows) => rows[0]),
+      tx
+        .select({
+          phone: usersContact.phone,
+          whatsapp: usersContact.whatsapp,
+        })
+        .from(usersContact)
+        .where(
+          and(
+            eq(usersContact.userId, memberRow.userId),
+            eq(usersContact.type, "PRINCIPAL"),
+            isNull(usersContact.deletedAt),
+          ),
+        )
+        .limit(1)
+        .then((rows) => rows[0]),
+      tx
+        .select({ departmentName: departments.name })
+        .from(membersDepartments)
+        .innerJoin(
+          departments,
+          eq(membersDepartments.departmentId, departments.id),
+        )
+        .where(
+          and(
+            eq(membersDepartments.memberId, memberId),
+            eq(membersDepartments.mainDepartment, true),
+            isNull(membersDepartments.deletedAt),
+            isNull(departments.deletedAt),
+          ),
+        )
+        .limit(1)
+        .then((rows) => rows[0]),
+    ]);
+
+    const addressLine = addressRow
+      ? formatSaleMemberAddressLine(addressRow.street, addressRow.number)
+      : null;
+
+    return {
+      memberLegalName: memberRow.userName.trim().toUpperCase(),
+      registration: memberRow.userRegistration?.trim() || null,
+      memberAddress: addressLine || null,
+      memberCep: addressRow?.cepNumber?.trim() || null,
+      memberCity: addressRow?.cityName?.trim().toUpperCase() || null,
+      memberState: addressRow?.stateAcronym?.trim().toUpperCase() || null,
+      memberSector: departmentRow?.departmentName?.trim().toUpperCase() || null,
+      memberPhone: contactRow?.phone?.trim() || null,
+      memberMobile:
+        contactRow?.whatsapp?.trim() || contactRow?.phone?.trim() || null,
+    };
+  }
+
+  private async upsertSaleMember(
+    tx: Tx,
+    saleId: string,
+    snapshot: SaleMemberSnapshot,
+  ) {
+    const existing = (
+      await tx
+        .select({ id: salesMembers.id })
+        .from(salesMembers)
+        .where(eq(salesMembers.salesId, saleId))
+        .limit(1)
+    )[0];
+
+    const values = {
+      ...snapshot,
+      updatedAt: new Date(),
+    };
+
+    if (existing) {
+      await tx
+        .update(salesMembers)
+        .set(values)
+        .where(eq(salesMembers.id, existing.id));
+      return;
+    }
+
+    await tx.insert(salesMembers).values({
+      salesId: saleId,
+      ...snapshot,
+    });
+  }
+
+  private async loadSaleMemberSnapshot(
+    executor: Tx | typeof db,
+    saleId: string,
+  ): Promise<SaleMemberSnapshot | null> {
+    return (
+      await executor
+        .select({
+          memberLegalName: salesMembers.memberLegalName,
+          memberAddress: salesMembers.memberAddress,
+          memberSector: salesMembers.memberSector,
+          memberCep: salesMembers.memberCep,
+          memberCity: salesMembers.memberCity,
+          memberState: salesMembers.memberState,
+          registration: salesMembers.registration,
+          memberPhone: salesMembers.memberPhone,
+          memberMobile: salesMembers.memberMobile,
+        })
+        .from(salesMembers)
+        .where(eq(salesMembers.salesId, saleId))
+        .limit(1)
+    )[0] ?? null;
+  }
+
+  private async syncSaleMemberSnapshot(
+    tx: Tx,
+    enterpriseId: string,
+    saleId: string,
+    memberId: string,
+    options: {
+      rebuildFromMember: boolean;
+      overrides?: SaleMemberOverrideInput;
+    },
+  ) {
+    const base = options.rebuildFromMember
+      ? await this.buildSaleMemberSnapshot(tx, enterpriseId, memberId)
+      : ((await this.loadSaleMemberSnapshot(tx, saleId)) ??
+        (await this.buildSaleMemberSnapshot(tx, enterpriseId, memberId)));
+
+    const snapshot = mergeSaleMemberSnapshot(
+      base,
+      normalizeSaleMemberOverrides(options.overrides),
+    );
+    await this.upsertSaleMember(tx, saleId, snapshot);
+  }
+
+  private async loadSaleMember(saleId: string) {
+    return (
+      await db
+        .select({
+          id: salesMembers.id,
+          memberLegalName: salesMembers.memberLegalName,
+          memberAddress: salesMembers.memberAddress,
+          memberSector: salesMembers.memberSector,
+          memberCep: salesMembers.memberCep,
+          memberCity: salesMembers.memberCity,
+          memberState: salesMembers.memberState,
+          registration: salesMembers.registration,
+          memberPhone: salesMembers.memberPhone,
+          memberMobile: salesMembers.memberMobile,
+          createdAt: salesMembers.createdAt,
+          updatedAt: salesMembers.updatedAt,
+        })
+        .from(salesMembers)
+        .where(eq(salesMembers.salesId, saleId))
+        .limit(1)
+    )[0];
+  }
+
   public async list(enterpriseId: string, query: ListSalesQuery = {}) {
     const { limit, offset } = resolveListPagination(query);
     const where = this.listScope(enterpriseId, query);
@@ -1497,9 +1891,10 @@ export class SalesService {  // Servico de vendas
     if (!sale) {
       throw new NotFoundError("Venda nao encontrada", "SALE_NOT_FOUND");
     }
-    const [items, payments] = await Promise.all([
+    const [items, payments, member] = await Promise.all([
       this.loadSaleItems(id),
       db.select().from(salesPayments).where(eq(salesPayments.salesId, id)),
+      this.loadSaleMember(id),
     ]);
     const paymentIds = payments.map((p) => p.id);
     const allDues =
@@ -1528,6 +1923,7 @@ export class SalesService {  // Servico de vendas
     return {
       ...sale,
       items: mappedItems,
+      ...(member ? { member } : {}),
       payments: payments.map((p) => ({
         ...p,
         dues: allDues.filter((d) => d.salesPaymentId === p.id),
@@ -1674,6 +2070,7 @@ export class SalesService {  // Servico de vendas
             discountValuetems: dec(input.discountValuetems),
             valueAcresceItems: dec(input.valueAcresceItems),
             ...buildSaleFinancialAdjustmentValues(input),
+            ...buildSaleServiceFieldValues(input),
             valueLiquid: "0",
             status,
             ...(closingOrigin !== undefined ? { origin: closingOrigin } : {}),
@@ -1682,6 +2079,14 @@ export class SalesService {  // Servico de vendas
           })
           .returning();
         if (!sale) throw new Error("Falha ao criar venda");
+
+        await this.syncSaleMemberSnapshot(
+          tx,
+          enterpriseId,
+          sale.id,
+          input.memberId,
+          { rebuildFromMember: true, overrides: input.member },
+        );
 
         for (let i = 0; i < input.items.length; i++) {
           const itemInput = input.items[i];
@@ -1790,12 +2195,8 @@ export class SalesService {  // Servico de vendas
 
       return this.getById(enterpriseId, saleId);
     } catch (err) {
-      if (isPostgresUniqueViolation(err)) {
-        throw new ConflictError(
-          "Venda em conflito (numero do pedido)",
-          "SALE_CONFLICT",
-        );
-      }
+      const conflict = mapSaleUniqueViolation(err);
+      if (conflict) throw conflict;
       throw err;
     }
   }
@@ -1850,6 +2251,23 @@ export class SalesService {  // Servico de vendas
       );
     }
 
+    if (
+      input.member !== undefined &&
+      input.memberId === undefined &&
+      existing.memberId == null
+    ) {
+      throw new ValidationError(
+        [
+          {
+            path: "body.member",
+            message:
+              "Informe memberId para associar membro a venda antes de alterar o snapshot",
+          },
+        ],
+        "Membro obrigatorio",
+      );
+    }
+
     let sellerUpdate: { sellerId: string; sellerLegalName: string } | undefined;
     if (input.sellerId !== undefined) {
       if (!auth?.userId) {
@@ -1867,6 +2285,7 @@ export class SalesService {  // Servico de vendas
 
     const hasHeaderChange =
       input.memberId !== undefined ||
+      input.member !== undefined ||
       input.sellerId !== undefined ||
       input.discountValuetems !== undefined ||
       input.valueAcresceItems !== undefined ||
@@ -1879,7 +2298,11 @@ export class SalesService {  // Servico de vendas
       input.percentageAcresceService !== undefined ||
       input.valueAcresceFinancialService !== undefined ||
       input.valueLiquid !== undefined ||
-      input.recalculateTotals === true;
+      input.recalculateTotals === true ||
+      input.vehicleMileage !== undefined ||
+      input.observations !== undefined ||
+      input.defect !== undefined ||
+      input.serviceType !== undefined;
 
     if (nextStatus === "FINALIZADA" && existing.type !== "VENDA") {
       throw new ValidationError(
@@ -1933,6 +2356,7 @@ export class SalesService {  // Servico de vendas
       (hasHeaderChange && input.valueLiquid === undefined);
 
     let beforeRow!: typeof sales.$inferSelect;
+    try {
     await db.transaction(async (tx) => {
       beforeRow = await this.getSaleRow(tx, enterpriseId, id);
 
@@ -1953,6 +2377,7 @@ export class SalesService {  // Servico de vendas
               : {}),
             ...(input.status !== undefined ? { status: input.status } : {}),
             ...buildSaleFinancialAdjustmentValues(input),
+            ...buildSaleServiceFieldValues(input),
             ...(input.discountValuetems !== undefined
               ? { discountValuetems: dec(input.discountValuetems) }
               : {}),
@@ -1973,6 +2398,27 @@ export class SalesService {  // Servico de vendas
       )[0];
       if (!row) {
         throw new NotFoundError("Venda nao encontrada", "SALE_NOT_FOUND");
+      }
+
+      if (input.memberId !== undefined || input.member !== undefined) {
+        const memberId = input.memberId ?? row.memberId;
+        if (!memberId) {
+          throw new ValidationError(
+            [
+              {
+                path: "body.member",
+                message:
+                  "Informe memberId para associar membro a venda antes de alterar o snapshot",
+              },
+            ],
+            "Membro obrigatorio",
+          );
+        }
+
+        await this.syncSaleMemberSnapshot(tx, enterpriseId, id, memberId, {
+          rebuildFromMember: input.memberId !== undefined,
+          overrides: input.member,
+        });
       }
 
       if (shouldRecalculateTotals && row.status === "ABERTA") {
@@ -2045,6 +2491,11 @@ export class SalesService {  // Servico de vendas
 
     await this.recordSaleUpdateAudit(enterpriseId, id, beforeRow, audit);
     return this.getById(enterpriseId, id);
+    } catch (err) {
+      const conflict = mapSaleUniqueViolation(err);
+      if (conflict) throw conflict;
+      throw err;
+    }
   }
 
   public async convertBudgetToSale(
@@ -2197,6 +2648,7 @@ export class SalesService {  // Servico de vendas
             discountValuetems: dec(input.discountValuetems),
             valueAcresceItems: dec(input.valueAcresceItems),
             ...buildSaleFinancialAdjustmentValues(input),
+            ...buildSaleServiceFieldValues(input),
             valueLiquid: "0",
             status,
             budgetClosureSituation: "FECHADO",
@@ -2207,6 +2659,14 @@ export class SalesService {  // Servico de vendas
           })
           .returning();
         if (!generatedSale) throw new Error("Falha ao gerar venda do orcamento");
+
+        await this.syncSaleMemberSnapshot(
+          tx,
+          enterpriseId,
+          generatedSale.id,
+          memberId,
+          { rebuildFromMember: true, overrides: input.member },
+        );
 
         const conversionItemRows: {
           budgetItemId: string;
@@ -2415,12 +2875,8 @@ export class SalesService {  // Servico de vendas
 
       return this.getById(enterpriseId, generatedSaleId);
     } catch (err) {
-      if (isPostgresUniqueViolation(err)) {
-        throw new ConflictError(
-          "Venda em conflito (numero do pedido)",
-          "SALE_CONFLICT",
-        );
-      }
+      const conflict = mapSaleUniqueViolation(err);
+      if (conflict) throw conflict;
       throw err;
     }
   }

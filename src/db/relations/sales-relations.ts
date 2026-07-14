@@ -7,7 +7,6 @@ import {
   salesBudgetConversions,
   salesBudgetConversionItems,
   salesBudgetUnclosedItems,
-  salesReturnItems,
   salesReturns,
   salesDues,
   salesMembers,
@@ -117,7 +116,7 @@ export const salesItemsRelations = relations(salesItems, ({ one, many }) => ({
     fields: [salesItems.stockBatchId],
     references: [stockBatches.id],
   }),
-  returnItems: many(salesReturnItems),
+  returns: many(salesReturns),
   sourceBudgetItem: one(salesItems, {
     fields: [salesItems.sourceBudgetItemId],
     references: [salesItems.id],
@@ -191,25 +190,21 @@ export const salesBudgetUnclosedItemsRelations = relations(
   }),
 );
 
-// relações da tabela de DEVOLUCOES DE VENDA (documento vinculado ao pedido).
-export const salesReturnsRelations = relations(
-  salesReturns,
-  ({ one, many }) => ({
-    sale: one(sales, {
-      fields: [salesReturns.saleId],
-      references: [sales.id],
-    }),
-    enterprises: one(enterprises, {
-      fields: [salesReturns.enterprisesId],
-      references: [enterprises.id],
-    }),
-    user: one(users, {
-      fields: [salesReturns.userId],
-      references: [users.id],
-    }),
-    items: many(salesReturnItems),
+// relações da tabela de DEVOLUCOES DE VENDA (linha = item devolvido).
+export const salesReturnsRelations = relations(salesReturns, ({ one }) => ({
+  sale: one(sales, {
+    fields: [salesReturns.salesId],
+    references: [sales.id],
   }),
-);
+  saleItem: one(salesItems, {
+    fields: [salesReturns.saleItemId],
+    references: [salesItems.id],
+  }),
+  user: one(users, {
+    fields: [salesReturns.userId],
+    references: [users.id],
+  }),
+}));
 
 // relações da tabela de VENDAS PAGAMENTOS.
 export const salesPaymentsRelations = relations(

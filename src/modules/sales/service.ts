@@ -1826,6 +1826,15 @@ export class SalesService {  // Servico de vendas
       normalizeSaleMemberOverrides(options.overrides),
     );
     await this.upsertSaleMember(tx, saleId, snapshot);
+    if (snapshot.memberLegalName) {
+      await tx
+        .update(sales)
+        .set({
+          memberLegalName: snapshot.memberLegalName,
+          updatedAt: new Date(),
+        })
+        .where(eq(sales.id, saleId));
+    }
   }
 
   private async loadSaleMember(saleId: string) {
@@ -2094,6 +2103,22 @@ export class SalesService {  // Servico de vendas
             ? resolveSaleClosingOrigin(input.origin, gescomClient)
             : undefined;
 
+        const memberSnapshot = mergeSaleMemberSnapshot(
+          await this.buildSaleMemberSnapshot(tx, enterpriseId, input.memberId),
+          normalizeSaleMemberOverrides(input.member),
+        );
+        if (!memberSnapshot.memberLegalName) {
+          throw new ValidationError(
+            [
+              {
+                path: "body.memberId",
+                message: "Cliente sem nome legal",
+              },
+            ],
+            "Cliente invalido",
+          );
+        }
+
         const [sale] = await tx
           .insert(sales)
           .values({
@@ -2109,6 +2134,7 @@ export class SalesService {  // Servico de vendas
             valueAcresceItems: dec(input.valueAcresceItems),
             ...buildSaleFinancialAdjustmentValues(input),
             ...buildSaleServiceFieldValues(input),
+            memberLegalName: memberSnapshot.memberLegalName,
             valueLiquid: "0",
             status,
             ...(closingOrigin !== undefined ? { origin: closingOrigin } : {}),
@@ -2118,13 +2144,7 @@ export class SalesService {  // Servico de vendas
           .returning();
         if (!sale) throw new Error("Falha ao criar venda");
 
-        await this.syncSaleMemberSnapshot(
-          tx,
-          enterpriseId,
-          sale.id,
-          input.memberId,
-          { rebuildFromMember: true, overrides: input.member },
-        );
+        await this.upsertSaleMember(tx, sale.id, memberSnapshot);
 
         for (let i = 0; i < input.items.length; i++) {
           const itemInput = input.items[i];
@@ -2677,6 +2697,22 @@ export class SalesService {  // Servico de vendas
             ? resolveSaleClosingOrigin(input.origin, gescomClient)
             : undefined;
 
+        const memberSnapshot = mergeSaleMemberSnapshot(
+          await this.buildSaleMemberSnapshot(tx, enterpriseId, memberId),
+          normalizeSaleMemberOverrides(input.member),
+        );
+        if (!memberSnapshot.memberLegalName) {
+          throw new ValidationError(
+            [
+              {
+                path: "body.memberId",
+                message: "Cliente sem nome legal",
+              },
+            ],
+            "Cliente invalido",
+          );
+        }
+
         const [generatedSale] = await tx
           .insert(sales)
           .values({
@@ -2692,6 +2728,7 @@ export class SalesService {  // Servico de vendas
             valueAcresceItems: dec(input.valueAcresceItems),
             ...buildSaleFinancialAdjustmentValues(input),
             ...buildSaleServiceFieldValues(input),
+            memberLegalName: memberSnapshot.memberLegalName,
             valueLiquid: "0",
             status,
             budgetClosureSituation: "FECHADO",
@@ -2703,13 +2740,7 @@ export class SalesService {  // Servico de vendas
           .returning();
         if (!generatedSale) throw new Error("Falha ao gerar venda do orcamento");
 
-        await this.syncSaleMemberSnapshot(
-          tx,
-          enterpriseId,
-          generatedSale.id,
-          memberId,
-          { rebuildFromMember: true, overrides: input.member },
-        );
+        await this.upsertSaleMember(tx, generatedSale.id, memberSnapshot);
 
         const conversionItemRows: {
           budgetItemId: string;

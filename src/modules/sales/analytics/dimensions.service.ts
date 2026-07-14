@@ -10,7 +10,6 @@ import {
   sales,
   salesItems,
   salesPayments,
-  salesReturnItems,
   salesReturns,
   users,
 } from "../../../db/schema.js";
@@ -20,6 +19,7 @@ import {
   buildRealizedScope,
   buildReturnsScope,
   extractFilters,
+  returnLineValueSql,
 } from "./scope.js";
 import type {
   AnalyticsRankingQuery,
@@ -277,10 +277,12 @@ export class DimensionsAnalyticsService {
     const [returnsAgg, grossAgg, topProducts] = await Promise.all([
       db
         .select({
-          returnsTotal: sql<string>`coalesce(sum(${salesReturns.valueTotal}), 0)`,
+          returnsTotal: sql<string>`coalesce(sum(${returnLineValueSql()}), 0)`,
           returnCount: sql<string>`count(*)`,
         })
         .from(salesReturns)
+        .innerJoin(sales, eq(salesReturns.salesId, sales.id))
+        .innerJoin(salesItems, eq(salesReturns.saleItemId, salesItems.id))
         .where(returnsScope),
       db
         .select({
@@ -292,25 +294,19 @@ export class DimensionsAnalyticsService {
         .select({
           id: productsEnterprises.id,
           label: productsEnterprises.description,
-          quantity: sql<string>`coalesce(sum(${salesReturnItems.quantity}), 0)`,
-          revenue: sql<string>`coalesce(sum(${salesReturnItems.valueTotal}), 0)`,
+          quantity: sql<string>`coalesce(sum(${salesReturns.quantity}), 0)`,
+          revenue: sql<string>`coalesce(sum(${returnLineValueSql()}), 0)`,
         })
-        .from(salesReturnItems)
-        .innerJoin(
-          salesReturns,
-          eq(salesReturnItems.salesReturnId, salesReturns.id),
-        )
-        .innerJoin(
-          salesItems,
-          eq(salesReturnItems.saleItemId, salesItems.id),
-        )
+        .from(salesReturns)
+        .innerJoin(sales, eq(salesReturns.salesId, sales.id))
+        .innerJoin(salesItems, eq(salesReturns.saleItemId, salesItems.id))
         .innerJoin(
           productsEnterprises,
           eq(salesItems.productsEnterprisesId, productsEnterprises.id),
         )
         .where(returnsScope)
         .groupBy(productsEnterprises.id, productsEnterprises.description)
-        .orderBy(sql`sum(${salesReturnItems.valueTotal}) desc`)
+        .orderBy(sql`sum(${returnLineValueSql()}) desc`)
         .limit(query.limit ?? 10),
     ]);
 

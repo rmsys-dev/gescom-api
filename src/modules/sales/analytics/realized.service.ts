@@ -14,6 +14,7 @@ import {
   effectiveCompletionDateSql,
   extractFilters,
   localReturnCreatedDateSql,
+  returnLineValueSql,
   type AnalyticsFilters,
 } from "./scope.js";
 import type {
@@ -66,10 +67,12 @@ const fetchRealizedKpis = async (
       .where(scope),
     db
       .select({
-        returnsTotal: sql<string>`coalesce(sum(${salesReturns.valueTotal}), 0)`,
+        returnsTotal: sql<string>`coalesce(sum(${returnLineValueSql()}), 0)`,
         returnCount: sql<string>`count(*)`,
       })
       .from(salesReturns)
+      .innerJoin(sales, eq(salesReturns.salesId, sales.id))
+      .innerJoin(salesItems, eq(salesReturns.saleItemId, salesItems.id))
       .where(buildReturnsScope(enterpriseId, period)),
   ]);
 
@@ -157,9 +160,11 @@ const fetchRealizedSeries = async (
   const returnRows = await db
     .select({
       bucketStart: sql<string>`to_char(${returnBucket}, 'YYYY-MM-DD')`,
-      returnsTotal: sql<string>`coalesce(sum(${salesReturns.valueTotal}), 0)`,
+      returnsTotal: sql<string>`coalesce(sum(${returnLineValueSql()}), 0)`,
     })
     .from(salesReturns)
+    .innerJoin(sales, eq(salesReturns.salesId, sales.id))
+    .innerJoin(salesItems, eq(salesReturns.saleItemId, salesItems.id))
     .where(returnsScope)
     .groupBy(returnBucket);
 

@@ -1,11 +1,6 @@
-import { and, asc, count, desc, eq, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq } from "drizzle-orm";
 import { db } from "../../../db/index.js";
-import {
-  sales,
-  salesItems,
-  salesReturnItems,
-  salesReturns,
-} from "../../../db/schema.js";
+import { sales, salesItems, salesReturns } from "../../../db/schema.js";
 import {
   NotFoundError,
   ValidationError,
@@ -18,20 +13,15 @@ import { toAuditRecord } from "../../../shared/audit/build-field-diff.js";
 import { EntityTypes } from "../../../shared/audit/entity-types.js";
 import { isServiceProductType } from "../../../shared/products/product-type-service.js";
 import { applySaleReturnDocumentItemStockIn } from "../sale-stock.js";
-import { nextSaleReturnNumber } from "./sequences.js";
+import { nextSaleReturnOrder } from "./sequences.js";
 import type {
   CreateFullReturnInput,
   CreatePartialReturnInput,
 } from "./schema.js";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
-type SaleReturnKind = "PARCIAL" | "TOTAL";
 type SaleReturnSituation = "SEM_DEVOLUCAO" | "PARCIAL" | "TOTAL";
-
-const roundMoney = (value: number, scale: number) => {
-  const factor = 10 ** scale;
-  return Math.round(value * factor) / factor;
-};
+type SaleReturnRow = typeof salesReturns.$inferSelect;
 
 export class SalesReturnsService {
   private saleScope(enterpriseId: string, saleId: string) {
@@ -41,8 +31,9 @@ export class SalesReturnsService {
   private returnScope(enterpriseId: string, saleId: string, returnId: string) {
     return and(
       eq(salesReturns.id, returnId),
-      eq(salesReturns.saleId, saleId),
-      eq(salesReturns.enterprisesId, enterpriseId),
+      eq(salesReturns.salesId, saleId),
+      eq(sales.id, saleId),
+      eq(sales.enterprisesId, enterpriseId),
     );
   }
 
@@ -115,45 +106,9 @@ export class SalesReturnsService {
       );
     }
 
-    const pendingSum = (
-      await tx
-        .select({
-          total: sql<string>`coalesce(sum(${salesReturnItems.quantity}), 0)`,
-        })
-        .from(salesReturnItems)
-        .innerJoin(
-          salesReturns,
-          eq(salesReturnItems.salesReturnId, salesReturns.id),
-        )
-        .where(
-          and(
-            eq(salesReturnItems.saleItemId, saleItemId),
-            eq(salesReturns.saleId, saleId),
-            eq(salesReturns.status, "ABERTA"),
-          ),
-        )
-    )[0];
-
     const sold = Number(item.quantity);
     const returned = Number(item.quantityReturned ?? 0);
-    const pending = Number(pendingSum?.total ?? 0);
-    return { item, returnable: sold - returned - pending };
-  }
-
-  private computeReturnItemValues(
-    saleItem: typeof salesItems.$inferSelect,
-    returnQuantity: number,
-  ) {
-    const soldQty = Number(saleItem.quantity);
-    const lineTotal = Number(saleItem.valueTotal);
-    const valueTotal =
-      soldQty > 0
-        ? roundMoney((lineTotal / soldQty) * returnQuantity, 4)
-        : 0;
-    return {
-      valueUnit: saleItem.valueUnit,
-      valueTotal: valueTotal.toFixed(4),
-    };
+    return { item, returnable: sold - returned };
   }
 
   private async syncSaleReturnSituation(tx: Tx, saleId: string) {
@@ -188,44 +143,17 @@ export class SalesReturnsService {
       .where(eq(sales.id, saleId));
   }
 
-  private async createReturnDocument(
+  private async createReturnLine(
     tx: Tx,
     params: {
       enterpriseId: string;
       saleId: string;
+      saleOrderNumber: number;
       userId: string;
-      kind: SaleReturnKind;
-      notes?: string | null;
-    },
-  ) {
-    const returnNumber = await nextSaleReturnNumber(params.enterpriseId, tx);
-    const [returnRow] = await tx
-      .insert(salesReturns)
-      .values({
-        returnNumber,
-        saleId: params.saleId,
-        enterprisesId: params.enterpriseId,
-        userId: params.userId,
-        kind: params.kind,
-        status: "ABERTA",
-        valueTotal: "0",
-        notes: params.notes?.trim() ?? null,
-      })
-      .returning();
-    if (!returnRow) throw new Error("Falha ao criar devolucao");
-    return returnRow;
-  }
-
-  private async insertReturnItem(
-    tx: Tx,
-    params: {
-      enterpriseId: string;
-      saleId: string;
-      salesReturnId: string;
       saleItemId: string;
       quantity: number;
     },
-  ) {
+  ): Promise<SaleReturnRow> {
     const { item, returnable } = await this.getReturnableQuantity(
       tx,
       params.saleItemId,
@@ -252,101 +180,46 @@ export class SalesReturnsService {
       );
     }
 
-    const { valueUnit, valueTotal } = this.computeReturnItemValues(
-      item,
-      params.quantity,
-    );
-
-    await tx.insert(salesReturnItems).values({
-      salesReturnId: params.salesReturnId,
-      saleItemId: params.saleItemId,
-      quantity: params.quantity.toString(),
-      valueUnit,
-      valueTotal,
-    });
-  }
-
-  private async finalizeReturnDocument(
-    tx: Tx,
-    params: {
-      enterpriseId: string;
-      saleId: string;
-      salesReturnId: string;
-      userId: string;
-      returnNumber: number;
-      saleOrderNumber: number;
-      notes?: string | null;
-    },
-  ) {
-    const lines = await tx
-      .select({
-        returnItem: salesReturnItems,
-        saleItem: salesItems,
-      })
-      .from(salesReturnItems)
-      .innerJoin(salesItems, eq(salesReturnItems.saleItemId, salesItems.id))
-      .where(eq(salesReturnItems.salesReturnId, params.salesReturnId));
-
-    if (lines.length === 0) {
-      throw new ValidationError(
-        [{ path: "body.items", message: "Devolucao sem itens" }],
-        "Itens obrigatorios",
-      );
-    }
-
-    for (const line of lines) {
-      await applySaleReturnDocumentItemStockIn(tx, {
-        enterpriseId: params.enterpriseId,
+    const returnOrder = await nextSaleReturnOrder(params.saleId, tx);
+    const [returnRow] = await tx
+      .insert(salesReturns)
+      .values({
+        returnOrder,
+        salesId: params.saleId,
+        saleItemId: params.saleItemId,
+        quantity: params.quantity.toString(),
         userId: params.userId,
-        salesReturnId: params.salesReturnId,
-        returnNumber: params.returnNumber,
-        saleOrderNumber: params.saleOrderNumber,
-        returnItem: {
-          id: line.returnItem.id,
-          quantity: line.returnItem.quantity,
-          saleItem: line.saleItem,
-        },
-      });
+      })
+      .returning();
+    if (!returnRow) throw new Error("Falha ao criar devolucao");
 
-      const returnedAfter =
-        Number(line.saleItem.quantityReturned) +
-        Number(line.returnItem.quantity);
-      await tx
-        .update(salesItems)
-        .set({
-          quantityReturned: returnedAfter.toString(),
-          updatedAt: new Date(),
-        })
-        .where(eq(salesItems.id, line.saleItem.id));
-    }
+    await applySaleReturnDocumentItemStockIn(tx, {
+      enterpriseId: params.enterpriseId,
+      userId: params.userId,
+      salesReturnId: returnRow.id,
+      returnOrder: returnRow.returnOrder,
+      saleOrderNumber: params.saleOrderNumber,
+      returnItem: {
+        quantity: returnRow.quantity,
+        saleItem: item,
+      },
+    });
 
-    const documentValueTotal = roundMoney(
-      lines.reduce(
-        (sum, line) => sum + Number(line.returnItem.valueTotal),
-        0,
-      ),
-      2,
-    );
-
+    const returnedAfter = Number(item.quantityReturned) + params.quantity;
     await tx
-      .update(salesReturns)
+      .update(salesItems)
       .set({
-        status: "FINALIZADA",
-        valueTotal: documentValueTotal.toFixed(2),
-        ...(params.notes !== undefined ? { notes: params.notes } : {}),
+        quantityReturned: returnedAfter.toString(),
         updatedAt: new Date(),
       })
-      .where(eq(salesReturns.id, params.salesReturnId));
+      .where(eq(salesItems.id, item.id));
 
-    await this.syncSaleReturnSituation(tx, params.saleId);
+    return returnRow;
   }
 
   public async list(enterpriseId: string, saleId: string) {
     await this.getSaleRow(db, enterpriseId, saleId);
-    const where = and(
-      eq(salesReturns.saleId, saleId),
-      eq(salesReturns.enterprisesId, enterpriseId),
-    );
+    const where = eq(salesReturns.salesId, saleId);
     const [items, totalRows] = await Promise.all([
       db
         .select()
@@ -366,8 +239,13 @@ export class SalesReturnsService {
   ) {
     const row = (
       await db
-        .select()
+        .select({
+          return: salesReturns,
+          saleItem: salesItems,
+        })
         .from(salesReturns)
+        .innerJoin(sales, eq(salesReturns.salesId, sales.id))
+        .innerJoin(salesItems, eq(salesReturns.saleItemId, salesItems.id))
         .where(this.returnScope(enterpriseId, saleId, salesReturnId))
         .limit(1)
     )[0];
@@ -377,22 +255,7 @@ export class SalesReturnsService {
         "SALE_RETURN_NOT_FOUND",
       );
     }
-    const items = await db
-      .select({
-        id: salesReturnItems.id,
-        salesReturnId: salesReturnItems.salesReturnId,
-        saleItemId: salesReturnItems.saleItemId,
-        quantity: salesReturnItems.quantity,
-        valueUnit: salesReturnItems.valueUnit,
-        valueTotal: salesReturnItems.valueTotal,
-        createdAt: salesReturnItems.createdAt,
-        updatedAt: salesReturnItems.updatedAt,
-        saleItem: salesItems,
-      })
-      .from(salesReturnItems)
-      .innerJoin(salesItems, eq(salesReturnItems.saleItemId, salesItems.id))
-      .where(eq(salesReturnItems.salesReturnId, salesReturnId));
-    return { ...row, items };
+    return { ...row.return, saleItem: row.saleItem };
   }
 
   public async createPartialReturn(
@@ -402,66 +265,46 @@ export class SalesReturnsService {
     input: CreatePartialReturnInput,
     audit: EntityAuditContext,
   ) {
-    let returnHeader!: typeof salesReturns.$inferSelect;
-    const salesReturnId = await db.transaction(async (tx) => {
+    const createdRows = await db.transaction(async (tx) => {
       const sale = await this.getSaleForReturn(tx, enterpriseId, saleId);
-      const returnRow = await this.createReturnDocument(tx, {
-        enterpriseId,
-        saleId,
-        userId,
-        kind: "PARCIAL",
-        notes: input.notes,
-      });
+      const rows: SaleReturnRow[] = [];
 
       for (const line of input.items) {
-        await this.insertReturnItem(tx, {
+        const returnRow = await this.createReturnLine(tx, {
           enterpriseId,
           saleId,
-          salesReturnId: returnRow.id,
+          saleOrderNumber: sale.orderNumber,
+          userId,
           saleItemId: line.saleItemId,
           quantity: line.quantity,
         });
+        rows.push(returnRow);
       }
 
-      await this.finalizeReturnDocument(tx, {
-        enterpriseId,
-        saleId,
-        salesReturnId: returnRow.id,
-        userId,
-        returnNumber: returnRow.returnNumber,
-        saleOrderNumber: sale.orderNumber,
-        notes: input.notes?.trim() ?? null,
+      await this.syncSaleReturnSituation(tx, saleId);
+      return rows;
+    });
+
+    for (const row of createdRows) {
+      await recordCreateAudit({
+        entityType: EntityTypes.SALES_RETURNS,
+        entityId: row.id,
+        after: toAuditRecord(row),
+        ctx: { ...audit, enterpriseId },
       });
+    }
 
-      returnHeader = (
-        await tx
-          .select()
-          .from(salesReturns)
-          .where(eq(salesReturns.id, returnRow.id))
-          .limit(1)
-      )[0]!;
-      return returnRow.id;
-    });
-
-    await recordCreateAudit({
-      entityType: EntityTypes.SALES_RETURNS,
-      entityId: salesReturnId,
-      after: toAuditRecord(returnHeader),
-      ctx: { ...audit, enterpriseId },
-    });
-
-    return this.getById(enterpriseId, saleId, salesReturnId);
+    return { items: createdRows };
   }
 
   public async createFullReturn(
     enterpriseId: string,
     saleId: string,
     userId: string,
-    input: CreateFullReturnInput,
+    _input: CreateFullReturnInput,
     audit: EntityAuditContext,
   ) {
-    let returnHeader!: typeof salesReturns.$inferSelect;
-    const salesReturnId = await db.transaction(async (tx) => {
+    const createdRows = await db.transaction(async (tx) => {
       const sale = await this.getSaleForReturn(tx, enterpriseId, saleId);
       const saleItemRows = await tx
         .select()
@@ -487,52 +330,33 @@ export class SalesReturnsService {
         );
       }
 
-      const returnRow = await this.createReturnDocument(tx, {
-        enterpriseId,
-        saleId,
-        userId,
-        kind: "TOTAL",
-        notes: input.notes,
-      });
-
+      const rows: SaleReturnRow[] = [];
       for (const line of linesToReturn) {
-        await this.insertReturnItem(tx, {
+        const returnRow = await this.createReturnLine(tx, {
           enterpriseId,
           saleId,
-          salesReturnId: returnRow.id,
+          saleOrderNumber: sale.orderNumber,
+          userId,
           saleItemId: line.saleItemId,
           quantity: line.quantity,
         });
+        rows.push(returnRow);
       }
 
-      await this.finalizeReturnDocument(tx, {
-        enterpriseId,
-        saleId,
-        salesReturnId: returnRow.id,
-        userId,
-        returnNumber: returnRow.returnNumber,
-        saleOrderNumber: sale.orderNumber,
-        notes: input.notes?.trim() ?? null,
+      await this.syncSaleReturnSituation(tx, saleId);
+      return rows;
+    });
+
+    for (const row of createdRows) {
+      await recordCreateAudit({
+        entityType: EntityTypes.SALES_RETURNS,
+        entityId: row.id,
+        after: toAuditRecord(row),
+        ctx: { ...audit, enterpriseId },
       });
+    }
 
-      returnHeader = (
-        await tx
-          .select()
-          .from(salesReturns)
-          .where(eq(salesReturns.id, returnRow.id))
-          .limit(1)
-      )[0]!;
-      return returnRow.id;
-    });
-
-    await recordCreateAudit({
-      entityType: EntityTypes.SALES_RETURNS,
-      entityId: salesReturnId,
-      after: toAuditRecord(returnHeader),
-      ctx: { ...audit, enterpriseId },
-    });
-
-    return this.getById(enterpriseId, saleId, salesReturnId);
+    return { items: createdRows };
   }
 }
 

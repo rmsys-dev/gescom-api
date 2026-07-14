@@ -253,6 +253,13 @@
       "when": 1783704981816,
       "tag": "0035_majestic_stryfe",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1784031033923,
+      "tag": "0036_magical_lionheart",
+      "breakpoints": true
     }
   ]
 }

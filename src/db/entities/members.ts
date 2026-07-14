@@ -83,10 +83,10 @@ export const enterprisesMembers = pgTable(
     deletedAt: tz("deleted_at"),
   },
   (t) => [
-    uniqueIndex("enterprises_members_user_enterprise_active_unique")
-      .on(t.userId, t.enterpriseId)
+    uniqueIndex("enterprises_members_user_enterprise_class_active_unique")
+      .on(t.userId, t.enterpriseId, t.class)
       .where(sql`${t.deletedAt} is null`),
-    index("enterprises_members_enterprise_active_idx").on(
+    index("enterprises_members_user_enterprise_active_idx").on(
       t.enterpriseId,
       t.deletedAt,
     ),

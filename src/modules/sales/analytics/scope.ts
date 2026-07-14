@@ -125,10 +125,17 @@ export const buildReturnsScope = (
   period: ResolvedPeriod,
 ) =>
   and(
-    eq(salesReturns.enterprisesId, enterpriseId),
-    eq(salesReturns.status, "FINALIZADA"),
+    eq(sales.enterprisesId, enterpriseId),
     buildReturnDateCondition(period),
   );
+
+/** Valor proporcional da linha de devolucao com base no item da venda. */
+export const returnLineValueSql = () =>
+  sql`case
+    when ${salesItems.quantity} > 0
+    then (${salesItems.valueTotal} / ${salesItems.quantity}) * ${salesReturns.quantity}
+    else 0
+  end`;
 
 export const extractFilters = (query: AnalyticsFilters): AnalyticsFilters => ({
   sellerId: query.sellerId,

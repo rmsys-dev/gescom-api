@@ -21,7 +21,6 @@ export const salesReturnIdParamsSchema = z
 
 export const createPartialReturnSchema = z
   .object({
-    notes: z.string().trim().max(500).optional(),
     items: z
       .array(
         z
@@ -35,11 +34,7 @@ export const createPartialReturnSchema = z
   })
   .strict();
 
-export const createFullReturnSchema = z
-  .object({
-    notes: z.string().trim().max(500).optional(),
-  })
-  .strict();
+export const createFullReturnSchema = z.object({}).strict();
 
 export type CreatePartialReturnInput = z.infer<typeof createPartialReturnSchema>;
 export type CreateFullReturnInput = z.infer<typeof createFullReturnSchema>;

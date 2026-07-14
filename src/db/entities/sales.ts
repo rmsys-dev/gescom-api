@@ -14,9 +14,7 @@ import { sql } from "drizzle-orm";
 import {
   budgetClosureSituationEnum,
   budgetConversionKindEnum,
-  saleReturnKindEnum,
   saleReturnSituationEnum,
-  saleReturnStatusEnum,
   saleStatusEnum,
   saleOriginEnum,
   saleTypeEnum,
@@ -67,9 +65,11 @@ export const sales = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
     sellerLegalName: varchar("seller_legal_name", { length: 255 }).notNull(), 
-    memberId: uuid("member_id").references(() => enterprisesMembers.id, { 
-      onDelete: "restrict",
-    }),
+    memberId: uuid("member_id")
+      .notNull()
+      .references(() => enterprisesMembers.id, { 
+        onDelete: "restrict" }), // MEMBRO
+    memberLegalName: varchar("member_legal_name", { length: 255 }).notNull(),
     type: saleTypeEnum("type").notNull(), 
     subTotal: decimal("sub_total", valorDuasCasasDecimais).notNull(),
     discountValuetems: decimal("discount_value_items", valorDuasCasasDecimais), // valor do desconto nos itens
@@ -311,63 +311,32 @@ export const salesBudgetUnclosedItems = pgTable(
   ],
 );
 
+
 // DEVOLUÇÕES DE VENDA.
-export const salesReturns = pgTable(
+export const salesReturns = pgTable( 
   "sales_returns",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    returnNumber: integer("return_number").notNull(),
-    saleId: uuid("sale_id")
+    returnOrder: integer("return_order").notNull(), // ORDEM DA DEVOLUÇÃO
+    salesId: uuid("sales_id") 
       .notNull()
-      .references(() => sales.id, { onDelete: "cascade" }),
-    enterprisesId: uuid("enterprises_id")
-      .notNull()
-      .references(() => enterprises.id, { onDelete: "cascade" }),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "restrict" }),
-    status: saleReturnStatusEnum("status").notNull().default("ABERTA"),
-    kind: saleReturnKindEnum("kind").notNull(),
-    valueTotal: decimal("value_total", valorDuasCasasDecimais).notNull(),
-    notes: varchar("notes", { length: 500 }),
-    createdAt: tz("created_at").defaultNow().notNull(),
-    updatedAt: tz("updated_at"),
-  },
-  (t) => [
-    uniqueIndex("sales_returns_enterprise_return_number_unique").on(
-      t.enterprisesId,
-      t.returnNumber,
-    ),
-    index("sales_returns_sale_id_idx").on(t.saleId),
-    index("sales_returns_analytics_idx")
-      .on(t.enterprisesId, t.createdAt)
-      .where(sql`${t.status} = 'FINALIZADA'`),
-  ],
-);
-
-// Itens da devolução de venda (historico auditavel).
-export const salesReturnItems = pgTable(
-  "sales_return_items",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    salesReturnId: uuid("sales_return_id") 
-      .notNull()
-      .references(() => salesReturns.id, { onDelete: "cascade" }),
+      .references(() => sales.id, { onDelete: "cascade" }), // VENDA
     saleItemId: uuid("sale_item_id")
       .notNull()
-      .references(() => salesItems.id, { onDelete: "restrict" }),
-    quantity: decimal("quantity", valorQuatroCasasDecimais).notNull(),
-    valueUnit: decimal("value_unit", valorQuatroCasasDecimais).notNull(),
-    valueTotal: decimal("value_total", valorDuasCasasDecimais).notNull(),
+      .references(() => salesItems.id, { onDelete: "restrict" }), // ITEM DA VENDA
+    quantity: decimal("quantity", valorQuatroCasasDecimais).notNull(), // QUANTIDADE DA DEVOLUÇÃO
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }), // USUÁRIO
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
   },
   (t) => [
-    uniqueIndex("sales_return_items_return_sale_item_unique").on(
-      t.salesReturnId,
-      t.saleItemId,
+    uniqueIndex("sales_returns_sales_id_return_order_unique").on(
+      t.salesId,
+      t.returnOrder,
     ),
-    check("sales_return_items_quantity_positive", sql`${t.quantity} > 0`),
+    check("sales_returns_quantity_positive", sql`${t.quantity} > 0`), // QUANTIDADE DA DEVOLUÇÃO DEVE SER MAIOR QUE 0
   ],
 );
 

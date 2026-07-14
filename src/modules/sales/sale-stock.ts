@@ -132,11 +132,8 @@ async function applySaleItemStockRevisionReturn(
   });
 }
 
-export function saleReturnDocumentItemRef(
-  salesReturnId: string,
-  salesReturnItemId: string,
-) {
-  return `SALE-RET-DOC:${salesReturnId}:ITEM:${salesReturnItemId}`;
+export function saleReturnDocumentItemRef(salesReturnId: string) {
+  return `SALE-RET-DOC:${salesReturnId}`;
 }
 
 function assertNonServiceStockFields(
@@ -402,27 +399,29 @@ export async function applySaleReturnDocumentItemStockIn(
     enterpriseId: string;
     userId: string | null;
     salesReturnId: string;
-    returnNumber: number;
+    returnOrder: number;
     saleOrderNumber: number;
     returnItem: {
-      id: string;
       quantity: string;
       saleItem: SaleItemRow;
     };
   },
 ) {
-  const { enterpriseId, userId, salesReturnId, returnNumber, saleOrderNumber, returnItem } =
-    params;
+  const {
+    enterpriseId,
+    userId,
+    salesReturnId,
+    returnOrder,
+    saleOrderNumber,
+    returnItem,
+  } = params;
   const item = returnItem.saleItem;
   if (await isServiceProductType(item.productTypeId)) {
     return;
   }
   assertItemHasLocation(item);
 
-  const documentRef = saleReturnDocumentItemRef(
-    salesReturnId,
-    returnItem.id,
-  );
+  const documentRef = saleReturnDocumentItemRef(salesReturnId);
   if (await stockMovementExistsByDocumentRef(tx, documentRef)) {
     return;
   }
@@ -437,7 +436,7 @@ export async function applySaleReturnDocumentItemStockIn(
       toStockLocationId: item.stockLocationId!,
       toStockBatchId: item.stockBatchId,
       documentRef,
-      notes: `Devolucao ${returnNumber} pedido ${saleOrderNumber}`,
+      notes: `Devolucao ${returnOrder} pedido ${saleOrderNumber}`,
     },
   });
 }

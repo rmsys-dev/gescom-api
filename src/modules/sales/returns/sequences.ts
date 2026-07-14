@@ -5,15 +5,15 @@ type Tx = Parameters<
   Parameters<typeof import("../../../db/index.js").db.transaction>[0]
 >[0];
 
-export async function nextSaleReturnNumber(
-  enterpriseId: string,
+export async function nextSaleReturnOrder(
+  saleId: string,
   tx: Tx,
 ): Promise<number> {
   const maxRows = await tx
     .select({
-      max: sql<number>`coalesce(max(${salesReturns.returnNumber}), 0)`,
+      max: sql<number>`coalesce(max(${salesReturns.returnOrder}), 0)`,
     })
     .from(salesReturns)
-    .where(eq(salesReturns.enterprisesId, enterpriseId));
+    .where(eq(salesReturns.salesId, saleId));
   return Number(maxRows[0]?.max ?? 0) + 1;
 }

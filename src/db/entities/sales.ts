@@ -380,10 +380,10 @@ export const salesDues = pgTable(
     updatedAt: tz("updated_at"),
   },
   (t) => [
-    uniqueIndex("sales_dues_sales_payment_id_due_date_unique").on(
+    uniqueIndex("sales_dues_sales_payment_id_due_date_sales_id_unique").on(
+      t.salesId,
       t.salesPaymentId,
       t.dueDate,
     ),
-    index("sales_dues_due_date_idx").on(t.dueDate),
   ],
 );

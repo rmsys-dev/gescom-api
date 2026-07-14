@@ -69,7 +69,6 @@ export const sales = pgTable(
       .notNull()
       .references(() => enterprisesMembers.id, { 
         onDelete: "restrict" }), // MEMBRO
-    memberLegalName: varchar("member_legal_name", { length: 255 }).notNull(),
     type: saleTypeEnum("type").notNull(), 
     subTotal: decimal("sub_total", valorDuasCasasDecimais).notNull(),
     discountValuetems: decimal("discount_value_items", valorDuasCasasDecimais), // valor do desconto nos itens

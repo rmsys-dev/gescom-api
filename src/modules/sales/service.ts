@@ -1826,15 +1826,6 @@ export class SalesService {  // Servico de vendas
       normalizeSaleMemberOverrides(options.overrides),
     );
     await this.upsertSaleMember(tx, saleId, snapshot);
-    if (snapshot.memberLegalName) {
-      await tx
-        .update(sales)
-        .set({
-          memberLegalName: snapshot.memberLegalName,
-          updatedAt: new Date(),
-        })
-        .where(eq(sales.id, saleId));
-    }
   }
 
   private async loadSaleMember(saleId: string) {
@@ -2134,7 +2125,6 @@ export class SalesService {  // Servico de vendas
             valueAcresceItems: dec(input.valueAcresceItems),
             ...buildSaleFinancialAdjustmentValues(input),
             ...buildSaleServiceFieldValues(input),
-            memberLegalName: memberSnapshot.memberLegalName,
             valueLiquid: "0",
             status,
             ...(closingOrigin !== undefined ? { origin: closingOrigin } : {}),
@@ -2728,7 +2718,6 @@ export class SalesService {  // Servico de vendas
             valueAcresceItems: dec(input.valueAcresceItems),
             ...buildSaleFinancialAdjustmentValues(input),
             ...buildSaleServiceFieldValues(input),
-            memberLegalName: memberSnapshot.memberLegalName,
             valueLiquid: "0",
             status,
             budgetClosureSituation: "FECHADO",

@@ -267,6 +267,13 @@
       "when": 1784035887583,
       "tag": "0037_secret_dark_phoenix",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1784048530058,
+      "tag": "0038_nebulous_wendell_rand",
+      "breakpoints": true
     }
   ]
 }

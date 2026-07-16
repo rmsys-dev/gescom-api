@@ -345,10 +345,8 @@ export const productsEnterprises = pgTable(
     uniqueIndex("products_enterprises_product_id_enterprises_id_unique").on(
       t.productId,
       t.enterprisesId,
+      t.code,
     ),
-    uniqueIndex("products_enterprises_enterprise_code_unique")
-      .on(t.enterprisesId, t.code)
-      .where(sql`${t.code} is not null`),
   ],
 );
 

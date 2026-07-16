@@ -333,6 +333,7 @@ export const salesReturns = pgTable(
   (t) => [
     uniqueIndex("sales_returns_sales_id_return_order_unique").on(
       t.salesId,
+      t.saleItemId,
       t.returnOrder,
     ),
     check("sales_returns_quantity_positive", sql`${t.quantity} > 0`), // QUANTIDADE DA DEVOLUÇÃO DEVE SER MAIOR QUE 0

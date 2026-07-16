@@ -19,13 +19,20 @@ if (!connectionString) {
 }
 
 const migrations = [
-  { file: "0022_broken_miek.sql", when: 1783022609828 },
-  { file: "0026_fearless_infant_terrible.sql", when: 1783106889545 },
-  { file: "0027_slimy_absorbing_man.sql", when: 1783110893404 },
-  { file: "0024_open_mandarin.sql", when: 1783085805713 },
-  { file: "0028_entity_profile_sales_sync.sql", when: 1783115000000 },
-  { file: "0029_young_surge.sql", when: 1783369064049 },
-  { file: "0030_closed_thanos.sql", when: 1783435393124 },
+  // Arquivos presentes no disco mas fora do journal atual (schema ja aplicado).
+  { file: "0031_shocking_otto_octavius.sql", when: 1783530000000 },
+  { file: "0032_sales_financial_adjustments_by_category.sql", when: 1783531000000 },
+  // Journal idx 31-39 (exceto 0038, que ja estava registrada).
+  { file: "0031_fluffy_thaddeus_ross.sql", when: 1783530624648 },
+  { file: "0032_clear_puppet_master.sql", when: 1783531483288 },
+  { file: "0033_orange_typhoid_mary.sql", when: 1783534129856 },
+  { file: "0034_sales_members_and_service_fields.sql", when: 1783600000000 },
+  { file: "0035_majestic_stryfe.sql", when: 1783704981816 },
+  { file: "0036_magical_lionheart.sql", when: 1784031033923 },
+  { file: "0037_secret_dark_phoenix.sql", when: 1784035887583 },
+  { file: "0038_nebulous_wendell_rand.sql", when: 1784048530058 },
+  { file: "0039_sleepy_bedlam.sql", when: 1784202060353 },
+  // 0040_keen_roland_deschain.sql permanece pendente de verdade.
 ] as const;
 
 const sql = postgres(connectionString, { prepare: false, max: 1 });

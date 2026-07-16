@@ -8,6 +8,8 @@ import {
 import { parseIsoDateOnly } from "../../shared/validation/data-normalizers.js";
 
 const saleTypeSchema = z.enum(["VENDA", "ORCAMENTO"]);
+/** Tipos aceites no filtro de listagem (enum DB `sale_type`). */
+const listSaleTypeSchema = z.enum(["VENDA", "ORCAMENTO", "DEVOLUCAO"]);
 const saleStatusSchema = z.enum(["ABERTA", "FINALIZADA", "CANCELADA"]);
 const saleOriginSchema = z.enum(["WEB", "MOBILE"]);
 
@@ -328,7 +330,8 @@ const budgetClosureSituationSchema = z.enum(["ABERTO", "PARCIAL", "FECHADO"]);
 
 export const listSalesQuerySchema = createPaginationQuerySchema(100)
   .extend({
-    type: saleTypeSchema.optional(),
+    /** Filtra o agrupamento por tipo de documento (`VENDA`, `ORCAMENTO` ou `DEVOLUCAO`). */
+    type: listSaleTypeSchema.optional(),
     status: saleStatusSchema.optional(),
     budgetClosureSituation: budgetClosureSituationSchema.optional(),
     userId: z.string().uuid().optional(),

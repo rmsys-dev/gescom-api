@@ -30,6 +30,7 @@ import {
   salesItems,
   salesMembers,
   salesPayments,
+  salesReturns,
   users,
   usersAddress,
   usersContact,
@@ -83,7 +84,7 @@ import {
   resolveSaleClosingOrigin,
   type SaleOrigin,
 } from "./sale-origin.js";
-import { effectiveCompletionDateSql } from "./analytics/scope.js";
+// (sem fallback no filtro de dateFrom/dateTo da listagem)
 import {
   computeItemValueTotal,
   convertBudgetItemInputSchema,
@@ -545,12 +546,12 @@ export class SalesService {  // Servico de vendas
       filters.push(eq(sales.memberId, query.memberId));
     }
     if (query?.dateFrom && query?.dateTo) {
-      const timezone = "America/Sao_Paulo";
-      const effective = effectiveCompletionDateSql(timezone);
       filters.push(
         and(
-          gte(effective, sql`${query.dateFrom}::date`),
-          lte(effective, sql`${query.dateTo}::date`),
+          // Remover fallback: se completedionDate for NULL, não entra na listagem.
+          sql`${sales.completedionDate} IS NOT NULL`,
+          gte(sales.completedionDate, sql`${query.dateFrom}::date`),
+          lte(sales.completedionDate, sql`${query.dateTo}::date`),
         )!,
       );
     }
@@ -1913,77 +1914,30 @@ export class SalesService {  // Servico de vendas
     return row ?? null;
   }
 
-  public async getById(enterpriseId: string, id: string) {  // Obtem a venda pelo id
-    const sale = (
-      await db
-        .select(saleWithMemberSelect)
-        .from(sales)
-        .leftJoin(
-          enterprisesMembers,
-          eq(sales.memberId, enterprisesMembers.id),
-        )
-        .leftJoin(users, eq(enterprisesMembers.userId, users.id))
-        .where(this.scope(enterpriseId, id))
-        .limit(1)
-    )[0];
-    if (!sale) {
-      throw new NotFoundError("Venda nao encontrada", "SALE_NOT_FOUND");
-    }
-    const [items, payments, member] = await Promise.all([
-      this.loadSaleItems(id),
-      db.select().from(salesPayments).where(eq(salesPayments.salesId, id)),
-      this.loadSaleMember(id),
-    ]);
-    const paymentIds = payments.map((p) => p.id);
-    const allDues =
-      paymentIds.length > 0
-        ? await db
-            .select()
-            .from(salesDues)
-            .where(inArray(salesDues.salesPaymentId, paymentIds))
-        : [];
-
-    const mappedItems = items;
-
-    const generatedSales =
-      sale.type === "ORCAMENTO"
-        ? await this.loadGeneratedSalesSummary(enterpriseId, id)
-        : undefined;
-
-    const sourceBudget =
-      sale.sourceBudgetSaleId !== null
-        ? await this.loadSourceBudgetSummary(
-            enterpriseId,
-            sale.sourceBudgetSaleId,
-          )
-        : undefined;
-
-    return {
-      ...sale,
-      items: mappedItems,
-      ...(member ? { member } : {}),
-      payments: payments.map((p) => ({
-        ...p,
-        dues: allDues.filter((d) => d.salesPaymentId === p.id),
-      })),
-      ...(generatedSales !== undefined ? { generatedSales } : {}),
-      ...(sourceBudget !== undefined ? { sourceBudget } : {}),
-    };
+  private async loadSaleReturns(saleId: string) {
+    return db
+      .select()
+      .from(salesReturns)
+      .where(eq(salesReturns.salesId, saleId))
+      .orderBy(desc(salesReturns.createdAt), asc(salesReturns.id));
   }
 
-  public async listBudgetConversions(enterpriseId: string, budgetSaleId: string) {  // Lista as conversões de orcamentos  
-    const budget = await this.getSaleRow(db, enterpriseId, budgetSaleId);
-    if (budget.type !== "ORCAMENTO") {
-      throw new ValidationError(
-        [
-          {
-            path: "params.saleId",
-            message: "Historico de conversao disponivel apenas para orcamentos",
-          },
-        ],
-        "Tipo invalido",
-      );
-    }
+  /**
+   * Carrega conversões de orçamento vinculadas à venda (como orçamento origem
+   * ou como venda gerada), com itens convertidos e não convertidos em cascata.
+   */
+  private async loadBudgetConversionsCascade(
+    enterpriseId: string,
+    saleId: string,
+    mode: "budget" | "linked" = "linked",
+  ) {
+    const linkFilter =
+      mode === "budget"
+        ? eq(salesBudgetConversions.budgetSaleId, saleId)
+        : or(
+            eq(salesBudgetConversions.budgetSaleId, saleId),
+            eq(salesBudgetConversions.generatedSaleId, saleId),
+          )!;
 
     const conversions = await db
       .select({
@@ -2006,13 +1960,16 @@ export class SalesService {  // Servico de vendas
       .where(
         and(
           eq(salesBudgetConversions.enterprisesId, enterpriseId),
-          eq(salesBudgetConversions.budgetSaleId, budgetSaleId),
+          linkFilter,
         ),
       )
-      .orderBy(asc(salesBudgetConversions.createdAt), asc(salesBudgetConversions.id));
+      .orderBy(
+        asc(salesBudgetConversions.createdAt),
+        asc(salesBudgetConversions.id),
+      );
 
     if (conversions.length === 0) {
-      return { items: [] };
+      return [];
     }
 
     const conversionIds = conversions.map((c) => c.id);
@@ -2027,17 +1984,98 @@ export class SalesService {  // Servico de vendas
         .where(inArray(salesBudgetUnclosedItems.conversionId, conversionIds)),
     ]);
 
+    return conversions.map((conversion) => ({
+      ...conversion,
+      items: conversionItems.filter(
+        (item) => item.conversionId === conversion.id,
+      ),
+      unclosedItems: unclosedItems.filter(
+        (item) => item.conversionId === conversion.id,
+      ),
+    }));
+  }
+
+  public async getById(enterpriseId: string, id: string) {  // Obtem a venda pelo id
+    const sale = (
+      await db
+        .select(saleWithMemberSelect)
+        .from(sales)
+        .leftJoin(
+          enterprisesMembers,
+          eq(sales.memberId, enterprisesMembers.id),
+        )
+        .leftJoin(users, eq(enterprisesMembers.userId, users.id))
+        .where(this.scope(enterpriseId, id))
+        .limit(1)
+    )[0];
+    if (!sale) {
+      throw new NotFoundError("Venda nao encontrada", "SALE_NOT_FOUND");
+    }
+    const [items, payments, member, returns, budgetConversions] =
+      await Promise.all([
+        this.loadSaleItems(id),
+        db.select().from(salesPayments).where(eq(salesPayments.salesId, id)),
+        this.loadSaleMember(id),
+        this.loadSaleReturns(id),
+        this.loadBudgetConversionsCascade(enterpriseId, id, "linked"),
+      ]);
+    const paymentIds = payments.map((p) => p.id);
+    const allDues =
+      paymentIds.length > 0
+        ? await db
+            .select()
+            .from(salesDues)
+            .where(inArray(salesDues.salesPaymentId, paymentIds))
+        : [];
+
+    const generatedSales =
+      sale.type === "ORCAMENTO"
+        ? await this.loadGeneratedSalesSummary(enterpriseId, id)
+        : undefined;
+
+    const sourceBudget =
+      sale.sourceBudgetSaleId !== null
+        ? await this.loadSourceBudgetSummary(
+            enterpriseId,
+            sale.sourceBudgetSaleId,
+          )
+        : undefined;
+
     return {
-      items: conversions.map((conversion) => ({
-        ...conversion,
-        items: conversionItems.filter(
-          (item) => item.conversionId === conversion.id,
-        ),
-        unclosedItems: unclosedItems.filter(
-          (item) => item.conversionId === conversion.id,
-        ),
+      ...sale,
+      items,
+      ...(member ? { member } : {}),
+      payments: payments.map((p) => ({
+        ...p,
+        dues: allDues.filter((d) => d.salesPaymentId === p.id),
       })),
+      returns,
+      budgetConversions,
+      ...(generatedSales !== undefined ? { generatedSales } : {}),
+      ...(sourceBudget !== undefined ? { sourceBudget } : {}),
     };
+  }
+
+  public async listBudgetConversions(enterpriseId: string, budgetSaleId: string) {  // Lista as conversões de orcamentos  
+    const budget = await this.getSaleRow(db, enterpriseId, budgetSaleId);
+    if (budget.type !== "ORCAMENTO") {
+      throw new ValidationError(
+        [
+          {
+            path: "params.saleId",
+            message: "Historico de conversao disponivel apenas para orcamentos",
+          },
+        ],
+        "Tipo invalido",
+      );
+    }
+
+    const items = await this.loadBudgetConversionsCascade(
+      enterpriseId,
+      budgetSaleId,
+      "budget",
+    );
+    return { items };
   }
 
   public async create(

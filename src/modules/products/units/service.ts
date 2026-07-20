@@ -64,6 +64,7 @@ export class UnitsService {
           unit: input.unit,
           description: input.description.trim(),
           compatible: input.compatible ?? null,
+          wholeFractional: input.wholeFractional,
         })
         .returning();
       if (!row) {
@@ -119,6 +120,9 @@ export class UnitsService {
             : {}),
           ...(input.compatible !== undefined
             ? { compatible: input.compatible }
+            : {}),
+          ...(input.wholeFractional !== undefined
+            ? { wholeFractional: input.wholeFractional }
             : {}),
           updatedAt: now,
         })

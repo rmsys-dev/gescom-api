@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "gescom-api-product-groups",
     "name": "Gescom API — Grupos de Produto",
-    "description": "Coleção do módulo **Grupos de Produto** (5 endpoints).\n\nGerado em: 2026-07-07T18:54:07.583Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
+    "description": "Coleção do módulo **Grupos de Produto** (5 endpoints).\n\nGerado em: 2026-07-20T12:27:33.253Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [

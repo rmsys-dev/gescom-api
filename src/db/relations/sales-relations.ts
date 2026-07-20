@@ -18,6 +18,7 @@ import {
   measurementUnits,
   productTypes,
   productsEnterprises,
+  promotionalPrices,
 } from "../entities/products.js";
 import {
   stockSectors,
@@ -91,6 +92,10 @@ export const salesItemsRelations = relations(salesItems, ({ one, many }) => ({
   productsEnterprises: one(productsEnterprises, {
     fields: [salesItems.productsEnterprisesId],
     references: [productsEnterprises.id],
+  }),
+  promotionalPrice: one(promotionalPrices, {
+    fields: [salesItems.promotionalPriceId],
+    references: [promotionalPrices.id],
   }),
   sale: one(sales, {
     fields: [salesItems.salesId],

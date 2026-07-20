@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { boolean, decimal, integer, uuid } from "drizzle-orm/pg-core";
-import { statusEnum } from "../enums.js";
+import { integerOrFractionalEnum, statusEnum } from "../enums.js";
 import { varchar } from "drizzle-orm/pg-core";
 import { pgTable, uniqueIndex, index } from "drizzle-orm/pg-core";
 import { enterprises } from "./enterprises.js";
@@ -37,13 +37,16 @@ export const measurementUnits = pgTable(
   "measurement_units",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    unit: varchar("unit", { length: 255 }).notNull(),
-    description: varchar("description", { length: 255 }).notNull(),
-    compatible: varchar("compatible", { length: 255 }),
+    unit: varchar("unit", { length: 255 }).notNull(), // unidade de medida
+    description: varchar("description", { length: 255 }).notNull(), // descrição da unidade de medida
+    compatible: varchar("compatible", { length: 255 }), // unidade de medida compatível
+    wholeFractional: integerOrFractionalEnum("whole_fractional").notNull(), // inteiro ou fracionado
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
   },
-  (t) => [uniqueIndex("measurement_units_unit_unique").on(t.unit)],
+  (t) => [
+    uniqueIndex("measurement_units_unit_unique").on(t.unit),
+  ],
 );
 
 // tipos de produtos. - Global
@@ -396,13 +399,15 @@ export const prices = pgTable(
 // TABELA DE PRECOS PROMOCIONAIS. - Fechado por tenant
 export const promotionalPrices = pgTable("promotional_prices", {
   id: uuid("id").defaultRandom().primaryKey(),
-  description: varchar("description", { length: 255 }),
-  price: decimal("price", valorDuasCasasDecimais).notNull(),
-  startDate: tz("start_date").notNull(),
-  endDate: tz("end_date").notNull(),
-  productsEnterprisesId: uuid("products_enterprises_id")
+  description: varchar("description", { length: 255 }), // descrição da promoção
+  price: decimal("price", valorDuasCasasDecimais).notNull(), // preço da promoção
+  startDate: tz("start_date").notNull(),  // data de inicio da promoção
+  endDate: tz("end_date").notNull(),  // data de fim da promoção
+  productsEnterprisesId: uuid("products_enterprises_id") // produto
     .notNull()
     .references(() => productsEnterprises.id, { onDelete: "restrict" }),
   createdAt: tz("created_at").defaultNow().notNull(),
-  updatedAt: tz("updated_at"),
-});
+  updatedAt: tz("updated_at"),  
+}, (t) => ({
+  description_idx: index("promotional_prices_description_date_idx").on(t.description,t.startDate,t.endDate),  
+}));

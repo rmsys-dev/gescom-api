@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "gescom-api-addresses",
     "name": "Gescom API — Endereços",
-    "description": "Coleção do módulo **Endereços** (12 endpoints).\n\nGerado em: 2026-07-07T18:54:07.576Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
+    "description": "Coleção do módulo **Endereços** (12 endpoints).\n\nGerado em: 2026-07-20T12:27:33.247Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [

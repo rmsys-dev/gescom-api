@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "gescom-api-enterprises",
     "name": "Gescom API — Empresas",
-    "description": "Coleção do módulo **Empresas** (49 endpoints).\n\nGerado em: 2026-07-07T18:54:07.578Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
+    "description": "Coleção do módulo **Empresas** (49 endpoints).\n\nGerado em: 2026-07-20T12:27:33.250Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [

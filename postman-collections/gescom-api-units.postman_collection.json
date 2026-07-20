@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "gescom-api-units",
     "name": "Gescom API — Unidades de Medida",
-    "description": "Coleção do módulo **Unidades de Medida** (5 endpoints).\n\nGerado em: 2026-07-07T18:54:07.594Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
+    "description": "Coleção do módulo **Unidades de Medida** (5 endpoints).\n\nGerado em: 2026-07-20T12:27:33.261Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -78,7 +78,7 @@
             "description": "Permissão: `incluir_unidades_medida`\n\nBody schema: `createUnitSchema`\n\nFonte: `src\\modules\\products\\units\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"unit\": \"UN\",\n  \"description\": \"UNIDADE\",\n  \"compatible\": \"PC\"\n}",
+              "raw": "{\n  \"unit\": \"UN\",\n  \"description\": \"UNIDADE\",\n  \"compatible\": \"PC\",\n  \"wholeFractional\": \"INTEIRO\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -180,7 +180,7 @@
                 "description": "Permissão: `alterar_unidades_medida`\n\nBody schema: `patchUnitSchema`\n\nParams schema: `unitParamsSchema`\n\nFonte: `src\\modules\\products\\units\\routes.ts`",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"description\": \"UNIDADE ATUALIZADA\"\n}",
+                  "raw": "{\n  \"description\": \"UNIDADE ATUALIZADA\",\n  \"wholeFractional\": \"FRACIONADO\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"

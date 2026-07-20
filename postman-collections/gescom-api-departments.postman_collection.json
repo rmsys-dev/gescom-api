@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "gescom-api-departments",
     "name": "Gescom API — Departamentos",
-    "description": "Coleção do módulo **Departamentos** (2 endpoints).\n\nGerado em: 2026-07-07T18:54:07.578Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
+    "description": "Coleção do módulo **Departamentos** (2 endpoints).\n\nGerado em: 2026-07-20T12:27:33.249Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [

@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "gescom-api-complete",
     "name": "Gescom API — Completa",
-    "description": "Coleção gerada automaticamente a partir dos arquivos `routes.ts` do projeto gescom-api.\n\nTotal de endpoints: 253\nGerado em: 2026-07-07T18:54:07.573Z\n\n**Fluxo sugerido:**\n1. `GET /health`\n2. `POST /api/v1/auth/login`\n3. `POST /api/v1/auth/switch-enterprise` (se necessário)\n4. Demais rotas com Bearer token\n\nRotas **Maintainer** usam `x-maintainer-api-key` em vez de Bearer.",
+    "description": "Coleção gerada automaticamente a partir dos arquivos `routes.ts` do projeto gescom-api.\n\nTotal de endpoints: 253\nGerado em: 2026-07-20T12:27:33.241Z\n\n**Fluxo sugerido:**\n1. `GET /health`\n2. `POST /api/v1/auth/login`\n3. `POST /api/v1/auth/switch-enterprise` (se necessário)\n4. Demais rotas com Bearer token\n\nRotas **Maintainer** usam `x-maintainer-api-key` em vez de Bearer.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -10545,7 +10545,7 @@
             "description": "Permissão: `incluir_unidades_medida`\n\nBody schema: `createUnitSchema`\n\nFonte: `src\\modules\\products\\units\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"unit\": \"UN\",\n  \"description\": \"UNIDADE\",\n  \"compatible\": \"PC\"\n}",
+              "raw": "{\n  \"unit\": \"UN\",\n  \"description\": \"UNIDADE\",\n  \"compatible\": \"PC\",\n  \"wholeFractional\": \"INTEIRO\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -10647,7 +10647,7 @@
                 "description": "Permissão: `alterar_unidades_medida`\n\nBody schema: `patchUnitSchema`\n\nParams schema: `unitParamsSchema`\n\nFonte: `src\\modules\\products\\units\\routes.ts`",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"description\": \"UNIDADE ATUALIZADA\"\n}",
+                  "raw": "{\n  \"description\": \"UNIDADE ATUALIZADA\",\n  \"wholeFractional\": \"FRACIONADO\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"

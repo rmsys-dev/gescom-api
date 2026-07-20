@@ -48,8 +48,16 @@ const BODY_EXAMPLES = {
     code: "123456",
   },
   invitationDeclineSchema: { reason: "Não tenho interesse no momento" },
-  createUnitSchema: { unit: "UN", description: "UNIDADE", compatible: "PC" },
-  patchUnitSchema: { description: "UNIDADE ATUALIZADA" },
+  createUnitSchema: {
+    unit: "UN",
+    description: "UNIDADE",
+    compatible: "PC",
+    wholeFractional: "INTEIRO",
+  },
+  patchUnitSchema: {
+    description: "UNIDADE ATUALIZADA",
+    wholeFractional: "FRACIONADO",
+  },
   createEnterpriseSchema: {
     registration: "12345678000199",
     legalName: "EMPRESA EXEMPLO LTDA",

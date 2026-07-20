@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "gescom-api-type-networks",
     "name": "Gescom API — Tipos de Rede",
-    "description": "Coleção do módulo **Tipos de Rede** (5 endpoints).\n\nGerado em: 2026-07-07T18:54:07.592Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
+    "description": "Coleção do módulo **Tipos de Rede** (5 endpoints).\n\nGerado em: 2026-07-20T12:27:33.260Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [

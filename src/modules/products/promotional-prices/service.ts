@@ -1,4 +1,4 @@
-import { and, asc, count, eq } from "drizzle-orm";
+import { and, asc, count, eq, gte, ne } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import { productsEnterprises, promotionalPrices } from "../../../db/schema.js";
 import {
@@ -16,6 +16,7 @@ import {
 } from "../../../shared/audit/entity-audit.js";
 import { toAuditRecord } from "../../../shared/audit/build-field-diff.js";
 import { EntityTypes } from "../../../shared/audit/entity-types.js";
+import { findBlockingPromotion } from "../../../shared/products/promotional-price-active.js";
 import { getProductEnterpriseForStock } from "../../stock/balance.js";
 import type {
   CreatePromotionalPriceInput,
@@ -30,7 +31,42 @@ export class PromotionalPricesService {
     return and(...base);
   }
 
-  public async list(
+  /**
+   * Bloqueia novo cadastro/alteração do mesmo produto enquanto existir
+   * promoção com endDate >= agora (UTC). No patch, excludeId ignora o próprio registro.
+   */
+  private async assertNoActivePromotionForProduct( // bloqueia novo cadastro/alteração do mesmo produto enquanto existir promoção com endDate >= agora (UTC)
+    productsEnterprisesId: string,
+    excludeId?: string,
+  ) {
+    const now = new Date();
+    const conditions = [
+      eq(promotionalPrices.productsEnterprisesId, productsEnterprisesId),
+      gte(promotionalPrices.endDate, now),
+    ];
+    if (excludeId) {
+      conditions.push(ne(promotionalPrices.id, excludeId));
+    }
+
+    const rows = await db
+      .select({
+        id: promotionalPrices.id,
+        endDate: promotionalPrices.endDate,
+      })
+      .from(promotionalPrices)
+      .where(and(...conditions))
+      .limit(1);
+
+    const blocking = findBlockingPromotion(rows, now, excludeId);
+    if (blocking) {
+      throw new ConflictError(
+        "Produto ja possui preco promocional vigente ou com endDate futura. Aguarde o fim da promocao atual.",
+        "PROMOTIONAL_PRICE_ACTIVE",
+      );
+    }
+  }
+
+  public async list( // lista preços promocionais
     enterpriseId: string,
     query: ListPromotionalPricesQuery = {},
   ) {
@@ -109,6 +145,7 @@ export class PromotionalPricesService {
       enterpriseId,
       input.productsEnterprisesId,
     );
+    await this.assertNoActivePromotionForProduct(input.productsEnterprisesId);
     const ctx = withEnterpriseAuditContext(audit, enterpriseId);
     try {
       const [row] = await db
@@ -156,12 +193,15 @@ export class PromotionalPricesService {
         "endDate deve ser maior ou igual a startDate",
       );
     }
+    const productsEnterprisesId =
+      input.productsEnterprisesId ?? existing.productsEnterprisesId;
     if (input.productsEnterprisesId) {
       await getProductEnterpriseForStock(
         enterpriseId,
         input.productsEnterprisesId,
       );
     }
+    await this.assertNoActivePromotionForProduct(productsEnterprisesId, id);
     try {
       const [row] = await db
         .update(promotionalPrices)

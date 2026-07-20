@@ -302,6 +302,20 @@
       "when": 1784228186333,
       "tag": "0042_charming_wrecking_crew",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1784538000000,
+      "tag": "0043_sales_items_promotional_price",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1784541600000,
+      "tag": "0044_measurement_units_whole_fractional",
+      "breakpoints": true
     }
   ]
 }

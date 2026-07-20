@@ -1,5 +1,5 @@
 import { db } from "../../db/index.js";
-import { stockMovements } from "../../db/schema.js";
+import { measurementUnits, stockMovements } from "../../db/schema.js";
 import { eq, like } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "../../shared/errors/app-error.js";
 import { isServiceProductType } from "../../shared/products/product-type-service.js";
@@ -14,11 +14,33 @@ import {
   createStockMovementInTx,
   stockMovementExistsByDocumentRef,
 } from "../stock/movement.js";
+import {
+  assertQuantityMatchesWholeFractional,
+  type WholeFractional,
+} from "./sale-quantity-logic.js";
 import type { saleItemInputSchema } from "./schema.js";
 import type { z } from "zod";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 export type SaleItemInput = z.infer<typeof saleItemInputSchema>;
+
+async function getUnitWholeFractional(
+  unitId: string,
+  tx?: Tx,
+): Promise<WholeFractional> {
+  const runner = tx ?? db;
+  const row = (
+    await runner
+      .select({ wholeFractional: measurementUnits.wholeFractional })
+      .from(measurementUnits)
+      .where(eq(measurementUnits.id, unitId))
+      .limit(1)
+  )[0];
+  if (!row) {
+    throw new NotFoundError("Unidade de medida nao encontrada", "UNIT_NOT_FOUND");
+  }
+  return row.wholeFractional;
+}
 
 export type SaleItemRow = {
   id: string;
@@ -186,6 +208,14 @@ export async function validateSaleItemStock(
       "Unidade invalida",
     );
   }
+
+  const wholeFractional = await getUnitWholeFractional(item.unitId, tx);
+  assertQuantityMatchesWholeFractional(
+    item.quantity,
+    wholeFractional,
+    pathPrefix,
+  );
+
   if (pe.productTypeId !== item.productTypeId) {
     throw new ValidationError(
       [

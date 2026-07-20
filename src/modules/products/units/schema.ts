@@ -10,11 +10,14 @@ const unitCodeSchema = z
   .regex(/^[A-Za-z]{2}$/, "Unidade de medida deve conter exatamente 2 letras")
   .transform((val) => val.toUpperCase());
 
+export const wholeFractionalSchema = z.enum(["INTEIRO", "FRACIONADO"]);
+
 export const createUnitSchema = z
   .object({
     unit: unitCodeSchema,
     description: z.string().trim().min(1).max(255).toUpperCase(),
     compatible: unitCodeSchema.optional(),
+    wholeFractional: wholeFractionalSchema,
   })
   .strict();
 
@@ -23,13 +26,11 @@ export const patchUnitSchema = z
     unit: unitCodeSchema.optional(),
     description: z.string().trim().min(1).max(255).toUpperCase().optional(),
     compatible: unitCodeSchema.optional(),
+    wholeFractional: wholeFractionalSchema.optional(),
   })
   .strict()
   .refine(
-    (data) =>
-      data.unit !== undefined ||
-      data.description !== undefined ||
-      data.compatible !== undefined ||
+    (data) => Object.values(data).some((v) => v !== undefined),
     "Deve haver ao menos um campo para atualizar",
   );
 

@@ -19,7 +19,6 @@ import {
   enterprisesMembers,
   membersDepartments,
   paymentTypes,
-  prices,
   productTypes,
   productsEnterprises,
   sales,
@@ -61,6 +60,10 @@ import {
   isServiceProductType,
   PRODUCT_TYPE_SERVICE_CODE,
 } from "../../shared/products/product-type-service.js";
+import {
+  applyPromotionalUnitPrice,
+  resolveEffectiveSalePrice,
+} from "../../shared/products/resolve-sale-price.js";
 import { PERM } from "../auth/default-permissions.js";
 import { isAllowed, resolvePermissions } from "../auth/permissions.js";
 import { findPrimaryMemberDepartmentIdByMemberId } from "../auth/repository.js";
@@ -432,6 +435,7 @@ type PriceSnapshot = {
   actualRealCost: string | null;
   priceCost: string | null;
   priceSale: string | null;
+  promotionalPriceId: string | null;
 };
 
 export type SaleAuthContext = {
@@ -986,31 +990,59 @@ export class SalesService {  // Servico de vendas
     }
   }
 
-  private async loadPriceSnapshot(
+  private async resolveSaleItemPricing(
     tx: Tx | typeof db,
-    productsEnterprisesId: string,
-  ): Promise<PriceSnapshot | null> {
-    const row = (
-      await tx
-        .select({
-          averageCost: prices.averageCost,
-          actualRealCost: prices.actualRealCost,
-          priceCost: prices.priceCost,
-          price: prices.price,
-        })
-        .from(prices)
-        .where(eq(prices.productsEnterprisesId, productsEnterprisesId))
-        .limit(1)
-    )[0];
+    item: CreateSaleItemInput,
+    at: Date = new Date(),
+  ): Promise<{ item: CreateSaleItemInput; priceSnapshot: PriceSnapshot | null }> {
+    const effective = await resolveEffectiveSalePrice(
+      item.productsEnterprisesId,
+      at,
+      tx,
+    );
 
-    if (!row) return null;
+    const promotionalPrice =
+      effective.isPromotional && effective.effectivePrice !== null
+        ? effective.effectivePrice
+        : null;
 
-    return {
-      averageCost: row.averageCost,
-      actualRealCost: row.actualRealCost,
-      priceCost: row.priceCost,
-      priceSale: row.price,
+    const { valueUnit, appliedPromotional } = applyPromotionalUnitPrice({
+      valueUnit: item.valueUnit,
+      tablePrice: effective.tablePrice,
+      promotionalPrice,
+    });
+
+    const pricedItem: CreateSaleItemInput = {
+      ...item,
+      valueUnit,
+      valueTotal: computeItemValueTotal(
+        item.quantity,
+        valueUnit,
+        item.valueDiscount,
+        item.valueAcresce,
+      ),
     };
+
+    const hasAnyPrice =
+      effective.tablePrice !== null ||
+      effective.isPromotional ||
+      effective.averageCost !== null ||
+      effective.actualRealCost !== null ||
+      effective.priceCost !== null;
+
+    const priceSnapshot: PriceSnapshot | null = hasAnyPrice
+      ? {
+          averageCost: effective.averageCost,
+          actualRealCost: effective.actualRealCost,
+          priceCost: effective.priceCost,
+          priceSale: effective.priceSale,
+          promotionalPriceId: appliedPromotional
+            ? effective.promotionalPriceId
+            : null,
+        }
+      : null;
+
+    return { item: pricedItem, priceSnapshot };
   }
 
   private priceSnapshotFromBudgetItem(
@@ -1021,6 +1053,7 @@ export class SalesService {  // Servico de vendas
       actualRealCost: budgetItem.actualRealCost,
       priceCost: budgetItem.priceCost,
       priceSale: budgetItem.priceSale,
+      promotionalPriceId: budgetItem.promotionalPriceId,
     };
   }
 
@@ -1052,6 +1085,7 @@ export class SalesService {  // Servico de vendas
       actualRealCost: priceSnapshot?.actualRealCost ?? null,
       priceCost: priceSnapshot?.priceCost ?? null,
       priceSale: priceSnapshot?.priceSale ?? null,
+      promotionalPriceId: priceSnapshot?.promotionalPriceId ?? null,
       salesId: saleId,
       productsEnterprisesId: item.productsEnterprisesId,
       unitid: item.unitId,
@@ -2200,21 +2234,19 @@ export class SalesService {  // Servico de vendas
             itemInput.sellerId,
           );
 
+          const { item: pricedItem, priceSnapshot } =
+            await this.resolveSaleItemPricing(tx, itemInput);
+
           await this.assertItemLineDiscountWithinMemberLimitForSeller(
             tx,
             enterpriseId,
             actor.sellerId,
             {
-              quantity: itemInput.quantity,
-              valueUnit: itemInput.valueUnit,
-              valueDiscount: itemInput.valueDiscount,
+              quantity: pricedItem.quantity,
+              valueUnit: pricedItem.valueUnit,
+              valueDiscount: pricedItem.valueDiscount,
             },
             `items.${i}.valueDiscount`,
-          );
-
-          const priceSnapshot = await this.loadPriceSnapshot(
-            tx,
-            itemInput.productsEnterprisesId,
           );
 
           const [inserted] = await tx
@@ -2222,7 +2254,7 @@ export class SalesService {  // Servico de vendas
             .values(
               this.mapItemInputToInsert(
                 sale.id,
-                itemInput,
+                pricedItem,
                 actor,
                 this.resolveItemLaunchOrigin(itemInput.origin, gescomClient),
                 priceSnapshot,
@@ -3021,21 +3053,19 @@ export class SalesService {  // Servico de vendas
         input.sellerId,
       );
 
+      const { item: pricedItem, priceSnapshot } =
+        await this.resolveSaleItemPricing(tx, input);
+
       await this.assertItemLineDiscountWithinMemberLimitForSeller(
         tx,
         enterpriseId,
         actor.sellerId,
         {
-          quantity: input.quantity,
-          valueUnit: input.valueUnit,
-          valueDiscount: input.valueDiscount,
+          quantity: pricedItem.quantity,
+          valueUnit: pricedItem.valueUnit,
+          valueDiscount: pricedItem.valueDiscount,
         },
         "body.valueDiscount",
-      );
-
-      const priceSnapshot = await this.loadPriceSnapshot(
-        tx,
-        input.productsEnterprisesId,
       );
 
       const [inserted] = await tx
@@ -3043,7 +3073,7 @@ export class SalesService {  // Servico de vendas
         .values(
           this.mapItemInputToInsert(
             saleId,
-            input,
+            pricedItem,
             actor,
             this.resolveItemLaunchOrigin(input.origin, gescomClient),
             priceSnapshot,
@@ -3192,14 +3222,17 @@ export class SalesService {  // Servico de vendas
         }
       }
 
+      const { item: pricedItem, priceSnapshot } =
+        await this.resolveSaleItemPricing(tx, merged);
+
       await this.assertItemLineDiscountWithinMemberLimitForSeller(
         tx,
         enterpriseId,
         existing.sellerId,
         {
-          quantity: merged.quantity,
-          valueUnit: merged.valueUnit,
-          valueDiscount: merged.valueDiscount,
+          quantity: pricedItem.quantity,
+          valueUnit: pricedItem.valueUnit,
+          valueDiscount: pricedItem.valueDiscount,
         },
         "body.valueDiscount",
       );
@@ -3211,26 +3244,33 @@ export class SalesService {  // Servico de vendas
           saleId,
           orderNumber: sale.orderNumber,
           oldItem: existing,
-          newItem: merged,
+          newItem: pricedItem,
         });
       } else {
-        await validateSaleItemStock(enterpriseId, merged, "body");
+        await validateSaleItemStock(enterpriseId, pricedItem, "body");
       }
 
       await tx
         .update(salesItems)
         .set({
-          quantity: merged.quantity.toString(),
-          valueUnit: merged.valueUnit.toString(),
-          valueDiscount: merged.valueDiscount.toString(),
-          valueAcresce: merged.valueAcresce.toString(),
-          valueTotal: merged.valueTotal.toString(),
-          productsEnterprisesId: merged.productsEnterprisesId,
-          unitid: merged.unitId,
-          productTypeId: merged.productTypeId,
-          stockSectorId: merged.stockSectorId ?? null,
-          stockLocationId: merged.stockLocationId ?? null,
-          stockBatchId: merged.stockBatchId ?? null,
+          quantity: pricedItem.quantity.toString(),
+          valueUnit: pricedItem.valueUnit.toString(),
+          valueDiscount: pricedItem.valueDiscount.toString(),
+          valueAcresce: pricedItem.valueAcresce.toString(),
+          valueTotal: pricedItem.valueTotal.toString(),
+          productsEnterprisesId: pricedItem.productsEnterprisesId,
+          unitid: pricedItem.unitId,
+          productTypeId: pricedItem.productTypeId,
+          stockSectorId: pricedItem.stockSectorId ?? null,
+          stockLocationId: pricedItem.stockLocationId ?? null,
+          stockBatchId: pricedItem.stockBatchId ?? null,
+          priceSale: priceSnapshot?.priceSale ?? existing.priceSale,
+          promotionalPriceId:
+            priceSnapshot?.promotionalPriceId ?? null,
+          averageCost: priceSnapshot?.averageCost ?? existing.averageCost,
+          actualRealCost:
+            priceSnapshot?.actualRealCost ?? existing.actualRealCost,
+          priceCost: priceSnapshot?.priceCost ?? existing.priceCost,
           updatedAt: new Date(),
         })
         .where(

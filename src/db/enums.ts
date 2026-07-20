@@ -308,3 +308,6 @@ export const axleTypeEnum = pgEnum("axle_type", ["VEICULO 2 EIXOS", "VEICULO 3 E
 
 // tipo de serviço ( serviço, garantia )
 export const saleServiceTypeEnum = pgEnum("sale_service_type", ["SERVICO", "GARANTIA"]);
+
+// inteiro ou fracionado
+export const integerOrFractionalEnum = pgEnum("integer_or_fractional", ["INTEIRO", "FRACIONADO"]);

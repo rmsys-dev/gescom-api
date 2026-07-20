@@ -29,6 +29,7 @@ import {
   measurementUnits,
   productTypes,
   productsEnterprises,
+  promotionalPrices,
 } from "./products.js";
 import { stockSectors, stockLocations, stockBatches } from "./stock.js";
 import {
@@ -176,7 +177,11 @@ export const salesItems = pgTable(
     averageCost: decimal("average_cost", valorQuatroCasasDecimais), // custo médio
     actualRealCost: decimal("actual_real_cost", valorQuatroCasasDecimais), // custo real
     priceCost: decimal("price_cost", valorQuatroCasasDecimais), // custo atual
-    priceSale: decimal("price_sale", valorQuatroCasasDecimais), // preço de venda
+    priceSale: decimal("price_sale", valorQuatroCasasDecimais), // preço de venda (efetivo: promo ou tabela)
+    promotionalPriceId: uuid("promotional_price_id").references(
+      () => promotionalPrices.id,
+      { onDelete: "set null" },
+    ), // promoção aplicada no item (se houver)
 
     salesId: uuid("sales_id")
       .notNull()
@@ -241,6 +246,7 @@ export const salesItems = pgTable(
       t.productsEnterprisesId,
     ),
     index("sales_items_seller_id_idx").on(t.sellerId),
+    index("sales_items_promotional_price_id_idx").on(t.promotionalPriceId),
   ],
 );
 

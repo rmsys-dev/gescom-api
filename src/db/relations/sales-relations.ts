@@ -25,6 +25,7 @@ import {
   stockLocations,
   stockBatches,
 } from "../entities/stock.js";
+import { enterprisesMemberSalesItems } from "../entities/workOrders.js";
 
 // relações da tabela de TIPOS DE PAGAMENTO.
 export const paymentTypesRelations = relations(paymentTypes, ({ many }) => ({
@@ -58,6 +59,14 @@ export const salesRelations = relations(sales, ({ one, many }) => ({
   }),
   generatedSalesFromBudget: many(sales, {
     relationName: "budgetGeneratedSales",
+  }),
+  sourceWorkOrderSale: one(sales, {
+    fields: [sales.sourceWorkOrderSaleId],
+    references: [sales.id],
+    relationName: "workOrderGeneratedSales",
+  }),
+  generatedSalesFromWorkOrder: many(sales, {
+    relationName: "workOrderGeneratedSales",
   }),
   items: many(salesItems),
   payments: many(salesPayments),
@@ -130,6 +139,15 @@ export const salesItemsRelations = relations(salesItems, ({ one, many }) => ({
   generatedSaleItemsFromBudget: many(salesItems, {
     relationName: "budgetConversionItems",
   }),
+  sourceWorkOrderItem: one(salesItems, {
+    fields: [salesItems.sourceWorkOrderItemId],
+    references: [salesItems.id],
+    relationName: "workOrderConversionItems",
+  }),
+  generatedSaleItemsFromWorkOrder: many(salesItems, {
+    relationName: "workOrderConversionItems",
+  }),
+  enterprisesMembers: many(enterprisesMemberSalesItems),
 }));
 
 // relações da tabela de CONVERSOES ORCAMENTO -> VENDA (historico auditavel).

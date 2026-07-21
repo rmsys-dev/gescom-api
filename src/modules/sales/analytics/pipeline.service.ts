@@ -14,6 +14,8 @@ import {
 } from "./period.js";
 import {
   buildPipelineScope,
+  buildPipelineDateCondition,
+  buildSaleFilterConditions,
   extractFilters,
   localCreatedDateSql,
   type AnalyticsFilters,
@@ -59,12 +61,19 @@ const fetchPipelineKpis = async (
       .where(and(scope, eq(sales.type, "ORCAMENTO"))),
     db
       .select({
-        situation: sales.budgetClosureSituation,
+        status: sales.status,
         count: sql<string>`count(*)`,
       })
       .from(sales)
-      .where(and(scope, eq(sales.type, "ORCAMENTO")))
-      .groupBy(sales.budgetClosureSituation),
+      .where(
+        and(
+          eq(sales.enterprisesId, enterpriseId),
+          eq(sales.type, "ORCAMENTO"),
+          buildPipelineDateCondition(period),
+          ...buildSaleFilterConditions(filters),
+        ),
+      )
+      .groupBy(sales.status),
     db
       .select({
         count: sql<string>`count(*)`,
@@ -80,9 +89,9 @@ const fetchPipelineKpis = async (
   ]);
 
   const partialCount =
-    budgetStatus.find((r) => r.situation === "PARCIAL")?.count ?? "0";
+    budgetStatus.find((r) => r.status === "PARCIAL")?.count ?? "0";
   const closedCount =
-    budgetStatus.find((r) => r.situation === "FECHADO")?.count ?? "0";
+    budgetStatus.find((r) => r.status === "FINALIZADA")?.count ?? "0";
   const openBudgetsCount = Number(openBudgets[0]?.count ?? 0);
   const conversionCount = Number(conversions[0]?.count ?? 0);
   const totalBudgetsInPeriod = openBudgetsCount + Number(closedCount);
@@ -316,7 +325,7 @@ export class PipelineAnalyticsService {
 
     const rows = await db
       .select({
-        situation: sales.budgetClosureSituation,
+        status: sales.status,
         count: sql<string>`count(*)`,
         value: sql<string>`coalesce(sum(${sales.valueLiquid}), 0)`,
       })
@@ -325,12 +334,11 @@ export class PipelineAnalyticsService {
         and(
           eq(sales.enterprisesId, enterpriseId),
           eq(sales.type, "ORCAMENTO"),
-          eq(sales.status, "ABERTA"),
           sql`DATE(timezone(${period.timezone}, ${sales.createdAt})) >= ${period.from}::date`,
           sql`DATE(timezone(${period.timezone}, ${sales.createdAt})) <= ${period.to}::date`,
         ),
       )
-      .groupBy(sales.budgetClosureSituation);
+      .groupBy(sales.status);
 
     const totalCount = rows.reduce((sum, r) => sum + Number(r.count), 0);
     const totalValue = rows.reduce((sum, r) => sum + decNum(r.value), 0);
@@ -338,7 +346,7 @@ export class PipelineAnalyticsService {
     return {
       period: { from: period.from, to: period.to, timezone: period.timezone },
       funnel: rows.map((row) => ({
-        situation: row.situation,
+        status: row.status,
         count: Number(row.count),
         value: decNum(row.value),
         sharePercent:

@@ -12,7 +12,10 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 const SALE_ORDER_DOCUMENT_TYPE = "VENDA" satisfies SequenceType;
 
-/** Próximo número de pedido (VENDA e ORÇAMENTO compartilham o contador VENDA). */
+/**
+ * Próximo número de pedido.
+ * VENDA, ORÇAMENTO e ORDEM DE SERVICO compartilham o contador `VENDA`.
+ */
 export async function nextSaleOrderNumber(
   enterpriseId: string,
   tx: Tx,

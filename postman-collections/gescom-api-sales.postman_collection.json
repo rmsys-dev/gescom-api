@@ -55,11 +55,6 @@
                   "disabled": true
                 },
                 {
-                  "key": "budgetClosureSituation",
-                  "value": "",
-                  "disabled": true
-                },
-                {
                   "key": "userId",
                   "value": "",
                   "disabled": true

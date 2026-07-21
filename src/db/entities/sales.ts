@@ -12,7 +12,6 @@ import {
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import {
-  budgetClosureSituationEnum,
   budgetConversionKindEnum,
   saleReturnSituationEnum,
   saleStatusEnum,
@@ -21,6 +20,7 @@ import {
   statusEnum,
   paymentTypeEnum,
   saleServiceTypeEnum,
+  orderServiceModelEnum,
 } from "../enums.js";
 import { users } from "./users.js";
 import { enterprisesMembers } from "./members.js";
@@ -60,7 +60,7 @@ export const sales = pgTable(
   "sales",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    orderNumber: integer("order_number").notNull(),
+    orderNumber: integer("order_number").notNull(), 
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
@@ -74,7 +74,8 @@ export const sales = pgTable(
       .references(() => enterprisesMembers.id, {
         onDelete: "restrict",
       }), // MEMBRO
-    type: saleTypeEnum("type").notNull(),
+    type: saleTypeEnum("type").notNull(), // tipo de venda
+    modelService: orderServiceModelEnum("model_service"), // modelo de ordem servico
     subTotal: decimal("sub_total", valorDuasCasasDecimais).notNull(),
     discountValuetems: decimal("discount_value_items", valorDuasCasasDecimais), // valor do desconto nos itens
     valueAcresceItems: decimal("value_acresce_items", valorDuasCasasDecimais), // valor do acrescimo nos itens
@@ -82,7 +83,7 @@ export const sales = pgTable(
       "percentage_discount_pie",
       percentageDecimal,
     ), // percentagem de desconto financeiro em pecas
-    valueDiscountFinancialPie: decimal(
+    valueDiscountFinancialPie: decimal( 
       "value_discount_financial_pie",
       valorDuasCasasDecimais,
     ), // valor do desconto financeiro em pecas
@@ -110,16 +111,15 @@ export const sales = pgTable(
     valuePie: decimal("value_pie", valorDuasCasasDecimais), // valor do Peças
     valueService: decimal("value_service", valorDuasCasasDecimais), // valor do serviço
     valueLiquid: decimal("value_liquid", valorDuasCasasDecimais), // valor líquido
-    status: saleStatusEnum("status").notNull(), // status da venda
+    status: saleStatusEnum("status").notNull(), // status
     returnSituation: saleReturnSituationEnum("return_situation")
       .notNull()
       .default("SEM_DEVOLUCAO"), // situação de devolução
-    budgetClosureSituation: budgetClosureSituationEnum(
-      "budget_closure_situation",
-    )
-      .notNull()
-      .default("ABERTO"), // situação de fechamento do orçamento
     sourceBudgetSaleId: uuid("source_budget_sale_id").references(
+      (): AnyPgColumn => sales.id,
+      { onDelete: "restrict" },
+    ),
+    sourceWorkOrderSaleId: uuid("source_work_order_sale_id").references(
       (): AnyPgColumn => sales.id,
       { onDelete: "restrict" },
     ),
@@ -151,6 +151,7 @@ export const sales = pgTable(
       t.orderNumber,
     ),
     index("sales_source_budget_sale_id_idx").on(t.sourceBudgetSaleId),
+    index("sales_source_work_order_sale_id_idx").on(t.sourceWorkOrderSaleId),
     index("sales_analytics_realized_idx")
       .on(t.enterprisesId, t.completedionDate)
       .where(sql`${t.type} = 'VENDA' AND ${t.status} = 'FINALIZADA'`),
@@ -217,6 +218,10 @@ export const salesItems = pgTable(
       (): AnyPgColumn => salesItems.id,
       { onDelete: "restrict" },
     ),
+    sourceWorkOrderItemId: uuid("source_work_order_item_id").references(
+      (): AnyPgColumn => salesItems.id,
+      { onDelete: "restrict" },
+    ),
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
@@ -247,6 +252,9 @@ export const salesItems = pgTable(
     ),
     index("sales_items_seller_id_idx").on(t.sellerId),
     index("sales_items_promotional_price_id_idx").on(t.promotionalPriceId),
+    index("sales_items_source_work_order_item_id_idx").on(
+      t.sourceWorkOrderItemId,
+    ),
   ],
 );
 
@@ -281,12 +289,12 @@ export const salesBudgetConversions = pgTable(
     enterprisesId: uuid("enterprises_id")
       .notNull()
       .references(() => enterprises.id, { onDelete: "cascade" }),
-    budgetSaleId: uuid("budget_sale_id")
+    budgetSaleId: uuid("budget_sale_id") 
       .notNull()
       .references(() => sales.id, { onDelete: "restrict" }),
     generatedSaleId: uuid("generated_sale_id")
       .notNull()
-      .references(() => sales.id, { onDelete: "restrict" }),
+      .references(() => sales.id, { onDelete: "restrict" }), 
     closureKind: budgetConversionKindEnum("closure_kind").notNull(),
     userId: uuid("user_id")
       .notNull()
@@ -307,12 +315,12 @@ export const salesBudgetConversionItems = pgTable(
   "sales_budget_conversion_items",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    conversionId: uuid("conversion_id")
+    conversionId: uuid("conversion_id") 
       .notNull()
-      .references(() => salesBudgetConversions.id, { onDelete: "cascade" }),
-    budgetItemId: uuid("budget_item_id")
+      .references(() => salesBudgetConversions.id, { onDelete: "cascade" }),  
+    budgetItemId: uuid("budget_item_id") 
       .notNull()
-      .references(() => salesItems.id, { onDelete: "restrict" }),
+      .references(() => salesItems.id, { onDelete: "restrict" }), 
     saleItemId: uuid("sale_item_id")
       .notNull()
       .references(() => salesItems.id, { onDelete: "restrict" }),

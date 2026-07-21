@@ -30,7 +30,7 @@ export const saleTypeEnum = pgEnum("sale_type", [
   "ORCAMENTO",
   "DEVOLUCAO",
   "CANCELAMENTO",
-  "OUTRO",
+  "ORDEM DE SERVICO",
 ]);
 
 // TIPO DE PAGAMENTO ( A VISTA, A PRAZO, OUTROS)
@@ -116,6 +116,7 @@ export const saleStatusEnum = pgEnum("sale_status", [
   "FINALIZADA",
   "CANCELADA",
   "INATIVA",
+  "PARCIAL",
 ]);
 export const loginTypeEnum = pgEnum("login_type", ["EMAIL", "CPF"]);  
 
@@ -273,11 +274,6 @@ export const saleReturnKindEnum = pgEnum("sale_return_kind", [
   "PARCIAL",
   "TOTAL",
 ]);
-export const budgetClosureSituationEnum = pgEnum("budget_closure_situation", [
-  "ABERTO",
-  "PARCIAL",
-  "FECHADO",
-]);
 export const budgetConversionKindEnum = pgEnum("budget_conversion_kind", [
   "PARCIAL",
   "TOTAL",
@@ -311,3 +307,6 @@ export const saleServiceTypeEnum = pgEnum("sale_service_type", ["SERVICO", "GARA
 
 // inteiro ou fracionado
 export const integerOrFractionalEnum = pgEnum("integer_or_fractional", ["INTEIRO", "FRACIONADO"]);
+
+// modelo de ordem servico
+export const orderServiceModelEnum = pgEnum("order_service_model", ["VEICULO"]);

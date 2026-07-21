@@ -1,7 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import { sales } from "../../../db/schema.js";
-import { decNum, roundMoney } from "./metrics.js";
+import { decNum } from "./metrics.js";
 import {
   pgGranularitySql,
   resolveAnalyticsPeriod,
@@ -9,7 +9,9 @@ import {
 import { extractFilters, localCreatedDateSql } from "./scope.js";
 import type { AnalyticsOperationsQuery } from "./schema.js";
 
+/** Servico de analytics de operacoes de vendas. */
 export class OperationsAnalyticsService {
+  /** Obtem o breakdow de status das vendas. */
   public async statusBreakdown(
     enterpriseId: string,
     query: AnalyticsOperationsQuery,
@@ -18,6 +20,7 @@ export class OperationsAnalyticsService {
     const filters = extractFilters(query);
     const localDate = localCreatedDateSql(period.timezone);
 
+    /** Condicoes de filtro. */
     const filterConditions = [];
     if (filters.sellerId) filterConditions.push(eq(sales.sellerId, filters.sellerId));
     if (filters.memberId) {
@@ -54,6 +57,7 @@ export class OperationsAnalyticsService {
     };
   }
 
+  /** Obtem o breakdown de cancelamentos das vendas. */
   public async cancellations(
     enterpriseId: string,
     query: AnalyticsOperationsQuery,
@@ -63,6 +67,7 @@ export class OperationsAnalyticsService {
     const localDate = localCreatedDateSql(period.timezone);
     const bucket = sql`date_trunc(${pgGranularitySql("day")}, ${localDate}::timestamp)`;
 
+    /** Condicoes de filtro. */
     const filterConditions = [
       eq(sales.enterprisesId, enterpriseId),
       eq(sales.type, "VENDA"),
@@ -75,9 +80,12 @@ export class OperationsAnalyticsService {
       filterConditions.push(eq(sales.memberId, filters.memberId));
     }
 
+    /** Condicao de filtro. */
     const where = and(...filterConditions);
 
+    /** Resultados das consultas. */
     const [totals, series] = await Promise.all([
+      /** Consulta de totais. */
       db
         .select({
           count: sql<string>`count(*)`,
@@ -85,6 +93,7 @@ export class OperationsAnalyticsService {
         })
         .from(sales)
         .where(where),
+      /** Consulta de series. */
       db
         .select({
           bucketStart: sql<string>`to_char(${bucket}, 'YYYY-MM-DD')`,
@@ -97,6 +106,7 @@ export class OperationsAnalyticsService {
         .orderBy(bucket),
     ]);
 
+    /** Resultados da consulta. */
     return {
       period: { from: period.from, to: period.to, timezone: period.timezone },
       cancellationCount: Number(totals[0]?.count ?? 0),

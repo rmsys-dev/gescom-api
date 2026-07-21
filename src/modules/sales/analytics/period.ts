@@ -5,17 +5,21 @@ import type {
   PeriodPreset,
 } from "./schema.js";
 
+/** Periodo resolvido com fuso horario. */
 export type ResolvedPeriod = {
   from: string;
   to: string;
   timezone: string;
 };
 
+/** Padding de numeros. */
 const pad = (n: number) => String(n).padStart(2, "0");
 
+/** Formata uma data apenas com ano, mes e dia. */
 export const formatDateOnly = (y: number, m: number, d: number) =>
   `${y}-${pad(m)}-${pad(d)}`;
 
+/** Obtem as partes de uma data com fuso horario. */
 export const getZonedDateParts = (
   date: Date,
   timeZone: string,
@@ -33,8 +37,10 @@ export const getZonedDateParts = (
   return { y, m, d };
 };
 
+/** Dias no mes. */
 const daysInMonth = (y: number, m: number) => new Date(Date.UTC(y, m, 0)).getUTCDate();
 
+/** Inicio da semana em lunes. */
 const startOfWeekMonday = (y: number, m: number, d: number) => {
   const utc = new Date(Date.UTC(y, m - 1, d));
   const day = utc.getUTCDay();
@@ -47,8 +53,10 @@ const startOfWeekMonday = (y: number, m: number, d: number) => {
   };
 };
 
+/** Meso inicial do trimestre. */
 const quarterStartMonth = (m: number) => Math.floor((m - 1) / 3) * 3 + 1;
 
+/** Resolve o periodo com base na pre-definicao. */
 export const resolvePresetPeriod = (
   preset: PeriodPreset,
   timezone: string,
@@ -140,7 +148,8 @@ export const resolvePresetPeriod = (
       return { from: formatDateOnly(y, m, d), to: formatDateOnly(y, m, d), timezone };
   }
 };
-
+    
+/** Resolve o periodo da consulta de analytics. */
 export const resolveAnalyticsPeriod = (
   query: Pick<
     AnalyticsPeriodQuery,
@@ -158,11 +167,13 @@ export const resolveAnalyticsPeriod = (
   };
 };
 
+/** Converte uma data ISO para Date. */
 const parseDateOnly = (iso: string) => {
   const [y, m, d] = iso.split("-").map(Number);
   return new Date(Date.UTC(y!, m! - 1, d!));
 };
 
+/** Resolve o periodo de comparacao. */
 export const resolveComparisonPeriod = (
   period: ResolvedPeriod,
   compareMode: CompareMode,
@@ -214,6 +225,7 @@ export const resolveComparisonPeriod = (
   };
 };
 
+/** Converte a granularidade para o formato do PostgreSQL. */
 export const pgGranularity = (granularity: string) => {
   switch (granularity) {
     case "day":

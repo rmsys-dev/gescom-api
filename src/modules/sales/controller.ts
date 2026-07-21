@@ -15,7 +15,9 @@ import {
   sendSuccessResponse,
 } from "../../shared/responses/send-success-response.js";
 import type {
+  ConvertBudgetToOsInput,
   ConvertBudgetToSaleInput,
+  ConvertOsToSaleInput,
   CreateSaleInput,
   CreateSaleItemInput,
   ListSalesQuery,
@@ -192,6 +194,50 @@ export class SalesController {
     );
     sendSuccessResponse(res, HttpStatus.CREATED, {
       message: "Orcamento convertido em venda com sucesso.",
+      data,
+    });
+  };
+
+  public convertBudgetToOs = async (
+    req: Request,
+    res: Response,
+  ): Promise<void> => {
+    const auth = (req as RequestWithAuth).auth!;
+    const enterpriseId = requireTenantEnterpriseId(auth);
+    const saleId = req.params["saleId"] as string;
+    const body = req.body as ConvertBudgetToOsInput;
+    const data = await salesService.convertBudgetToOs(
+      enterpriseId,
+      saleId,
+      auth.userId ? saleAuthFromRequest(auth) : null,
+      body,
+      auditContextFromPostAuth(auth, req, "sales.service.convertBudgetToOs"),
+      req.headers["x-gescom-client"],
+    );
+    sendSuccessResponse(res, HttpStatus.CREATED, {
+      message: "Orcamento convertido em ordem de servico com sucesso.",
+      data,
+    });
+  };
+
+  public convertOsToSale = async (
+    req: Request,
+    res: Response,
+  ): Promise<void> => {
+    const auth = (req as RequestWithAuth).auth!;
+    const enterpriseId = requireTenantEnterpriseId(auth);
+    const saleId = req.params["saleId"] as string;
+    const body = req.body as ConvertOsToSaleInput;
+    const data = await salesService.convertOsToSale(
+      enterpriseId,
+      saleId,
+      auth.userId ? saleAuthFromRequest(auth) : null,
+      body,
+      auditContextFromPostAuth(auth, req, "sales.service.convertOsToSale"),
+      req.headers["x-gescom-client"],
+    );
+    sendSuccessResponse(res, HttpStatus.CREATED, {
+      message: "Ordem de servico convertida em venda com sucesso.",
       data,
     });
   };

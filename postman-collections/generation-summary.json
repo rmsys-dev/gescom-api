@@ -36,7 +36,8 @@
     "gescom-api-type-sped.postman_collection.json",
     "gescom-api-type-supplier-customers.postman_collection.json",
     "gescom-api-types-products.postman_collection.json",
-    "gescom-api-units.postman_collection.json"
+    "gescom-api-units.postman_collection.json",
+    "gescom-api-work-orders.postman_collection.json"
   ],
   "environment": "gescom-api-local.postman_environment.json"
 }

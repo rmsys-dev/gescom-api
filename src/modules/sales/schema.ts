@@ -7,11 +7,23 @@ import {
 } from "../../shared/validation/common-schemas.js";
 import { parseIsoDateOnly } from "../../shared/validation/data-normalizers.js";
 
-const saleTypeSchema = z.enum(["VENDA", "ORCAMENTO"]);
+const saleTypeSchema = z.enum(["VENDA", "ORCAMENTO", "ORDEM DE SERVICO"]);
 /** Tipos aceites no filtro de listagem (enum DB `sale_type`). */
-const listSaleTypeSchema = z.enum(["VENDA", "ORCAMENTO", "DEVOLUCAO"]);
-const saleStatusSchema = z.enum(["ABERTA", "FINALIZADA", "CANCELADA"]);
+const listSaleTypeSchema = z.enum([
+  "VENDA",
+  "ORCAMENTO",
+  "ORDEM DE SERVICO",
+  "DEVOLUCAO",
+]);
+const saleStatusSchema = z.enum([
+  "ABERTA",
+  "FINALIZADA",
+  "CANCELADA",
+  "INATIVA",
+  "PARCIAL",
+]);
 const saleOriginSchema = z.enum(["WEB", "MOBILE"]);
+const orderServiceModelSchema = z.enum(["VEICULO"]);
 
 const decimalOpt = z.number().optional();
 const percentageOpt = z.number().min(0).max(100).optional();
@@ -24,6 +36,8 @@ const saleServiceFieldsSchema = {
   observations: z.string().trim().max(500).optional(),
   defect: z.string().trim().max(500).optional(),
   serviceType: saleServiceTypeSchema.optional(),
+  /** Modelo de OS; tipicamente VEICULO. Default VEICULO quando type = ORDEM DE SERVICO. */
+  modelService: orderServiceModelSchema.optional(),
 };
 
 const saleFinancialAdjustmentsSchema = {
@@ -326,14 +340,12 @@ export const saleItemParamsSchema = z
 
 export const createSaleItemSchema = saleItemInputSchema;
 
-const budgetClosureSituationSchema = z.enum(["ABERTO", "PARCIAL", "FECHADO"]);
-
 export const listSalesQuerySchema = createPaginationQuerySchema(100)
   .extend({
-    /** Filtra o agrupamento por tipo de documento (`VENDA`, `ORCAMENTO` ou `DEVOLUCAO`). */
+    /** Filtra por tipo (`VENDA`, `ORCAMENTO`, `ORDEM DE SERVICO` ou `DEVOLUCAO`). */
     type: listSaleTypeSchema.optional(),
+    /** Inclui PARCIAL para orçamentos parcialmente convertidos. */
     status: saleStatusSchema.optional(),
-    budgetClosureSituation: budgetClosureSituationSchema.optional(),
     userId: z.string().uuid().optional(),
     sellerId: z.string().uuid().optional(),
     memberId: z.string().uuid().optional(),
@@ -460,6 +472,105 @@ export const convertBudgetToSaleSchema = z
     }
   });
 
+/** Converte orçamento com serviço em OS aberta (sem pagamento neste passo). */
+export const convertBudgetToOsSchema = z
+  .object({
+    sellerId: z.string().uuid().optional(),
+    memberId: z.string().uuid().optional(),
+    items: z.array(convertBudgetItemInputSchema).min(1),
+    discountValuetems: decimalOpt,
+    valueAcresceItems: decimalOpt,
+    ...saleFinancialAdjustmentsSchema,
+    ...saleServiceFieldsSchema,
+    member: saleMemberOverrideSchema.optional(),
+  })
+  .strict()
+  .superRefine((data, ctx) => {
+    const hasConvertQty = data.items.some((item) => item.quantity > 0);
+    if (!hasConvertQty) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["items"],
+        message: "Informe ao menos um item com quantidade maior que zero",
+      });
+    }
+  });
+
+export const convertOsItemInputSchema = z
+  .object({
+    workOrderItemId: z.string().uuid(),
+    quantity: z.number().min(0),
+    unclosedJustification: z.string().trim().min(1).max(500).optional(),
+    stockSectorId: z.string().uuid().optional(),
+    stockLocationId: z.string().uuid().optional(),
+    stockBatchId: z.string().uuid().nullable().optional(),
+  })
+  .strict();
+
+/** Converte OS em venda (documento novo; sem nova baixa de estoque). */
+export const convertOsToSaleSchema = z
+  .object({
+    status: saleStatusSchema,
+    sellerId: z.string().uuid().optional(),
+    memberId: z.string().uuid().optional(),
+    items: z.array(convertOsItemInputSchema).min(1),
+    discountValuetems: decimalOpt,
+    valueAcresceItems: decimalOpt,
+    ...saleFinancialAdjustmentsSchema,
+    ...saleServiceFieldsSchema,
+    payments: z.array(salePaymentInputSchema).optional(),
+    origin: saleOriginSchema.optional(),
+    member: saleMemberOverrideSchema.optional(),
+  })
+  .strict()
+  .superRefine((data, ctx) => {
+    const hasConvertQty = data.items.some((item) => item.quantity > 0);
+    if (!hasConvertQty) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["items"],
+        message: "Informe ao menos um item com quantidade maior que zero",
+      });
+    }
+
+    const hasPayments = (data.payments?.length ?? 0) > 0;
+    if (data.status === "FINALIZADA") {
+      if (!hasPayments) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["payments"],
+          message:
+            "Pagamentos e parcelas sao obrigatorios ao finalizar a venda",
+        });
+      }
+      return;
+    }
+    if (data.status === "CANCELADA") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["status"],
+        message: "Conversao nao pode gerar venda cancelada",
+      });
+      return;
+    }
+    if (hasPayments) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["payments"],
+        message:
+          "Pagamentos e parcelas so podem ser informados ao fechar a venda (status FINALIZADA)",
+      });
+    }
+    if (data.origin !== undefined) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["origin"],
+        message:
+          "origin so pode ser informado ao fechar a venda (status FINALIZADA)",
+      });
+    }
+  });
+
 export type SalePaymentInput = z.infer<typeof salePaymentInputSchema>;
 export type SaleMemberOverrideInput = z.infer<typeof saleMemberOverrideSchema>;
 export type CreateSaleInput = z.infer<typeof createSaleSchema>;
@@ -468,3 +579,5 @@ export type CreateSaleItemInput = z.infer<typeof createSaleItemSchema>;
 export type PatchSaleItemInput = z.infer<typeof patchSaleItemSchema>;
 export type ListSalesQuery = z.infer<typeof listSalesQuerySchema>;
 export type ConvertBudgetToSaleInput = z.infer<typeof convertBudgetToSaleSchema>;
+export type ConvertBudgetToOsInput = z.infer<typeof convertBudgetToOsSchema>;
+export type ConvertOsToSaleInput = z.infer<typeof convertOsToSaleSchema>;

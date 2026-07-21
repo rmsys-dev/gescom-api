@@ -8,7 +8,9 @@ import { salesController } from "./controller.js";
 import { salesAnalyticsRouter } from "./analytics/routes.js";
 import { salesReturnsRouter } from "./returns/routes.js";
 import {
+  convertBudgetToOsSchema,
   convertBudgetToSaleSchema,
+  convertOsToSaleSchema,
   createSaleItemSchema,
   createSaleSchema,
   listSalesQuerySchema,
@@ -78,6 +80,32 @@ salesRouter.post(
     query: emptyQuerySchema,
   }),
   salesController.convertBudgetToSale,
+);
+
+salesRouter.post(
+  "/:saleId/convert-to-os",
+  authMiddleware,
+  tenantMiddleware,
+  requireAnyPermission(["gerar_vendas", "alterar_vendas"]),
+  validateSchema({
+    params: saleParamsSchema,
+    body: convertBudgetToOsSchema,
+    query: emptyQuerySchema,
+  }),
+  salesController.convertBudgetToOs,
+);
+
+salesRouter.post(
+  "/:saleId/convert-os-to-sale",
+  authMiddleware,
+  tenantMiddleware,
+  requireAnyPermission(["gerar_vendas", "alterar_vendas"]),
+  validateSchema({
+    params: saleParamsSchema,
+    body: convertOsToSaleSchema,
+    query: emptyQuerySchema,
+  }),
+  salesController.convertOsToSale,
 );
 
 salesRouter.get(

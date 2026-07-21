@@ -2,7 +2,7 @@ import { db } from "../../db/index.js";
 import { measurementUnits, stockMovements } from "../../db/schema.js";
 import { eq, like } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "../../shared/errors/app-error.js";
-import { isServiceProductType } from "../../shared/products/product-type-service.js";
+import { isServiceProductTypeById } from "../../shared/products/product-type-service.js";
 import {
   assertBatchBelongsToProduct,
   assertStockSectorBelongsToEnterprise,
@@ -228,7 +228,7 @@ export async function validateSaleItemStock(
     );
   }
 
-  if (await isServiceProductType(item.productTypeId)) {
+  if (await isServiceProductTypeById(item.productTypeId)) {
     return;
   }
 
@@ -329,7 +329,7 @@ export async function applySaleItemStockOut(
   },
 ) {
   const { enterpriseId, userId, saleId, orderNumber, item } = params;
-  if (await isServiceProductType(item.productTypeId)) {
+  if (await isServiceProductTypeById(item.productTypeId)) {
     return;
   }
   assertItemHasLocation(item);
@@ -366,7 +366,7 @@ export async function applySaleItemStockReturn(
   },
 ) {
   const { enterpriseId, userId, saleId, orderNumber, item } = params;
-  if (await isServiceProductType(item.productTypeId)) {
+  if (await isServiceProductTypeById(item.productTypeId)) {
     return;
   }
   assertItemHasLocation(item);
@@ -403,7 +403,7 @@ export async function assertSaleItemsStockCommitted(
   items: SaleItemRow[],
 ) {
   for (const item of items) {
-    if (await isServiceProductType(item.productTypeId)) {
+    if (await isServiceProductTypeById(item.productTypeId)) {
       continue;
     }
     const ref = saleItemStockOutRef(saleId, item.id);
@@ -446,7 +446,7 @@ export async function applySaleReturnDocumentItemStockIn(
     returnItem,
   } = params;
   const item = returnItem.saleItem;
-  if (await isServiceProductType(item.productTypeId)) {
+  if (await isServiceProductTypeById(item.productTypeId)) {
     return;
   }
   assertItemHasLocation(item);
@@ -521,8 +521,8 @@ export async function syncSaleItemStockOnUpdate(
     params;
 
   if (
-    (await isServiceProductType(oldItem.productTypeId)) ||
-    (await isServiceProductType(newItem.productTypeId))
+    (await isServiceProductTypeById(oldItem.productTypeId)) ||
+    (await isServiceProductTypeById(newItem.productTypeId))
   ) {
     return;
   }

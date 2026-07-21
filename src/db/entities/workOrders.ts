@@ -52,14 +52,14 @@ export const vehiclesEnterprisesMembers = pgTable("vehicles_enterprises_members"
       .on(t.vehiclesId, t.enterprisesMembersId)
       .where(sql`${t.status} = 'ATIVO'`),
   ],
-); 
+);
 
 // tabela de relacionamento entre membro da empresa e item de venda
  export const enterprisesMemberSalesItems = pgTable("enterprises_member_sales_items", {
     id: uuid("id").defaultRandom().primaryKey(),
     enterprisesMembersId: uuid("enterprises_members_id").references(() => enterprisesMembers.id).notNull(), // empresa membro   
     salesItemsId: uuid("sales_items_id").references(() => salesItems.id).notNull(), // item de venda
-    comissionService: decimal("comission_service", percentageDecimal)
+    comissionService: decimal("comission_service", percentageDecimal) // comissão de serviço
       .notNull()
       .default("0.00"), // Comissão de serviço
     createdAt: tz("created_at").defaultNow().notNull(),

@@ -11,7 +11,7 @@ import {
 } from "../../../shared/audit/entity-audit.js";
 import { toAuditRecord } from "../../../shared/audit/build-field-diff.js";
 import { EntityTypes } from "../../../shared/audit/entity-types.js";
-import { isServiceProductType } from "../../../shared/products/product-type-service.js";
+import { isServiceProductTypeById } from "../../../shared/products/product-type-service.js";
 import { applySaleReturnDocumentItemStockIn } from "../sale-stock.js";
 import { nextSaleReturnOrder } from "./sequences.js";
 import type {
@@ -172,7 +172,7 @@ export class SalesReturnsService {
     }
     if (
       !item.stockLocationId &&
-      !(await isServiceProductType(item.productTypeId))
+      !(await isServiceProductTypeById(item.productTypeId))
     ) {
       throw new ValidationError(
         [{ path: "body.saleItemId", message: "Item sem locacao de estoque" }],

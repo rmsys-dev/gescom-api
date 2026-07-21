@@ -18,3 +18,11 @@ export const getProductTypeCode = async (
 
 export const isServiceProductType = (typeCode: string): boolean =>
   typeCode === PRODUCT_TYPE_SERVICE_CODE;
+
+/** Resolve o código do tipo pelo UUID e indica se é serviço (09). */
+export const isServiceProductTypeById = async (
+  productTypeId: string,
+): Promise<boolean> => {
+  const typeCode = await getProductTypeCode(productTypeId);
+  return typeCode !== null && isServiceProductType(typeCode);
+};

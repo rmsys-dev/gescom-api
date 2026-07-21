@@ -521,6 +521,7 @@ export class MembershipsService {
   private async assertMembershipNotExists(
     enterpriseId: string,
     userId: string,
+    memberClass: typeof enterprisesMembers.$inferInsert.class,
   ): Promise<void> {
     const dup = await db
       .select({ id: enterprisesMembers.id })
@@ -529,6 +530,7 @@ export class MembershipsService {
         and(
           eq(enterprisesMembers.userId, userId),
           eq(enterprisesMembers.enterpriseId, enterpriseId),
+          eq(enterprisesMembers.class, memberClass),          
           isNull(enterprisesMembers.deletedAt),
         ),
       )
@@ -682,7 +684,7 @@ export class MembershipsService {
       throw new NotFoundError("Usuario nao encontrado", "USER_NOT_FOUND");
     }
 
-    await this.assertMembershipNotExists(enterpriseId, input.userId);
+    await this.assertMembershipNotExists(enterpriseId, input.userId, input.class);
     await this.assertDepartmentsExistAndActive(input.departments);
 
     const hasCredentials = await userHasAnyActiveCredential(input.userId);
@@ -764,7 +766,7 @@ export class MembershipsService {
       throw new NotFoundError("Usuario nao encontrado", "USER_NOT_FOUND");
     }
 
-    await this.assertMembershipNotExists(enterpriseId, targetUser.id);
+    await this.assertMembershipNotExists(enterpriseId, targetUser.id, input.member.class);
     await this.assertDepartmentsExistAndActive(input.member.departments);
 
     const auditCtx = withEnterpriseAuditContext(
@@ -1051,7 +1053,7 @@ export class MembershipsService {
         tx,
       });
 
-      await this.assertMembershipNotExists(enterpriseId, createdUser.id);
+      await this.assertMembershipNotExists(enterpriseId, createdUser.id, input.member.class);
 
       const member = await this.createMembershipStructure(
         {

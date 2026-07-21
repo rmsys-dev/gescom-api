@@ -23,9 +23,11 @@ export const effectiveCompletionDateSql = (timezone: string) =>
 export const localCreatedDateSql = (timezone: string) =>
   sql`DATE(timezone(${timezoneSqlLiteral(timezone)}, ${sales.createdAt}))`;
 
+/** Data local de criacao da devolucao. */
 export const localReturnCreatedDateSql = (timezone: string) =>
   sql`DATE(timezone(${timezoneSqlLiteral(timezone)}, ${salesReturns.createdAt}))`;
 
+/** Condicao de data de realizacao da venda. */
 export const buildRealizedDateCondition = (
   period: ResolvedPeriod,
 ): SQL | undefined => {
@@ -36,6 +38,7 @@ export const buildRealizedDateCondition = (
   );
 };
 
+/** Condicao de data de pipeline da venda. */
 export const buildPipelineDateCondition = (
   period: ResolvedPeriod,
 ): SQL | undefined => {
@@ -46,6 +49,7 @@ export const buildPipelineDateCondition = (
   );
 };
 
+/** Condicao de data de devolucao da venda. */
 export const buildReturnDateCondition = (
   period: ResolvedPeriod,
 ): SQL | undefined => {
@@ -56,6 +60,7 @@ export const buildReturnDateCondition = (
   );
 };
 
+/** Condicoes de filtro de venda. */
 export const buildSaleFilterConditions = (filters: AnalyticsFilters): SQL[] => {
   const conditions: SQL[] = [];
   if (filters.sellerId) {
@@ -95,6 +100,7 @@ export const buildSaleFilterConditions = (filters: AnalyticsFilters): SQL[] => {
   return conditions;
 };
 
+/** Scope de venda realizada. */
 export const buildRealizedScope = (
   enterpriseId: string,
   period: ResolvedPeriod,
@@ -108,6 +114,7 @@ export const buildRealizedScope = (
     ...buildSaleFilterConditions(filters),
   );
 
+/** Scope de venda em pipeline. */
 export const buildPipelineScope = (
   enterpriseId: string,
   period: ResolvedPeriod,
@@ -120,6 +127,7 @@ export const buildPipelineScope = (
     ...buildSaleFilterConditions(filters),
   );
 
+/** Scope de devolucao. */
 export const buildReturnsScope = (
   enterpriseId: string,
   period: ResolvedPeriod,
@@ -137,6 +145,7 @@ export const returnLineValueSql = () =>
     else 0
   end`;
 
+/** Extrai os filtros da consulta. */
 export const extractFilters = (query: AnalyticsFilters): AnalyticsFilters => ({
   sellerId: query.sellerId,
   memberId: query.memberId,

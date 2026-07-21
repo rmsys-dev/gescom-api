@@ -1,0 +1,454 @@
+{
+  "info": {
+    "_postman_id": "gescom-api-work-orders",
+    "name": "Gescom API — Ordem de Serviço",
+    "description": "Coleção de **Ordem de Serviço** via rotas de vendas (`/api/v1/sales`).\n\nOS usa a mesma tabela `sales` com `type: \"ORDEM DE SERVICO\"` e os campos `vehicleMileage`, `observations`, `defect` e `serviceType`.\n\n**Sequência:** VENDA, ORCAMENTO e ORDEM DE SERVICO compartilham o mesmo `orderNumber` (contador `VENDA`). Informe `orderNumber` no body ou deixe a API gerar.\n\n**Importante:** `type: \"VENDA\"` bloqueia produto tipo serviço (`09`). Para OS com serviços use `type: \"ORDEM DE SERVICO\"`.\n\nUse o ambiente `gescom-api-local.postman_environment.json` (variável `serviceProductTypeId` = UUID do tipo produto `09`).\n\nFonte: `src/modules/sales/routes.ts`",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Listar / consultar",
+      "item": [
+        {
+          "name": "GET Listar ordens / orçamentos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales?limit=20&offset=0&type=ORDEM%20DE%20SERVICO&status=ABERTA",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "sales"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "disabled": false
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "disabled": false
+                },
+                {
+                  "key": "type",
+                  "value": "ORDEM DE SERVICO",
+                  "description": "Filtra por tipo. OS usa ORDEM DE SERVICO (aceita produto serviço 09; VENDA não).",
+                  "disabled": false
+                },
+                {
+                  "key": "status",
+                  "value": "ABERTA",
+                  "disabled": false
+                },
+                {
+                  "key": "memberId",
+                  "value": "{{memberId}}",
+                  "disabled": true
+                },
+                {
+                  "key": "sellerId",
+                  "value": "{{userId}}",
+                  "disabled": true
+                },
+                {
+                  "key": "orderNumber",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "client",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Lista vendas/orçamentos (OS usa o mesmo endpoint).\n\nPermissão: `consultar_vendas`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `listSalesQuerySchema`"
+          },
+          "response": []
+        },
+        {
+          "name": "GET Obter OS por saleId",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/{{saleId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "sales", "{{saleId}}"]
+            },
+            "description": "Obtém uma OS (registro em `sales`) com itens e campos de serviço.\n\nPermissão: `consultar_vendas`\n\nParams schema: `saleParamsSchema`"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Criar OS",
+      "item": [
+        {
+          "name": "POST Criar ordem de serviço",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "sales"]
+            },
+            "description": "Cria OS via `POST /sales` com campos de serviço.\n\nUse `type: \"ORDEM DE SERVICO\"` e `productTypeId` do tipo serviço (`09`) em `{{serviceProductTypeId}}`.\n\n`orderNumber` é opcional (mesma sequência de VENDA/ORCAMENTO).\n\n`type: \"VENDA\"` rejeita produto serviço.\n\nPermissão: `incluir_vendas`\n\nBody schema: `createSaleSchema`",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"memberId\": \"{{memberId}}\",\n  \"type\": \"ORDEM DE SERVICO\",\n  \"status\": \"ABERTA\",\n  \"modelService\": \"VEICULO\",\n  \"vehicleMileage\": 85000,\n  \"observations\": \"Revisao periodica\",\n  \"defect\": \"Barulho no motor\",\n  \"serviceType\": \"SERVICO\",\n  \"items\": [\n    {\n      \"quantity\": 1,\n      \"valueUnit\": 150,\n      \"valueDiscount\": 0,\n      \"valueAcresce\": 0,\n      \"productsEnterprisesId\": \"{{productEnterpriseId}}\",\n      \"unitId\": \"{{unitId}}\",\n      \"productTypeId\": \"{{serviceProductTypeId}}\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST Criar OS garantia",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "sales"]
+            },
+            "description": "Mesmo endpoint, com `serviceType: \"GARANTIA\"`.\n\nPermissão: `incluir_vendas`",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"memberId\": \"{{memberId}}\",\n  \"type\": \"ORDEM DE SERVICO\",\n  \"status\": \"ABERTA\",\n  \"modelService\": \"VEICULO\",\n  \"vehicleMileage\": 120000,\n  \"observations\": \"Atendimento em garantia\",\n  \"defect\": \"Falha no sistema eletrico\",\n  \"serviceType\": \"GARANTIA\",\n  \"items\": [\n    {\n      \"quantity\": 1,\n      \"valueUnit\": 0,\n      \"valueDiscount\": 0,\n      \"valueAcresce\": 0,\n      \"productsEnterprisesId\": \"{{productEnterpriseId}}\",\n      \"unitId\": \"{{unitId}}\",\n      \"productTypeId\": \"{{serviceProductTypeId}}\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Atualizar OS",
+      "item": [
+        {
+          "name": "PATCH Atualizar campos de serviço",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/{{saleId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "sales", "{{saleId}}"]
+            },
+            "description": "Atualiza km, defeito, observações e tipo de serviço.\n\nPermissão: `alterar_vendas`\n\nBody schema: `patchSaleSchema`",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicleMileage\": 85120,\n  \"observations\": \"Cliente autorizou troca de pecas\",\n  \"defect\": \"Barulho no motor - confirmado\",\n  \"serviceType\": \"SERVICO\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH Finalizar OS",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/{{saleId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "sales", "{{saleId}}"]
+            },
+            "description": "Fecha a OS/orçamento com status FINALIZADA e pagamentos.\n\nPermissão: `alterar_vendas`",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"FINALIZADA\",\n  \"origin\": \"WEB\",\n  \"payments\": [\n    {\n      \"paymentTypeId\": \"{{paymentTypeId}}\",\n      \"value\": 150\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Itens",
+      "item": [
+        {
+          "name": "POST Adicionar item de serviço",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/{{saleId}}/items",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "sales", "{{saleId}}", "items"]
+            },
+            "description": "Adiciona item (serviço) à OS.\n\nPermissão: `alterar_vendas`\n\nBody schema: `createSaleItemSchema`",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 1,\n  \"valueUnit\": 80,\n  \"valueDiscount\": 0,\n  \"valueAcresce\": 0,\n  \"productsEnterprisesId\": \"{{productEnterpriseId}}\",\n  \"unitId\": \"{{unitId}}\",\n  \"productTypeId\": \"{{serviceProductTypeId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH Atualizar item",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/{{saleId}}/items/{{saleItemId}}",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "{{saleId}}",
+                "items",
+                "{{saleItemId}}"
+              ]
+            },
+            "description": "Atualiza quantidade/valores do item.\n\nPermissão: `alterar_vendas`\n\nBody schema: `patchSaleItemSchema`",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 2,\n  \"valueUnit\": 80\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE Remover item",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/{{saleId}}/items/{{saleItemId}}",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "{{saleId}}",
+                "items",
+                "{{saleItemId}}"
+              ]
+            },
+            "description": "Remove item da OS.\n\nPermissão: `alterar_vendas`"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Totais",
+      "item": [
+        {
+          "name": "POST Recalcular totais",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/{{saleId}}/recalculate-totals",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "{{saleId}}",
+                "recalculate-totals"
+              ]
+            },
+            "description": "Recalcula subTotal, valuePie, valueService e valueLiquid.\n\nPermissão: `alterar_vendas`"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Converter / histórico",
+      "item": [
+        {
+          "name": "POST Converter orçamento em venda",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/{{saleId}}/convert-to-sale",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "{{saleId}}",
+                "convert-to-sale"
+              ]
+            },
+            "description": "Converte orçamento/OS em venda.\n\n**Atenção:** venda gerada não aceita itens de produto tipo serviço (`09`).\n\nPermissão: `gerar_vendas` ou `alterar_vendas`\n\nBody schema: `convertBudgetToSaleSchema`",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"FINALIZADA\",\n  \"items\": [],\n  \"payments\": [\n    {\n      \"paymentTypeId\": \"{{paymentTypeId}}\",\n      \"value\": 150\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET Histórico de conversões",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/{{saleId}}/budget-conversions",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "{{saleId}}",
+                "budget-conversions"
+              ]
+            },
+            "description": "Lista conversões orçamento → venda da OS.\n\nPermissão: `consultar_vendas`"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

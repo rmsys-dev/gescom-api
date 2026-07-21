@@ -91,7 +91,10 @@ import {
 import {
   computeItemValueTotal,
   convertBudgetItemInputSchema,
+  convertOsItemInputSchema,
+  type ConvertBudgetToOsInput,
   type ConvertBudgetToSaleInput,
+  type ConvertOsToSaleInput,
   type CreateSaleInput,
   type CreateSaleItemInput,
   type ListSalesQuery,
@@ -103,8 +106,14 @@ import {
 import type { z } from "zod";
 
 type ConvertBudgetItemLine = z.infer<typeof convertBudgetItemInputSchema>;
+type ConvertOsItemLine = z.infer<typeof convertOsItemInputSchema>;
+type ConversionStockLine = {
+  stockSectorId?: string;
+  stockLocationId?: string;
+  stockBatchId?: string | null;
+};
 
-type BudgetClosureSituation = "ABERTO" | "PARCIAL" | "FECHADO";
+type BudgetStatus = "ABERTA" | "PARCIAL" | "FINALIZADA";
 type BudgetConversionKind = "PARCIAL" | "TOTAL";
 
 const dec = (v: number | undefined | null) =>
@@ -264,6 +273,8 @@ type SaleServiceFieldInput = {
   observations?: string;
   defect?: string;
   serviceType?: "SERVICO" | "GARANTIA";
+  modelService?: "VEICULO";
+  type?: string;
 };
 
 const buildSaleServiceFieldValues = (
@@ -281,6 +292,11 @@ const buildSaleServiceFieldValues = (
   }
   if (input.serviceType !== undefined) {
     patch.serviceType = input.serviceType;
+  }
+  if (input.modelService !== undefined) {
+    patch.modelService = input.modelService;
+  } else if (input.type === "ORDEM DE SERVICO") {
+    patch.modelService = "VEICULO";
   }
   return patch;
 };
@@ -472,14 +488,15 @@ const saleWithMemberSelect = {
   valueLiquid: sales.valueLiquid,
   status: sales.status,
   returnSituation: sales.returnSituation,
-  budgetClosureSituation: sales.budgetClosureSituation,
   sourceBudgetSaleId: sales.sourceBudgetSaleId,
+  sourceWorkOrderSaleId: sales.sourceWorkOrderSaleId,
   origin: sales.origin,
   completedionDate: sales.completedionDate,
-  vehicleMileage: sales.vehicleMileage,
+  vehicleMileage: sales.vehicleMileage, 
   observations: sales.observations,
-  defect: sales.defect,
+  defect: sales.defect, 
   serviceType: sales.serviceType,
+  modelService: sales.modelService,
   userModificationServiceId: sales.userModificationServiceId,
   userClosedServiceId: sales.userClosedServiceId,
   enterprisesId: sales.enterprisesId,
@@ -515,11 +532,6 @@ export class SalesService {  // Servico de vendas
     const filters: SQL[] = [eq(sales.enterprisesId, enterpriseId)];
     if (query?.type) {
       filters.push(eq(sales.type, query.type));
-    }
-    if (query?.budgetClosureSituation) {
-      filters.push(
-        eq(sales.budgetClosureSituation, query.budgetClosureSituation),
-      );
     }
     if (query?.status) {
       filters.push(eq(sales.status, query.status));
@@ -623,13 +635,13 @@ export class SalesService {  // Servico de vendas
     );
   }
 
-  private computeBudgetClosureSituation(
+  private computeBudgetStatus(
     items: Pick<
       typeof salesItems.$inferSelect,
       "quantity" | "quantityConverted"
     >[],
-  ): BudgetClosureSituation {
-    if (items.length === 0) return "ABERTO";
+  ): BudgetStatus {
+    if (items.length === 0) return "ABERTA";
 
     let anyConverted = false;
     let allFullyConverted = true;
@@ -641,9 +653,9 @@ export class SalesService {  // Servico de vendas
       if (converted + 1e-9 < qty) allFullyConverted = false;
     }
 
-    if (allFullyConverted) return "FECHADO";
+    if (allFullyConverted) return "FINALIZADA";
     if (anyConverted) return "PARCIAL";
-    return "ABERTO";
+    return "ABERTA";
   }
 
   private assertBudgetOpenForConversion(budget: typeof sales.$inferSelect) {  // Verifica se o orcamento esta aberto para conversao
@@ -664,7 +676,7 @@ export class SalesService {  // Servico de vendas
         "Orcamento cancelado",
       );
     }
-    if (budget.budgetClosureSituation === "FECHADO") {
+    if (budget.status === "FINALIZADA") {
       throw new ValidationError(
         [
           {
@@ -677,11 +689,39 @@ export class SalesService {  // Servico de vendas
     }
   }
 
+  /** VENDA e ORDEM DE SERVICO compartilham sequência e movimentam estoque de peças. */
+  private movesInventory(saleType: string): boolean {
+    return saleType === "VENDA" || saleType === "ORDEM DE SERVICO";
+  }
+
+  /**
+   * Venda gerada a partir de OS já teve baixa na OS; não movimenta estoque de novo.
+   */
+  private shouldMoveStock(sale: {
+    type: string;
+    sourceWorkOrderSaleId?: string | null;
+  }): boolean {
+    if (sale.sourceWorkOrderSaleId) return false;
+    return this.movesInventory(sale.type);
+  }
+
+  private async documentHasServiceItem(
+    items: Pick<typeof salesItems.$inferSelect, "productTypeId">[],
+  ): Promise<boolean> {
+    for (const item of items) {
+      const typeCode = await getProductTypeCode(item.productTypeId);
+      if (typeCode && isServiceProductType(typeCode)) return true;
+    }
+    return false;
+  }
+
   private async assertVendaDoesNotAcceptService(
-    saleType: "VENDA" | "ORCAMENTO",
+    saleType: string,
     productTypeId: string,
     path: string,
+    options?: { allowService?: boolean },
   ) {
+    if (options?.allowService) return;
     if (saleType !== "VENDA") return;
     const typeCode = await getProductTypeCode(productTypeId);
     if (typeCode && isServiceProductType(typeCode)) {
@@ -690,7 +730,7 @@ export class SalesService {  // Servico de vendas
           {
             path,
             message:
-              "Venda nao aceita produto do tipo servico (09). Use ordem de servico quando disponivel.",
+              "Venda nao aceita produto do tipo servico (09). Use type ORDEM DE SERVICO.",
           },
         ],
         "Produto servico nao permitido em venda",
@@ -698,27 +738,35 @@ export class SalesService {  // Servico de vendas
     }
   }
 
-  private assertBudgetEditableForItems(budget: typeof sales.$inferSelect) {  // Verifica se o orcamento esta aberto para alterar itens
+  private assertBudgetEditableForItems(budget: typeof sales.$inferSelect) {  // Verifica se o orcamento/OS esta aberto para alterar itens
     this.assertSaleOpenForItems(budget);
-    if (budget.type === "ORCAMENTO" && budget.budgetClosureSituation === "FECHADO") {
+    if (
+      (budget.type === "ORCAMENTO" || budget.type === "ORDEM DE SERVICO") &&
+      budget.status === "FINALIZADA"
+    ) {
       throw new ValidationError(
         [
           {
             path: "params.saleId",
-            message: "Orcamento fechado nao permite alterar itens",
+            message:
+              budget.type === "ORCAMENTO"
+                ? "Orcamento fechado nao permite alterar itens"
+                : "Ordem de servico fechada nao permite alterar itens",
           },
         ],
-        "Orcamento fechado",
+        "Documento fechado",
       );
     }
   }
 
-  private assertBudgetItemEditable(  // Verifica se o item do orcamento esta aberto para alterar
+  private assertBudgetItemEditable(  // Verifica se o item do orcamento/OS esta aberto para alterar
     budget: typeof sales.$inferSelect,
     item: typeof salesItems.$inferSelect,
     nextQuantity?: number,
   ) {
-    if (budget.type !== "ORCAMENTO") return;
+    if (budget.type !== "ORCAMENTO" && budget.type !== "ORDEM DE SERVICO") {
+      return;
+    }
 
     const converted = decNum(item.quantityConverted);
     if (converted > 0 && nextQuantity === undefined) {
@@ -742,6 +790,42 @@ export class SalesService {  // Servico de vendas
           },
         ],
         "Quantidade invalida",
+      );
+    }
+  }
+
+  private assertOsOpenForConversion(workOrder: typeof sales.$inferSelect) {
+    if (workOrder.type !== "ORDEM DE SERVICO") {
+      throw new ValidationError(
+        [
+          {
+            path: "params.saleId",
+            message: "Somente ordens de servico podem ser convertidas em venda",
+          },
+        ],
+        "Tipo invalido",
+      );
+    }
+    if (workOrder.status === "CANCELADA") {
+      throw new ValidationError(
+        [
+          {
+            path: "params.saleId",
+            message: "Ordem de servico cancelada nao pode ser convertida",
+          },
+        ],
+        "Ordem de servico cancelada",
+      );
+    }
+    if (workOrder.status === "FINALIZADA") {
+      throw new ValidationError(
+        [
+          {
+            path: "params.saleId",
+            message: "Ordem de servico ja foi totalmente convertida em venda",
+          },
+        ],
+        "Ordem de servico fechada",
       );
     }
   }
@@ -784,7 +868,7 @@ export class SalesService {  // Servico de vendas
     budgetItem: typeof salesItems.$inferSelect,
     convertQuantity: number,
     itemPath: string,
-    line?: ConvertBudgetItemLine,
+    line?: ConversionStockLine,
   ): Promise<CreateSaleItemInput> {
     const base = this.prorateItemFinancials(
       budgetItem,
@@ -1901,7 +1985,7 @@ export class SalesService {  // Servico de vendas
     return { items, total, limit, offset };
   }
 
-  private async loadGeneratedSalesSummary(  // Obtem o resumo das vendas geradas
+  private async loadGeneratedSalesSummary(  // Obtem o resumo das vendas/OS geradas a partir do orcamento
     enterpriseId: string,
     budgetSaleId: string,
   ) {
@@ -1909,6 +1993,7 @@ export class SalesService {  // Servico de vendas
       .select({
         id: sales.id,
         orderNumber: sales.orderNumber,
+        type: sales.type,
         status: sales.status,
         valueLiquid: sales.valueLiquid,
         createdAt: sales.createdAt,
@@ -1923,9 +2008,32 @@ export class SalesService {  // Servico de vendas
       .orderBy(asc(sales.createdAt), asc(sales.id));
   }
 
-  private async loadSourceBudgetSummary(  // Obtem o resumo do orcamento fonte
+  private async loadGeneratedSalesFromWorkOrder(
     enterpriseId: string,
-    sourceBudgetSaleId: string,
+    workOrderSaleId: string,
+  ) {
+    return db
+      .select({
+        id: sales.id,
+        orderNumber: sales.orderNumber,
+        type: sales.type,
+        status: sales.status,
+        valueLiquid: sales.valueLiquid,
+        createdAt: sales.createdAt,
+      })
+      .from(sales)
+      .where(
+        and(
+          eq(sales.enterprisesId, enterpriseId),
+          eq(sales.sourceWorkOrderSaleId, workOrderSaleId),
+        ),
+      )
+      .orderBy(asc(sales.createdAt), asc(sales.id));
+  }
+
+  private async loadSourceDocumentSummary(
+    enterpriseId: string,
+    sourceSaleId: string,
   ) {
     const row = (
       await db
@@ -1934,13 +2042,12 @@ export class SalesService {  // Servico de vendas
           orderNumber: sales.orderNumber,
           type: sales.type,
           status: sales.status,
-          budgetClosureSituation: sales.budgetClosureSituation,
         })
         .from(sales)
         .where(
           and(
             eq(sales.enterprisesId, enterpriseId),
-            eq(sales.id, sourceBudgetSaleId),
+            eq(sales.id, sourceSaleId),
           ),
         )
         .limit(1)
@@ -2065,13 +2172,23 @@ export class SalesService {  // Servico de vendas
     const generatedSales =
       sale.type === "ORCAMENTO"
         ? await this.loadGeneratedSalesSummary(enterpriseId, id)
-        : undefined;
+        : sale.type === "ORDEM DE SERVICO"
+          ? await this.loadGeneratedSalesFromWorkOrder(enterpriseId, id)
+          : undefined;
 
     const sourceBudget =
       sale.sourceBudgetSaleId !== null
-        ? await this.loadSourceBudgetSummary(
+        ? await this.loadSourceDocumentSummary(
             enterpriseId,
             sale.sourceBudgetSaleId,
+          )
+        : undefined;
+
+    const sourceWorkOrder =
+      sale.sourceWorkOrderSaleId !== null
+        ? await this.loadSourceDocumentSummary(
+            enterpriseId,
+            sale.sourceWorkOrderSaleId,
           )
         : undefined;
 
@@ -2087,6 +2204,7 @@ export class SalesService {  // Servico de vendas
       budgetConversions,
       ...(generatedSales !== undefined ? { generatedSales } : {}),
       ...(sourceBudget !== undefined ? { sourceBudget } : {}),
+      ...(sourceWorkOrder !== undefined ? { sourceWorkOrder } : {}),
     };
   }
 
@@ -2133,9 +2251,15 @@ export class SalesService {  // Servico de vendas
     );
 
     const status = input.status;
-    if (status === "FINALIZADA" && input.type !== "VENDA") {
+    if (status === "FINALIZADA" && !this.movesInventory(input.type)) {
       throw new ValidationError(
-        [{ path: "body.status", message: "Orcamento nao pode ser finalizado com baixa de estoque" }],
+        [
+          {
+            path: "body.status",
+            message:
+              "Somente VENDA ou ORDEM DE SERVICO podem ser finalizadas com baixa de estoque",
+          },
+        ],
         "Status invalido",
       );
     }
@@ -2211,7 +2335,7 @@ export class SalesService {  // Servico de vendas
         for (let i = 0; i < input.items.length; i++) {
           const itemInput = input.items[i];
 
-          if (input.type === "VENDA") {
+          if (this.movesInventory(input.type)) {
             await this.assertVendaDoesNotAcceptService(
               input.type,
               itemInput.productTypeId,
@@ -2263,7 +2387,7 @@ export class SalesService {  // Servico de vendas
             .returning();
           if (!inserted) throw new Error("Falha ao incluir item na venda");
 
-          if (input.type === "VENDA") {
+          if (this.movesInventory(input.type)) {
             await applySaleItemStockOut(tx, {
               enterpriseId,
               userId: auth.userId,
@@ -2333,10 +2457,7 @@ export class SalesService {  // Servico de vendas
     gescomClient?: string | string[],
   ) {
     const existing = await this.getById(enterpriseId, id);
-    if (
-      existing.type === "ORCAMENTO" &&
-      existing.budgetClosureSituation === "FECHADO"
-    ) {
+    if (existing.type === "ORCAMENTO" && existing.status === "FINALIZADA") {
       throw new ValidationError(
         [
           {
@@ -2427,9 +2548,15 @@ export class SalesService {  // Servico de vendas
       input.defect !== undefined ||
       input.serviceType !== undefined;
 
-    if (nextStatus === "FINALIZADA" && existing.type !== "VENDA") {
+    if (nextStatus === "FINALIZADA" && !this.movesInventory(existing.type)) {
       throw new ValidationError(
-        [{ path: "body.status", message: "Orcamento nao movimenta estoque ao finalizar" }],
+        [
+          {
+            path: "body.status",
+            message:
+              "Somente VENDA ou ORDEM DE SERVICO movimentam estoque ao finalizar",
+          },
+        ],
         "Status invalido",
       );
     }
@@ -2439,7 +2566,7 @@ export class SalesService {  // Servico de vendas
       ? resolveSaleClosingOrigin(input.origin, gescomClient)
       : undefined;
     const cancelSale =
-      existing.type === "VENDA" && nextStatus === "CANCELADA";
+      this.shouldMoveStock(existing) && nextStatus === "CANCELADA";
 
     if (finalize && input.payments === undefined) {
       throw new ValidationError(
@@ -2571,7 +2698,7 @@ export class SalesService {  // Servico de vendas
         .where(eq(salesItems.salesId, id));
 
       if (finalize) {
-        if (existing.type === "VENDA") {
+        if (this.shouldMoveStock(existing)) {
           for (const item of items) {
             await applySaleItemStockOut(tx, {
               enterpriseId,
@@ -2667,6 +2794,19 @@ export class SalesService {  // Servico de vendas
           .select()
           .from(salesItems)
           .where(eq(salesItems.salesId, budgetSaleId));
+
+        if (await this.documentHasServiceItem(budgetItems)) {
+          throw new ValidationError(
+            [
+              {
+                path: "params.saleId",
+                message:
+                  "Orcamento com servico deve ser convertido em ordem de servico (convert-to-os)",
+              },
+            ],
+            "Use convert-to-os",
+          );
+        }
 
         const budgetItemsById = new Map(
           budgetItems.map((item) => [item.id, item]),
@@ -2790,7 +2930,6 @@ export class SalesService {  // Servico de vendas
             ...buildSaleServiceFieldValues(input),
             valueLiquid: "0",
             status,
-            budgetClosureSituation: "FECHADO",
             sourceBudgetSaleId: budgetSaleId,
             ...(closingOrigin !== undefined ? { origin: closingOrigin } : {}),
             completedionDate: status === "FINALIZADA" ? new Date() : null,
@@ -2936,17 +3075,17 @@ export class SalesService {  // Servico de vendas
           .from(salesItems)
           .where(eq(salesItems.salesId, budgetSaleId));
 
-        const computedClosureSituation =
-          this.computeBudgetClosureSituation(updatedBudgetItems);
+        const computedBudgetStatus =
+          this.computeBudgetStatus(updatedBudgetItems);
         const closureKind: BudgetConversionKind =
-          computedClosureSituation === "FECHADO" ? "TOTAL" : "PARCIAL";
+          computedBudgetStatus === "FINALIZADA" ? "TOTAL" : "PARCIAL";
 
         await tx
           .update(sales)
           .set({
-            budgetClosureSituation: computedClosureSituation,
-            status: "FINALIZADA",
-            completedionDate: new Date(),
+            status: computedBudgetStatus,
+            completedionDate:
+              computedBudgetStatus === "FINALIZADA" ? new Date() : null,
             updatedAt: new Date(),
           })
           .where(eq(sales.id, budgetSaleId));
@@ -3014,6 +3153,765 @@ export class SalesService {  // Servico de vendas
     }
   }
 
+  public async convertBudgetToOs(
+    enterpriseId: string,
+    budgetSaleId: string,
+    auth: SaleAuthContext | null,
+    input: ConvertBudgetToOsInput,
+    audit: EntityAuditContext,
+    gescomClient?: string | string[],
+  ) {
+    if (!auth?.userId) {
+      throw new ValidationError(
+        [{ path: "auth", message: "Usuario autenticado obrigatorio" }],
+        "Nao autenticado",
+      );
+    }
+
+    const operator = await this.resolveSeller(auth.userId);
+    const status = "ABERTA" as const;
+
+    const seenBudgetItemIds = new Set<string>();
+    for (let i = 0; i < input.items.length; i++) {
+      const item = input.items[i];
+      if (seenBudgetItemIds.has(item.budgetItemId)) {
+        throw new ValidationError(
+          [
+            {
+              path: `body.items.${i}.budgetItemId`,
+              message: "Item do orcamento duplicado na conversao",
+            },
+          ],
+          "Itens invalidos",
+        );
+      }
+      seenBudgetItemIds.add(item.budgetItemId);
+    }
+
+    try {
+      let budgetBefore!: typeof sales.$inferSelect;
+      const generatedSaleId = await db.transaction(async (tx) => {
+        budgetBefore = await this.getSaleRow(tx, enterpriseId, budgetSaleId);
+        const budget = budgetBefore;
+        this.assertBudgetOpenForConversion(budget);
+
+        const budgetItems = await tx
+          .select()
+          .from(salesItems)
+          .where(eq(salesItems.salesId, budgetSaleId));
+
+        if (!(await this.documentHasServiceItem(budgetItems))) {
+          throw new ValidationError(
+            [
+              {
+                path: "params.saleId",
+                message:
+                  "Orcamento sem servico deve usar convert-to-sale (venda)",
+              },
+            ],
+            "Use convert-to-sale",
+          );
+        }
+
+        const budgetItemsById = new Map(
+          budgetItems.map((item) => [item.id, item]),
+        );
+
+        const conversionLines: {
+          budgetItem: typeof salesItems.$inferSelect;
+          convertQuantity: number;
+          line: (typeof input.items)[number];
+          itemIndex: number;
+        }[] = [];
+        const unclosedRows: {
+          budgetItemId: string;
+          quantityNotConverted: number;
+          justification: string;
+        }[] = [];
+
+        for (let i = 0; i < input.items.length; i++) {
+          const line = input.items[i];
+          const budgetItem = budgetItemsById.get(line.budgetItemId);
+          if (!budgetItem) {
+            throw new ValidationError(
+              [
+                {
+                  path: `body.items.${i}.budgetItemId`,
+                  message: "Item nao pertence ao orcamento",
+                },
+              ],
+              "Item invalido",
+            );
+          }
+
+          const remaining =
+            decNum(budgetItem.quantity) - decNum(budgetItem.quantityConverted);
+          if (line.quantity > remaining + 1e-9) {
+            throw new ValidationError(
+              [
+                {
+                  path: `body.items.${i}.quantity`,
+                  message: `Quantidade excede saldo restante (${remaining})`,
+                },
+              ],
+              "Quantidade invalida",
+            );
+          }
+
+          if (line.quantity < remaining - 1e-9) {
+            const justification = line.unclosedJustification?.trim();
+            if (justification) {
+              unclosedRows.push({
+                budgetItemId: budgetItem.id,
+                quantityNotConverted: remaining - line.quantity,
+                justification,
+              });
+            }
+          }
+
+          if (line.quantity > 0) {
+            conversionLines.push({
+              budgetItem,
+              convertQuantity: line.quantity,
+              line,
+              itemIndex: i,
+            });
+          }
+        }
+
+        const memberId = input.memberId ?? budget.memberId;
+        if (!memberId) {
+          throw new ValidationError(
+            [{ path: "params.saleId", message: "Orcamento sem cliente vinculado" }],
+            "Cliente obrigatorio",
+          );
+        }
+        await this.assertClientMember(tx, enterpriseId, memberId);
+
+        const orderNumber = await nextSaleOrderNumber(enterpriseId, tx);
+
+        const seller = await this.resolveSaleSeller(
+          auth,
+          enterpriseId,
+          input.sellerId,
+          budget.sellerId,
+        );
+
+        const memberSnapshot = mergeSaleMemberSnapshot(
+          await this.buildSaleMemberSnapshot(tx, enterpriseId, memberId),
+          normalizeSaleMemberOverrides(input.member),
+        );
+        if (!memberSnapshot.memberLegalName) {
+          throw new ValidationError(
+            [
+              {
+                path: "body.memberId",
+                message: "Cliente sem nome legal",
+              },
+            ],
+            "Cliente invalido",
+          );
+        }
+
+        const serviceFields = buildSaleServiceFieldValues({
+          ...input,
+          type: "ORDEM DE SERVICO",
+          modelService: input.modelService ?? budget.modelService ?? "VEICULO",
+          serviceType: input.serviceType ?? budget.serviceType,
+          vehicleMileage:
+            input.vehicleMileage ?? budget.vehicleMileage ?? undefined,
+          observations:
+            input.observations ?? budget.observations ?? undefined,
+          defect: input.defect ?? budget.defect ?? undefined,
+        });
+
+        const [generatedSale] = await tx
+          .insert(sales)
+          .values({
+            orderNumber,
+            userId: operator.userId,
+            userLegalName: operator.userLegalName,
+            sellerId: seller.sellerId,
+            sellerLegalName: seller.sellerLegalName,
+            memberId,
+            type: "ORDEM DE SERVICO",
+            subTotal: "0",
+            discountValuetems: dec(input.discountValuetems),
+            valueAcresceItems: dec(input.valueAcresceItems),
+            ...buildSaleFinancialAdjustmentValues(input),
+            ...serviceFields,
+            valueLiquid: "0",
+            status,
+            sourceBudgetSaleId: budgetSaleId,
+            enterprisesId: enterpriseId,
+          })
+          .returning();
+        if (!generatedSale) {
+          throw new Error("Falha ao gerar ordem de servico do orcamento");
+        }
+
+        await this.upsertSaleMember(tx, generatedSale.id, memberSnapshot);
+
+        const conversionItemRows: {
+          budgetItemId: string;
+          saleItemId: string;
+          quantity: string;
+        }[] = [];
+
+        for (let i = 0; i < conversionLines.length; i++) {
+          const { budgetItem, convertQuantity, line, itemIndex } =
+            conversionLines[i];
+          const itemPath = `body.items.${itemIndex}`;
+          const itemInput = await this.resolveConversionItemInput(
+            tx,
+            enterpriseId,
+            budgetItem,
+            convertQuantity,
+            itemPath,
+            line,
+          );
+
+          await assertSaleItemStockAvailable(
+            tx,
+            enterpriseId,
+            itemInput,
+            itemPath,
+          );
+
+          const actor = await this.resolveItemActor(
+            auth,
+            enterpriseId,
+            generatedSale,
+          );
+
+          await this.assertItemLineDiscountWithinMemberLimitForSeller(
+            tx,
+            enterpriseId,
+            actor.sellerId,
+            {
+              quantity: itemInput.quantity,
+              valueUnit: itemInput.valueUnit,
+              valueDiscount: itemInput.valueDiscount,
+            },
+            `${itemPath}.valueDiscount`,
+          );
+
+          const priceSnapshot = this.priceSnapshotFromBudgetItem(budgetItem);
+
+          const [inserted] = await tx
+            .insert(salesItems)
+            .values({
+              ...this.mapItemInputToInsert(
+                generatedSale.id,
+                itemInput,
+                actor,
+                this.resolveItemLaunchOrigin(itemInput.origin, gescomClient),
+                priceSnapshot,
+              ),
+              sourceBudgetItemId: budgetItem.id,
+              quantityConverted: "0",
+            })
+            .returning();
+          if (!inserted) {
+            throw new Error("Falha ao incluir item na ordem de servico gerada");
+          }
+
+          await applySaleItemStockOut(tx, {
+            enterpriseId,
+            userId: auth.userId,
+            saleId: generatedSale.id,
+            orderNumber: generatedSale.orderNumber,
+            item: inserted,
+          });
+
+          const nextConverted =
+            decNum(budgetItem.quantityConverted) + convertQuantity;
+          const [updatedBudgetItem] = await tx
+            .update(salesItems)
+            .set({
+              quantityConverted: formatQuantity(nextConverted),
+              updatedAt: new Date(),
+            })
+            .where(eq(salesItems.id, budgetItem.id))
+            .returning({ id: salesItems.id });
+          if (!updatedBudgetItem) {
+            throw new Error(
+              `Falha ao atualizar quantityConverted do item ${budgetItem.id}`,
+            );
+          }
+
+          budgetItem.quantityConverted = formatQuantity(nextConverted);
+
+          conversionItemRows.push({
+            budgetItemId: budgetItem.id,
+            saleItemId: inserted.id,
+            quantity: formatQuantity(convertQuantity),
+          });
+        }
+
+        const totals = await this.recalculateSaleTotalsFromItems(
+          tx,
+          enterpriseId,
+          generatedSale.id,
+          generatedSale,
+        );
+        await this.assertSaleDiscountWithinMemberLimitForSeller(
+          tx,
+          enterpriseId,
+          seller.sellerId,
+          totals,
+        );
+
+        const updatedBudgetItems = await tx
+          .select()
+          .from(salesItems)
+          .where(eq(salesItems.salesId, budgetSaleId));
+
+        const computedBudgetStatus =
+          this.computeBudgetStatus(updatedBudgetItems);
+        const closureKind: BudgetConversionKind =
+          computedBudgetStatus === "FINALIZADA" ? "TOTAL" : "PARCIAL";
+
+        await tx
+          .update(sales)
+          .set({
+            status: computedBudgetStatus,
+            completedionDate:
+              computedBudgetStatus === "FINALIZADA" ? new Date() : null,
+            updatedAt: new Date(),
+          })
+          .where(eq(sales.id, budgetSaleId));
+
+        const [conversion] = await tx
+          .insert(salesBudgetConversions)
+          .values({
+            enterprisesId: enterpriseId,
+            budgetSaleId,
+            generatedSaleId: generatedSale.id,
+            closureKind,
+            userId: operator.userId,
+            userLegalName: operator.userLegalName,
+          })
+          .returning();
+        if (!conversion) throw new Error("Falha ao registrar conversao");
+
+        await tx.insert(salesBudgetConversionItems).values(
+          conversionItemRows.map((row) => ({
+            conversionId: conversion.id,
+            budgetItemId: row.budgetItemId,
+            saleItemId: row.saleItemId,
+            quantity: row.quantity,
+          })),
+        );
+
+        if (unclosedRows.length > 0) {
+          await tx.insert(salesBudgetUnclosedItems).values(
+            unclosedRows.map((row) => ({
+              conversionId: conversion.id,
+              budgetItemId: row.budgetItemId,
+              quantityNotConverted: row.quantityNotConverted.toString(),
+              justification: row.justification,
+              userId: operator.userId,
+              userLegalName: operator.userLegalName,
+            })),
+          );
+        }
+
+        return generatedSale.id;
+      });
+
+      const generatedRow = await this.getSaleRow(db, enterpriseId, generatedSaleId);
+      await recordCreateAudit({
+        entityType: EntityTypes.SALES,
+        entityId: generatedSaleId,
+        after: toAuditRecord(generatedRow),
+        ctx: { ...audit, enterpriseId },
+      });
+      const budgetAfter = await this.getSaleRow(db, enterpriseId, budgetSaleId);
+      await recordEntityAudit({
+        entityType: EntityTypes.SALES,
+        entityId: budgetSaleId,
+        action: "UPDATE",
+        before: toAuditRecord(budgetBefore),
+        after: toAuditRecord(budgetAfter),
+        ctx: { ...audit, enterpriseId },
+      });
+
+      return this.getById(enterpriseId, generatedSaleId);
+    } catch (err) {
+      const conflict = mapSaleUniqueViolation(err);
+      if (conflict) throw conflict;
+      throw err;
+    }
+  }
+
+  public async convertOsToSale(
+    enterpriseId: string,
+    workOrderSaleId: string,
+    auth: SaleAuthContext | null,
+    input: ConvertOsToSaleInput,
+    audit: EntityAuditContext,
+    gescomClient?: string | string[],
+  ) {
+    if (!auth?.userId) {
+      throw new ValidationError(
+        [{ path: "auth", message: "Usuario autenticado obrigatorio" }],
+        "Nao autenticado",
+      );
+    }
+
+    const operator = await this.resolveSeller(auth.userId);
+    const status = input.status;
+
+    const seenItemIds = new Set<string>();
+    for (let i = 0; i < input.items.length; i++) {
+      const item = input.items[i];
+      if (seenItemIds.has(item.workOrderItemId)) {
+        throw new ValidationError(
+          [
+            {
+              path: `body.items.${i}.workOrderItemId`,
+              message: "Item da ordem de servico duplicado na conversao",
+            },
+          ],
+          "Itens invalidos",
+        );
+      }
+      seenItemIds.add(item.workOrderItemId);
+    }
+
+    try {
+      let workOrderBefore!: typeof sales.$inferSelect;
+      const generatedSaleId = await db.transaction(async (tx) => {
+        workOrderBefore = await this.getSaleRow(
+          tx,
+          enterpriseId,
+          workOrderSaleId,
+        );
+        const workOrder = workOrderBefore;
+        this.assertOsOpenForConversion(workOrder);
+
+        const workOrderItems = await tx
+          .select()
+          .from(salesItems)
+          .where(eq(salesItems.salesId, workOrderSaleId));
+
+        const workOrderItemsById = new Map(
+          workOrderItems.map((item) => [item.id, item]),
+        );
+
+        const conversionLines: {
+          workOrderItem: typeof salesItems.$inferSelect;
+          convertQuantity: number;
+          line: ConvertOsItemLine;
+          itemIndex: number;
+        }[] = [];
+        const unclosedRows: {
+          workOrderItemId: string;
+          quantityNotConverted: number;
+          justification: string;
+        }[] = [];
+
+        for (let i = 0; i < input.items.length; i++) {
+          const line = input.items[i];
+          const workOrderItem = workOrderItemsById.get(line.workOrderItemId);
+          if (!workOrderItem) {
+            throw new ValidationError(
+              [
+                {
+                  path: `body.items.${i}.workOrderItemId`,
+                  message: "Item nao pertence a ordem de servico",
+                },
+              ],
+              "Item invalido",
+            );
+          }
+
+          const remaining =
+            decNum(workOrderItem.quantity) -
+            decNum(workOrderItem.quantityConverted);
+          if (line.quantity > remaining + 1e-9) {
+            throw new ValidationError(
+              [
+                {
+                  path: `body.items.${i}.quantity`,
+                  message: `Quantidade excede saldo restante (${remaining})`,
+                },
+              ],
+              "Quantidade invalida",
+            );
+          }
+
+          if (line.quantity < remaining - 1e-9) {
+            const justification = line.unclosedJustification?.trim();
+            if (justification) {
+              unclosedRows.push({
+                workOrderItemId: workOrderItem.id,
+                quantityNotConverted: remaining - line.quantity,
+                justification,
+              });
+            }
+          }
+
+          if (line.quantity > 0) {
+            conversionLines.push({
+              workOrderItem,
+              convertQuantity: line.quantity,
+              line,
+              itemIndex: i,
+            });
+          }
+        }
+
+        const memberId = input.memberId ?? workOrder.memberId;
+        if (!memberId) {
+          throw new ValidationError(
+            [
+              {
+                path: "params.saleId",
+                message: "Ordem de servico sem cliente vinculado",
+              },
+            ],
+            "Cliente obrigatorio",
+          );
+        }
+        await this.assertClientMember(tx, enterpriseId, memberId);
+
+        const orderNumber = await nextSaleOrderNumber(enterpriseId, tx);
+
+        const seller = await this.resolveSaleSeller(
+          auth,
+          enterpriseId,
+          input.sellerId,
+          workOrder.sellerId,
+        );
+
+        const closingOrigin =
+          status === "FINALIZADA"
+            ? resolveSaleClosingOrigin(input.origin, gescomClient)
+            : undefined;
+
+        const memberSnapshot = mergeSaleMemberSnapshot(
+          await this.buildSaleMemberSnapshot(tx, enterpriseId, memberId),
+          normalizeSaleMemberOverrides(input.member),
+        );
+        if (!memberSnapshot.memberLegalName) {
+          throw new ValidationError(
+            [
+              {
+                path: "body.memberId",
+                message: "Cliente sem nome legal",
+              },
+            ],
+            "Cliente invalido",
+          );
+        }
+
+        const serviceFields = buildSaleServiceFieldValues({
+          ...input,
+          modelService:
+            input.modelService ?? workOrder.modelService ?? undefined,
+          serviceType: input.serviceType ?? workOrder.serviceType,
+          vehicleMileage:
+            input.vehicleMileage ?? workOrder.vehicleMileage ?? undefined,
+          observations:
+            input.observations ?? workOrder.observations ?? undefined,
+          defect: input.defect ?? workOrder.defect ?? undefined,
+        });
+
+        const [generatedSale] = await tx
+          .insert(sales)
+          .values({
+            orderNumber,
+            userId: operator.userId,
+            userLegalName: operator.userLegalName,
+            sellerId: seller.sellerId,
+            sellerLegalName: seller.sellerLegalName,
+            memberId,
+            type: "VENDA",
+            subTotal: "0",
+            discountValuetems: dec(input.discountValuetems),
+            valueAcresceItems: dec(input.valueAcresceItems),
+            ...buildSaleFinancialAdjustmentValues(input),
+            ...serviceFields,
+            valueLiquid: "0",
+            status,
+            sourceBudgetSaleId: workOrder.sourceBudgetSaleId,
+            sourceWorkOrderSaleId: workOrderSaleId,
+            ...(closingOrigin !== undefined ? { origin: closingOrigin } : {}),
+            completedionDate: status === "FINALIZADA" ? new Date() : null,
+            enterprisesId: enterpriseId,
+          })
+          .returning();
+        if (!generatedSale) {
+          throw new Error("Falha ao gerar venda da ordem de servico");
+        }
+
+        await this.upsertSaleMember(tx, generatedSale.id, memberSnapshot);
+
+        for (let i = 0; i < conversionLines.length; i++) {
+          const { workOrderItem, convertQuantity, line, itemIndex } =
+            conversionLines[i];
+          const itemPath = `body.items.${itemIndex}`;
+          const itemInput = await this.resolveConversionItemInput(
+            tx,
+            enterpriseId,
+            workOrderItem,
+            convertQuantity,
+            itemPath,
+            line,
+          );
+
+          // Estoque ja baixado na OS; apenas valida estrutura (sem saldo).
+          await validateSaleItemStock(enterpriseId, itemInput, itemPath);
+
+          const actor = await this.resolveItemActor(
+            auth,
+            enterpriseId,
+            generatedSale,
+          );
+
+          await this.assertItemLineDiscountWithinMemberLimitForSeller(
+            tx,
+            enterpriseId,
+            actor.sellerId,
+            {
+              quantity: itemInput.quantity,
+              valueUnit: itemInput.valueUnit,
+              valueDiscount: itemInput.valueDiscount,
+            },
+            `${itemPath}.valueDiscount`,
+          );
+
+          const priceSnapshot = this.priceSnapshotFromBudgetItem(workOrderItem);
+
+          const [inserted] = await tx
+            .insert(salesItems)
+            .values({
+              ...this.mapItemInputToInsert(
+                generatedSale.id,
+                itemInput,
+                actor,
+                this.resolveItemLaunchOrigin(itemInput.origin, gescomClient),
+                priceSnapshot,
+              ),
+              sourceBudgetItemId: workOrderItem.sourceBudgetItemId,
+              sourceWorkOrderItemId: workOrderItem.id,
+              quantityConverted: formatQuantity(convertQuantity),
+            })
+            .returning();
+          if (!inserted) {
+            throw new Error("Falha ao incluir item na venda gerada da OS");
+          }
+
+          const nextConverted =
+            decNum(workOrderItem.quantityConverted) + convertQuantity;
+          const [updatedOsItem] = await tx
+            .update(salesItems)
+            .set({
+              quantityConverted: formatQuantity(nextConverted),
+              updatedAt: new Date(),
+            })
+            .where(eq(salesItems.id, workOrderItem.id))
+            .returning({ id: salesItems.id });
+          if (!updatedOsItem) {
+            throw new Error(
+              `Falha ao atualizar quantityConverted do item ${workOrderItem.id}`,
+            );
+          }
+
+          workOrderItem.quantityConverted = formatQuantity(nextConverted);
+        }
+
+        const totals = await this.recalculateSaleTotalsFromItems(
+          tx,
+          enterpriseId,
+          generatedSale.id,
+          generatedSale,
+        );
+        await this.assertSaleDiscountWithinMemberLimitForSeller(
+          tx,
+          enterpriseId,
+          seller.sellerId,
+          totals,
+        );
+
+        if (status === "FINALIZADA" && input.payments?.length) {
+          const updatedSale = await this.getSaleRow(
+            tx,
+            enterpriseId,
+            generatedSale.id,
+          );
+          if (!updatedSale) throw new Error("Falha ao recalcular venda gerada");
+          this.assertSalePaymentsMatchSale(
+            updatedSale.valueLiquid,
+            updatedSale.createdAt,
+            input.payments,
+          );
+          await this.insertSalePayments(tx, generatedSale.id, input.payments);
+          await this.recalculateSaleItemsCommission(
+            tx,
+            generatedSale.id,
+            seller.sellerId,
+            enterpriseId,
+            input.payments,
+          );
+        }
+
+        const updatedOsItems = await tx
+          .select()
+          .from(salesItems)
+          .where(eq(salesItems.salesId, workOrderSaleId));
+
+        const computedOsStatus = this.computeBudgetStatus(updatedOsItems);
+
+        await tx
+          .update(sales)
+          .set({
+            status: computedOsStatus,
+            completedionDate:
+              computedOsStatus === "FINALIZADA" ? new Date() : null,
+            userClosedServiceId:
+              computedOsStatus === "FINALIZADA" ? operator.userId : null,
+            updatedAt: new Date(),
+          })
+          .where(eq(sales.id, workOrderSaleId));
+
+        // Justificativas de saldo nao convertido sao validadas acima (sem tabela de auditoria OS).
+        void unclosedRows;
+
+        return generatedSale.id;
+      });
+
+      const generatedRow = await this.getSaleRow(db, enterpriseId, generatedSaleId);
+      await recordCreateAudit({
+        entityType: EntityTypes.SALES,
+        entityId: generatedSaleId,
+        after: toAuditRecord(generatedRow),
+        ctx: { ...audit, enterpriseId },
+      });
+      const workOrderAfter = await this.getSaleRow(
+        db,
+        enterpriseId,
+        workOrderSaleId,
+      );
+      await recordEntityAudit({
+        entityType: EntityTypes.SALES,
+        entityId: workOrderSaleId,
+        action: "UPDATE",
+        before: toAuditRecord(workOrderBefore),
+        after: toAuditRecord(workOrderAfter),
+        ctx: { ...audit, enterpriseId },
+      });
+
+      return this.getById(enterpriseId, generatedSaleId);
+    } catch (err) {
+      const conflict = mapSaleUniqueViolation(err);
+      if (conflict) throw conflict;
+      throw err;
+    }
+  }
+
   public async addItem(
     enterpriseId: string,
     saleId: string,
@@ -3035,14 +3933,21 @@ export class SalesService {  // Servico de vendas
       const sale = beforeRow;
       this.assertBudgetEditableForItems(sale);
 
-      if (sale.type === "VENDA") {
+      if (this.shouldMoveStock(sale)) {
         await this.assertVendaDoesNotAcceptService(
           sale.type,
           input.productTypeId,
           "body.productTypeId",
+          { allowService: Boolean(sale.sourceWorkOrderSaleId) },
         );
         await assertSaleItemStockAvailable(tx, enterpriseId, input, "body");
       } else {
+        await this.assertVendaDoesNotAcceptService(
+          sale.type,
+          input.productTypeId,
+          "body.productTypeId",
+          { allowService: Boolean(sale.sourceWorkOrderSaleId) },
+        );
         await validateSaleItemStock(enterpriseId, input, "body");
       }
 
@@ -3082,7 +3987,7 @@ export class SalesService {  // Servico de vendas
         .returning();
       if (!inserted) throw new Error("Falha ao incluir item na venda");
 
-      if (sale.type === "VENDA") {
+      if (this.shouldMoveStock(sale)) {
         await applySaleItemStockOut(tx, {
           enterpriseId,
           userId: auth.userId,
@@ -3141,7 +4046,7 @@ export class SalesService {  // Servico de vendas
 
       this.assertBudgetItemEditable(sale, item);
 
-      if (sale.type === "VENDA") {
+      if (this.shouldMoveStock(sale)) {
         await applySaleItemStockReturn(tx, {
           enterpriseId,
           userId,
@@ -3218,6 +4123,7 @@ export class SalesService {  // Servico de vendas
             sale.type,
             merged.productTypeId,
             "body.productTypeId",
+            { allowService: Boolean(sale.sourceWorkOrderSaleId) },
           );
         }
       }
@@ -3237,7 +4143,7 @@ export class SalesService {  // Servico de vendas
         "body.valueDiscount",
       );
 
-      if (sale.type === "VENDA") {
+      if (this.shouldMoveStock(sale)) {
         await syncSaleItemStockOnUpdate(tx, {
           enterpriseId,
           userId,

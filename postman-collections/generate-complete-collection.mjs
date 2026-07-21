@@ -110,6 +110,10 @@ const BODY_EXAMPLES = {
     memberId: "{{memberId}}",
     type: "ORCAMENTO",
     status: "ABERTA",
+    vehicleMileage: 85000,
+    observations: "Revisao periodica",
+    defect: "Barulho no motor",
+    serviceType: "SERVICO",
     items: [
       {
         quantity: 1,
@@ -123,7 +127,13 @@ const BODY_EXAMPLES = {
     ],
     payments: [{ paymentTypeId: "{{paymentTypeId}}", value: 100 }],
   },
-  patchSaleSchema: { status: "FINALIZADA" },
+  patchSaleSchema: {
+    status: "FINALIZADA",
+    vehicleMileage: 85120,
+    observations: "Cliente autorizou troca de pecas",
+    defect: "Barulho no motor - confirmado",
+    serviceType: "SERVICO",
+  },
   convertBudgetToSaleSchema: {
     status: "FINALIZADA",
     items: [],
@@ -194,7 +204,6 @@ const QUERY_HINTS = {
     "offset",
     "type",
     "status",
-    "budgetClosureSituation",
     "userId",
     "sellerId",
     "orderNumber",

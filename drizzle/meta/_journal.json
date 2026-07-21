@@ -344,6 +344,13 @@
       "when": 1784658000000,
       "tag": "0048_sales_source_work_order",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1784669732079,
+      "tag": "0049_friendly_tarot",
+      "breakpoints": true
     }
   ]
 }

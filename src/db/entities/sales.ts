@@ -128,9 +128,7 @@ export const sales = pgTable(
     vehicleMileage: integer("vehicle_mileage"), // quilometragem do veículo
     observations: varchar("observations", { length: 500 }), // observações
     defect: varchar("defect", { length: 500 }), // defeito ( problema no equipamento/veiculo)
-    serviceType: saleServiceTypeEnum("service_type")
-      .notNull()
-      .default("SERVICO"), // tipo de serviço
+    serviceType: saleServiceTypeEnum("service_type"), // tipo de serviço (opcional)
     userModificationServiceId: uuid("user_modification_service_id").references(
       () => users.id,
       { onDelete: "restrict" },

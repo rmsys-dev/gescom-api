@@ -35,7 +35,8 @@ const saleServiceFieldsSchema = {
   vehicleMileage: z.number().int().min(0).optional(),
   observations: z.string().trim().max(500).optional(),
   defect: z.string().trim().max(500).optional(),
-  serviceType: saleServiceTypeSchema.optional(),
+  /** Somente para ORDEM DE SERVICO; demais tipos devem omitir ou enviar null. */
+  serviceType: saleServiceTypeSchema.nullable().optional(),
   /** Modelo de OS; tipicamente VEICULO. Default VEICULO quando type = ORDEM DE SERVICO. */
   modelService: orderServiceModelSchema.optional(),
 };
@@ -243,6 +244,15 @@ export const createSaleSchema = z
   })
   .strict()
   .superRefine((data, ctx) => {
+    if (data.type !== "ORDEM DE SERVICO" && data.serviceType != null) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["serviceType"],
+        message:
+          "serviceType so pode ser informado em ORDEM DE SERVICO; omita ou envie null",
+      });
+    }
+
     const hasPayments = (data.payments?.length ?? 0) > 0;
     if (data.status === "FINALIZADA") {
       if (!hasPayments) {
@@ -425,6 +435,15 @@ export const convertBudgetToSaleSchema = z
   })
   .strict()
   .superRefine((data, ctx) => {
+    if (data.serviceType != null) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["serviceType"],
+        message:
+          "serviceType nao se aplica a venda; omita ou envie null",
+      });
+    }
+
     const hasConvertQty = data.items.some((item) => item.quantity > 0);
     if (!hasConvertQty) {
       ctx.addIssue({
@@ -524,6 +543,15 @@ export const convertOsToSaleSchema = z
   })
   .strict()
   .superRefine((data, ctx) => {
+    if (data.serviceType != null) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["serviceType"],
+        message:
+          "serviceType nao se aplica a venda; omita ou envie null (permanece na OS de origem)",
+      });
+    }
+
     const hasConvertQty = data.items.some((item) => item.quantity > 0);
     if (!hasConvertQty) {
       ctx.addIssue({

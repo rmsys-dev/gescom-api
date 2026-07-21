@@ -272,7 +272,7 @@ type SaleServiceFieldInput = {
   vehicleMileage?: number;
   observations?: string;
   defect?: string;
-  serviceType?: "SERVICO" | "GARANTIA";
+  serviceType?: "SERVICO" | "GARANTIA" | null;
   modelService?: "VEICULO";
   type?: string;
 };
@@ -290,7 +290,10 @@ const buildSaleServiceFieldValues = (
   if (input.defect !== undefined) {
     patch.defect = input.defect.trim().toUpperCase();
   }
-  if (input.serviceType !== undefined) {
+  // serviceType so se aplica a ORDEM DE SERVICO; demais tipos gravam null.
+  if (input.type !== undefined && input.type !== "ORDEM DE SERVICO") {
+    patch.serviceType = null;
+  } else if (input.serviceType !== undefined) {
     patch.serviceType = input.serviceType;
   }
   if (input.modelService !== undefined) {
@@ -2512,6 +2515,22 @@ export class SalesService {  // Servico de vendas
       );
     }
 
+    if (
+      existing.type !== "ORDEM DE SERVICO" &&
+      input.serviceType != null
+    ) {
+      throw new ValidationError(
+        [
+          {
+            path: "body.serviceType",
+            message:
+              "serviceType so pode ser informado em ORDEM DE SERVICO; omita ou envie null",
+          },
+        ],
+        "Campo invalido",
+      );
+    }
+
     let sellerUpdate: { sellerId: string; sellerLegalName: string } | undefined;
     if (input.sellerId !== undefined) {
       if (!auth?.userId) {
@@ -2627,7 +2646,10 @@ export class SalesService {  // Servico de vendas
               : {}),
             ...(input.status !== undefined ? { status: input.status } : {}),
             ...buildSaleFinancialAdjustmentValues(input),
-            ...buildSaleServiceFieldValues(input),
+            ...buildSaleServiceFieldValues({
+              ...input,
+              type: existing.type,
+            }),
             ...(input.discountValuetems !== undefined
               ? { discountValuetems: dec(input.discountValuetems) }
               : {}),
@@ -2927,7 +2949,7 @@ export class SalesService {  // Servico de vendas
             discountValuetems: dec(input.discountValuetems),
             valueAcresceItems: dec(input.valueAcresceItems),
             ...buildSaleFinancialAdjustmentValues(input),
-            ...buildSaleServiceFieldValues(input),
+            ...buildSaleServiceFieldValues({ ...input, type: "VENDA" }),
             valueLiquid: "0",
             status,
             sourceBudgetSaleId: budgetSaleId,
@@ -3709,9 +3731,9 @@ export class SalesService {  // Servico de vendas
 
         const serviceFields = buildSaleServiceFieldValues({
           ...input,
+          type: "VENDA",
           modelService:
             input.modelService ?? workOrder.modelService ?? undefined,
-          serviceType: input.serviceType ?? workOrder.serviceType,
           vehicleMileage:
             input.vehicleMileage ?? workOrder.vehicleMileage ?? undefined,
           observations:

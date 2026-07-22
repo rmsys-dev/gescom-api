@@ -1,6 +1,8 @@
 import { and, asc, eq, isNull, ne } from "drizzle-orm";
 import {
   db,
+  ceps,
+  cities,
   enterprisesMembers,
   usersAddress,
   usersContact,
@@ -62,6 +64,42 @@ function isActiveChild<T extends { deletedAt: Date | null }>(
   return row != null && row.deletedAt == null;
 }
 
+type AddressWithCepCity = typeof usersAddress.$inferSelect & {
+  cep?:
+    | (typeof ceps.$inferSelect & {
+        city?: typeof cities.$inferSelect | null;
+      })
+    | null;
+};
+
+function mapAddressDetails(address: AddressWithCepCity) {
+  const city = address.cep?.city;
+
+  return {
+    id: address.id,
+    number: address.number,
+    complement: address.complement,
+    stateRegistration: address.stateRegistration,
+    adressType: address.adressType,
+    cep: address.cep
+      ? {
+          id: address.cep.id,
+          cepNumber: address.cep.cepNumber,
+          address: address.cep.address,
+          neighborhood: address.cep.neighborhood,
+          city: city
+            ? {
+                id: city.id,
+                ibgeCode: city.ibgeCode,
+                citieName: city.citieName,
+                stateId: city.stateId,
+              }
+            : null,
+        }
+      : null,
+  };
+}
+
 function mapUserDetailsResponse(
   row: {
     id: string;
@@ -69,7 +107,7 @@ function mapUserDetailsResponse(
     userPhone: string | null;
     userEmail: string | null;
     personalInfo?: typeof usersPersonalInfo.$inferSelect | null;
-    addresses?: (typeof usersAddress.$inferSelect)[];
+    addresses?: AddressWithCepCity[];
     contacts?: (typeof usersContact.$inferSelect)[];
     relationships?: typeof usersRelationships.$inferSelect | null;
     taxInfos?: typeof usersTaxInfos.$inferSelect | null;
@@ -85,7 +123,7 @@ function mapUserDetailsResponse(
       userEmail: row.userEmail,
     },
     personalInfo: isActiveChild(row.personalInfo) ? row.personalInfo : null,
-    addresses: row.addresses ?? [],
+    addresses: (row.addresses ?? []).map(mapAddressDetails),
     contacts: row.contacts ?? [],
     relationships: isActiveChild(row.relationships) ? row.relationships : null,
     taxInfos: isActiveChild(row.taxInfos) ? row.taxInfos : null,
@@ -115,6 +153,13 @@ export class UsersOnboardingService {
       addresses: {
         where: isNull(usersAddress.deletedAt),
         orderBy: [asc(usersAddress.adressType), asc(usersAddress.id)],
+        with: {
+          cep: {
+            with: {
+              city: true as const,
+            },
+          },
+        },
       },
       contacts: {
         where: isNull(usersContact.deletedAt),

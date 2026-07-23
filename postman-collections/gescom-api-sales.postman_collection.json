@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "gescom-api-sales",
     "name": "Gescom API — Vendas",
-    "description": "Coleção do módulo **Vendas** (33 endpoints).\n\nGerado em: 2026-07-20T12:27:33.257Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
+    "description": "Coleção do módulo **Vendas** (35 endpoints).\n\nGerado em: 2026-07-22T18:31:56.456Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -113,7 +113,7 @@
             "description": "Permissão: `incluir_vendas`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createSaleSchema`\n\nFonte: `src\\modules\\sales\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"memberId\": \"{{memberId}}\",\n  \"type\": \"ORCAMENTO\",\n  \"status\": \"ABERTA\",\n  \"items\": [\n    {\n      \"quantity\": 1,\n      \"valueUnit\": 100,\n      \"valueDiscount\": 0,\n      \"valueAcresce\": 0,\n      \"productsEnterprisesId\": \"{{productEnterpriseId}}\",\n      \"unitId\": \"{{unitId}}\",\n      \"productTypeId\": \"{{productTypeId}}\"\n    }\n  ],\n  \"payments\": [\n    {\n      \"paymentTypeId\": \"{{paymentTypeId}}\",\n      \"value\": 100\n    }\n  ]\n}",
+              "raw": "{\n  \"memberId\": \"{{memberId}}\",\n  \"type\": \"ORCAMENTO\",\n  \"status\": \"ABERTA\",\n  \"vehicleMileage\": 85000,\n  \"observations\": \"Revisao periodica\",\n  \"defect\": \"Barulho no motor\",\n  \"serviceType\": \"SERVICO\",\n  \"items\": [\n    {\n      \"quantity\": 1,\n      \"valueUnit\": 100,\n      \"valueDiscount\": 0,\n      \"valueAcresce\": 0,\n      \"productsEnterprisesId\": \"{{productEnterpriseId}}\",\n      \"unitId\": \"{{unitId}}\",\n      \"productTypeId\": \"{{productTypeId}}\"\n    }\n  ],\n  \"payments\": [\n    {\n      \"paymentTypeId\": \"{{paymentTypeId}}\",\n      \"value\": 100\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -185,7 +185,7 @@
                 "description": "Permissão: `alterar_vendas`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `patchSaleSchema`\n\nParams schema: `saleParamsSchema`\n\nFonte: `src\\modules\\sales\\routes.ts`",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"status\": \"FINALIZADA\"\n}",
+                  "raw": "{\n  \"status\": \"FINALIZADA\",\n  \"vehicleMileage\": 85120,\n  \"observations\": \"Cliente autorizou troca de pecas\",\n  \"defect\": \"Barulho no motor - confirmado\",\n  \"serviceType\": \"SERVICO\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -228,6 +228,96 @@
                   ]
                 },
                 "description": "Permissão: `consultar_vendas`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `saleParamsSchema`\n\nFonte: `src\\modules\\sales\\routes.ts`"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":saleId / convert-os-to-sale",
+          "item": [
+            {
+              "name": "POST Criar convert-os-to-sale",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/{{saleId}}/convert-os-to-sale",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "{{saleId}}",
+                    "convert-os-to-sale"
+                  ]
+                },
+                "description": "Permissão: `gerar_vendas | alterar_vendas`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `convertOsToSaleSchema`\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `saleParamsSchema`\n\nFonte: `src\\modules\\sales\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"ABERTA\",\n  \"items\": [\n    {\n      \"workOrderItemId\": \"{{workOrderItemId}}\",\n      \"quantity\": 1\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":saleId / convert-to-os",
+          "item": [
+            {
+              "name": "POST Criar convert-to-os",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/{{saleId}}/convert-to-os",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "{{saleId}}",
+                    "convert-to-os"
+                  ]
+                },
+                "description": "Permissão: `gerar_vendas | alterar_vendas`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `convertBudgetToOsSchema`\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `saleParamsSchema`\n\nFonte: `src\\modules\\sales\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"items\": [\n    {\n      \"budgetItemId\": \"{{budgetItemId}}\",\n      \"quantity\": 1\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
               },
               "response": []
             }
@@ -1794,6 +1884,18 @@
       "value": ""
     },
     {
+      "key": "budgetItemId",
+      "value": ""
+    },
+    {
+      "key": "workOrderItemId",
+      "value": ""
+    },
+    {
+      "key": "productId",
+      "value": ""
+    },
+    {
       "key": "productEnterpriseId",
       "value": ""
     },
@@ -1806,11 +1908,63 @@
       "value": ""
     },
     {
+      "key": "productGroupId",
+      "value": ""
+    },
+    {
+      "key": "productSubgroupId",
+      "value": ""
+    },
+    {
+      "key": "productBrandId",
+      "value": ""
+    },
+    {
       "key": "paymentTypeId",
       "value": ""
     },
     {
+      "key": "countryId",
+      "value": ""
+    },
+    {
+      "key": "stateId",
+      "value": ""
+    },
+    {
+      "key": "cityId",
+      "value": ""
+    },
+    {
       "key": "cepId",
+      "value": ""
+    },
+    {
+      "key": "stockSectorId",
+      "value": ""
+    },
+    {
+      "key": "stockLocationId",
+      "value": ""
+    },
+    {
+      "key": "stockBatchId",
+      "value": ""
+    },
+    {
+      "key": "typeSpedId",
+      "value": ""
+    },
+    {
+      "key": "productsNcmId",
+      "value": ""
+    },
+    {
+      "key": "icmsTaxationId",
+      "value": ""
+    },
+    {
+      "key": "vehicleId",
       "value": ""
     },
     {

@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "gescom-api-complete",
     "name": "Gescom API — Completa",
-    "description": "Coleção gerada automaticamente a partir dos arquivos `routes.ts` do projeto gescom-api.\n\nTotal de endpoints: 253\nGerado em: 2026-07-20T12:27:33.241Z\n\n**Fluxo sugerido:**\n1. `GET /health`\n2. `POST /api/v1/auth/login`\n3. `POST /api/v1/auth/switch-enterprise` (se necessário)\n4. Demais rotas com Bearer token\n\nRotas **Maintainer** usam `x-maintainer-api-key` em vez de Bearer.",
+    "description": "Coleção gerada automaticamente a partir dos arquivos `routes.ts` do projeto gescom-api.\n\nTotal de endpoints: 270\nGerado em: 2026-07-22T18:31:56.438Z\n\n**Fluxo sugerido:**\n1. `GET /health`\n2. `POST /api/v1/auth/login`\n3. `POST /api/v1/auth/switch-enterprise` (se necessário)\n4. Demais rotas com Bearer token\n\nRotas **Maintainer** usam `x-maintainer-api-key` em vez de Bearer.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -101,7 +101,7 @@
                 "description": "Permissão: `incluir_enderecos`\n\nBody schema: `createCepSchema`\n\nFonte: `src\\modules\\addresses\\ceps\\routes.ts`",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+                  "raw": "{\n  \"cepNumber\": \"01310100\",\n  \"address\": \"Avenida Paulista\",\n  \"neighborhood\": \"Bela Vista\",\n  \"cityId\": \"{{cityId}}\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -232,7 +232,7 @@
                 "description": "Permissão: `incluir_enderecos`\n\nBody schema: `createCitySchema`\n\nFonte: `src\\modules\\addresses\\cities\\routes.ts`",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+                  "raw": "{\n  \"ibgeCode\": 3550308,\n  \"citieName\": \"Sao Paulo\",\n  \"ibs_municipal_tax\": 0,\n  \"stateId\": \"{{stateId}}\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -363,7 +363,7 @@
                 "description": "Permissão: `incluir_enderecos`\n\nBody schema: `createCountrySchema`\n\nFonte: `src\\modules\\addresses\\countries\\routes.ts`",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+                  "raw": "{\n  \"countryCode\": \"BR\",\n  \"countryName\": \"Brasil\",\n  \"cbsTax\": 0,\n  \"isTax\": 0,\n  \"ibs_uf_tax\": 0,\n  \"ibs_municipal_tax\": 0\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -494,7 +494,7 @@
                 "description": "Permissão: `incluir_enderecos`\n\nBody schema: `createStateSchema`\n\nFonte: `src\\modules\\addresses\\states\\routes.ts`",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+                  "raw": "{\n  \"acronym\": \"SP\",\n  \"description\": \"Sao Paulo\",\n  \"internalAliquot\": 18,\n  \"interstateAliquot\": 12,\n  \"fcpAliquot\": 0,\n  \"borders\": 0,\n  \"generate_st\": false,\n  \"embedDifal\": false,\n  \"ibs_uf_tax\": 0,\n  \"ibs_municipal_tax\": 0,\n  \"countryId\": \"{{countryId}}\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -1414,7 +1414,7 @@
                 "description": "Permissão: `incluir_enderecos`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createEnterpriseAddressSchema`\n\nParams schema: `enterpriseAddressEnterpriseParamsSchema`\n\nFonte: `src\\modules\\enterprises\\enterprise-addresses\\routes.ts`",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+                  "raw": "{\n  \"cepId\": \"{{cepId}}\",\n  \"number\": \"1000\",\n  \"adressType\": \"COMERCIAL\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -2087,7 +2087,7 @@
                 "description": "Permissão: `incluir_marcas_produto`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createProductBrandSchema`\n\nFonte: `src\\modules\\products\\product-brands\\routes.ts`",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+                  "raw": "{\n  \"description\": \"Mann Filter\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -2295,7 +2295,7 @@
                 "description": "Permissão: `incluir_grupos_produto`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createProductGroupSchema`\n\nFonte: `src\\modules\\products\\product-groups\\routes.ts`",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+                  "raw": "{\n  \"description\": \"Filtros\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -2503,7 +2503,7 @@
                 "description": "Permissão: `incluir_subgrupos_produto`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createProductSubgroupSchema`\n\nFonte: `src\\modules\\products\\product-subgroups\\routes.ts`",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+                  "raw": "{\n  \"description\": \"Filtros de oleo\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -3464,7 +3464,7 @@
             "description": "Permissão: `incluir_tributacao_icms`\n\nBody schema: `createIcmsTaxationSchema`\n\nFonte: `src\\modules\\products\\icms-taxation\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "raw": "{\n  \"icms\": \"00\",\n  \"description\": \"TRIBUTADA INTEGRALMENTE\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3615,7 +3615,7 @@
                 "description": "Body schema: `createDepartmentSchema`\n\nFonte: `src\\modules\\maintainer\\departments\\routes.ts`",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+                  "raw": "{\n  \"name\": \"Operacional\",\n  \"permissionReference\": \"operacional\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -3755,6 +3755,229 @@
       ]
     },
     {
+      "name": "Comissões de Mecânicos",
+      "item": [
+        {
+          "name": "GET Listar raiz",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/mechanic-sales-items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "mechanic-sales-items"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "disabled": false
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "disabled": false
+                },
+                {
+                  "key": "type",
+                  "value": "ORCAMENTO",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "ABERTA",
+                  "disabled": true
+                },
+                {
+                  "key": "userId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "sellerId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "orderNumber",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "seller",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "client",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Permissão: `consultar_comissoes_itens_venda`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `listMechanicSalesItemsQuerySchema`\n\nFonte: `src\\modules\\vehicles\\mechanic-sales-items\\routes.ts`"
+          },
+          "response": []
+        },
+        {
+          "name": "POST Criar raiz",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/mechanic-sales-items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "mechanic-sales-items"
+              ]
+            },
+            "description": "Permissão: `incluir_comissoes_itens_venda`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createMechanicSalesItemSchema`\n\nFonte: `src\\modules\\vehicles\\mechanic-sales-items\\routes.ts`",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mechanic\": \"{{memberId}}\",\n  \"salesItemsId\": \"{{saleItemId}}\",\n  \"comissionService\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": ":mechanicSalesItemId",
+          "item": [
+            {
+              "name": "DELETE Excluir mechanicSalesItemId",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/mechanic-sales-items/{{mechanicSalesItemId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "mechanic-sales-items",
+                    "{{mechanicSalesItemId}}"
+                  ]
+                },
+                "description": "Permissão: `excluir_comissoes_itens_venda`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `mechanicSalesItemParamsSchema`\n\nFonte: `src\\modules\\vehicles\\mechanic-sales-items\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "GET Obter mechanicSalesItemId",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/mechanic-sales-items/{{mechanicSalesItemId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "mechanic-sales-items",
+                    "{{mechanicSalesItemId}}"
+                  ]
+                },
+                "description": "Permissão: `consultar_comissoes_itens_venda`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `mechanicSalesItemParamsSchema`\n\nFonte: `src\\modules\\vehicles\\mechanic-sales-items\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH Atualizar mechanicSalesItemId",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/mechanic-sales-items/{{mechanicSalesItemId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "mechanic-sales-items",
+                    "{{mechanicSalesItemId}}"
+                  ]
+                },
+                "description": "Permissão: `alterar_comissoes_itens_venda`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `patchMechanicSalesItemSchema`\n\nParams schema: `mechanicSalesItemParamsSchema`\n\nFonte: `src\\modules\\vehicles\\mechanic-sales-items\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"comissionService\": 15\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "Tipos de Pagamento",
       "item": [
         {
@@ -3826,7 +4049,7 @@
             "description": "Permissão: `incluir_tipos_pagamento`\n\nBody schema: `createPaymentTypeSchema`\n\nFonte: `src\\modules\\sales\\payment-types\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "raw": "{\n  \"description\": \"DINHEIRO\",\n  \"paymentType\": \"A_VISTA\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -4014,7 +4237,7 @@
             "description": "Permissão: `incluir_situacao_pis_cofins`\n\nBody schema: `createPisCofinsSituationSchema`\n\nFonte: `src\\modules\\products\\pis-cofins-situation\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "raw": "{\n  \"cst\": \"01\",\n  \"description\": \"OPERACAO TRIBUTAVEL\",\n  \"type\": \"SAIDA\",\n  \"framing\": 1\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -4202,7 +4425,7 @@
             "description": "Permissão: `incluir_precos`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createPriceSchema`\n\nFonte: `src\\modules\\products\\prices\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "raw": "{\n  \"price\": 49.9,\n  \"productsEnterprisesId\": \"{{productEnterpriseId}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -4400,7 +4623,7 @@
             "description": "Permissão: `incluir_aplicacoes_produto`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createProductApplicationSchema`\n\nFonte: `src\\modules\\products\\product-applications\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "raw": "{\n  \"description\": \"GOL G5 1.0\",\n  \"productsEnterprisesId\": \"{{productEnterpriseId}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -4598,7 +4821,7 @@
             "description": "Permissão: `incluir_marcas_produto`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createProductBrandSchema`\n\nFonte: `src\\modules\\products\\product-brands\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "raw": "{\n  \"description\": \"Mann Filter\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -4796,7 +5019,7 @@
             "description": "Permissão: `incluir_grupos_produto`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createProductGroupSchema`\n\nFonte: `src\\modules\\products\\product-groups\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "raw": "{\n  \"description\": \"Filtros\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -4994,7 +5217,7 @@
             "description": "Permissão: `incluir_subgrupos_produto`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createProductSubgroupSchema`\n\nFonte: `src\\modules\\products\\product-subgroups\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "raw": "{\n  \"description\": \"Filtros de oleo\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -5192,7 +5415,7 @@
             "description": "Permissão: `incluir_tributacao_produto`\n\nBody schema: `createProductTaxationSchema`\n\nFonte: `src\\modules\\products\\product-taxation\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "raw": "{\n  \"cstPisEntradaId\": \"{{cstPisEntradaId}}\",\n  \"cstPisSaidaId\": \"{{cstPisSaidaId}}\",\n  \"cstCofinsEntradaId\": \"{{cstCofinsEntradaId}}\",\n  \"cstCofinsSaidaId\": \"{{cstCofinsSaidaId}}\",\n  \"productsEnterprisesId\": \"{{productEnterpriseId}}\",\n  \"icmsTaxationId\": \"{{icmsTaxationId}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -5390,7 +5613,7 @@
             "description": "Permissão: `incluir_produtos`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createProductWithEnterpriseSchema`\n\nFonte: `src\\modules\\products\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "raw": "{\n  \"product\": {\n    \"description\": \"FILTRO DE OLEO\"\n  },\n  \"enterprise\": {\n    \"description\": \"FILTRO DE OLEO\",\n    \"measurementUnitId\": \"{{unitId}}\",\n    \"productTypeId\": \"{{productTypeId}}\",\n    \"productGroupId\": \"{{productGroupId}}\",\n    \"productSubgroupId\": \"{{productSubgroupId}}\",\n    \"productBrandId\": \"{{productBrandId}}\"\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -5492,7 +5715,7 @@
                 "description": "Permissão: `alterar_produtos`\n\nBody schema: `patchProductSchema`\n\nParams schema: `productParamsSchema`\n\nFonte: `src\\modules\\products\\routes.ts`",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"description\": \"Campos parciais conforme schema\"\n}",
+                  "raw": "{\n  \"description\": \"FILTRO DE OLEO ATUALIZADO\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -5588,7 +5811,7 @@
             "description": "Permissão: `incluir_anp_produtos`\n\nBody schema: `createProductsAnpSchema`\n\nFonte: `src\\modules\\products\\products-anp\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "raw": "{\n  \"anp\": \"210203001\",\n  \"description\": \"GASOLINA C COMUM\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -5786,7 +6009,7 @@
             "description": "Permissão: `incluir_cest_produtos`\n\nBody schema: `createProductsCestSchema`\n\nFonte: `src\\modules\\products\\products-cest\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "raw": "{\n  \"cest\": \"0100100\",\n  \"description\": \"FILTROS DE OLEO\",\n  \"productsNcmId\": \"{{productsNcmId}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -5974,7 +6197,7 @@
             "description": "Permissão: `incluir_produtos`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createProductEnterpriseSchema`\n\nFonte: `src\\modules\\products\\products-enterprises\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "raw": "{\n  \"productId\": \"{{productId}}\",\n  \"description\": \"FILTRO DE OLEO\",\n  \"measurementUnitId\": \"{{unitId}}\",\n  \"productTypeId\": \"{{productTypeId}}\",\n  \"productGroupId\": \"{{productGroupId}}\",\n  \"productSubgroupId\": \"{{productSubgroupId}}\",\n  \"productBrandId\": \"{{productBrandId}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -6208,7 +6431,7 @@
             "description": "Permissão: `incluir_nbs_produtos`\n\nBody schema: `createProductsNbsSchema`\n\nFonte: `src\\modules\\products\\products-nbs\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "raw": "{\n  \"lc116Item\": \"14.01\",\n  \"lc116Description\": \"Lubrificacao, limpeza, etc.\",\n  \"nbs\": \"1.1502.10.00\",\n  \"description\": \"SERVICO DE MANUTENCAO\",\n  \"psOnerosa\": \"S\",\n  \"adqExterior\": \"N\",\n  \"indop\": \"100101\",\n  \"cClassTrib\": \"000001\",\n  \"cClassTribName\": \"Tributacao integral\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -6406,7 +6629,7 @@
             "description": "Permissão: `incluir_ncm_produtos`\n\nBody schema: `createProductsNcmSchema`\n\nFonte: `src\\modules\\products\\products-ncm\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "raw": "{\n  \"ncm\": \"84212300\",\n  \"description\": \"FILTROS DE OLEO\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -6594,7 +6817,7 @@
             "description": "Permissão: `incluir_precos_promocionais`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createPromotionalPriceSchema`\n\nFonte: `src\\modules\\products\\promotional-prices\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "raw": "{\n  \"price\": 39.9,\n  \"startDate\": \"2026-07-22\",\n  \"endDate\": \"2026-08-22\",\n  \"productsEnterprisesId\": \"{{productEnterpriseId}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -6817,7 +7040,7 @@
             "description": "Permissão: `incluir_vendas`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createSaleSchema`\n\nFonte: `src\\modules\\sales\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"memberId\": \"{{memberId}}\",\n  \"type\": \"ORCAMENTO\",\n  \"status\": \"ABERTA\",\n  \"items\": [\n    {\n      \"quantity\": 1,\n      \"valueUnit\": 100,\n      \"valueDiscount\": 0,\n      \"valueAcresce\": 0,\n      \"productsEnterprisesId\": \"{{productEnterpriseId}}\",\n      \"unitId\": \"{{unitId}}\",\n      \"productTypeId\": \"{{productTypeId}}\"\n    }\n  ],\n  \"payments\": [\n    {\n      \"paymentTypeId\": \"{{paymentTypeId}}\",\n      \"value\": 100\n    }\n  ]\n}",
+              "raw": "{\n  \"memberId\": \"{{memberId}}\",\n  \"type\": \"ORCAMENTO\",\n  \"status\": \"ABERTA\",\n  \"vehicleMileage\": 85000,\n  \"observations\": \"Revisao periodica\",\n  \"defect\": \"Barulho no motor\",\n  \"serviceType\": \"SERVICO\",\n  \"items\": [\n    {\n      \"quantity\": 1,\n      \"valueUnit\": 100,\n      \"valueDiscount\": 0,\n      \"valueAcresce\": 0,\n      \"productsEnterprisesId\": \"{{productEnterpriseId}}\",\n      \"unitId\": \"{{unitId}}\",\n      \"productTypeId\": \"{{productTypeId}}\"\n    }\n  ],\n  \"payments\": [\n    {\n      \"paymentTypeId\": \"{{paymentTypeId}}\",\n      \"value\": 100\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -6889,7 +7112,7 @@
                 "description": "Permissão: `alterar_vendas`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `patchSaleSchema`\n\nParams schema: `saleParamsSchema`\n\nFonte: `src\\modules\\sales\\routes.ts`",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"status\": \"FINALIZADA\"\n}",
+                  "raw": "{\n  \"status\": \"FINALIZADA\",\n  \"vehicleMileage\": 85120,\n  \"observations\": \"Cliente autorizou troca de pecas\",\n  \"defect\": \"Barulho no motor - confirmado\",\n  \"serviceType\": \"SERVICO\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -6932,6 +7155,96 @@
                   ]
                 },
                 "description": "Permissão: `consultar_vendas`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `saleParamsSchema`\n\nFonte: `src\\modules\\sales\\routes.ts`"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":saleId / convert-os-to-sale",
+          "item": [
+            {
+              "name": "POST Criar convert-os-to-sale",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/{{saleId}}/convert-os-to-sale",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "{{saleId}}",
+                    "convert-os-to-sale"
+                  ]
+                },
+                "description": "Permissão: `gerar_vendas | alterar_vendas`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `convertOsToSaleSchema`\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `saleParamsSchema`\n\nFonte: `src\\modules\\sales\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"ABERTA\",\n  \"items\": [\n    {\n      \"workOrderItemId\": \"{{workOrderItemId}}\",\n      \"quantity\": 1\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": ":saleId / convert-to-os",
+          "item": [
+            {
+              "name": "POST Criar convert-to-os",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/sales/{{saleId}}/convert-to-os",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "sales",
+                    "{{saleId}}",
+                    "convert-to-os"
+                  ]
+                },
+                "description": "Permissão: `gerar_vendas | alterar_vendas`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `convertBudgetToOsSchema`\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `saleParamsSchema`\n\nFonte: `src\\modules\\sales\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"items\": [\n    {\n      \"budgetItemId\": \"{{budgetItemId}}\",\n      \"quantity\": 1\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
               },
               "response": []
             }
@@ -8531,7 +8844,7 @@
             "description": "Permissão: `incluir_saldos_lote_estoque`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createStockBatchBalanceSchema`\n\nFonte: `src\\modules\\stock\\stock-batch-balances\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "raw": "{\n  \"stockBatchId\": \"{{stockBatchId}}\",\n  \"stockLocationId\": \"{{stockLocationId}}\",\n  \"quantity\": 10\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -8719,7 +9032,7 @@
             "description": "Permissão: `incluir_lotes_estoque`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createStockBatchSchema`\n\nFonte: `src\\modules\\stock\\stock-batches\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "raw": "{\n  \"batchNumber\": \"LOTE-001\",\n  \"productsEnterprisesId\": \"{{productEnterpriseId}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -8907,7 +9220,7 @@
             "description": "Permissão: `incluir_locacoes_estoque`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createStockLocationSchema`\n\nFonte: `src\\modules\\stock\\stock-locations\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "raw": "{\n  \"stockSectorId\": \"{{stockSectorId}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -9095,7 +9408,7 @@
             "description": "Permissão: `incluir_estoque_min_max`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createStockMinMaxSchema`\n\nFonte: `src\\modules\\stock\\stock-min-max\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "raw": "{\n  \"quantityMin\": 2,\n  \"quantityMax\": 20,\n  \"productsEnterprisesId\": \"{{productEnterpriseId}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -9283,7 +9596,7 @@
             "description": "Permissão: `incluir_movimentos_estoque`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createStockMovementSchema`\n\nFonte: `src\\modules\\stock\\stock-movements\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "raw": "{\n  \"type\": \"ENTRADA\",\n  \"productsEnterprisesId\": \"{{productEnterpriseId}}\",\n  \"quantity\": 10,\n  \"toStockLocationId\": \"{{stockLocationId}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -9402,7 +9715,7 @@
             "description": "Permissão: `incluir_setores_estoque`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createStockSectorSchema`\n\nFonte: `src\\modules\\stock\\stock-sectors\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "raw": "{\n  \"description\": \"DEPOSITO PRINCIPAL\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -9590,7 +9903,7 @@
             "description": "Permissão: `incluir_saldos_estoque`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createStockSectorRentalSchema`\n\nFonte: `src\\modules\\stock\\stock-sectors-rental\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "raw": "{\n  \"productsEnterprisesId\": \"{{productEnterpriseId}}\",\n  \"stockLocationId\": \"{{stockLocationId}}\",\n  \"quantity\": 5\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -9778,7 +10091,7 @@
             "description": "Permissão: `incluir_tipos_rede`\n\nBody schema: `createTypeNetworkSchema`\n\nFonte: `src\\modules\\memberships\\type-networks\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "raw": "{\n  \"description\": \"WHATSAPP\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -9966,7 +10279,7 @@
             "description": "Permissão: `incluir_tipos_sped`\n\nBody schema: `createTypeSpedSchema`\n\nFonte: `src\\modules\\products\\type-sped\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "raw": "{\n  \"type\": \"00\",\n  \"description\": \"MERCADORIA PARA REVENDA\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -10154,7 +10467,7 @@
             "description": "Permissão: `incluir_tipos_fornecedor_cliente`\n\nBody schema: `createTypeSupplierCustomerSchema`\n\nFonte: `src\\modules\\memberships\\type-supplier-customers\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "raw": "{\n  \"description\": \"CONSUMIDOR FINAL\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -10352,7 +10665,7 @@
             "description": "Permissão: `incluir_tipos_produto`\n\nBody schema: `createTypeProductSchema`\n\nFonte: `src\\modules\\products\\products-types\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "raw": "{\n  \"type\": \"00\",\n  \"description\": \"MERCADORIA PARA REVENDA\",\n  \"typeSpedId\": \"{{typeSpedId}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -10655,6 +10968,422 @@
           ]
         }
       ]
+    },
+    {
+      "name": "Veículos",
+      "item": [
+        {
+          "name": "GET Listar raiz",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vehicles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vehicles"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "disabled": false
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Permissão: `consultar_veiculos`\n\nQuery schema: `listVehiclesQuerySchema`\n\nFonte: `src\\modules\\vehicles\\vehicles\\routes.ts`"
+          },
+          "response": []
+        },
+        {
+          "name": "POST Criar raiz",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vehicles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vehicles"
+              ]
+            },
+            "description": "Permissão: `incluir_veiculos`\n\nBody schema: `createVehicleSchema`\n\nFonte: `src\\modules\\vehicles\\vehicles\\routes.ts`",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"plate\": \"ABC1D23\",\n  \"model\": \"GOL 1.0\",\n  \"color\": \"PRATA\",\n  \"fuelType\": \"GASOLINA\",\n  \"ownerType\": \"PROPRIETARIO\",\n  \"ipvaPaymentMonth\": 3,\n  \"vehicleYear\": 2020,\n  \"renavam\": \"12345678901\",\n  \"licensingStateId\": \"{{stateId}}\",\n  \"entireCode\": \"VEIC-001\",\n  \"rntrcCode\": \"12345678\",\n  \"vehicleType\": \"UTILITARIO\",\n  \"bodyType\": \"NAO_APLICAVEL\",\n  \"axleType\": \"VEICULO 2 EIXOS\",\n  \"location\": \"PATIO\",\n  \"fleetNumber\": \"F-01\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": ":vehicleId",
+          "item": [
+            {
+              "name": "DELETE Excluir vehicleId",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/vehicles/{{vehicleId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "vehicles",
+                    "{{vehicleId}}"
+                  ]
+                },
+                "description": "Permissão: `excluir_veiculos`\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `vehicleParamsSchema`\n\nFonte: `src\\modules\\vehicles\\vehicles\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "GET Obter vehicleId",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/vehicles/{{vehicleId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "vehicles",
+                    "{{vehicleId}}"
+                  ]
+                },
+                "description": "Permissão: `consultar_veiculos`\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `vehicleParamsSchema`\n\nFonte: `src\\modules\\vehicles\\vehicles\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH Atualizar vehicleId",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/vehicles/{{vehicleId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "vehicles",
+                    "{{vehicleId}}"
+                  ]
+                },
+                "description": "Permissão: `alterar_veiculos`\n\nBody schema: `patchVehicleSchema`\n\nParams schema: `vehicleParamsSchema`\n\nFonte: `src\\modules\\vehicles\\vehicles\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"color\": \"PRETO\",\n  \"location\": \"OFICINA\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Veículos x Membros",
+      "item": [
+        {
+          "name": "GET Listar raiz",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vehicles-enterprises-members",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vehicles-enterprises-members"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "disabled": false
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "disabled": false
+                },
+                {
+                  "key": "userId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "code",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "class",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "ABERTA",
+                  "disabled": true
+                },
+                {
+                  "key": "postSalesStatus",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "registration",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "email",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "phone",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Permissão: `consultar_veiculos_membros`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `listVehiclesEnterprisesMembersQuerySchema`\n\nFonte: `src\\modules\\vehicles\\vehicles-enterprises-members\\routes.ts`"
+          },
+          "response": []
+        },
+        {
+          "name": "POST Criar raiz",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vehicles-enterprises-members",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vehicles-enterprises-members"
+              ]
+            },
+            "description": "Permissão: `incluir_veiculos_membros`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createVehiclesEnterprisesMemberSchema`\n\nFonte: `src\\modules\\vehicles\\vehicles-enterprises-members\\routes.ts`",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehiclesId\": \"{{vehicleId}}\",\n  \"enterprisesMembersId\": \"{{memberId}}\",\n  \"status\": \"ATIVO\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": ":vehiclesEnterprisesMemberId",
+          "item": [
+            {
+              "name": "DELETE Excluir vehiclesEnterprisesMemberId",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/vehicles-enterprises-members/{{vehiclesEnterprisesMemberId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "vehicles-enterprises-members",
+                    "{{vehiclesEnterprisesMemberId}}"
+                  ]
+                },
+                "description": "Permissão: `excluir_veiculos_membros`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `vehiclesEnterprisesMemberParamsSchema`\n\nFonte: `src\\modules\\vehicles\\vehicles-enterprises-members\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "GET Obter vehiclesEnterprisesMemberId",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/vehicles-enterprises-members/{{vehiclesEnterprisesMemberId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "vehicles-enterprises-members",
+                    "{{vehiclesEnterprisesMemberId}}"
+                  ]
+                },
+                "description": "Permissão: `consultar_veiculos_membros`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `vehiclesEnterprisesMemberParamsSchema`\n\nFonte: `src\\modules\\vehicles\\vehicles-enterprises-members\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH Atualizar vehiclesEnterprisesMemberId",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/vehicles-enterprises-members/{{vehiclesEnterprisesMemberId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "vehicles-enterprises-members",
+                    "{{vehiclesEnterprisesMemberId}}"
+                  ]
+                },
+                "description": "Permissão: `alterar_veiculos_membros`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `patchVehiclesEnterprisesMemberSchema`\n\nParams schema: `vehiclesEnterprisesMemberParamsSchema`\n\nFonte: `src\\modules\\vehicles\\vehicles-enterprises-members\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"INATIVO\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
     }
   ],
   "variable": [
@@ -10695,6 +11424,18 @@
       "value": ""
     },
     {
+      "key": "budgetItemId",
+      "value": ""
+    },
+    {
+      "key": "workOrderItemId",
+      "value": ""
+    },
+    {
+      "key": "productId",
+      "value": ""
+    },
+    {
       "key": "productEnterpriseId",
       "value": ""
     },
@@ -10707,11 +11448,63 @@
       "value": ""
     },
     {
+      "key": "productGroupId",
+      "value": ""
+    },
+    {
+      "key": "productSubgroupId",
+      "value": ""
+    },
+    {
+      "key": "productBrandId",
+      "value": ""
+    },
+    {
       "key": "paymentTypeId",
       "value": ""
     },
     {
+      "key": "countryId",
+      "value": ""
+    },
+    {
+      "key": "stateId",
+      "value": ""
+    },
+    {
+      "key": "cityId",
+      "value": ""
+    },
+    {
       "key": "cepId",
+      "value": ""
+    },
+    {
+      "key": "stockSectorId",
+      "value": ""
+    },
+    {
+      "key": "stockLocationId",
+      "value": ""
+    },
+    {
+      "key": "stockBatchId",
+      "value": ""
+    },
+    {
+      "key": "typeSpedId",
+      "value": ""
+    },
+    {
+      "key": "productsNcmId",
+      "value": ""
+    },
+    {
+      "key": "icmsTaxationId",
+      "value": ""
+    },
+    {
+      "key": "vehicleId",
       "value": ""
     },
     {

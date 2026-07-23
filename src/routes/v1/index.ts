@@ -34,6 +34,9 @@ import { stockMovementsRouter } from "../../modules/stock/stock-movements/routes
 import { salesRouter } from "../../modules/sales/routes.js";
 import { typeNetworksRouter } from "../../modules/memberships/type-networks/routes.js";
 import { typeSupplierCustomersRouter } from "../../modules/memberships/type-supplier-customers/routes.js";
+import { vehiclesRouter } from "../../modules/vehicles/vehicles/routes.js";
+import { vehiclesEnterprisesMembersRouter } from "../../modules/vehicles/vehicles-enterprises-members/routes.js";
+import { mechanicSalesItemsRouter } from "../../modules/vehicles/mechanic-sales-items/routes.js";
 
 const v1Router = Router();
 
@@ -73,5 +76,11 @@ v1Router.use("/stock-movements", stockMovementsRouter);
 v1Router.use("/sales", salesRouter);
 v1Router.use("/type-networks", typeNetworksRouter);
 v1Router.use("/type-supplier-customers", typeSupplierCustomersRouter);
+v1Router.use("/vehicles", vehiclesRouter);
+v1Router.use(
+  "/vehicles-enterprises-members",
+  vehiclesEnterprisesMembersRouter,
+);
+v1Router.use("/mechanic-sales-items", mechanicSalesItemsRouter);
 
 export { v1Router };

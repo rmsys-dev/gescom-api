@@ -10,23 +10,23 @@ import { salesItems } from "./sales.js";
 export const vehicles = pgTable("vehicles", {
     id: uuid("id").defaultRandom().primaryKey(),  
     plate: varchar("plate", { length: 255 }).notNull(), // Placa do veículo
-    model: varchar("model", { length: 255 }).notNull(), // Modelo do veículo
-    color: varchar("color", { length: 255 }).notNull(), // Cor do veículo
+    model: varchar("model", { length: 255 }), // Modelo do veículo
+    color: varchar("color", { length: 255 }), // Cor do veículo
     fuelType: fuelTypeEnum("fuel_type").notNull().default("GASOLINA"), // Tipo de combustível
     ownerType: ownerTypeEnum("owner_type").notNull().default("PROPRIETARIO"),  // Tipo de proprietário
-    ipvaPaymentMonth: integer("ipva_payment_month").notNull(), // Mês de pagamento do IPVA
-    vehicleYear: integer("vehicle_year").notNull(), // Ano do veículo (ex: 2020)
-    renavam: varchar("renavam", { length: 255 }).notNull(), // Renavam do veículo
-    licensingStateId: uuid("licensing_state_id").references(() => states.id).notNull(), // Estado do licenciamento
+    ipvaPaymentMonth: integer("ipva_payment_month"), // Mês de pagamento do IPVA
+    vehicleYear: integer("vehicle_year"), // Ano do veículo (ex: 2020)
+    renavam: varchar("renavam", { length: 255 }), // Renavam do veículo
+    licensingStateId: uuid("licensing_state_id").references(() => states.id), // Estado do licenciamento
     tareWeight: decimal("tare_weight", valorQuatroCasasDecimais), // peso de tara do veiculo (ex: 1000.0000)
     capacityM3: decimal("capacity_m3", valorQuatroCasasDecimais), // capacidade do veículo em metros cúbicos (ex: 10.0000)
     capacityKg: decimal("capacity_kg", valorQuatroCasasDecimais), // capacidade do veículo em quilogramas (ex: 10000.0000)
-    entireCode: varchar("entire_code", { length: 255 }).notNull(), // código interno do veículo (ex: 1234567890)
-    rntrcCode: varchar("rntrc_code", { length: 255 }).notNull(), // código do RNTRC do veículo (ex: 1234567890)
+    entireCode: varchar("entire_code", { length: 255 }), // código interno do veículo (ex: 1234567890)
+    rntrcCode: varchar("rntrc_code", { length: 255 }), // código do RNTRC do veículo (ex: 1234567890)
     vehicleType: vehicleTypeEnum("vehicle_type").notNull().default("TRUCK"), // Tipo de veículo ( Truck, Toco, Van, Carroceria, Outros)
     bodyType: bodyTypeEnum("body_type").notNull().default("NAO_APLICAVEL"), // Tipo de carroceria ( Nao aplicavel, Aberta, Fechada, Semi-Fechada, Outros )
     axleType: axleTypeEnum("axle_type").notNull().default("VEICULO 2 EIXOS"), // Tipo de eixo ( Simples, Duplo, Triplo, Quadruplo, Outros )
-    location: varchar("location", { length: 255 }).notNull(), // Locação
+    location: varchar("location", { length: 255 }), // Locação
     refuelingMileage: decimal("refueling_mileage", valorQuatroCasasDecimais), // Quilometragem de abastecimento (ex: 1000.0000)
     fleetNumber: varchar("fleet_number", { length: 255 }), // Número da frota do veículo
     createdAt: tz("created_at").defaultNow().notNull(),
@@ -38,7 +38,7 @@ export const vehicles = pgTable("vehicles", {
    ],   
 );
 
-// tabela de relacionamento entre veículos e empresas
+// tabela de relacionamento entre veículos e membros da empresa
 export const vehiclesEnterprisesMembers = pgTable("vehicles_enterprises_members", {
     id: uuid("id").defaultRandom().primaryKey(),
     status: statusEnum("status").default("ATIVO").notNull(), // status do veiculo          
@@ -54,10 +54,10 @@ export const vehiclesEnterprisesMembers = pgTable("vehicles_enterprises_members"
   ],
 );
 
-// tabela de relacionamento entre membro da empresa e item de venda
- export const enterprisesMemberSalesItems = pgTable("enterprises_member_sales_items", {
-    id: uuid("id").defaultRandom().primaryKey(),
-    enterprisesMembersId: uuid("enterprises_members_id").references(() => enterprisesMembers.id).notNull(), // empresa membro   
+// tabela de relacionamento entre mecânico e item de venda
+ export const mechanicSalesItems = pgTable("mechanic_sales_items", {
+    id: uuid("id").defaultRandom().primaryKey(),    
+    mechanic: uuid("mechanic").references(() => enterprisesMembers.id).notNull(), // mecânico da empresa membro   
     salesItemsId: uuid("sales_items_id").references(() => salesItems.id).notNull(), // item de venda
     comissionService: decimal("comission_service", percentageDecimal) // comissão de serviço
       .notNull()
@@ -66,7 +66,7 @@ export const vehiclesEnterprisesMembers = pgTable("vehicles_enterprises_members"
     updatedAt: tz("updated_at"),
 },
 (t) => [
-    uniqueIndex("enterprises_member_sales_items_unique")
-      .on(t.enterprisesMembersId, t.salesItemsId)
+    uniqueIndex("mechanic_sales_items_unique")
+      .on(t.mechanic, t.salesItemsId)
   ],
 );

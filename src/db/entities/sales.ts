@@ -38,6 +38,7 @@ import {
   valorDuasCasasDecimais,
   valorQuatroCasasDecimais,
 } from "../functions.js";
+import { vehiclesEnterprisesMembers } from "./workOrders.js";
 
 // TIPOS DE PAGAMENTO.
 export const paymentTypes = pgTable(
@@ -60,23 +61,23 @@ export const sales = pgTable(
   "sales",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    orderNumber: integer("order_number").notNull(), 
+    orderNumber: integer("order_number").notNull(),  // número da venda
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "restrict" }),
-    userLegalName: varchar("user_legal_name", { length: 255 }).notNull(),
+      .references(() => users.id, { onDelete: "restrict" }), // usuário que criou a venda
+    userLegalName: varchar("user_legal_name", { length: 255 }).notNull(), // nome legal do usuário que criou a venda
     sellerId: uuid("seller_id")
       .notNull()
-      .references(() => users.id, { onDelete: "restrict" }),
-    sellerLegalName: varchar("seller_legal_name", { length: 255 }).notNull(),
+      .references(() => users.id, { onDelete: "restrict" }), // vendedor da venda
+    sellerLegalName: varchar("seller_legal_name", { length: 255 }).notNull(), // nome legal do vendedor da venda
     memberId: uuid("member_id")
       .notNull()
       .references(() => enterprisesMembers.id, {
         onDelete: "restrict",
-      }), // MEMBRO
+      }), // membro da venda
     type: saleTypeEnum("type").notNull(), // tipo de venda
     modelService: orderServiceModelEnum("model_service"), // modelo de ordem servico
-    subTotal: decimal("sub_total", valorDuasCasasDecimais).notNull(),
+    subTotal: decimal("sub_total", valorDuasCasasDecimais).notNull(), // subtotal da venda
     discountValuetems: decimal("discount_value_items", valorDuasCasasDecimais), // valor do desconto nos itens
     valueAcresceItems: decimal("value_acresce_items", valorDuasCasasDecimais), // valor do acrescimo nos itens
     percentageDiscountPie: decimal(
@@ -118,17 +119,17 @@ export const sales = pgTable(
     sourceBudgetSaleId: uuid("source_budget_sale_id").references(
       (): AnyPgColumn => sales.id,
       { onDelete: "restrict" },
-    ),
+    ), // orçamento de venda
     sourceWorkOrderSaleId: uuid("source_work_order_sale_id").references(
       (): AnyPgColumn => sales.id,
       { onDelete: "restrict" },
-    ),
+    ), // ordem de serviço de venda
     origin: saleOriginEnum("origin").default("WEB"), // origem da venda
     completedionDate: date("completedion_date", { mode: "date" }), // data de finalização da venda
-    vehicleMileage: integer("vehicle_mileage"), // quilometragem do veículo
-    observations: varchar("observations", { length: 500 }), // observações
-    defect: varchar("defect", { length: 500 }), // defeito ( problema no equipamento/veiculo)
-    serviceType: saleServiceTypeEnum("service_type"), // tipo de serviço (opcional)
+    vehicleMileage: integer("vehicle_mileage").notNull().default(0), // quilometragem do veículo
+    observations: varchar("observations", { length: 500 }).notNull().default(""), // observações
+    defect: varchar("defect", { length: 500 }).notNull().default(""), // defeito ( problema no equipamento/veiculo)
+    serviceType: saleServiceTypeEnum("service_type").notNull().default("SERVICO"), // tipo de serviço
     userModificationServiceId: uuid("user_modification_service_id").references(
       () => users.id,
       { onDelete: "restrict" },
@@ -137,6 +138,11 @@ export const sales = pgTable(
       () => users.id,
       { onDelete: "restrict" },
     ), // usuário que fechou o serviço
+    // Nullable para vendas legadas; obrigatório na criação via API (Zod).
+    vehiclesEnterprisesMembersId: uuid("vehicles_enterprises_members_id").references(
+      () => vehiclesEnterprisesMembers.id,
+      { onDelete: "restrict" },
+    ), // veículo da venda
     enterprisesId: uuid("enterprises_id")
       .notNull()
       .references(() => enterprises.id, { onDelete: "cascade" }),
@@ -150,6 +156,9 @@ export const sales = pgTable(
     ),
     index("sales_source_budget_sale_id_idx").on(t.sourceBudgetSaleId),
     index("sales_source_work_order_sale_id_idx").on(t.sourceWorkOrderSaleId),
+    index("sales_vehicles_enterprises_members_id_idx").on(
+      t.vehiclesEnterprisesMembersId,
+    ),
     index("sales_analytics_realized_idx")
       .on(t.enterprisesId, t.completedionDate)
       .where(sql`${t.type} = 'VENDA' AND ${t.status} = 'FINALIZADA'`),
@@ -215,11 +224,11 @@ export const salesItems = pgTable(
     sourceBudgetItemId: uuid("source_budget_item_id").references(
       (): AnyPgColumn => salesItems.id,
       { onDelete: "restrict" },
-    ),
+    ), // item de orçamento
     sourceWorkOrderItemId: uuid("source_work_order_item_id").references(
       (): AnyPgColumn => salesItems.id,
       { onDelete: "restrict" },
-    ),
+    ), // item de ordem de serviço
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
@@ -256,6 +265,7 @@ export const salesItems = pgTable(
   ],
 );
 
+
 // Membros da venda.
 export const salesMembers = pgTable(
   "sales_members",
@@ -289,7 +299,7 @@ export const salesBudgetConversions = pgTable(
       .references(() => enterprises.id, { onDelete: "cascade" }),
     budgetSaleId: uuid("budget_sale_id") 
       .notNull()
-      .references(() => sales.id, { onDelete: "restrict" }),
+      .references(() => sales.id, { onDelete: "restrict" }), 
     generatedSaleId: uuid("generated_sale_id")
       .notNull()
       .references(() => sales.id, { onDelete: "restrict" }), 

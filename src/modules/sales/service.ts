@@ -17,6 +17,7 @@ import {
 import { db } from "../../db/index.js";
 import {
   enterprisesMembers,
+  mechanicSalesItems,
   membersDepartments,
   paymentTypes,
   productTypes,
@@ -33,6 +34,7 @@ import {
   users,
   usersAddress,
   usersContact,
+  vehiclesEnterprisesMembers,
 } from "../../db/schema.js";
 import {
   ceps,
@@ -272,7 +274,7 @@ type SaleServiceFieldInput = {
   vehicleMileage?: number;
   observations?: string;
   defect?: string;
-  serviceType?: "SERVICO" | "GARANTIA" | null;
+  serviceType?: "SERVICO" | "GARANTIA";
   modelService?: "VEICULO";
   type?: string;
 };
@@ -290,10 +292,8 @@ const buildSaleServiceFieldValues = (
   if (input.defect !== undefined) {
     patch.defect = input.defect.trim().toUpperCase();
   }
-  // serviceType so se aplica a ORDEM DE SERVICO; demais tipos gravam null.
-  if (input.type !== undefined && input.type !== "ORDEM DE SERVICO") {
-    patch.serviceType = null;
-  } else if (input.serviceType !== undefined) {
+  // serviceType e NOT NULL com default SERVICO; override so em ORDEM DE SERVICO.
+  if (input.type === "ORDEM DE SERVICO" && input.serviceType !== undefined) {
     patch.serviceType = input.serviceType;
   }
   if (input.modelService !== undefined) {
@@ -495,13 +495,14 @@ const saleWithMemberSelect = {
   sourceWorkOrderSaleId: sales.sourceWorkOrderSaleId,
   origin: sales.origin,
   completedionDate: sales.completedionDate,
-  vehicleMileage: sales.vehicleMileage, 
+  vehicleMileage: sales.vehicleMileage,
   observations: sales.observations,
-  defect: sales.defect, 
+  defect: sales.defect,
   serviceType: sales.serviceType,
   modelService: sales.modelService,
   userModificationServiceId: sales.userModificationServiceId,
   userClosedServiceId: sales.userClosedServiceId,
+  vehiclesEnterprisesMembersId: sales.vehiclesEnterprisesMembersId,
   enterprisesId: sales.enterprisesId,
   createdAt: sales.createdAt,
   updatedAt: sales.updatedAt,
@@ -563,6 +564,14 @@ export class SalesService {  // Servico de vendas
     }
     if (query?.memberId) {
       filters.push(eq(sales.memberId, query.memberId));
+    }
+    if (query?.vehiclesEnterprisesMembersId) {
+      filters.push(
+        eq(
+          sales.vehiclesEnterprisesMembersId,
+          query.vehiclesEnterprisesMembersId,
+        ),
+      );
     }
     if (query?.dateFrom && query?.dateTo) {
       filters.push(
@@ -633,9 +642,114 @@ export class SalesService {  // Servico de vendas
       )
       .where(eq(salesItems.salesId, saleId));
 
-    return rows.map(({ item, productDescription, productCode }) =>
-      this.mapSaleItemResponse(item, { productDescription, productCode }),
-    );
+    const itemIds = rows.map(({ item }) => item.id);
+    const mechanicsRows =
+      itemIds.length > 0
+        ? await db
+            .select()
+            .from(mechanicSalesItems)
+            .where(inArray(mechanicSalesItems.salesItemsId, itemIds))
+            .orderBy(asc(mechanicSalesItems.id))
+        : [];
+
+    const mechanicsByItemId = new Map<
+      string,
+      (typeof mechanicSalesItems.$inferSelect)[]
+    >();
+    for (const row of mechanicsRows) {
+      const list = mechanicsByItemId.get(row.salesItemsId) ?? [];
+      list.push(row);
+      mechanicsByItemId.set(row.salesItemsId, list);
+    }
+
+    return rows.map(({ item, productDescription, productCode }) => ({
+      ...this.mapSaleItemResponse(item, { productDescription, productCode }),
+      mechanics: mechanicsByItemId.get(item.id) ?? [],
+    }));
+  }
+
+  private async assertMechanicMember(
+    tx: Tx | typeof db,
+    enterpriseId: string,
+    enterprisesMembersId: string,
+    path: string,
+  ) {
+    const row = (
+      await tx
+        .select({ id: enterprisesMembers.id })
+        .from(enterprisesMembers)
+        .where(
+          and(
+            eq(enterprisesMembers.id, enterprisesMembersId),
+            eq(enterprisesMembers.enterpriseId, enterpriseId),
+            eq(enterprisesMembers.status, "ATIVO"),
+            isNull(enterprisesMembers.deletedAt),
+          ),
+        )
+        .limit(1)
+    )[0];
+    if (!row) {
+      throw new ValidationError(
+        [
+          {
+            path,
+            message: "Mecanico nao encontrado na empresa",
+          },
+        ],
+        "Mecanico invalido",
+      );
+    }
+  }
+
+  private async insertItemMechanics(
+    tx: Tx,
+    enterpriseId: string,
+    saleType: string,
+    salesItemsId: string,
+    mechanics: NonNullable<CreateSaleItemInput["mechanics"]> | undefined,
+    pathPrefix: string,
+  ) {
+    if (!mechanics?.length) return;
+
+    if (saleType !== "ORDEM DE SERVICO") {
+      throw new ValidationError(
+        [
+          {
+            path: pathPrefix,
+            message:
+              "mechanics so pode ser informado em ORDEM DE SERVICO; omita o campo",
+          },
+        ],
+        "Campo invalido",
+      );
+    }
+
+    for (let i = 0; i < mechanics.length; i++) {
+      const mechanic = mechanics[i];
+      await this.assertMechanicMember(
+        tx,
+        enterpriseId,
+        mechanic.mechanic,
+        `${pathPrefix}.${i}.mechanic`,
+      );
+      try {
+        await tx.insert(mechanicSalesItems).values({
+          mechanic: mechanic.mechanic,
+          salesItemsId,
+          ...(mechanic.comissionService !== undefined
+            ? { comissionService: mechanic.comissionService.toString() }
+            : {}),
+        });
+      } catch (err) {
+        if (isPostgresUniqueViolation(err)) {
+          throw new ConflictError(
+            "Ja existe comissao para este mecanico e item de venda",
+            "MECHANIC_SALE_ITEM_COMMISSION_CONFLICT",
+          );
+        }
+        throw err;
+      }
+    }
   }
 
   private computeBudgetStatus(
@@ -1764,6 +1878,88 @@ export class SalesService {  // Servico de vendas
     }
   }
 
+  private async assertVehiclesEnterprisesMember(
+    tx: Tx | typeof db,
+    enterpriseId: string,
+    vehiclesEnterprisesMembersId: string,
+    memberId: string,
+    path = "body.vehiclesEnterprisesMembersId",
+  ) {
+    const row = (
+      await tx
+        .select({
+          id: vehiclesEnterprisesMembers.id,
+          enterprisesMembersId: vehiclesEnterprisesMembers.enterprisesMembersId,
+          status: vehiclesEnterprisesMembers.status,
+        })
+        .from(vehiclesEnterprisesMembers)
+        .innerJoin(
+          enterprisesMembers,
+          eq(
+            vehiclesEnterprisesMembers.enterprisesMembersId,
+            enterprisesMembers.id,
+          ),
+        )
+        .where(
+          and(
+            eq(vehiclesEnterprisesMembers.id, vehiclesEnterprisesMembersId),
+            eq(enterprisesMembers.enterpriseId, enterpriseId),
+            isNull(enterprisesMembers.deletedAt),
+          ),
+        )
+        .limit(1)
+    )[0];
+    if (!row) {
+      throw new ValidationError(
+        [
+          {
+            path,
+            message: "Vinculo veiculo/membro nao encontrado na empresa",
+          },
+        ],
+        "Veiculo invalido",
+      );
+    }
+    if (row.status !== "ATIVO") {
+      throw new ValidationError(
+        [{ path, message: "Vinculo veiculo/membro esta inativo" }],
+        "Veiculo invalido",
+      );
+    }
+    if (row.enterprisesMembersId !== memberId) {
+      throw new ValidationError(
+        [
+          {
+            path,
+            message:
+              "Vinculo veiculo/membro deve pertencer ao mesmo cliente da venda",
+          },
+        ],
+        "Veiculo invalido",
+      );
+    }
+  }
+
+  private resolveVehiclesEnterprisesMembersId(
+    inputId: string | undefined,
+    sourceId: string | null | undefined,
+    path = "body.vehiclesEnterprisesMembersId",
+  ): string {
+    const resolved = inputId ?? sourceId ?? undefined;
+    if (!resolved) {
+      throw new ValidationError(
+        [
+          {
+            path,
+            message: "Informe vehiclesEnterprisesMembersId",
+          },
+        ],
+        "Veiculo obrigatorio",
+      );
+    }
+    return resolved;
+  }
+
   private async buildSaleMemberSnapshot(
     tx: Tx | typeof db,
     enterpriseId: string,
@@ -2270,6 +2466,12 @@ export class SalesService {  // Servico de vendas
     try {
       const saleId = await db.transaction(async (tx) => {
         await this.assertClientMember(tx, enterpriseId, input.memberId);
+        await this.assertVehiclesEnterprisesMember(
+          tx,
+          enterpriseId,
+          input.vehiclesEnterprisesMembersId,
+          input.memberId,
+        );
 
         let orderNumber: number;
         if (input.orderNumber !== undefined) {
@@ -2328,6 +2530,7 @@ export class SalesService {  // Servico de vendas
             status,
             ...(closingOrigin !== undefined ? { origin: closingOrigin } : {}),
             completedionDate: status === "FINALIZADA" ? new Date() : null,
+            vehiclesEnterprisesMembersId: input.vehiclesEnterprisesMembersId,
             enterprisesId: enterpriseId,
           })
           .returning();
@@ -2389,6 +2592,15 @@ export class SalesService {  // Servico de vendas
             )
             .returning();
           if (!inserted) throw new Error("Falha ao incluir item na venda");
+
+          await this.insertItemMechanics(
+            tx,
+            enterpriseId,
+            input.type,
+            inserted.id,
+            itemInput.mechanics,
+            `body.items.${i}.mechanics`,
+          );
 
           if (this.movesInventory(input.type)) {
             await applySaleItemStockOut(tx, {
@@ -2517,14 +2729,14 @@ export class SalesService {  // Servico de vendas
 
     if (
       existing.type !== "ORDEM DE SERVICO" &&
-      input.serviceType != null
+      input.serviceType !== undefined
     ) {
       throw new ValidationError(
         [
           {
             path: "body.serviceType",
             message:
-              "serviceType so pode ser informado em ORDEM DE SERVICO; omita ou envie null",
+              "serviceType so pode ser informado em ORDEM DE SERVICO; omita o campo",
           },
         ],
         "Campo invalido",
@@ -2565,7 +2777,8 @@ export class SalesService {  // Servico de vendas
       input.vehicleMileage !== undefined ||
       input.observations !== undefined ||
       input.defect !== undefined ||
-      input.serviceType !== undefined;
+      input.serviceType !== undefined ||
+      input.vehiclesEnterprisesMembersId !== undefined;
 
     if (nextStatus === "FINALIZADA" && !this.movesInventory(existing.type)) {
       throw new ValidationError(
@@ -2633,6 +2846,24 @@ export class SalesService {  // Servico de vendas
         await this.assertClientMember(tx, enterpriseId, input.memberId);
       }
 
+      const nextMemberId = input.memberId ?? beforeRow.memberId;
+      const nextVehiclesEnterprisesMembersId =
+        input.vehiclesEnterprisesMembersId !== undefined
+          ? input.vehiclesEnterprisesMembersId
+          : beforeRow.vehiclesEnterprisesMembersId;
+      if (
+        nextVehiclesEnterprisesMembersId &&
+        (input.vehiclesEnterprisesMembersId !== undefined ||
+          input.memberId !== undefined)
+      ) {
+        await this.assertVehiclesEnterprisesMember(
+          tx,
+          enterpriseId,
+          nextVehiclesEnterprisesMembersId,
+          nextMemberId,
+        );
+      }
+
       let row = (
         await tx
           .update(sales)
@@ -2663,6 +2894,12 @@ export class SalesService {  // Servico de vendas
               ? { completedionDate }
               : {}),
             ...(closingOrigin !== undefined ? { origin: closingOrigin } : {}),
+            ...(input.vehiclesEnterprisesMembersId !== undefined
+              ? {
+                  vehiclesEnterprisesMembersId:
+                    input.vehiclesEnterprisesMembersId,
+                }
+              : {}),
             updatedAt: new Date(),
           })
           .where(this.scope(enterpriseId, id))
@@ -2905,6 +3142,18 @@ export class SalesService {  // Servico de vendas
         }
         await this.assertClientMember(tx, enterpriseId, memberId);
 
+        const vehiclesEnterprisesMembersId =
+          this.resolveVehiclesEnterprisesMembersId(
+            input.vehiclesEnterprisesMembersId,
+            budget.vehiclesEnterprisesMembersId,
+          );
+        await this.assertVehiclesEnterprisesMember(
+          tx,
+          enterpriseId,
+          vehiclesEnterprisesMembersId,
+          memberId,
+        );
+
         const orderNumber = await nextSaleOrderNumber(enterpriseId, tx);
 
         const seller = await this.resolveSaleSeller(
@@ -2955,6 +3204,7 @@ export class SalesService {  // Servico de vendas
             sourceBudgetSaleId: budgetSaleId,
             ...(closingOrigin !== undefined ? { origin: closingOrigin } : {}),
             completedionDate: status === "FINALIZADA" ? new Date() : null,
+            vehiclesEnterprisesMembersId,
             enterprisesId: enterpriseId,
           })
           .returning();
@@ -3310,6 +3560,18 @@ export class SalesService {  // Servico de vendas
         }
         await this.assertClientMember(tx, enterpriseId, memberId);
 
+        const vehiclesEnterprisesMembersId =
+          this.resolveVehiclesEnterprisesMembersId(
+            input.vehiclesEnterprisesMembersId,
+            budget.vehiclesEnterprisesMembersId,
+          );
+        await this.assertVehiclesEnterprisesMember(
+          tx,
+          enterpriseId,
+          vehiclesEnterprisesMembersId,
+          memberId,
+        );
+
         const orderNumber = await nextSaleOrderNumber(enterpriseId, tx);
 
         const seller = await this.resolveSaleSeller(
@@ -3339,7 +3601,7 @@ export class SalesService {  // Servico de vendas
           ...input,
           type: "ORDEM DE SERVICO",
           modelService: input.modelService ?? budget.modelService ?? "VEICULO",
-          serviceType: input.serviceType ?? budget.serviceType,
+          serviceType: input.serviceType ?? budget.serviceType ?? undefined,
           vehicleMileage:
             input.vehicleMileage ?? budget.vehicleMileage ?? undefined,
           observations:
@@ -3365,6 +3627,7 @@ export class SalesService {  // Servico de vendas
             valueLiquid: "0",
             status,
             sourceBudgetSaleId: budgetSaleId,
+            vehiclesEnterprisesMembersId,
             enterprisesId: enterpriseId,
           })
           .returning();
@@ -3699,6 +3962,18 @@ export class SalesService {  // Servico de vendas
         }
         await this.assertClientMember(tx, enterpriseId, memberId);
 
+        const vehiclesEnterprisesMembersId =
+          this.resolveVehiclesEnterprisesMembersId(
+            input.vehiclesEnterprisesMembersId,
+            workOrder.vehiclesEnterprisesMembersId,
+          );
+        await this.assertVehiclesEnterprisesMember(
+          tx,
+          enterpriseId,
+          vehiclesEnterprisesMembersId,
+          memberId,
+        );
+
         const orderNumber = await nextSaleOrderNumber(enterpriseId, tx);
 
         const seller = await this.resolveSaleSeller(
@@ -3762,6 +4037,7 @@ export class SalesService {  // Servico de vendas
             sourceWorkOrderSaleId: workOrderSaleId,
             ...(closingOrigin !== undefined ? { origin: closingOrigin } : {}),
             completedionDate: status === "FINALIZADA" ? new Date() : null,
+            vehiclesEnterprisesMembersId,
             enterprisesId: enterpriseId,
           })
           .returning();
@@ -4009,6 +4285,15 @@ export class SalesService {  // Servico de vendas
         .returning();
       if (!inserted) throw new Error("Falha ao incluir item na venda");
 
+      await this.insertItemMechanics(
+        tx,
+        enterpriseId,
+        sale.type,
+        inserted.id,
+        input.mechanics,
+        "body.mechanics",
+      );
+
       if (this.shouldMoveStock(sale)) {
         await applySaleItemStockOut(tx, {
           enterpriseId,
@@ -4077,6 +4362,10 @@ export class SalesService {  // Servico de vendas
           item,
         });
       }
+
+      await tx
+        .delete(mechanicSalesItems)
+        .where(eq(mechanicSalesItems.salesItemsId, saleItemId));
 
       await tx
         .delete(salesItems)

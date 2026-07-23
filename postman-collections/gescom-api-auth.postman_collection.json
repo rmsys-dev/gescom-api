@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "gescom-api-auth",
     "name": "Gescom API — Auth",
-    "description": "Coleção do módulo **Auth** (14 endpoints).\n\nGerado em: 2026-07-20T12:27:33.248Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
+    "description": "Coleção do módulo **Auth** (14 endpoints).\n\nGerado em: 2026-07-22T18:31:56.444Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -649,6 +649,18 @@
       "value": ""
     },
     {
+      "key": "budgetItemId",
+      "value": ""
+    },
+    {
+      "key": "workOrderItemId",
+      "value": ""
+    },
+    {
+      "key": "productId",
+      "value": ""
+    },
+    {
       "key": "productEnterpriseId",
       "value": ""
     },
@@ -661,11 +673,63 @@
       "value": ""
     },
     {
+      "key": "productGroupId",
+      "value": ""
+    },
+    {
+      "key": "productSubgroupId",
+      "value": ""
+    },
+    {
+      "key": "productBrandId",
+      "value": ""
+    },
+    {
       "key": "paymentTypeId",
       "value": ""
     },
     {
+      "key": "countryId",
+      "value": ""
+    },
+    {
+      "key": "stateId",
+      "value": ""
+    },
+    {
+      "key": "cityId",
+      "value": ""
+    },
+    {
       "key": "cepId",
+      "value": ""
+    },
+    {
+      "key": "stockSectorId",
+      "value": ""
+    },
+    {
+      "key": "stockLocationId",
+      "value": ""
+    },
+    {
+      "key": "stockBatchId",
+      "value": ""
+    },
+    {
+      "key": "typeSpedId",
+      "value": ""
+    },
+    {
+      "key": "productsNcmId",
+      "value": ""
+    },
+    {
+      "key": "icmsTaxationId",
+      "value": ""
+    },
+    {
+      "key": "vehicleId",
       "value": ""
     },
     {

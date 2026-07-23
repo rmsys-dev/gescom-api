@@ -35,10 +35,12 @@ const saleServiceFieldsSchema = {
   vehicleMileage: z.number().int().min(0).optional(),
   observations: z.string().trim().max(500).optional(),
   defect: z.string().trim().max(500).optional(),
-  /** Somente para ORDEM DE SERVICO; demais tipos devem omitir ou enviar null. */
-  serviceType: saleServiceTypeSchema.nullable().optional(),
+  /** Somente para ORDEM DE SERVICO; demais tipos devem omitir (DB default SERVICO). */
+  serviceType: saleServiceTypeSchema.optional(),
   /** Modelo de OS; tipicamente VEICULO. Default VEICULO quando type = ORDEM DE SERVICO. */
   modelService: orderServiceModelSchema.optional(),
+  /** Vinculo veiculo × membro; na criacao e obrigatorio (ver createSaleSchema). */
+  vehiclesEnterprisesMembersId: z.string().uuid().optional(),
 };
 
 const saleFinancialAdjustmentsSchema = {
@@ -119,6 +121,15 @@ export const computeItemValueTotal = (
   valueAcresce: number,
 ) => quantity * valueUnit - valueDiscount + valueAcresce;
 
+/** Mecanico com comissao de servico no item (OS). */
+export const saleItemMechanicInputSchema = z
+  .object({
+    mechanic: z.string().uuid(),
+    /** Percentual 0–100; omitido usa default do banco (0.00). */
+    comissionService: z.number().min(0).max(100).optional(),
+  })
+  .strict();
+
 export const saleItemInputSchema = z
   .object({
     quantity: z.number().positive(),
@@ -137,8 +148,28 @@ export const saleItemInputSchema = z
     sellerId: z.string().uuid().optional(),
     /** Canal de lancamento do item; default via header X-Gescom-Client ou WEB. */
     origin: saleOriginSchema.optional(),
+    /**
+     * Mecanicos do item (comissao de servico).
+     * Somente em ORDEM DE SERVICO; grava em mechanic_sales_items.
+     */
+    mechanics: z.array(saleItemMechanicInputSchema).min(1).optional(),
   })
   .strict()
+  .superRefine((data, ctx) => {
+    if (!data.mechanics?.length) return;
+    const seen = new Set<string>();
+    for (let i = 0; i < data.mechanics.length; i++) {
+      const id = data.mechanics[i].mechanic;
+      if (seen.has(id)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["mechanics", i, "mechanic"],
+          message: "Mecanico duplicado no mesmo item",
+        });
+      }
+      seen.add(id);
+    }
+  })
   .transform((data) => ({
     ...data,
     valueTotal: computeItemValueTotal(
@@ -232,6 +263,7 @@ export const createSaleSchema = z
     valueAcresceItems: decimalOpt,
     ...saleFinancialAdjustmentsSchema,
     ...saleServiceFieldsSchema,
+    vehiclesEnterprisesMembersId: z.string().uuid(),
     /** Opcional; default ABERTA. Informe FINALIZADA apenas ao criar venda ja fechada (com payments). */
     status: saleStatusSchema.default("ABERTA"),
     /** Canal de fechamento; somente ao criar ja FINALIZADA. */
@@ -244,13 +276,26 @@ export const createSaleSchema = z
   })
   .strict()
   .superRefine((data, ctx) => {
-    if (data.type !== "ORDEM DE SERVICO" && data.serviceType != null) {
+    if (data.type !== "ORDEM DE SERVICO" && data.serviceType !== undefined) {
       ctx.addIssue({
         code: "custom",
         path: ["serviceType"],
         message:
-          "serviceType so pode ser informado em ORDEM DE SERVICO; omita ou envie null",
+          "serviceType so pode ser informado em ORDEM DE SERVICO; omita o campo",
       });
+    }
+
+    if (data.type !== "ORDEM DE SERVICO") {
+      for (let i = 0; i < data.items.length; i++) {
+        if (data.items[i].mechanics?.length) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["items", i, "mechanics"],
+            message:
+              "mechanics so pode ser informado em ORDEM DE SERVICO; omita o campo",
+          });
+        }
+      }
     }
 
     const hasPayments = (data.payments?.length ?? 0) > 0;
@@ -292,6 +337,7 @@ export const patchSaleSchema = z
     valueAcresceItems: decimalOpt,
     ...patchSaleFinancialAdjustmentsSchema,
     ...saleServiceFieldsSchema,
+    vehiclesEnterprisesMembersId: z.string().uuid().optional(),
     valueLiquid: z.number().min(0).optional(),
     completedionDate: z.coerce.date().nullable().optional(),
     /** Recalcula subTotal (soma dos itens) e valueLiquid a partir dos ajustes do cabecalho. */
@@ -359,6 +405,7 @@ export const listSalesQuerySchema = createPaginationQuerySchema(100)
     userId: z.string().uuid().optional(),
     sellerId: z.string().uuid().optional(),
     memberId: z.string().uuid().optional(),
+    vehiclesEnterprisesMembersId: z.string().uuid().optional(),
     orderNumber: z.coerce.number().int().positive().optional(),
     seller: optionalTrimmedStringSchema("seller", 255).optional(),
     client: optionalTrimmedStringSchema("client", 255).optional(),
@@ -435,12 +482,11 @@ export const convertBudgetToSaleSchema = z
   })
   .strict()
   .superRefine((data, ctx) => {
-    if (data.serviceType != null) {
+    if (data.serviceType !== undefined) {
       ctx.addIssue({
         code: "custom",
         path: ["serviceType"],
-        message:
-          "serviceType nao se aplica a venda; omita ou envie null",
+        message: "serviceType nao se aplica a venda; omita o campo",
       });
     }
 
@@ -543,12 +589,12 @@ export const convertOsToSaleSchema = z
   })
   .strict()
   .superRefine((data, ctx) => {
-    if (data.serviceType != null) {
+    if (data.serviceType !== undefined) {
       ctx.addIssue({
         code: "custom",
         path: ["serviceType"],
         message:
-          "serviceType nao se aplica a venda; omita ou envie null (permanece na OS de origem)",
+          "serviceType nao se aplica a venda; omita o campo (permanece na OS de origem)",
       });
     }
 

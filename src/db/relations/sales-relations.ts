@@ -25,7 +25,7 @@ import {
   stockLocations,
   stockBatches,
 } from "../entities/stock.js";
-import { enterprisesMemberSalesItems } from "../entities/workOrders.js";
+import { mechanicSalesItems, vehiclesEnterprisesMembers } from "../entities/workOrders.js";
 
 // relações da tabela de TIPOS DE PAGAMENTO.
 export const paymentTypesRelations = relations(paymentTypes, ({ many }) => ({
@@ -77,6 +77,10 @@ export const salesRelations = relations(sales, ({ one, many }) => ({
   saleMember: one(salesMembers, {
     fields: [sales.id],
     references: [salesMembers.salesId],
+  }),
+  vehiclesEnterprisesMembers: one(vehiclesEnterprisesMembers, {
+    fields: [sales.vehiclesEnterprisesMembersId],
+    references: [vehiclesEnterprisesMembers.id],
   }),
 }));
 
@@ -147,7 +151,7 @@ export const salesItemsRelations = relations(salesItems, ({ one, many }) => ({
   generatedSaleItemsFromWorkOrder: many(salesItems, {
     relationName: "workOrderConversionItems",
   }),
-  enterprisesMembers: many(enterprisesMemberSalesItems),
+  mechanics: many(mechanicSalesItems),
 }));
 
 // relações da tabela de CONVERSOES ORCAMENTO -> VENDA (historico auditavel).

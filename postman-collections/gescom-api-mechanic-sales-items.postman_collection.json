@@ -1,0 +1,379 @@
+{
+  "info": {
+    "_postman_id": "gescom-api-mechanic-sales-items",
+    "name": "Gescom API — Comissões de Mecânicos",
+    "description": "Coleção do módulo **Comissões de Mecânicos** (5 endpoints).\n\nGerado em: 2026-07-22T18:31:56.447Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Comissões de Mecânicos",
+      "item": [
+        {
+          "name": "GET Listar raiz",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/mechanic-sales-items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "mechanic-sales-items"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "disabled": false
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "disabled": false
+                },
+                {
+                  "key": "type",
+                  "value": "ORCAMENTO",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "ABERTA",
+                  "disabled": true
+                },
+                {
+                  "key": "userId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "sellerId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "orderNumber",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "seller",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "client",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Permissão: `consultar_comissoes_itens_venda`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `listMechanicSalesItemsQuerySchema`\n\nFonte: `src\\modules\\vehicles\\mechanic-sales-items\\routes.ts`"
+          },
+          "response": []
+        },
+        {
+          "name": "POST Criar raiz",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/mechanic-sales-items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "mechanic-sales-items"
+              ]
+            },
+            "description": "Permissão: `incluir_comissoes_itens_venda`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createMechanicSalesItemSchema`\n\nFonte: `src\\modules\\vehicles\\mechanic-sales-items\\routes.ts`",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mechanic\": \"{{memberId}}\",\n  \"salesItemsId\": \"{{saleItemId}}\",\n  \"comissionService\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": ":mechanicSalesItemId",
+          "item": [
+            {
+              "name": "DELETE Excluir mechanicSalesItemId",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/mechanic-sales-items/{{mechanicSalesItemId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "mechanic-sales-items",
+                    "{{mechanicSalesItemId}}"
+                  ]
+                },
+                "description": "Permissão: `excluir_comissoes_itens_venda`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `mechanicSalesItemParamsSchema`\n\nFonte: `src\\modules\\vehicles\\mechanic-sales-items\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "GET Obter mechanicSalesItemId",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/mechanic-sales-items/{{mechanicSalesItemId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "mechanic-sales-items",
+                    "{{mechanicSalesItemId}}"
+                  ]
+                },
+                "description": "Permissão: `consultar_comissoes_itens_venda`\n\nRequer contexto de empresa (tenant) no token.\n\nQuery schema: `emptyQuerySchema`\n\nParams schema: `mechanicSalesItemParamsSchema`\n\nFonte: `src\\modules\\vehicles\\mechanic-sales-items\\routes.ts`"
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH Atualizar mechanicSalesItemId",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/mechanic-sales-items/{{mechanicSalesItemId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "mechanic-sales-items",
+                    "{{mechanicSalesItemId}}"
+                  ]
+                },
+                "description": "Permissão: `alterar_comissoes_itens_venda`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `patchMechanicSalesItemSchema`\n\nParams schema: `mechanicSalesItemParamsSchema`\n\nFonte: `src\\modules\\vehicles\\mechanic-sales-items\\routes.ts`",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"comissionService\": 15\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "enterpriseId",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "memberId",
+      "value": ""
+    },
+    {
+      "key": "departmentId",
+      "value": ""
+    },
+    {
+      "key": "saleId",
+      "value": ""
+    },
+    {
+      "key": "saleItemId",
+      "value": ""
+    },
+    {
+      "key": "budgetItemId",
+      "value": ""
+    },
+    {
+      "key": "workOrderItemId",
+      "value": ""
+    },
+    {
+      "key": "productId",
+      "value": ""
+    },
+    {
+      "key": "productEnterpriseId",
+      "value": ""
+    },
+    {
+      "key": "unitId",
+      "value": ""
+    },
+    {
+      "key": "productTypeId",
+      "value": ""
+    },
+    {
+      "key": "productGroupId",
+      "value": ""
+    },
+    {
+      "key": "productSubgroupId",
+      "value": ""
+    },
+    {
+      "key": "productBrandId",
+      "value": ""
+    },
+    {
+      "key": "paymentTypeId",
+      "value": ""
+    },
+    {
+      "key": "countryId",
+      "value": ""
+    },
+    {
+      "key": "stateId",
+      "value": ""
+    },
+    {
+      "key": "cityId",
+      "value": ""
+    },
+    {
+      "key": "cepId",
+      "value": ""
+    },
+    {
+      "key": "stockSectorId",
+      "value": ""
+    },
+    {
+      "key": "stockLocationId",
+      "value": ""
+    },
+    {
+      "key": "stockBatchId",
+      "value": ""
+    },
+    {
+      "key": "typeSpedId",
+      "value": ""
+    },
+    {
+      "key": "productsNcmId",
+      "value": ""
+    },
+    {
+      "key": "icmsTaxationId",
+      "value": ""
+    },
+    {
+      "key": "vehicleId",
+      "value": ""
+    },
+    {
+      "key": "maintainerApiKey",
+      "value": ""
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ]
+}

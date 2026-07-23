@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "gescom-api-addresses",
     "name": "Gescom API — Endereços",
-    "description": "Coleção do módulo **Endereços** (12 endpoints).\n\nGerado em: 2026-07-20T12:27:33.247Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
+    "description": "Coleção do módulo **Endereços** (12 endpoints).\n\nGerado em: 2026-07-22T18:31:56.443Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -83,7 +83,7 @@
                 "description": "Permissão: `incluir_enderecos`\n\nBody schema: `createCepSchema`\n\nFonte: `src\\modules\\addresses\\ceps\\routes.ts`",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+                  "raw": "{\n  \"cepNumber\": \"01310100\",\n  \"address\": \"Avenida Paulista\",\n  \"neighborhood\": \"Bela Vista\",\n  \"cityId\": \"{{cityId}}\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -214,7 +214,7 @@
                 "description": "Permissão: `incluir_enderecos`\n\nBody schema: `createCitySchema`\n\nFonte: `src\\modules\\addresses\\cities\\routes.ts`",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+                  "raw": "{\n  \"ibgeCode\": 3550308,\n  \"citieName\": \"Sao Paulo\",\n  \"ibs_municipal_tax\": 0,\n  \"stateId\": \"{{stateId}}\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -345,7 +345,7 @@
                 "description": "Permissão: `incluir_enderecos`\n\nBody schema: `createCountrySchema`\n\nFonte: `src\\modules\\addresses\\countries\\routes.ts`",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+                  "raw": "{\n  \"countryCode\": \"BR\",\n  \"countryName\": \"Brasil\",\n  \"cbsTax\": 0,\n  \"isTax\": 0,\n  \"ibs_uf_tax\": 0,\n  \"ibs_municipal_tax\": 0\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -476,7 +476,7 @@
                 "description": "Permissão: `incluir_enderecos`\n\nBody schema: `createStateSchema`\n\nFonte: `src\\modules\\addresses\\states\\routes.ts`",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+                  "raw": "{\n  \"acronym\": \"SP\",\n  \"description\": \"Sao Paulo\",\n  \"internalAliquot\": 18,\n  \"interstateAliquot\": 12,\n  \"fcpAliquot\": 0,\n  \"borders\": 0,\n  \"generate_st\": false,\n  \"embedDifal\": false,\n  \"ibs_uf_tax\": 0,\n  \"ibs_municipal_tax\": 0,\n  \"countryId\": \"{{countryId}}\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -574,6 +574,18 @@
       "value": ""
     },
     {
+      "key": "budgetItemId",
+      "value": ""
+    },
+    {
+      "key": "workOrderItemId",
+      "value": ""
+    },
+    {
+      "key": "productId",
+      "value": ""
+    },
+    {
       "key": "productEnterpriseId",
       "value": ""
     },
@@ -586,11 +598,63 @@
       "value": ""
     },
     {
+      "key": "productGroupId",
+      "value": ""
+    },
+    {
+      "key": "productSubgroupId",
+      "value": ""
+    },
+    {
+      "key": "productBrandId",
+      "value": ""
+    },
+    {
       "key": "paymentTypeId",
       "value": ""
     },
     {
+      "key": "countryId",
+      "value": ""
+    },
+    {
+      "key": "stateId",
+      "value": ""
+    },
+    {
+      "key": "cityId",
+      "value": ""
+    },
+    {
       "key": "cepId",
+      "value": ""
+    },
+    {
+      "key": "stockSectorId",
+      "value": ""
+    },
+    {
+      "key": "stockLocationId",
+      "value": ""
+    },
+    {
+      "key": "stockBatchId",
+      "value": ""
+    },
+    {
+      "key": "typeSpedId",
+      "value": ""
+    },
+    {
+      "key": "productsNcmId",
+      "value": ""
+    },
+    {
+      "key": "icmsTaxationId",
+      "value": ""
+    },
+    {
+      "key": "vehicleId",
       "value": ""
     },
     {

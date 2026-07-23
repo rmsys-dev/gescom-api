@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "gescom-api-products-nbs",
     "name": "Gescom API — NBS",
-    "description": "Coleção do módulo **NBS** (5 endpoints).\n\nGerado em: 2026-07-20T12:27:33.256Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
+    "description": "Coleção do módulo **NBS** (5 endpoints).\n\nGerado em: 2026-07-22T18:31:56.454Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -88,7 +88,7 @@
             "description": "Permissão: `incluir_nbs_produtos`\n\nBody schema: `createProductsNbsSchema`\n\nFonte: `src\\modules\\products\\products-nbs\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "raw": "{\n  \"lc116Item\": \"14.01\",\n  \"lc116Description\": \"Lubrificacao, limpeza, etc.\",\n  \"nbs\": \"1.1502.10.00\",\n  \"description\": \"SERVICO DE MANUTENCAO\",\n  \"psOnerosa\": \"S\",\n  \"adqExterior\": \"N\",\n  \"indop\": \"100101\",\n  \"cClassTrib\": \"000001\",\n  \"cClassTribName\": \"Tributacao integral\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -243,6 +243,18 @@
       "value": ""
     },
     {
+      "key": "budgetItemId",
+      "value": ""
+    },
+    {
+      "key": "workOrderItemId",
+      "value": ""
+    },
+    {
+      "key": "productId",
+      "value": ""
+    },
+    {
       "key": "productEnterpriseId",
       "value": ""
     },
@@ -255,11 +267,63 @@
       "value": ""
     },
     {
+      "key": "productGroupId",
+      "value": ""
+    },
+    {
+      "key": "productSubgroupId",
+      "value": ""
+    },
+    {
+      "key": "productBrandId",
+      "value": ""
+    },
+    {
       "key": "paymentTypeId",
       "value": ""
     },
     {
+      "key": "countryId",
+      "value": ""
+    },
+    {
+      "key": "stateId",
+      "value": ""
+    },
+    {
+      "key": "cityId",
+      "value": ""
+    },
+    {
       "key": "cepId",
+      "value": ""
+    },
+    {
+      "key": "stockSectorId",
+      "value": ""
+    },
+    {
+      "key": "stockLocationId",
+      "value": ""
+    },
+    {
+      "key": "stockBatchId",
+      "value": ""
+    },
+    {
+      "key": "typeSpedId",
+      "value": ""
+    },
+    {
+      "key": "productsNcmId",
+      "value": ""
+    },
+    {
+      "key": "icmsTaxationId",
+      "value": ""
+    },
+    {
+      "key": "vehicleId",
       "value": ""
     },
     {

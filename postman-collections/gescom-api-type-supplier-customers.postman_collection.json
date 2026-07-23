@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "gescom-api-type-supplier-customers",
     "name": "Gescom API — Tipos Fornecedor/Cliente",
-    "description": "Coleção do módulo **Tipos Fornecedor/Cliente** (5 endpoints).\n\nGerado em: 2026-07-20T12:27:33.261Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
+    "description": "Coleção do módulo **Tipos Fornecedor/Cliente** (5 endpoints).\n\nGerado em: 2026-07-22T18:31:56.460Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -78,7 +78,7 @@
             "description": "Permissão: `incluir_tipos_fornecedor_cliente`\n\nBody schema: `createTypeSupplierCustomerSchema`\n\nFonte: `src\\modules\\memberships\\type-supplier-customers\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "raw": "{\n  \"description\": \"CONSUMIDOR FINAL\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -233,6 +233,18 @@
       "value": ""
     },
     {
+      "key": "budgetItemId",
+      "value": ""
+    },
+    {
+      "key": "workOrderItemId",
+      "value": ""
+    },
+    {
+      "key": "productId",
+      "value": ""
+    },
+    {
       "key": "productEnterpriseId",
       "value": ""
     },
@@ -245,11 +257,63 @@
       "value": ""
     },
     {
+      "key": "productGroupId",
+      "value": ""
+    },
+    {
+      "key": "productSubgroupId",
+      "value": ""
+    },
+    {
+      "key": "productBrandId",
+      "value": ""
+    },
+    {
       "key": "paymentTypeId",
       "value": ""
     },
     {
+      "key": "countryId",
+      "value": ""
+    },
+    {
+      "key": "stateId",
+      "value": ""
+    },
+    {
+      "key": "cityId",
+      "value": ""
+    },
+    {
       "key": "cepId",
+      "value": ""
+    },
+    {
+      "key": "stockSectorId",
+      "value": ""
+    },
+    {
+      "key": "stockLocationId",
+      "value": ""
+    },
+    {
+      "key": "stockBatchId",
+      "value": ""
+    },
+    {
+      "key": "typeSpedId",
+      "value": ""
+    },
+    {
+      "key": "productsNcmId",
+      "value": ""
+    },
+    {
+      "key": "icmsTaxationId",
+      "value": ""
+    },
+    {
+      "key": "vehicleId",
       "value": ""
     },
     {

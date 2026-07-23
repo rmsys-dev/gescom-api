@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "gescom-api-enterprises",
     "name": "Gescom API — Empresas",
-    "description": "Coleção do módulo **Empresas** (49 endpoints).\n\nGerado em: 2026-07-20T12:27:33.250Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
+    "description": "Coleção do módulo **Empresas** (49 endpoints).\n\nGerado em: 2026-07-22T18:31:56.445Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -200,7 +200,7 @@
                 "description": "Permissão: `incluir_enderecos`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createEnterpriseAddressSchema`\n\nParams schema: `enterpriseAddressEnterpriseParamsSchema`\n\nFonte: `src\\modules\\enterprises\\enterprise-addresses\\routes.ts`",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+                  "raw": "{\n  \"cepId\": \"{{cepId}}\",\n  \"number\": \"1000\",\n  \"adressType\": \"COMERCIAL\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -873,7 +873,7 @@
                 "description": "Permissão: `incluir_marcas_produto`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createProductBrandSchema`\n\nFonte: `src\\modules\\products\\product-brands\\routes.ts`",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+                  "raw": "{\n  \"description\": \"Mann Filter\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -1081,7 +1081,7 @@
                 "description": "Permissão: `incluir_grupos_produto`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createProductGroupSchema`\n\nFonte: `src\\modules\\products\\product-groups\\routes.ts`",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+                  "raw": "{\n  \"description\": \"Filtros\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -1289,7 +1289,7 @@
                 "description": "Permissão: `incluir_subgrupos_produto`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createProductSubgroupSchema`\n\nFonte: `src\\modules\\products\\product-subgroups\\routes.ts`",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+                  "raw": "{\n  \"description\": \"Filtros de oleo\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -2217,6 +2217,18 @@
       "value": ""
     },
     {
+      "key": "budgetItemId",
+      "value": ""
+    },
+    {
+      "key": "workOrderItemId",
+      "value": ""
+    },
+    {
+      "key": "productId",
+      "value": ""
+    },
+    {
       "key": "productEnterpriseId",
       "value": ""
     },
@@ -2229,11 +2241,63 @@
       "value": ""
     },
     {
+      "key": "productGroupId",
+      "value": ""
+    },
+    {
+      "key": "productSubgroupId",
+      "value": ""
+    },
+    {
+      "key": "productBrandId",
+      "value": ""
+    },
+    {
       "key": "paymentTypeId",
       "value": ""
     },
     {
+      "key": "countryId",
+      "value": ""
+    },
+    {
+      "key": "stateId",
+      "value": ""
+    },
+    {
+      "key": "cityId",
+      "value": ""
+    },
+    {
       "key": "cepId",
+      "value": ""
+    },
+    {
+      "key": "stockSectorId",
+      "value": ""
+    },
+    {
+      "key": "stockLocationId",
+      "value": ""
+    },
+    {
+      "key": "stockBatchId",
+      "value": ""
+    },
+    {
+      "key": "typeSpedId",
+      "value": ""
+    },
+    {
+      "key": "productsNcmId",
+      "value": ""
+    },
+    {
+      "key": "icmsTaxationId",
+      "value": ""
+    },
+    {
+      "key": "vehicleId",
       "value": ""
     },
     {

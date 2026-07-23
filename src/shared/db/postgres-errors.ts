@@ -1,8 +1,9 @@
 export const POSTGRES_UNIQUE_VIOLATION = "23505";
+export const POSTGRES_FOREIGN_KEY_VIOLATION = "23503";
 
 const MAX_CAUSE_DEPTH = 4;
 
-export const isPostgresUniqueViolation = (err: unknown): boolean => {
+const hasPostgresCode = (err: unknown, code: string): boolean => {
   let current: unknown = err;
   for (
     let depth = 0;
@@ -13,7 +14,7 @@ export const isPostgresUniqueViolation = (err: unknown): boolean => {
       typeof current === "object" &&
       current !== null &&
       "code" in current &&
-      (current as { code?: string }).code === POSTGRES_UNIQUE_VIOLATION
+      (current as { code?: string }).code === code
     ) {
       return true;
     }
@@ -27,3 +28,9 @@ export const isPostgresUniqueViolation = (err: unknown): boolean => {
   }
   return false;
 };
+
+export const isPostgresUniqueViolation = (err: unknown): boolean =>
+  hasPostgresCode(err, POSTGRES_UNIQUE_VIOLATION);
+
+export const isPostgresForeignKeyViolation = (err: unknown): boolean =>
+  hasPostgresCode(err, POSTGRES_FOREIGN_KEY_VIOLATION);

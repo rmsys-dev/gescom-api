@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { vehicles, vehiclesEnterprisesMembers, enterprisesMemberSalesItems } from "../entities/workOrders.js";
+import { vehicles, vehiclesEnterprisesMembers, mechanicSalesItems } from "../entities/workOrders.js";
 import { enterprisesMembers } from "../entities/members.js";
 import { states } from "../entities/addresses.js";
 import { salesItems } from "../entities/sales.js";
@@ -25,14 +25,14 @@ export const vehiclesEnterprisesMembersRelations = relations(vehiclesEnterprises
     }),
 }));
 
-//**RELAÇÕES DE RELACIONAMENTO ENTRE MEMBRO DA EMPRESA E ITEM DE VENDA**//
-export const enterprisesMemberSalesItemsRelations = relations(enterprisesMemberSalesItems, ({ one }) => ({
-    enterpriseMember: one(enterprisesMembers, {
-        fields: [enterprisesMemberSalesItems.enterprisesMembersId],
+//**RELAÇÕES DE MECÂNICO × ITEM DE VENDA**//
+export const mechanicSalesItemsRelations = relations(mechanicSalesItems, ({ one }) => ({
+    mechanicMember: one(enterprisesMembers, {
+        fields: [mechanicSalesItems.mechanic],
         references: [enterprisesMembers.id],
     }),
     salesItem: one(salesItems, {
-        fields: [enterprisesMemberSalesItems.salesItemsId],
+        fields: [mechanicSalesItems.salesItemsId],
         references: [salesItems.id],
     }),
 }));

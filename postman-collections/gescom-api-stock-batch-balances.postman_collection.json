@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "gescom-api-stock-batch-balances",
     "name": "Gescom API — Saldos de Lote",
-    "description": "Coleção do módulo **Saldos de Lote** (5 endpoints).\n\nGerado em: 2026-07-20T12:27:33.258Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
+    "description": "Coleção do módulo **Saldos de Lote** (5 endpoints).\n\nGerado em: 2026-07-22T18:31:56.457Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -78,7 +78,7 @@
             "description": "Permissão: `incluir_saldos_lote_estoque`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createStockBatchBalanceSchema`\n\nFonte: `src\\modules\\stock\\stock-batch-balances\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "raw": "{\n  \"stockBatchId\": \"{{stockBatchId}}\",\n  \"stockLocationId\": \"{{stockLocationId}}\",\n  \"quantity\": 10\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -233,6 +233,18 @@
       "value": ""
     },
     {
+      "key": "budgetItemId",
+      "value": ""
+    },
+    {
+      "key": "workOrderItemId",
+      "value": ""
+    },
+    {
+      "key": "productId",
+      "value": ""
+    },
+    {
       "key": "productEnterpriseId",
       "value": ""
     },
@@ -245,11 +257,63 @@
       "value": ""
     },
     {
+      "key": "productGroupId",
+      "value": ""
+    },
+    {
+      "key": "productSubgroupId",
+      "value": ""
+    },
+    {
+      "key": "productBrandId",
+      "value": ""
+    },
+    {
       "key": "paymentTypeId",
       "value": ""
     },
     {
+      "key": "countryId",
+      "value": ""
+    },
+    {
+      "key": "stateId",
+      "value": ""
+    },
+    {
+      "key": "cityId",
+      "value": ""
+    },
+    {
       "key": "cepId",
+      "value": ""
+    },
+    {
+      "key": "stockSectorId",
+      "value": ""
+    },
+    {
+      "key": "stockLocationId",
+      "value": ""
+    },
+    {
+      "key": "stockBatchId",
+      "value": ""
+    },
+    {
+      "key": "typeSpedId",
+      "value": ""
+    },
+    {
+      "key": "productsNcmId",
+      "value": ""
+    },
+    {
+      "key": "icmsTaxationId",
+      "value": ""
+    },
+    {
+      "key": "vehicleId",
       "value": ""
     },
     {

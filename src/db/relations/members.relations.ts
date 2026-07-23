@@ -11,7 +11,7 @@ import { enterprises } from "../entities/enterprises.js";
 import { departments } from "../entities/departments.js";
 import { typeSupplierCustomers } from "../entities/typeSupplierCustomers.js";
 import { typeNetworks } from "../entities/typeNetworks.js";
-import { enterprisesMemberSalesItems } from "../entities/workOrders.js";
+import { mechanicSalesItems } from "../entities/workOrders.js";
 
 //**RELAÇÕES DE MEMBROS DE EMPRESAS**//
 export const enterprisesMembersRelations = relations(
@@ -35,7 +35,7 @@ export const enterprisesMembersRelations = relations(
     }),
     departments: many(membersDepartments),
     invitations: many(userInvitations),
-    salesItems: many(enterprisesMemberSalesItems),
+    mechanicSalesItems: many(mechanicSalesItems),
   }),
 );
 

@@ -351,6 +351,41 @@
       "when": 1784669732079,
       "tag": "0049_friendly_tarot",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1784718000000,
+      "tag": "0050_vehicles_entity_types",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1784742000000,
+      "tag": "0051_sales_vehicles_service_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1784750000000,
+      "tag": "0052_rename_mechanic_sales_items",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1784751000000,
+      "tag": "0053_mechanic_sales_items_pkey",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1784806294664,
+      "tag": "0054_daffy_forge",
+      "breakpoints": true
     }
   ]
 }

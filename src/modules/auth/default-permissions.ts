@@ -160,6 +160,19 @@ export const permissionCatalog = [
   "excluir_estoque_min_max",
   "consultar_movimentos_estoque",
   "incluir_movimentos_estoque",
+  //Veículos / OS auxiliares
+  "consultar_veiculos",
+  "incluir_veiculos",
+  "alterar_veiculos",
+  "excluir_veiculos",
+  "consultar_veiculos_membros",
+  "incluir_veiculos_membros",
+  "alterar_veiculos_membros",
+  "excluir_veiculos_membros",
+  "consultar_comissoes_itens_venda",
+  "incluir_comissoes_itens_venda",
+  "alterar_comissoes_itens_venda",
+  "excluir_comissoes_itens_venda",
 ] as const;
 
 export type PermissionSlug = (typeof permissionCatalog)[number];
@@ -301,6 +314,21 @@ const stockPermissions = [
   "incluir_movimentos_estoque",
 ] as const satisfies readonly PermissionSlug[];
 
+const vehiclesPermissions = [
+  "consultar_veiculos",
+  "incluir_veiculos",
+  "alterar_veiculos",
+  "excluir_veiculos",
+  "consultar_veiculos_membros",
+  "incluir_veiculos_membros",
+  "alterar_veiculos_membros",
+  "excluir_veiculos_membros",
+  "consultar_comissoes_itens_venda",
+  "incluir_comissoes_itens_venda",
+  "alterar_comissoes_itens_venda",
+  "excluir_comissoes_itens_venda",
+] as const satisfies readonly PermissionSlug[];
+
 const administrador = [
   "incluir_usuarios",
   "alterar_usuarios",
@@ -318,6 +346,7 @@ const administrador = [
   ...salesPermissions,
   ...stockPermissions,
   ...memberLookupPermissions,
+  ...vehiclesPermissions,
   "consultar_enderecos",
   "incluir_enderecos",
   "alterar_enderecos",
@@ -359,6 +388,9 @@ const operacional = [
   "consultar_saldos_estoque",
   "consultar_estoque_min_max",
   "consultar_movimentos_estoque",
+  "consultar_veiculos",
+  "consultar_veiculos_membros",
+  "consultar_comissoes_itens_venda",
   "consultar_enderecos",
 ] as const satisfies readonly PermissionSlug[];
 

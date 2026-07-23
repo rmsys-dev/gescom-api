@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "gescom-api-products",
     "name": "Gescom API — Produtos",
-    "description": "Coleção do módulo **Produtos** (5 endpoints).\n\nGerado em: 2026-07-20T12:27:33.254Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
+    "description": "Coleção do módulo **Produtos** (5 endpoints).\n\nGerado em: 2026-07-22T18:31:56.453Z\n\nUse o ambiente `gescom-api-local.postman_environment.json` para variáveis.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -88,7 +88,7 @@
             "description": "Permissão: `incluir_produtos`\n\nRequer contexto de empresa (tenant) no token.\n\nBody schema: `createProductWithEnterpriseSchema`\n\nFonte: `src\\modules\\products\\routes.ts`",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"description\": \"Corpo conforme schema do módulo\"\n}",
+              "raw": "{\n  \"product\": {\n    \"description\": \"FILTRO DE OLEO\"\n  },\n  \"enterprise\": {\n    \"description\": \"FILTRO DE OLEO\",\n    \"measurementUnitId\": \"{{unitId}}\",\n    \"productTypeId\": \"{{productTypeId}}\",\n    \"productGroupId\": \"{{productGroupId}}\",\n    \"productSubgroupId\": \"{{productSubgroupId}}\",\n    \"productBrandId\": \"{{productBrandId}}\"\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -190,7 +190,7 @@
                 "description": "Permissão: `alterar_produtos`\n\nBody schema: `patchProductSchema`\n\nParams schema: `productParamsSchema`\n\nFonte: `src\\modules\\products\\routes.ts`",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"description\": \"Campos parciais conforme schema\"\n}",
+                  "raw": "{\n  \"description\": \"FILTRO DE OLEO ATUALIZADO\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -243,6 +243,18 @@
       "value": ""
     },
     {
+      "key": "budgetItemId",
+      "value": ""
+    },
+    {
+      "key": "workOrderItemId",
+      "value": ""
+    },
+    {
+      "key": "productId",
+      "value": ""
+    },
+    {
       "key": "productEnterpriseId",
       "value": ""
     },
@@ -255,11 +267,63 @@
       "value": ""
     },
     {
+      "key": "productGroupId",
+      "value": ""
+    },
+    {
+      "key": "productSubgroupId",
+      "value": ""
+    },
+    {
+      "key": "productBrandId",
+      "value": ""
+    },
+    {
       "key": "paymentTypeId",
       "value": ""
     },
     {
+      "key": "countryId",
+      "value": ""
+    },
+    {
+      "key": "stateId",
+      "value": ""
+    },
+    {
+      "key": "cityId",
+      "value": ""
+    },
+    {
       "key": "cepId",
+      "value": ""
+    },
+    {
+      "key": "stockSectorId",
+      "value": ""
+    },
+    {
+      "key": "stockLocationId",
+      "value": ""
+    },
+    {
+      "key": "stockBatchId",
+      "value": ""
+    },
+    {
+      "key": "typeSpedId",
+      "value": ""
+    },
+    {
+      "key": "productsNcmId",
+      "value": ""
+    },
+    {
+      "key": "icmsTaxationId",
+      "value": ""
+    },
+    {
+      "key": "vehicleId",
       "value": ""
     },
     {

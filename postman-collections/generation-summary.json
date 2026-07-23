@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-07-20T12:27:33.262Z",
-  "totalEndpoints": 253,
+  "generatedAt": "2026-07-22T18:31:56.462Z",
+  "totalEndpoints": 270,
   "completeCollection": "gescom-api-complete.postman_collection.json",
   "moduleCollections": [
     "gescom-api-addresses.postman_collection.json",
@@ -9,6 +9,7 @@
     "gescom-api-enterprises.postman_collection.json",
     "gescom-api-icms-taxation.postman_collection.json",
     "gescom-api-maintainer.postman_collection.json",
+    "gescom-api-mechanic-sales-items.postman_collection.json",
     "gescom-api-payment-types.postman_collection.json",
     "gescom-api-pis-cofins-situation.postman_collection.json",
     "gescom-api-prices.postman_collection.json",
@@ -37,7 +38,8 @@
     "gescom-api-type-supplier-customers.postman_collection.json",
     "gescom-api-types-products.postman_collection.json",
     "gescom-api-units.postman_collection.json",
-    "gescom-api-work-orders.postman_collection.json"
+    "gescom-api-vehicles.postman_collection.json",
+    "gescom-api-vehicles-enterprises-members.postman_collection.json"
   ],
   "environment": "gescom-api-local.postman_environment.json"
 }

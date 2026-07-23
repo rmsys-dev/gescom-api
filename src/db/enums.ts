@@ -240,6 +240,10 @@ export const entityTypeEnum = pgEnum("entity_type", [
   "SALES_RETURNS",
   "TYPE_NETWORKS",
   "TYPE_SUPPLIER_CUSTOMERS",
+  "VEHICLES",
+  "VEHICLES_ENTERPRISES_MEMBERS",
+  "ENTERPRISES_MEMBER_SALES_ITEMS",
+  "MECHANIC_SALES_ITEMS",
 ]);
 
 export const stockMovementTypeEnum = pgEnum("stock_movement_type", [

@@ -163,9 +163,6 @@ const loadPrincipalAddressSummariesByUserId = async (
 const formatMembershipPercentage = (value: number) =>
   Math.round(value * 100) / 100;
 
-const formatMembershipMonetary = (value: number) =>
-  Math.round(value * 100) / 100;
-
 const mapMembershipSalesFieldsToInsert = (
   input: Pick<
     CreateMembershipInput,
@@ -219,8 +216,25 @@ const mapMembershipSalesFieldsToInsert = (
 
 const mapMembershipSalesFieldsToPatch = (
   input: PatchMembershipInput,
-): Partial<typeof enterprisesMembers.$inferInsert> =>
-  mapMembershipSalesFieldsToInsert(input);
+): Partial<typeof enterprisesMembers.$inferInsert> => ({
+  ...mapMembershipSalesFieldsToInsert(input),
+  ...(input.observations !== undefined
+    ? { observations: input.observations.trim() }
+    : {}),
+  ...(input.comissionService !== undefined
+    ? {
+        comissionService: formatMembershipPercentage(
+          input.comissionService,
+        ).toFixed(2),
+      }
+    : {}),
+  ...(input.typeSupplierCustomerId !== undefined
+    ? { typeSupplierCustomerId: input.typeSupplierCustomerId }
+    : {}),
+  ...(input.typeNetworkId !== undefined
+    ? { typeNetworkId: input.typeNetworkId }
+    : {}),
+});
 
 const mapMemberWithUser = ({
   member,
@@ -494,6 +508,42 @@ export class MembershipsService {
       throw new NotFoundError("Empresa nao encontrada", "ENTERPRISE_NOT_FOUND");
     }
     return enterprise;
+  }
+
+  //Verifica se os tipos de fornecedor/cliente e de rede informados existem
+  private async assertMembershipTypeReferences(input: {
+    typeSupplierCustomerId?: string | undefined;
+    typeNetworkId?: string | undefined;
+  }): Promise<void> {
+    if (input.typeSupplierCustomerId !== undefined) {
+      const [type] = await db
+        .select({ id: typeSupplierCustomers.id })
+        .from(typeSupplierCustomers)
+        .where(eq(typeSupplierCustomers.id, input.typeSupplierCustomerId))
+        .limit(1);
+
+      if (!type) {
+        throw new NotFoundError(
+          "Tipo de fornecedor/cliente nao encontrado",
+          "TYPE_SUPPLIER_CUSTOMER_NOT_FOUND",
+        );
+      }
+    }
+
+    if (input.typeNetworkId !== undefined) {
+      const [type] = await db
+        .select({ id: typeNetworks.id })
+        .from(typeNetworks)
+        .where(eq(typeNetworks.id, input.typeNetworkId))
+        .limit(1);
+
+      if (!type) {
+        throw new NotFoundError(
+          "Tipo de rede nao encontrado",
+          "TYPE_NETWORK_NOT_FOUND",
+        );
+      }
+    }
   }
 
   //Verifica se os departamentos existem no catálogo global e estão ativos
@@ -1169,6 +1219,8 @@ export class MembershipsService {
     if (!existingMember) {
       throw new NotFoundError("Membro nao encontrado", "MEMBERSHIP_NOT_FOUND");
     }
+
+    await this.assertMembershipTypeReferences(input);
 
     const auditCtx: EntityAuditContext = {
       ...audit,

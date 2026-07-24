@@ -606,7 +606,60 @@ export class ProductsEnterprisesService {
   }
 
   public async getById(enterpriseId: string, id: string) {
-    return this.getLinkedRow(enterpriseId, id);
+    const row = await db.query.productsEnterprises.findFirst({
+      where: and(
+        eq(productsEnterprises.enterprisesId, enterpriseId),
+        eq(productsEnterprises.id, id),
+      ),
+      with: {
+        product: true,
+        measurementUnit: true,
+        productType: true,
+        productNcm: true,
+        productCest: true,
+        productAnp: true,
+        productNbs: true,
+        productGroup: true,
+        productSubgroup: true,
+        productBrand: true,
+      },
+    });
+
+    if (!row) {
+      throw new NotFoundError(
+        "Vinculo produto/empresa nao encontrado",
+        "PRODUCT_ENTERPRISE_NOT_FOUND",
+      );
+    }
+
+    const {
+      product,
+      measurementUnit,
+      productType,
+      productNcm,
+      productCest,
+      productAnp,
+      productNbs,
+      productGroup,
+      productSubgroup,
+      productBrand,
+      ...link
+    } = row;
+
+    return {
+      ...link,
+      status: product.status,
+      barCode: product.barCode,
+      measurementUnit,
+      productType,
+      productNcm: productNcm ?? null,
+      productCest: productCest ?? null,
+      productAnp: productAnp ?? null,
+      productNbs: productNbs ?? null,
+      productGroup,
+      productSubgroup,
+      productBrand,
+    };
   }
 
   public async getByCode(enterpriseId: string, code: number) {

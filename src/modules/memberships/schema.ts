@@ -43,7 +43,10 @@ const membershipSalesFieldsSchema = z
     comissionToTerms: membershipPercentageSchema.optional(),
     comissionPartial: membershipPercentageSchema.optional(),
     notifyMaturity: z.boolean().optional(),
-    rentalPrice: z.coerce.number().min(0).optional(),
+    observations: z.string().max(500).optional(),
+    comissionService: membershipPercentageSchema.optional(),
+    typeSupplierCustomerId: uuidSchema("typeSupplierCustomerId").optional(),
+    typeNetworkId: uuidSchema("typeNetworkId").optional(),
   })
   .strict();
 
@@ -57,7 +60,10 @@ const hasMembershipSalesField = (
   data.comissionToTerms !== undefined ||
   data.comissionPartial !== undefined ||
   data.notifyMaturity !== undefined ||
-  data.rentalPrice !== undefined;
+  data.observations !== undefined ||
+  data.comissionService !== undefined ||
+  data.typeSupplierCustomerId !== undefined ||
+  data.typeNetworkId !== undefined;
 
 //Esquema de empresa de membro
 export const membershipEnterpriseParamsSchema = z

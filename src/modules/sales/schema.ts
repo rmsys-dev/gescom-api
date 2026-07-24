@@ -30,6 +30,8 @@ const percentageOpt = z.number().min(0).max(100).optional();
 const monetaryOpt = z.number().min(0).optional();
 
 const saleServiceTypeSchema = z.enum(["SERVICO", "GARANTIA"]);
+/** Tipo do serviço no item (PROPRIO / OUTROS); default PROPRIO no banco. */
+const typeServiceSchema = z.enum(["PROPRIO", "OUTROS"]);
 
 const saleServiceFieldsSchema = {
   vehicleMileage: z.number().int().min(0).optional(),
@@ -39,7 +41,7 @@ const saleServiceFieldsSchema = {
   serviceType: saleServiceTypeSchema.optional(),
   /** Modelo de OS; tipicamente VEICULO. Default VEICULO quando type = ORDEM DE SERVICO. */
   modelService: orderServiceModelSchema.optional(),
-  /** Vinculo veiculo × membro; na criacao e obrigatorio (ver createSaleSchema). */
+  /** Vinculo veiculo × membro; obrigatorio na criacao de ORDEM DE SERVICO. */
   vehiclesEnterprisesMembersId: z.string().uuid().optional(),
 };
 
@@ -153,6 +155,16 @@ export const saleItemInputSchema = z
      * Somente em ORDEM DE SERVICO; grava em mechanic_sales_items.
      */
     mechanics: z.array(saleItemMechanicInputSchema).min(1).optional(),
+    /**
+     * Descrição livre do item (serviço em orçamento/OS).
+     * Null/omitido = usa a descrição do cadastro do produto.
+     */
+    description: z.string().trim().min(1).max(255).nullable().optional(),
+    /**
+     * Tipo do serviço no item (PROPRIO / OUTROS).
+     * Somente em item de serviço; omitido = PROPRIO no banco.
+     */
+    typeService: typeServiceSchema.optional(),
   })
   .strict()
   .superRefine((data, ctx) => {
@@ -263,7 +275,8 @@ export const createSaleSchema = z
     valueAcresceItems: decimalOpt,
     ...saleFinancialAdjustmentsSchema,
     ...saleServiceFieldsSchema,
-    vehiclesEnterprisesMembersId: z.string().uuid(),
+    /** Obrigatorio apenas em ORDEM DE SERVICO (ver superRefine). */
+    vehiclesEnterprisesMembersId: z.string().uuid().optional(),
     /** Opcional; default ABERTA. Informe FINALIZADA apenas ao criar venda ja fechada (com payments). */
     status: saleStatusSchema.default("ABERTA"),
     /** Canal de fechamento; somente ao criar ja FINALIZADA. */
@@ -276,6 +289,18 @@ export const createSaleSchema = z
   })
   .strict()
   .superRefine((data, ctx) => {
+    if (
+      data.type === "ORDEM DE SERVICO" &&
+      data.vehiclesEnterprisesMembersId === undefined
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["vehiclesEnterprisesMembersId"],
+        message:
+          "vehiclesEnterprisesMembersId e obrigatorio em ORDEM DE SERVICO",
+      });
+    }
+
     if (data.type !== "ORDEM DE SERVICO" && data.serviceType !== undefined) {
       ctx.addIssue({
         code: "custom",
@@ -446,6 +471,10 @@ export const patchSaleItemSchema = z
     stockSectorId: z.string().uuid().optional(),
     stockLocationId: z.string().uuid().optional(),
     stockBatchId: z.string().uuid().nullable().optional(),
+    /** Descrição livre (serviço); null limpa e volta ao cadastro do produto. */
+    description: z.string().trim().min(1).max(255).nullable().optional(),
+    /** Tipo do serviço (PROPRIO / OUTROS); somente em item de serviço. */
+    typeService: typeServiceSchema.optional(),
   })
   .strict()
   .refine(

@@ -314,3 +314,7 @@ export const integerOrFractionalEnum = pgEnum("integer_or_fractional", ["INTEIRO
 
 // modelo de ordem servico
 export const orderServiceModelEnum = pgEnum("order_service_model", ["VEICULO"]);
+
+// tipo de serviço ( PROPRIO, OUTROS )
+export const typeServiceEnum = pgEnum("type_service", ["PROPRIO", "OUTROS"]);
+

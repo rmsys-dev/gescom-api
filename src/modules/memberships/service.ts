@@ -9,7 +9,7 @@ import {
   isNull,
   ne,
 } from "drizzle-orm";
-import { db } from "../../db/schema.js";
+import { db, typeNetworks, typeSupplierCustomers } from "../../db/schema.js";
 import {
   ceps,
   cities,
@@ -104,6 +104,8 @@ type MemberUserSummary = {
 type MemberWithUserRow = {
   member: typeof enterprisesMembers.$inferSelect;
   user: MemberUserSummary;
+  typeSupplierCustomer?: typeof typeSupplierCustomers.$inferSelect | null;
+  typeNetwork?: typeof typeNetworks.$inferSelect | null;
 };
 
 const formatAddressLine = (street: string, number: string): string => {
@@ -220,7 +222,12 @@ const mapMembershipSalesFieldsToPatch = (
 ): Partial<typeof enterprisesMembers.$inferInsert> =>
   mapMembershipSalesFieldsToInsert(input);
 
-const mapMemberWithUser = ({ member, user }: MemberWithUserRow) => ({
+const mapMemberWithUser = ({
+  member,
+  user,
+  typeSupplierCustomer,
+  typeNetwork,
+}: MemberWithUserRow) => ({
   id: member.id,
   code: member.code,
   status: member.status,
@@ -234,12 +241,15 @@ const mapMemberWithUser = ({ member, user }: MemberWithUserRow) => ({
   comissionOnSight: member.comissionOnSight,
   comissionToTerms: member.comissionToTerms,
   comissionPartial: member.comissionPartial,
+  comissionService: member.comissionService,
   notifyMaturity: member.notifyMaturity,
   includedBy: member.includedBy,
   registeredOn: member.registeredOn,
   approvedAt: member.approvedAt,
   createdAt: member.createdAt,
   updatedAt: member.updatedAt,
+  typeSupplierCustomer: typeSupplierCustomer ?? null,
+  typeNetwork: typeNetwork ?? null,
   user,
 });
 
@@ -313,7 +323,11 @@ export class MembershipsService {
     const memberIds = idPage.map((row) => row.id);
     const rows = await db.query.enterprisesMembers.findMany({
       where: inArray(enterprisesMembers.id, memberIds),
-      with: { user: true },
+      with: {
+        user: true,
+        typeSupplierCustomer: true,
+        typeNetwork: true,
+      },
     });
 
     const rowsById = new Map(rows.map((row) => [row.id, row]));
@@ -344,6 +358,8 @@ export class MembershipsService {
             addressLine: address?.addressLine ?? null,
             cityName: address?.cityName ?? null,
           },
+          typeSupplierCustomer: row.typeSupplierCustomer ?? null,
+          typeNetwork: row.typeNetwork ?? null,
         }),
       ];
     });
@@ -368,6 +384,8 @@ export class MembershipsService {
       ),
       with: {
         user: true,
+        typeSupplierCustomer: true,
+        typeNetwork: true,
         departments: {
           where: and(
             eq(membersDepartments.status, "ATIVO"),
@@ -435,6 +453,8 @@ export class MembershipsService {
           userEmail: row.user.userEmail,
           userPhone: row.user.userPhone,
         },
+        typeSupplierCustomer: row.typeSupplierCustomer ?? null,
+        typeNetwork: row.typeNetwork ?? null,
       }),
       departments,
     };

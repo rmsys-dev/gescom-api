@@ -116,6 +116,11 @@ export class VehiclesEnterprisesMembersService {
           updatedAt: vehiclesEnterprisesMembers.updatedAt,
           plate: vehicles.plate,
           model: vehicles.model,
+          renavam: vehicles.renavam,
+          color: vehicles.color,
+          fuelType: vehicles.fuelType,
+          vehicleYear: vehicles.vehicleYear,
+          fleetNumber: vehicles.fleetNumber,
         })
         .from(vehiclesEnterprisesMembers)
         .innerJoin(
@@ -162,6 +167,11 @@ export class VehiclesEnterprisesMembersService {
           updatedAt: vehiclesEnterprisesMembers.updatedAt,
           plate: vehicles.plate,
           model: vehicles.model,
+          renavam: vehicles.renavam,
+          color: vehicles.color,
+          fuelType: vehicles.fuelType,
+          vehicleYear: vehicles.vehicleYear,
+          fleetNumber: vehicles.fleetNumber,
         })
         .from(vehiclesEnterprisesMembers)
         .innerJoin(

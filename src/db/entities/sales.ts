@@ -21,6 +21,7 @@ import {
   paymentTypeEnum,
   saleServiceTypeEnum,
   orderServiceModelEnum,
+  typeServiceEnum,
 } from "../enums.js";
 import { users } from "./users.js";
 import { enterprisesMembers } from "./members.js";
@@ -182,6 +183,8 @@ export const salesItems = pgTable(
     ).notNull(),
     valueAcresce: decimal("value_acresce", valorQuatroCasasDecimais).notNull(),
     valueTotal: decimal("value_total", valorQuatroCasasDecimais).notNull(),
+    /** Descrição livre do item (ex.: serviço no orçamento); null = usa cadastro do produto. */
+    description: varchar("description", { length: 255 }),
     averageCost: decimal("average_cost", valorQuatroCasasDecimais), // custo médio
     actualRealCost: decimal("actual_real_cost", valorQuatroCasasDecimais), // custo real
     priceCost: decimal("price_cost", valorQuatroCasasDecimais), // custo atual
@@ -229,6 +232,7 @@ export const salesItems = pgTable(
       (): AnyPgColumn => salesItems.id,
       { onDelete: "restrict" },
     ), // item de ordem de serviço
+    typeService: typeServiceEnum("type_service").notNull().default("PROPRIO"), // tipo de serviço (PROPRIO, OUTROS)      
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),

@@ -89,7 +89,7 @@ import {
   resolveSaleClosingOrigin,
   type SaleOrigin,
 } from "./sale-origin.js";
-// (sem fallback no filtro de dateFrom/dateTo da listagem)
+import { effectiveCompletionDateSql } from "./analytics/scope.js";
 import {
   computeItemValueTotal,
   convertBudgetItemInputSchema,
@@ -574,12 +574,13 @@ export class SalesService {  // Servico de vendas
       );
     }
     if (query?.dateFrom && query?.dateTo) {
+      // completedionDate quando houver; senão createdAt (orçamentos/vendas abertos).
+      const timezone = "America/Sao_Paulo";
+      const effective = effectiveCompletionDateSql(timezone);
       filters.push(
         and(
-          // Remover fallback: se completedionDate for NULL, não entra na listagem.
-          sql`${sales.completedionDate} IS NOT NULL`,
-          gte(sales.completedionDate, sql`${query.dateFrom}::date`),
-          lte(sales.completedionDate, sql`${query.dateTo}::date`),
+          gte(effective, sql`${query.dateFrom}::date`),
+          lte(effective, sql`${query.dateTo}::date`),
         )!,
       );
     }
@@ -619,11 +620,14 @@ export class SalesService {  // Servico de vendas
   ) {
     const quantity = decNum(item.quantity);
     const quantityConverted = decNum(item.quantityConverted);
+    const customDescription = item.description?.trim() || null;
     return {
       ...item,
+      description: customDescription,
       quantityConverted: item.quantityConverted,
       quantityRemaining: Math.max(0, quantity - quantityConverted),
-      productDescription: product?.productDescription ?? null,
+      productDescription:
+        customDescription ?? product?.productDescription ?? null,
       productCode: product?.productCode ?? null,
     };
   }
@@ -855,6 +859,49 @@ export class SalesService {  // Servico de vendas
     }
   }
 
+  /** Descrição livre do item só é permitida em produto tipo serviço (09). */
+  private async assertServiceItemDescription(
+    productTypeId: string,
+    description: string | null | undefined,
+    path: string,
+  ) {
+    if (description === undefined || description === null) return;
+    const typeCode = await getProductTypeCode(productTypeId);
+    if (!typeCode || !isServiceProductType(typeCode)) {
+      throw new ValidationError(
+        [
+          {
+            path,
+            message: "Descricao livre so e permitida em item de servico",
+          },
+        ],
+        "Descricao invalida",
+      );
+    }
+  }
+
+  /** typeService (PROPRIO/OUTROS) só é permitido em produto tipo serviço (09). */
+  private async assertServiceItemTypeService(
+    productTypeId: string,
+    typeService: "PROPRIO" | "OUTROS" | undefined,
+    path: string,
+  ) {
+    if (typeService === undefined) return;
+    const typeCode = await getProductTypeCode(productTypeId);
+    if (!typeCode || !isServiceProductType(typeCode)) {
+      throw new ValidationError(
+        [
+          {
+            path,
+            message:
+              "typeService (PROPRIO/OUTROS) so e permitido em item de servico",
+          },
+        ],
+        "Tipo de servico invalido",
+      );
+    }
+  }
+
   private assertBudgetEditableForItems(budget: typeof sales.$inferSelect) {  // Verifica se o orcamento/OS esta aberto para alterar itens
     this.assertSaleOpenForItems(budget);
     if (
@@ -976,6 +1023,8 @@ export class SalesService {  // Servico de vendas
       stockSectorId: budgetItem.stockSectorId ?? undefined,
       stockLocationId: budgetItem.stockLocationId ?? undefined,
       stockBatchId: budgetItem.stockBatchId ?? undefined,
+      description: budgetItem.description ?? undefined,
+      typeService: budgetItem.typeService ?? undefined,
     } satisfies CreateSaleItemInput;
   }
 
@@ -1301,6 +1350,11 @@ export class SalesService {  // Servico de vendas
       PercentageComissionSeller: "0.00",
       PercentageComissionManager: "0.00",
       origin,
+      description: item.description ?? null,
+      // Só faz sentido em serviço; peca/produto fica no default do banco.
+      ...(item.typeService !== undefined
+        ? { typeService: item.typeService }
+        : {}),
     };
   }
 
@@ -1687,6 +1741,14 @@ export class SalesService {  // Servico de vendas
         input.stockBatchId !== undefined
           ? input.stockBatchId ?? undefined
           : existing.stockBatchId ?? undefined,
+      description:
+        input.description !== undefined
+          ? input.description
+          : existing.description ?? undefined,
+      typeService:
+        input.typeService !== undefined
+          ? input.typeService
+          : existing.typeService ?? undefined,
     };
   }
 
@@ -1943,10 +2005,24 @@ export class SalesService {  // Servico de vendas
   private resolveVehiclesEnterprisesMembersId(
     inputId: string | undefined,
     sourceId: string | null | undefined,
+    path?: string,
+    required?: true,
+  ): string;
+  private resolveVehiclesEnterprisesMembersId(
+    inputId: string | undefined,
+    sourceId: string | null | undefined,
+    path: string | undefined,
+    required: false,
+  ): string | null;
+  private resolveVehiclesEnterprisesMembersId(
+    inputId: string | undefined,
+    sourceId: string | null | undefined,
     path = "body.vehiclesEnterprisesMembersId",
-  ): string {
+    required = true,
+  ): string | null {
     const resolved = inputId ?? sourceId ?? undefined;
     if (!resolved) {
+      if (!required) return null;
       throw new ValidationError(
         [
           {
@@ -2466,12 +2542,24 @@ export class SalesService {  // Servico de vendas
     try {
       const saleId = await db.transaction(async (tx) => {
         await this.assertClientMember(tx, enterpriseId, input.memberId);
-        await this.assertVehiclesEnterprisesMember(
-          tx,
-          enterpriseId,
-          input.vehiclesEnterprisesMembersId,
-          input.memberId,
-        );
+        if (input.vehiclesEnterprisesMembersId) {
+          await this.assertVehiclesEnterprisesMember(
+            tx,
+            enterpriseId,
+            input.vehiclesEnterprisesMembersId,
+            input.memberId,
+          );
+        } else if (input.type === "ORDEM DE SERVICO") {
+          throw new ValidationError(
+            [
+              {
+                path: "body.vehiclesEnterprisesMembersId",
+                message: "Informe vehiclesEnterprisesMembersId",
+              },
+            ],
+            "Veiculo obrigatorio",
+          );
+        }
 
         let orderNumber: number;
         if (input.orderNumber !== undefined) {
@@ -2530,7 +2618,8 @@ export class SalesService {  // Servico de vendas
             status,
             ...(closingOrigin !== undefined ? { origin: closingOrigin } : {}),
             completedionDate: status === "FINALIZADA" ? new Date() : null,
-            vehiclesEnterprisesMembersId: input.vehiclesEnterprisesMembersId,
+            vehiclesEnterprisesMembersId:
+              input.vehiclesEnterprisesMembersId ?? null,
             enterprisesId: enterpriseId,
           })
           .returning();
@@ -2556,6 +2645,17 @@ export class SalesService {  // Servico de vendas
           } else {
             await validateSaleItemStock(enterpriseId, itemInput, `items.${i}`);
           }
+
+          await this.assertServiceItemDescription(
+            itemInput.productTypeId,
+            itemInput.description,
+            `items.${i}.description`,
+          );
+          await this.assertServiceItemTypeService(
+            itemInput.productTypeId,
+            itemInput.typeService,
+            `items.${i}.typeService`,
+          );
 
           const actor = await this.resolveItemActor(
             auth,
@@ -3146,13 +3246,17 @@ export class SalesService {  // Servico de vendas
           this.resolveVehiclesEnterprisesMembersId(
             input.vehiclesEnterprisesMembersId,
             budget.vehiclesEnterprisesMembersId,
+            "body.vehiclesEnterprisesMembersId",
+            false,
           );
-        await this.assertVehiclesEnterprisesMember(
-          tx,
-          enterpriseId,
-          vehiclesEnterprisesMembersId,
-          memberId,
-        );
+        if (vehiclesEnterprisesMembersId) {
+          await this.assertVehiclesEnterprisesMember(
+            tx,
+            enterpriseId,
+            vehiclesEnterprisesMembersId,
+            memberId,
+          );
+        }
 
         const orderNumber = await nextSaleOrderNumber(enterpriseId, tx);
 
@@ -4249,6 +4353,17 @@ export class SalesService {  // Servico de vendas
         await validateSaleItemStock(enterpriseId, input, "body");
       }
 
+      await this.assertServiceItemDescription(
+        input.productTypeId,
+        input.description,
+        "body.description",
+      );
+      await this.assertServiceItemTypeService(
+        input.productTypeId,
+        input.typeService,
+        "body.typeService",
+      );
+
       const actor = await this.resolveItemActor(
         auth,
         enterpriseId,
@@ -4424,6 +4539,17 @@ export class SalesService {  // Servico de vendas
       const merged = this.mergeSaleItemPatch(existing, input);
       this.assertBudgetItemEditable(sale, existing, merged.quantity);
 
+      await this.assertServiceItemDescription(
+        merged.productTypeId,
+        input.description,
+        "body.description",
+      );
+      await this.assertServiceItemTypeService(
+        merged.productTypeId,
+        input.typeService,
+        "body.typeService",
+      );
+
       if (sale.type === "VENDA") {
         const existingTypeCode = await getProductTypeCode(existing.productTypeId);
         const existingIsService =
@@ -4481,6 +4607,10 @@ export class SalesService {  // Servico de vendas
           stockSectorId: pricedItem.stockSectorId ?? null,
           stockLocationId: pricedItem.stockLocationId ?? null,
           stockBatchId: pricedItem.stockBatchId ?? null,
+          description: pricedItem.description ?? null,
+          ...(pricedItem.typeService !== undefined
+            ? { typeService: pricedItem.typeService }
+            : {}),
           priceSale: priceSnapshot?.priceSale ?? existing.priceSale,
           promotionalPriceId:
             priceSnapshot?.promotionalPriceId ?? null,

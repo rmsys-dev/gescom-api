@@ -386,6 +386,20 @@
       "when": 1784806294664,
       "tag": "0054_daffy_forge",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1784820000000,
+      "tag": "0055_sales_items_description",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1784900314441,
+      "tag": "0056_huge_banshee",
+      "breakpoints": true
     }
   ]
 }

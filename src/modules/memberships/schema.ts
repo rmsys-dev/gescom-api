@@ -9,6 +9,7 @@ import {
   createPaginationQuerySchema,
   cpfCnpjSchema,
   emailSchema,
+  optionalTrimmedStringSchema,
   phoneSchema,
   uuidSchema,
 } from "../../shared/validation/common-schemas.js";
@@ -22,6 +23,7 @@ export const listMembersQuerySchema = createPaginationQuerySchema(100)
     class: z.enum(memberClassEnum.enumValues).optional(),
     status: z.enum(statusEnum.enumValues).optional(),
     postSalesStatus: z.enum(statusEnum.enumValues).optional(),
+    name: optionalTrimmedStringSchema("name", 255).optional(),
     registration: registrationSchema.optional(),
     email: emailSchema("email").optional(),
     phone: phoneSchema("phone").optional(),

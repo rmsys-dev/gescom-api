@@ -1,4 +1,14 @@
-import { and, asc, count, desc, eq, inArray, isNull, ne } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNull,
+  ne,
+} from "drizzle-orm";
 import { db } from "../../db/schema.js";
 import {
   ceps,
@@ -264,11 +274,11 @@ export class MembershipsService {
         eq(enterprisesMembers.postSalesStatus, filters.postSalesStatus),
       );
     }
+    if (filters.name !== undefined) {
+      memberFilters.push(ilike(users.userName, `%${filters.name}%`));
+    }
     if (filters.registration !== undefined) {
       memberFilters.push(eq(users.userRegistration, filters.registration));
-    }
-    if (filters.code !== undefined) {
-      memberFilters.push(eq(enterprisesMembers.code, filters.code));
     }
     if (filters.email !== undefined) {
       memberFilters.push(eq(users.userEmail, filters.email));

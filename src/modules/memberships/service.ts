@@ -249,6 +249,7 @@ const mapMemberWithUser = ({
   userId: member.userId,
   enterpriseId: member.enterpriseId,
   class: member.class,
+  observations: member.observations,
   saleLimit: member.saleLimit,
   exceedDiscountSale: member.exceedDiscountSale,
   receiptLimitDiscount: member.receiptLimitDiscount,

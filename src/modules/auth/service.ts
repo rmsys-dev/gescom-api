@@ -27,6 +27,7 @@ import {
   findUserById,
   listActiveEnterprisesForUser,
   revokeAllSessionsForUser,
+  revokeMatchingClientSessionsForUser,
   revokeSession,
   type UserEnterpriseMembership,
 } from "./repository.js";
@@ -126,7 +127,12 @@ export class AuthService {
       );
     }
 
-    await revokeAllSessionsForUser(user.id, "LOGIN_REPLACED");
+    await revokeMatchingClientSessionsForUser(
+      user.id,
+      input.ipAddress,
+      input.userAgent,
+      "LOGIN_REPLACED",
+    );
 
     const selectedMembership = memberships[0];
 

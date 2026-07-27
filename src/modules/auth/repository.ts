@@ -378,6 +378,39 @@ export const revokeAllSessionsForUser = async (
     );
 };
 
+/**
+ * Revoga sessões ativas do utilizador com o mesmo par ipAddress + userAgent.
+ * Usado no login para substituir a sessão do mesmo cliente sem derrubar outros dispositivos.
+ */
+export const revokeMatchingClientSessionsForUser = async (
+  userId: string,
+  ipAddress: string | null,
+  userAgent: string | null,
+  reason: string,
+  executor: DbExecutor = db,
+): Promise<void> => {
+  if (ipAddress === null || userAgent === null) {
+    return;
+  }
+
+  const now = new Date();
+  await executor
+    .update(userSessions)
+    .set({
+      revokedAt: now,
+      revokedReason: reason,
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(userSessions.userId, userId),
+        isNull(userSessions.revokedAt),
+        eq(userSessions.ipAddress, ipAddress),
+        eq(userSessions.userAgent, userAgent),
+      ),
+    );
+};
+
 export const findUserById = async (
   userId: string,
 ): Promise<typeof users.$inferSelect | null> => {

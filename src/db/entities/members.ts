@@ -33,7 +33,9 @@ export const enterprisesMembers = pgTable(
 
     code: integer("code"), // Código do membro
     status: statusEnum("status").default("PENDENTE").notNull(), // Status da venda.
-    postSalesStatus: statusEnum("post_sales_status").default("PENDENTE").notNull(), // Status pós-venda
+    postSalesStatus: statusEnum("post_sales_status")
+      .default("PENDENTE")
+      .notNull(), // Status pós-venda
     class: memberClassEnum("class").notNull(), // Classe
     observations: varchar("observations", { length: 500 }), // Observações
     registeredOn: date("registered_on", { mode: "date" })
@@ -111,7 +113,7 @@ export const userInvitations = pgTable(
     sentTo: varchar("sent_to", { length: 255 }).notNull(),
     attempts: integer("attempts").default(0).notNull(),
     maxAttempts: integer("max_attempts").default(5).notNull(),
-    expiresAt: date("expires_at", { mode: "date" }).notNull(),
+    expiresAt: tz("expires_at").notNull(),
     consumedAt: date("consumed_at", { mode: "date" }),
     ipAddress: varchar("ip_address", { length: 64 }),
     userAgent: varchar("user_agent", { length: 500 }),

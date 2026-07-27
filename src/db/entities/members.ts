@@ -114,7 +114,7 @@ export const userInvitations = pgTable(
     attempts: integer("attempts").default(0).notNull(),
     maxAttempts: integer("max_attempts").default(5).notNull(),
     expiresAt: tz("expires_at").notNull(),
-    consumedAt: date("consumed_at", { mode: "date" }),
+    consumedAt: tz("consumed_at"),
     ipAddress: varchar("ip_address", { length: 64 }),
     userAgent: varchar("user_agent", { length: 500 }),
     createdAt: tz("created_at").defaultNow().notNull(),

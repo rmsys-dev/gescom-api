@@ -35,11 +35,16 @@ export class UnauthorizedError extends AppError {
 }
 
 export class ForbiddenError extends AppError {
-  public constructor(message = "Acesso negado", code = "FORBIDDEN") {
+  public constructor(
+    message = "Acesso negado",
+    code = "FORBIDDEN",
+    details?: ApiErrorDetails,
+  ) {
     super({
       statusCode: 403,
       code,
       message,
+      details,
     });
   }
 }

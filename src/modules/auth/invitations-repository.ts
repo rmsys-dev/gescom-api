@@ -1,5 +1,5 @@
 import { randomInt } from "crypto";
-import { and, count, desc, eq, gte, isNull, sql } from "drizzle-orm";
+import { and, count, desc, eq, gt, gte, isNull, sql } from "drizzle-orm";
 import { db } from "../../db/schema.js";
 import {
   enterprises,
@@ -119,6 +119,54 @@ export const findPendingInviteFirstAccessForUser = async (
     )
     .limit(1);
   return rows[0] ?? null;
+};
+
+export type PendingMembershipAcceptInvite = {
+  inviteId: string;
+  memberId: string;
+  enterpriseId: string;
+  enterpriseTradeName: string;
+  expiresAt: Date;
+};
+
+/** Convites MEMBERSHIP_ACCEPT válidos (não expirados) com vínculo ainda PENDENTE. */
+export const findPendingMembershipAcceptInvitesForUser = async (
+  userId: string,
+): Promise<PendingMembershipAcceptInvite[]> => {
+  const now = new Date();
+  const rows = await db
+    .select({
+      inviteId: userInvitations.id,
+      memberId: enterprisesMembers.id,
+      enterpriseId: enterprises.id,
+      enterpriseTradeName: enterprises.tradeName,
+      expiresAt: userInvitations.expiresAt,
+    })
+    .from(userInvitations)
+    .innerJoin(
+      enterprisesMembers,
+      eq(enterprisesMembers.id, userInvitations.memberId),
+    )
+    .innerJoin(
+      enterprises,
+      eq(enterprises.id, enterprisesMembers.enterpriseId),
+    )
+    .where(
+      and(
+        eq(userInvitations.userId, userId),
+        eq(userInvitations.purpose, "MEMBERSHIP_ACCEPT"),
+        isNull(userInvitations.consumedAt),
+        isNull(userInvitations.deletedAt),
+        gt(userInvitations.expiresAt, now),
+        eq(enterprisesMembers.status, "PENDENTE"),
+        isNull(enterprisesMembers.deletedAt),
+        eq(enterprises.status, "ATIVO"),
+        isNull(enterprises.deletedAt),
+      ),
+    )
+    .orderBy(desc(userInvitations.createdAt));
+
+  return rows;
 };
 
 export const countInvitationsByUserSince = async (input: {

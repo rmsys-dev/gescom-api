@@ -16,6 +16,7 @@ import {
 import { writeAudit } from "./audit.js";
 import { verifyLoginCredentials } from "./credentials.js";
 import { mapAuthUser, mapEnterprises } from "./enterprise-map.js";
+import { findPendingMembershipAcceptInvitesForUser } from "./invitations-repository.js";
 import { listAllowed, resolvePermissionsBatch } from "./permissions.js";
 import {
   findActiveSessionByJti,
@@ -121,6 +122,30 @@ export class AuthService {
 
     const memberships = await listActiveEnterprisesForUser(user.id);
     if (memberships.length === 0) {
+      const pendingInvites =
+        await findPendingMembershipAcceptInvitesForUser(user.id);
+
+      if (pendingInvites.length > 0) {
+        throw new ForbiddenError(
+          "Usuario possui convite de vinculo pendente",
+          "MEMBERSHIP_INVITE_PENDING",
+          pendingInvites.flatMap((invite, index) => [
+            {
+              path: `invites[${index}].memberId`,
+              message: invite.memberId,
+            },
+            {
+              path: `invites[${index}].enterpriseId`,
+              message: invite.enterpriseId,
+            },
+            {
+              path: `invites[${index}].enterpriseTradeName`,
+              message: invite.enterpriseTradeName,
+            },
+          ]),
+        );
+      }
+
       throw new ForbiddenError(
         "Usuario nao possui vinculo ativo com empresa",
         "ENTERPRISE_FORBIDDEN",

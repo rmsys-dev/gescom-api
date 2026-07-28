@@ -611,7 +611,7 @@ export class MembershipsService {
         and(
           eq(enterprisesMembers.userId, userId),
           eq(enterprisesMembers.enterpriseId, enterpriseId),
-          eq(enterprisesMembers.class, memberClass),          
+          eq(enterprisesMembers.class, memberClass),
           isNull(enterprisesMembers.deletedAt),
         ),
       )
@@ -765,14 +765,18 @@ export class MembershipsService {
       throw new NotFoundError("Usuario nao encontrado", "USER_NOT_FOUND");
     }
 
-    await this.assertMembershipNotExists(enterpriseId, input.userId, input.class);
+    await this.assertMembershipNotExists(
+      enterpriseId,
+      input.userId,
+      input.class,
+    );
     await this.assertDepartmentsExistAndActive(input.departments);
 
     const hasCredentials = await userHasAnyActiveCredential(input.userId);
     const isCliente = input.class === "CLIENTE";
     if (hasCredentials && !isCliente) {
       throw new ConflictError(
-        "Para convidar utilizador com credenciais utilize POST /enterprises/:enterpriseId/members/invite",
+        "Não é possível adicionar um usuário com credenciais",
         "USE_MEMBERSHIP_INVITE",
       );
     }
@@ -847,7 +851,19 @@ export class MembershipsService {
       throw new NotFoundError("Usuario nao encontrado", "USER_NOT_FOUND");
     }
 
-    await this.assertMembershipNotExists(enterpriseId, targetUser.id, input.member.class);
+    const hasCredentials = await userHasAnyActiveCredential(targetUser.id);
+    if (!hasCredentials) {
+      throw new ConflictError(
+        "Não é possível convidar um usuário sem credenciais",
+        "USE_MEMBERSHIP_CREATE",
+      );
+    }
+
+    await this.assertMembershipNotExists(
+      enterpriseId,
+      targetUser.id,
+      input.member.class,
+    );
     await this.assertDepartmentsExistAndActive(input.member.departments);
 
     const auditCtx = withEnterpriseAuditContext(
@@ -1134,7 +1150,11 @@ export class MembershipsService {
         tx,
       });
 
-      await this.assertMembershipNotExists(enterpriseId, createdUser.id, input.member.class);
+      await this.assertMembershipNotExists(
+        enterpriseId,
+        createdUser.id,
+        input.member.class,
+      );
 
       const member = await this.createMembershipStructure(
         {

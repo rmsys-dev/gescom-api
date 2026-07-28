@@ -80,6 +80,9 @@ export const enterprisesMembers = pgTable(
       onDelete: "restrict",
     }),
     approvedAt: date("approved_at", { mode: "date" }), // Data de aprovação / ativação
+    approvedBy: uuid("approved_by").references(() => users.id, {
+      onDelete: "restrict",
+    }), // Aprovado por
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
     deletedAt: tz("deleted_at"),

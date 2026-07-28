@@ -89,14 +89,10 @@ export class MembershipsController {
       enterpriseId,
       body,
       reqAuth.auth.userId,
-      meta(req),
       membershipPostAudit(req, enterpriseId, "memberships.service.createWithNewUser"),
     );
     sendSuccessResponse(res, HttpStatus.CREATED, {
-      message:
-        body.sendEmail === true
-          ? "Membro e usuário criados com sucesso. E-mail de primeiro acesso enviado."
-          : "Membro e usuário criados com sucesso.",
+      message: "Membro e usuário criados com sucesso.",
       data: row,
     });
   };
@@ -109,15 +105,35 @@ export class MembershipsController {
       enterpriseId,
       body,
       reqAuth.auth.userId,
-      meta(req),
       membershipPostAudit(req, enterpriseId, "memberships.service.inviteMembership"),
     );
     sendSuccessResponse(res, HttpStatus.CREATED, {
-      message:
-        body.sendEmail === true
-          ? "Convite de membro enviado com sucesso."
-          : "Membro criado com sucesso.",
+      message: "Membro criado com sucesso.",
       data: row,
+    });
+  };
+
+  //Aprova cadastro de membro (PENDENTE → ATIVO; e-mails após aprovação excepto CLIENTE)
+  public approve = async (req: Request, res: Response): Promise<void> => {
+    const reqAuth = req as RequestWithAuth;
+    const enterpriseId = req.params["enterpriseId"] as string;
+    const memberId = req.params["memberId"] as string;
+    const result = await membershipsService.approveMembership(
+      enterpriseId,
+      memberId,
+      reqAuth.auth.userId,
+      meta(req),
+      membershipPatchAudit(req, enterpriseId, "memberships.service.approveMembership"),
+    );
+    const emailSuffix =
+      result.emailSent === "FIRST_ACCESS"
+        ? " E-mail de primeiro acesso enviado."
+        : result.emailSent === "MEMBERSHIP_ACCEPT"
+          ? " E-mail de convite enviado."
+          : "";
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: `Membro aprovado com sucesso.${emailSuffix}`,
+      data: result.member,
     });
   };
 

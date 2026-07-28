@@ -42,6 +42,7 @@ export function softDeleteValues<TStatus extends string>(
 export const membershipSoftDeleteValues = (now: Date) => ({
   ...softDeleteValues(now, { status: "INATIVO" as const }),
   approvedAt: null,
+  approvedBy: null,
 });
 
 /** Soft delete de vínculo membro-departamento (members_departments). */

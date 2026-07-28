@@ -19,10 +19,14 @@ import {
   patchMemberDepartmentSchema,
   patchMembershipSchema,
 } from "./schema.js";
+import {
+  emptyBodySchema,
+  emptyQuerySchema,
+} from "../../shared/validation/common-schemas.js";
 
 const membershipsRouter = Router({ mergeParams: true });
 
-//Criação de membro com usuário
+//Criação de membro com usuário (membro/departamentos PENDENTE; aprovação activa)
 membershipsRouter.post(
   "/create-with-user",
   authMiddleware,
@@ -36,7 +40,7 @@ membershipsRouter.post(
   membershipsController.createOnboard,
 );
 
-// Convite de vínculo (membro/departamentos PENDENTE; e-mail opcional)
+// Convite de vínculo (membro/departamentos PENDENTE; e-mail só na aprovação)
 membershipsRouter.post(
   "/invite",
   authMiddleware,
@@ -70,6 +74,20 @@ membershipsRouter.get(
   requirePermission("consultar_membros"),
   validateSchema({ params: membershipCodeParamsSchema }),
   membershipsController.getByCode,
+);
+
+//Aprovação de cadastro (PENDENTE → ATIVO; FIRST_ACCESS / MEMBERSHIP_ACCEPT excepto CLIENTE)
+membershipsRouter.post(
+  "/:memberId/approve",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("alterar_membros"),
+  validateSchema({
+    params: membershipPatchParamsSchema,
+    body: emptyBodySchema,
+    query: emptyQuerySchema,
+  }),
+  membershipsController.approve,
 );
 
 //Detalhe de membro por ID

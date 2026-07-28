@@ -50,6 +50,7 @@ import {
   memberDepartmentSoftDeleteValues,
   membershipSoftDeleteValues,
   softDeleteValues,
+  touchUpdatedAt,
 } from "../../shared/db/record-lifecycle.js";
 import {
   createUser,
@@ -261,6 +262,7 @@ const mapMemberWithUser = ({
   includedBy: member.includedBy,
   registeredOn: member.registeredOn,
   approvedAt: member.approvedAt,
+  approvedBy: member.approvedBy,
   createdAt: member.createdAt,
   updatedAt: member.updatedAt,
   typeSupplierCustomer: typeSupplierCustomer ?? null,
@@ -636,6 +638,7 @@ export class MembershipsService {
       status: "ATIVO" | "PENDENTE";
       departments: CreateMembershipInput["departments"];
       approvedAt: Date | null;
+      approvedBy?: string | null;
       memberDepartmentStatus: "ATIVO" | "PENDENTE";
       skipPermissionSnapshot: boolean;
       salesFields?: Pick<
@@ -660,6 +663,7 @@ export class MembershipsService {
         class: input.class,
         includedBy: input.actorUserId,
         approvedAt: input.approvedAt,
+        approvedBy: input.approvedBy ?? null,
         status: input.status,
         ...(input.salesFields
           ? mapMembershipSalesFieldsToInsert(input.salesFields)
@@ -747,17 +751,16 @@ export class MembershipsService {
 
   /**
    * Convite de vínculo: membro e departamentos sempre PENDENTE; snapshot de
-   * permissões no aceite (`MEMBERSHIP_ACCEPT`). Exige credenciais ativas,
-   * excepto classe CLIENTE.
+   * permissões e e-mails (MEMBERSHIP_ACCEPT) só na aprovação.
+   * Exige credenciais ativas, excepto classe CLIENTE.
    */
   public async inviteMembership(
     enterpriseId: string,
     input: InviteMembershipBody,
     actorUserId: string,
-    meta: AuthMeta,
     audit: EntityAuditContext,
   ) {
-    const enterprise = await this.assertEnterpriseExists(enterpriseId);
+    await this.assertEnterpriseExists(enterpriseId);
 
     const emailPart = input.inviteEmail
       ? await findUserByEmail(normalizeEmail(input.inviteEmail))
@@ -802,24 +805,6 @@ export class MembershipsService {
       enterpriseId,
     );
 
-    let plainCode: string | undefined;
-    let codeHash: string | undefined;
-    let expiresAt: Date | undefined;
-    let channel: "EMAIL" | "SMS" | undefined;
-    let sentTo: string | undefined;
-
-    if (input.sendEmail === true) {
-      plainCode = generateNumericInviteCode();
-      codeHash = await hashPassword(plainCode);
-      expiresAt = addMinutesFromNow(env.INVITATION_CODE_TTL_MINUTES);
-
-      const useEmail = Boolean(input.inviteEmail);
-      channel = useEmail ? "EMAIL" : "SMS";
-      sentTo = useEmail
-        ? normalizeEmail(input.inviteEmail!)
-        : normalizePhone(input.invitePhone!);
-    }
-
     const member = await db.transaction(async (tx) => {
       const m = await this.createMembershipStructure(
         {
@@ -831,6 +816,7 @@ export class MembershipsService {
           status: "PENDENTE",
           departments: input.member.departments,
           approvedAt: null,
+          approvedBy: null,
           memberDepartmentStatus: "PENDENTE",
           skipPermissionSnapshot: true,
           salesFields: input.member,
@@ -846,68 +832,17 @@ export class MembershipsService {
         tx,
       });
 
-      if (input.sendEmail === true) {
-        await invalidatePendingInvites(
-          {
-            userId: targetUser.id,
-            purpose: "MEMBERSHIP_ACCEPT",
-            memberId: m.id,
-          },
-          tx,
-        );
-
-        await createInvitationRow(
-          {
-            userId: targetUser.id,
-            purpose: "MEMBERSHIP_ACCEPT",
-            memberId: m.id,
-            codeHash: codeHash!,
-            channel: channel!,
-            sentTo: sentTo!,
-            maxAttempts: env.INVITATION_MAX_ATTEMPTS,
-            expiresAt: expiresAt!,
-            ipAddress: meta.ipAddress,
-            userAgent: meta.userAgent,
-          },
-          tx,
-        );
-      }
-
       return m;
     });
-
-    if (input.sendEmail === true) {
-      if (channel === "EMAIL") {
-        await sendMembershipInviteCode({
-          to: sentTo!,
-          code: plainCode!,
-          userName: targetUser.userName,
-          enterpriseTradeName: enterprise.tradeName,
-        });
-      }
-
-      await writeAudit({
-        event: "INVITE_CREATED",
-        userId: actorUserId,
-        enterpriseId,
-        ipAddress: meta.ipAddress,
-        userAgent: meta.userAgent,
-        requestId: meta.requestId,
-        reason:
-          channel === "EMAIL"
-            ? `Convite membro ${member.id}`
-            : `Convite membro ${member.id} (canal SMS sem envio automatico)`,
-      });
-    }
 
     return { memberId: member.id };
   }
 
   /**
-   * Convite FIRST_ACCESS + e-mail após POST create-with-user.
-   * Membros da classe CLIENTE não passam por este fluxo (sem convite nem envio).
+   * Convite FIRST_ACCESS + e-mail após aprovação de cadastro.
+   * Membros da classe CLIENTE não passam por este fluxo.
    */
-  private async queueFirstAccessInviteAfterOnboard(params: {
+  private async queueFirstAccessInviteAfterApprove(params: {
     userId: string;
     userEmail: string;
     userName: string;
@@ -973,7 +908,7 @@ export class MembershipsService {
         ipAddress: meta.ipAddress,
         userAgent: meta.userAgent,
         requestId: meta.requestId,
-        reason: "First access disparado via create-with-user",
+        reason: "First access disparado via aprovacao de membro",
       });
     } catch (error) {
       const reason =
@@ -1005,8 +940,93 @@ export class MembershipsService {
       ipAddress: meta.ipAddress,
       userAgent: meta.userAgent,
       requestId: meta.requestId,
-      reason: `Create-with-user ${userId} com vinculo ${memberId}`,
+      reason: `Aprovacao ${memberId} com first-access para ${userId}`,
     });
+  }
+
+  /**
+   * Convite MEMBERSHIP_ACCEPT + e-mail após aprovação (utilizador com credenciais).
+   * Membros da classe CLIENTE não passam por este fluxo.
+   */
+  private async queueMembershipInviteAfterApprove(params: {
+    userId: string;
+    userEmail: string;
+    userName: string;
+    memberId: string;
+    enterpriseId: string;
+    enterpriseTradeName: string;
+    actorUserId: string;
+    meta: AuthMeta;
+  }): Promise<void> {
+    const {
+      userId,
+      userEmail,
+      userName,
+      memberId,
+      enterpriseId,
+      enterpriseTradeName,
+      actorUserId,
+      meta,
+    } = params;
+
+    try {
+      const plainCode = generateNumericInviteCode();
+      const codeHash = await hashPassword(plainCode);
+      const expiresAt = addMinutesFromNow(env.INVITATION_CODE_TTL_MINUTES);
+
+      await db.transaction(async (tx) => {
+        await invalidatePendingInvites(
+          {
+            userId,
+            purpose: "MEMBERSHIP_ACCEPT",
+            memberId,
+          },
+          tx,
+        );
+
+        await createInvitationRow(
+          {
+            userId,
+            purpose: "MEMBERSHIP_ACCEPT",
+            memberId,
+            codeHash,
+            channel: "EMAIL",
+            sentTo: userEmail,
+            maxAttempts: env.INVITATION_MAX_ATTEMPTS,
+            expiresAt,
+            ipAddress: meta.ipAddress,
+            userAgent: meta.userAgent,
+          },
+          tx,
+        );
+      });
+
+      await sendMembershipInviteCode({
+        to: userEmail,
+        code: plainCode,
+        userName,
+        enterpriseTradeName,
+      });
+
+      await writeAudit({
+        event: "INVITE_CREATED",
+        userId: actorUserId,
+        enterpriseId,
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent,
+        requestId: meta.requestId,
+        reason: `Convite membro ${memberId} disparado via aprovacao`,
+      });
+    } catch (error) {
+      const reason =
+        error instanceof Error ? error.message : "Falha ao criar convite";
+
+      throw new InternalServerError(
+        "Nao foi possivel enviar o e-mail de convite",
+        "EMAIL_DELIVERY_FAILED",
+        [{ path: "email", message: reason }],
+      );
+    }
   }
 
   //Cria um membro com usuário e verifica se ele tem acesso à empresa
@@ -1014,7 +1034,6 @@ export class MembershipsService {
     enterpriseId: string,
     input: CreateOnboardMembershipInput,
     actorUserId: string,
-    meta: AuthMeta,
     audit: EntityAuditContext,
   ) {
     await this.assertEnterpriseExists(enterpriseId);
@@ -1048,8 +1067,6 @@ export class MembershipsService {
     if (byPhone) {
       throw new ConflictError("Telefone ja cadastrado", "PHONE_ALREADY_EXISTS");
     }
-
-    const now = new Date();
 
     const auditCtx = withEnterpriseAuditContext(
       {
@@ -1091,11 +1108,12 @@ export class MembershipsService {
           actorUserId,
           code: input.member.code,
           class: input.member.class,
-          status: "ATIVO",
+          status: "PENDENTE",
           departments: input.member.departments,
-          approvedAt: now,
-          memberDepartmentStatus: "ATIVO",
-          skipPermissionSnapshot: false,
+          approvedAt: null,
+          approvedBy: null,
+          memberDepartmentStatus: "PENDENTE",
+          skipPermissionSnapshot: true,
           salesFields: input.member,
         },
         tx,
@@ -1115,31 +1133,244 @@ export class MembershipsService {
       };
     });
 
-    if (input.member.class !== "CLIENTE" && input.sendEmail === true) {
-      if (!result.user.userEmail) {
-        throw new ValidationError(
-          [
-            {
-              path: "user.userEmail",
-              message:
-                "E-mail do usuario e obrigatorio para envio de convite de primeiro acesso",
-            },
-          ],
-          "E-mail do usuario e obrigatorio para envio de convite de primeiro acesso",
-        );
-      }
-      await this.queueFirstAccessInviteAfterOnboard({
-        userId: result.user.id,
-        userEmail: result.user.userEmail,
-        userName: result.user.userName,
-        memberId: result.member.id,
-        enterpriseId,
-        actorUserId,
-        meta,
-      });
+    return result;
+  }
+
+  /**
+   * Aprovação de cadastro (qualquer classe): status ATIVO, approvedAt e approvedBy.
+   * Se houver departamentos PENDENTE (ex.: create-with-user / invite), activa-os e faz snapshot de permissões.
+   * Após activar, envia FIRST_ACCESS (sem credenciais) ou MEMBERSHIP_ACCEPT (com credenciais),
+   * excepto classe CLIENTE.
+   */
+  public async approveMembership(
+    enterpriseId: string,
+    memberId: string,
+    actorUserId: string,
+    meta: AuthMeta,
+    audit: EntityAuditContext,
+  ) {
+    const enterprise = await this.assertEnterpriseExists(enterpriseId);
+
+    const [existingMember] = await db
+      .select()
+      .from(enterprisesMembers)
+      .where(
+        and(
+          eq(enterprisesMembers.id, memberId),
+          eq(enterprisesMembers.enterpriseId, enterpriseId),
+          isNull(enterprisesMembers.deletedAt),
+        ),
+      )
+      .limit(1);
+
+    if (!existingMember) {
+      throw new NotFoundError("Membro nao encontrado", "MEMBERSHIP_NOT_FOUND");
     }
 
-    return result;
+    if (existingMember.status === "ATIVO") {
+      throw new ConflictError(
+        "Membro ja esta ativo",
+        "MEMBERSHIP_ALREADY_ACTIVE",
+      );
+    }
+
+    if (existingMember.status !== "PENDENTE") {
+      throw new ConflictError(
+        "Apenas membros PENDENTE podem ser aprovados",
+        "MEMBERSHIP_INVALID_STATUS",
+      );
+    }
+
+    const [memberUser] = await db
+      .select({
+        id: users.id,
+        userName: users.userName,
+        userEmail: users.userEmail,
+      })
+      .from(users)
+      .where(
+        and(eq(users.id, existingMember.userId), isNull(users.deletedAt)),
+      )
+      .limit(1);
+
+    if (!memberUser) {
+      throw new NotFoundError("Usuario nao encontrado", "USER_NOT_FOUND");
+    }
+
+    const isCliente = existingMember.class === "CLIENTE";
+    const hasCredentials = await userHasAnyActiveCredential(memberUser.id);
+
+    if (!isCliente && !memberUser.userEmail) {
+      throw new ValidationError(
+        [
+          {
+            path: "userEmail",
+            message:
+              "E-mail do usuario e obrigatorio para envio apos aprovacao",
+          },
+        ],
+        "E-mail do usuario e obrigatorio para envio apos aprovacao",
+      );
+    }
+
+    const auditCtx = withEnterpriseAuditContext(
+      {
+        ...audit,
+        actorUserId: audit.actorUserId ?? actorUserId,
+      },
+      enterpriseId,
+    );
+
+    const now = new Date();
+
+    const approved = await db.transaction(async (tx) => {
+      const pendingDeptRows = await tx
+        .select({
+          id: membersDepartments.id,
+          departmentId: membersDepartments.departmentId,
+        })
+        .from(membersDepartments)
+        .where(
+          and(
+            eq(membersDepartments.memberId, memberId),
+            eq(membersDepartments.status, "PENDENTE"),
+            isNull(membersDepartments.deletedAt),
+          ),
+        );
+
+      const memberDepartmentIdByDepartmentId = new Map(
+        pendingDeptRows.map((r) => [r.departmentId, r.id]),
+      );
+      const departmentIds = pendingDeptRows.map((r) => r.departmentId);
+
+      if (pendingDeptRows.length > 0) {
+        await tx
+          .update(membersDepartments)
+          .set({ status: "ATIVO", ...touchUpdatedAt(now) })
+          .where(
+            and(
+              inArray(
+                membersDepartments.id,
+                pendingDeptRows.map((row) => row.id),
+              ),
+              isNull(membersDepartments.deletedAt),
+            ),
+          );
+      }
+
+      if (departmentIds.length > 0) {
+        const snapshotPermissions = await tx
+          .select({
+            departmentId: departmentDefaultPermissions.departmentId,
+            permission: departmentDefaultPermissions.permission,
+            status: departmentDefaultPermissions.status,
+          })
+          .from(departmentDefaultPermissions)
+          .where(
+            and(
+              inArray(departmentDefaultPermissions.departmentId, departmentIds),
+              isNull(departmentDefaultPermissions.deletedAt),
+            ),
+          );
+
+        const memberPermissions = snapshotPermissions.map((perm) => {
+          const memberDepartmentId = memberDepartmentIdByDepartmentId.get(
+            perm.departmentId,
+          );
+          if (!memberDepartmentId) {
+            throw new InternalServerError(
+              "Falha ao associar permissoes do departamento",
+              "INTERNAL_ERROR",
+            );
+          }
+          return {
+            memberDepartmentId,
+            permission: perm.permission,
+            status: perm.status,
+          };
+        });
+
+        if (memberPermissions.length > 0) {
+          await tx.insert(memberPermissionsDefault).values(memberPermissions);
+        }
+      }
+
+      await invalidatePendingInvites(
+        {
+          userId: existingMember.userId,
+          purpose: "MEMBERSHIP_ACCEPT",
+          memberId,
+        },
+        tx,
+      );
+
+      const [memberRow] = await tx
+        .update(enterprisesMembers)
+        .set({
+          status: "ATIVO",
+          approvedAt: now,
+          approvedBy: actorUserId,
+          ...touchUpdatedAt(now),
+        })
+        .where(
+          and(
+            eq(enterprisesMembers.id, memberId),
+            eq(enterprisesMembers.enterpriseId, enterpriseId),
+            isNull(enterprisesMembers.deletedAt),
+          ),
+        )
+        .returning();
+
+      if (!memberRow) {
+        throw new NotFoundError(
+          "Membro nao encontrado",
+          "MEMBERSHIP_NOT_FOUND",
+        );
+      }
+
+      await recordEntityAudit({
+        entityType: EntityTypes.ENTERPRISES_MEMBERS,
+        entityId: memberId,
+        action: "UPDATE",
+        before: toAuditRecord(existingMember),
+        after: toAuditRecord(memberRow),
+        ctx: auditCtx,
+        tx,
+      });
+
+      return memberRow;
+    });
+
+    let emailSent: "FIRST_ACCESS" | "MEMBERSHIP_ACCEPT" | null = null;
+
+    if (!isCliente && memberUser.userEmail) {
+      if (!hasCredentials) {
+        await this.queueFirstAccessInviteAfterApprove({
+          userId: memberUser.id,
+          userEmail: memberUser.userEmail,
+          userName: memberUser.userName,
+          memberId,
+          enterpriseId,
+          actorUserId,
+          meta,
+        });
+        emailSent = "FIRST_ACCESS";
+      } else {
+        await this.queueMembershipInviteAfterApprove({
+          userId: memberUser.id,
+          userEmail: memberUser.userEmail,
+          userName: memberUser.userName,
+          memberId,
+          enterpriseId,
+          enterpriseTradeName: enterprise.tradeName,
+          actorUserId,
+          meta,
+        });
+        emailSent = "MEMBERSHIP_ACCEPT";
+      }
+    }
+
+    return { member: approved, emailSent };
   }
 
   //Altera um membro vinculado à empresa; com `softDelete` true, inativa vínculos a departamentos
@@ -1200,8 +1431,10 @@ export class MembershipsService {
 
         if (input.status === "ATIVO") {
           setValues.approvedAt = now;
+          setValues.approvedBy = actorAuth.userId;
         } else {
           setValues.approvedAt = null;
+          setValues.approvedBy = null;
         }
       }
     }

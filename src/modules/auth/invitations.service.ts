@@ -150,7 +150,7 @@ export const acceptMembershipInvitationCore = async (
     );
   }
 
-  if (member.status !== "PENDENTE") {
+  if (member.status !== "PENDENTE" && member.status !== "ATIVO") {
     throw new ForbiddenError(
       "Convite invalido ou ja processado",
       "INVITE_INVALID_STATE",
@@ -206,6 +206,21 @@ export const acceptMembershipInvitationCore = async (
       "Codigo invalido ou expirado",
       "INVITE_INVALID",
     );
+  }
+
+  // Já activo via aprovação no backoffice: só consome o código do e-mail pós-aprovação.
+  if (member.status === "ATIVO") {
+    await consumeInvite(invite.id);
+    await writeAudit({
+      event: "INVITE_ACCEPTED",
+      userId: input.actorUserId,
+      enterpriseId: enterprise.id,
+      ipAddress: input.ipAddress,
+      userAgent: input.userAgent,
+      requestId: input.requestId,
+      reason: "Confirmacao de convite apos aprovacao (vinculo ja ATIVO)",
+    });
+    return { enterpriseId: enterprise.id };
   }
 
   const now = new Date();
@@ -486,7 +501,7 @@ export const resendMembershipInvitation = async (
     reason: "Reenvio de convite fora do tenant da sessao",
   });
 
-  if (member.status !== "PENDENTE") {
+  if (member.status !== "PENDENTE" && member.status !== "ATIVO") {
     throw new ForbiddenError(
       "Nao ha convite pendente para este vinculo",
       "INVITE_INVALID_STATE",

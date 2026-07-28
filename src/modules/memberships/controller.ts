@@ -9,7 +9,6 @@ import {
 } from "../../shared/responses/send-success-response.js";
 import type {
   AddMemberDepartmentInput,
-  CreateMembershipInput,
   CreateOnboardMembershipInput,
   InviteMembershipBody,
   ListMembersQuery,
@@ -77,24 +76,6 @@ export class MembershipsController {
     const row = await membershipsService.getByCode(enterpriseId, code);
     sendSuccessResponse(res, HttpStatus.OK, {
       message: "Membro recuperado com sucesso.",
-      data: row,
-    });
-  };
-
-  //Cria um membro com usuário
-  public create = async (req: Request, res: Response): Promise<void> => {
-    const reqAuth = req as RequestWithAuth;
-    const enterpriseId = req.params["enterpriseId"] as string;
-    const body = req.body as CreateMembershipInput;
-    const row = await membershipsService.create(
-      enterpriseId,
-      body,
-      reqAuth.auth.userId,
-      meta(req),
-      membershipPostAudit(req, enterpriseId, "memberships.service.create"),
-    );
-    sendSuccessResponse(res, HttpStatus.CREATED, {
-      message: "Membro criado com sucesso.",
       data: row,
     });
   };

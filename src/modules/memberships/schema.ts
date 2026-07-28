@@ -138,7 +138,7 @@ const createMembershipInnerSchema = z
   })
   .merge(membershipSalesFieldsSchema);
 
-//Esquema de criação de membro
+//Esquema base de criação de membro (tipagem partilhada; rota pública de create directo removida)
 export const createMembershipSchema = createMembershipInnerSchema.superRefine(
   refineMembershipDepartmentsByClass,
 );

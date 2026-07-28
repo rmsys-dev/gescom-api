@@ -6,7 +6,6 @@ import { validateSchema } from "../../shared/middleware/validate-schema.js";
 import { membershipsController } from "./controller.js";
 import {
   addMemberDepartmentSchema,
-  createMembershipSchema,
   createOnboardMembershipSchema,
   inviteMembershipBodySchema,
   listMembersQuerySchema,
@@ -37,7 +36,7 @@ membershipsRouter.post(
   membershipsController.createOnboard,
 );
 
-// Convite de vínculo (membro PENDENTE + código por email/SMS)
+// Convite de vínculo (membro/departamentos PENDENTE; e-mail opcional)
 membershipsRouter.post(
   "/invite",
   authMiddleware,
@@ -81,19 +80,6 @@ membershipsRouter.get(
   requirePermission("consultar_membros"),
   validateSchema({ params: membershipPatchParamsSchema }),
   membershipsController.getById,
-);
-
-//Criação de membro
-membershipsRouter.post(
-  "/",
-  authMiddleware,
-  tenantMiddleware,
-  requirePermission("incluir_membros"),
-  validateSchema({
-    params: membershipEnterpriseParamsSchema,
-    body: createMembershipSchema,
-  }),
-  membershipsController.create,
 );
 
 //Vincula um membro existente a um novo departamento (snapshot em member_extra_permissions)

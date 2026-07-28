@@ -745,84 +745,11 @@ export class MembershipsService {
     return member;
   }
 
-  //Cria um membro com usuário
-  public async create(
-    enterpriseId: string,
-    input: CreateMembershipInput,
-    actorUserId: string,
-    meta: AuthMeta,
-    audit: EntityAuditContext,
-  ) {
-    await this.assertEnterpriseExists(enterpriseId);
-
-    const targetRows = await db
-      .select()
-      .from(users)
-      .where(and(eq(users.id, input.userId), isNull(users.deletedAt)))
-      .limit(1);
-    const targetUser = targetRows[0];
-    if (!targetUser) {
-      throw new NotFoundError("Usuario nao encontrado", "USER_NOT_FOUND");
-    }
-
-    await this.assertMembershipNotExists(
-      enterpriseId,
-      input.userId,
-      input.class,
-    );
-    await this.assertDepartmentsExistAndActive(input.departments);
-
-    const hasCredentials = await userHasAnyActiveCredential(input.userId);
-    const isCliente = input.class === "CLIENTE";
-    if (hasCredentials && !isCliente) {
-      throw new ConflictError(
-        "Não é possível adicionar um usuário com credenciais",
-        "USE_MEMBERSHIP_INVITE",
-      );
-    }
-
-    const now = new Date();
-    const auditCtx = withEnterpriseAuditContext(
-      {
-        ...audit,
-        actorUserId: audit.actorUserId ?? actorUserId,
-      },
-      enterpriseId,
-    );
-
-    const memberRow = await db.transaction(async (tx) => {
-      const member = await this.createMembershipStructure(
-        {
-          enterpriseId,
-          userId: input.userId,
-          actorUserId,
-          code: input.code,
-          class: input.class,
-          status: "ATIVO",
-          departments: input.departments,
-          approvedAt: now,
-          memberDepartmentStatus: "ATIVO",
-          skipPermissionSnapshot: false,
-          salesFields: input,
-        },
-        tx,
-      );
-
-      await recordCreateAudit({
-        entityType: EntityTypes.ENTERPRISES_MEMBERS,
-        entityId: member.id,
-        after: member,
-        ctx: auditCtx,
-        tx,
-      });
-
-      return member;
-    });
-
-    return memberRow;
-  }
-
-  /** Convite de vínculo: membro e departamentos PENDENTE; permissões após aceite. */
+  /**
+   * Convite de vínculo: membro e departamentos sempre PENDENTE; snapshot de
+   * permissões no aceite (`MEMBERSHIP_ACCEPT`). Exige credenciais ativas,
+   * excepto classe CLIENTE.
+   */
   public async inviteMembership(
     enterpriseId: string,
     input: InviteMembershipBody,
@@ -851,11 +778,12 @@ export class MembershipsService {
       throw new NotFoundError("Usuario nao encontrado", "USER_NOT_FOUND");
     }
 
+    const isCliente = input.member.class === "CLIENTE";
     const hasCredentials = await userHasAnyActiveCredential(targetUser.id);
-    if (!hasCredentials) {
+    if (!hasCredentials && !isCliente) {
       throw new ConflictError(
-        "Não é possível convidar um usuário sem credenciais",
-        "USE_MEMBERSHIP_CREATE",
+        "Nao e possivel convidar um usuario sem credenciais (excepto CLIENTE)",
+        "MEMBERSHIP_CREDENTIALS_REQUIRED",
       );
     }
 

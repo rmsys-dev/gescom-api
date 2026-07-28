@@ -113,6 +113,9 @@ export class MechanicSalesItemsService {
     if (query.saleId) {
       filters.push(eq(salesItems.salesId, query.saleId));
     }
+    if (query.typeService) {
+      filters.push(eq(salesItems.typeService, query.typeService));
+    }
     const where = and(...filters);
 
     const [items, totalRows] = await Promise.all([
@@ -125,6 +128,7 @@ export class MechanicSalesItemsService {
           createdAt: mechanicSalesItems.createdAt,
           updatedAt: mechanicSalesItems.updatedAt,
           saleId: salesItems.salesId,
+          typeService: salesItems.typeService,
           saleOrderNumber: sales.orderNumber,
           saleType: sales.type,
         })
@@ -171,6 +175,7 @@ export class MechanicSalesItemsService {
           createdAt: mechanicSalesItems.createdAt,
           updatedAt: mechanicSalesItems.updatedAt,
           saleId: salesItems.salesId,
+          typeService: salesItems.typeService,
           saleOrderNumber: sales.orderNumber,
           saleType: sales.type,
         })

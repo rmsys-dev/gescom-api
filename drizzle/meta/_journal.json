@@ -400,6 +400,13 @@
       "when": 1784900314441,
       "tag": "0056_huge_banshee",
       "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1785250000000,
+      "tag": "0057_sale_status_inativa",
+      "breakpoints": true
     }
   ]
 }

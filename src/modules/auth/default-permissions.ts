@@ -173,6 +173,7 @@ export const permissionCatalog = [
   "incluir_comissoes_itens_venda",
   "alterar_comissoes_itens_venda",
   "excluir_comissoes_itens_venda",
+
 ] as const;
 
 export type PermissionSlug = (typeof permissionCatalog)[number];

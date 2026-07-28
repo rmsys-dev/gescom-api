@@ -1,11 +1,15 @@
 import { z } from "zod";
 import { createPaginationQuerySchema } from "../../../shared/validation/common-schemas.js";
 
+const typeServiceSchema = z.enum(["PROPRIO", "OUTROS"]);
+
 export const listMechanicSalesItemsQuerySchema =
   createPaginationQuerySchema(100).extend({
     mechanic: z.string().uuid().optional(),
     salesItemsId: z.string().uuid().optional(),
     saleId: z.string().uuid().optional(),
+    /** Filtra pela ligação com `sales_items.type_service` (PROPRIO / OUTROS). */
+    typeService: typeServiceSchema.optional(),
   });
 
 export const createMechanicSalesItemSchema = z

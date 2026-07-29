@@ -634,15 +634,25 @@ export class ProductsEnterprisesService {
 
     const {
       product,
+      productId: _productId,
       measurementUnit,
+      measurementUnitId: _measurementUnitId,
       productType,
+      productTypeId: _productTypeId,
       productNcm,
+      productNcmId: _productNcmId,
       productCest,
+      productCestId: _productCestId,
       productAnp,
+      productAnpId: _productAnpId,
       productNbs,
+      productNbsId: _productNbsId,
       productGroup,
+      productGroupId: _productGroupId,
       productSubgroup,
+      productSubgroupId: _productSubgroupId,
       productBrand,
+      productBrandId: _productBrandId,
       ...link
     } = row;
 
@@ -650,6 +660,7 @@ export class ProductsEnterprisesService {
       ...link,
       status: product.status,
       barCode: product.barCode,
+      product,
       measurementUnit,
       productType,
       productNcm: productNcm ?? null,

@@ -1,23 +1,33 @@
 import { z } from "zod";
 import { statusEnum } from "../../../db/enums.js";
+import {
+  createPaginationQuerySchema,
+  optionalTrimmedStringSchema,
+} from "../../../shared/validation/common-schemas.js";
 
 /** Filtros combinados com AND; `search` mantém busca ampla legada (OR). */
-const optionalFilterText = z.string().trim().min(1).optional();
-
-export const listProductsEnterprisesQuerySchema = z
-  .object({
-    limit: z.coerce.number().int().min(1).max(100).optional(),
-    offset: z.coerce.number().int().min(0).optional(),
-    search: optionalFilterText,
-    description: optionalFilterText,
-    code: optionalFilterText,
-    barCode: optionalFilterText,
-    manufacturer: optionalFilterText,
-    origin: optionalFilterText,
-    group: optionalFilterText,
-    subgroup: optionalFilterText,
-    brand: optionalFilterText,
-    application: optionalFilterText,
+export const listProductsEnterprisesQuerySchema = createPaginationQuerySchema(
+  100,
+)
+  .extend({
+    search: optionalTrimmedStringSchema("search", 255).optional(),
+    description: optionalTrimmedStringSchema("description", 255).optional(),
+    code: optionalTrimmedStringSchema("code", 64).optional(),
+    barCode: optionalTrimmedStringSchema("barCode", 255).optional(),
+    manufacturer: optionalTrimmedStringSchema("manufacturer", 255).optional(),
+    origin: optionalTrimmedStringSchema("origin", 255).optional(),
+    /** Descrição do grupo (`product_groups.description`). */
+    group: optionalTrimmedStringSchema("group", 255).optional(),
+    /** Alias de `group` — descrição do grupo. */
+    groupDescription: optionalTrimmedStringSchema(
+      "groupDescription",
+      255,
+    ).optional(),
+    subgroup: optionalTrimmedStringSchema("subgroup", 255).optional(),
+    brand: optionalTrimmedStringSchema("brand", 255).optional(),
+    application: optionalTrimmedStringSchema("application", 255).optional(),
+    /** Box ou descrição da locação física de estoque. */
+    location: optionalTrimmedStringSchema("location", 255).optional(),
     status: z.enum(statusEnum.enumValues).optional(),
   })
   .strict();

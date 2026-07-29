@@ -1,7 +1,8 @@
-import { and, asc, count, eq, exists, ilike, or, sql } from "drizzle-orm";
+import { and, asc, count, eq, exists, ilike, inArray, or, sql } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import {
   measurementUnits,
+  prices,
   productApplication,
   productBrands,
   products,
@@ -13,6 +14,12 @@ import {
   productsEnterprises,
   productsNcm,
   productsNbs,
+  promotionalPrices,
+  stockBatchBalances,
+  stockBatches,
+  stockLocations,
+  stockSectors,
+  stockSectorsRental,
 } from "../../../db/schema.js";
 import {
   ConflictError,
@@ -493,8 +500,9 @@ export class ProductsEnterprisesService {
       conditions.push(ilike(productsEnterprises.origin, `%${query.origin}%`));
     }
 
-    if (query.group) {
-      const term = `%${query.group}%`;
+    const groupDescription = query.groupDescription ?? query.group;
+    if (groupDescription) {
+      const term = `%${groupDescription}%`;
       conditions.push(
         exists(
           db
@@ -570,11 +578,140 @@ export class ProductsEnterprisesService {
       );
     }
 
+    if (query.location) {
+      const term = `%${query.location}%`;
+      const locationTextMatch = or(
+        ilike(stockLocations.box, term),
+        ilike(stockLocations.description, term),
+      )!;
+
+      conditions.push(
+        or(
+          exists(
+            db
+              .select({ id: stockSectorsRental.id })
+              .from(stockSectorsRental)
+              .innerJoin(
+                stockLocations,
+                eq(stockLocations.id, stockSectorsRental.stockLocationId),
+              )
+              .innerJoin(
+                stockSectors,
+                eq(stockSectors.id, stockLocations.stockSectorId),
+              )
+              .where(
+                and(
+                  eq(
+                    stockSectorsRental.productsEnterprisesId,
+                    productsEnterprises.id,
+                  ),
+                  eq(stockSectors.enterprisesId, enterpriseId),
+                  locationTextMatch,
+                ),
+              ),
+          ),
+          exists(
+            db
+              .select({ id: stockBatchBalances.id })
+              .from(stockBatchBalances)
+              .innerJoin(
+                stockBatches,
+                eq(stockBatches.id, stockBatchBalances.stockBatchId),
+              )
+              .innerJoin(
+                stockLocations,
+                eq(stockLocations.id, stockBatchBalances.stockLocationId),
+              )
+              .innerJoin(
+                stockSectors,
+                eq(stockSectors.id, stockLocations.stockSectorId),
+              )
+              .where(
+                and(
+                  eq(
+                    stockBatches.productsEnterprisesId,
+                    productsEnterprises.id,
+                  ),
+                  eq(stockSectors.enterprisesId, enterpriseId),
+                  locationTextMatch,
+                ),
+              ),
+          ),
+        )!,
+      );
+    }
+
     if (query.status) {
       conditions.push(eq(products.status, query.status));
     }
 
     return and(...conditions);
+  }
+
+  private async attachRelatedIds<T extends { id: string }>(items: T[]) {
+    if (items.length === 0) {
+      return items.map((item) => ({
+        ...item,
+        productApplicationIds: [] as string[],
+        priceId: null as string | null,
+        promotionalPriceIds: [] as string[],
+      }));
+    }
+
+    const peIds = items.map((item) => item.id);
+    const [applicationRows, priceRows, promotionalRows] = await Promise.all([
+      db
+        .select({
+          id: productApplication.id,
+          productsEnterprisesId: productApplication.productsEnterprisesId,
+        })
+        .from(productApplication)
+        .where(inArray(productApplication.productsEnterprisesId, peIds))
+        .orderBy(
+          asc(productApplication.description),
+          asc(productApplication.id),
+        ),
+      db
+        .select({
+          id: prices.id,
+          productsEnterprisesId: prices.productsEnterprisesId,
+        })
+        .from(prices)
+        .where(inArray(prices.productsEnterprisesId, peIds)),
+      db
+        .select({
+          id: promotionalPrices.id,
+          productsEnterprisesId: promotionalPrices.productsEnterprisesId,
+        })
+        .from(promotionalPrices)
+        .where(inArray(promotionalPrices.productsEnterprisesId, peIds))
+        .orderBy(asc(promotionalPrices.startDate), asc(promotionalPrices.id)),
+    ]);
+
+    const applicationIdsByPe = new Map<string, string[]>();
+    for (const row of applicationRows) {
+      const list = applicationIdsByPe.get(row.productsEnterprisesId) ?? [];
+      list.push(row.id);
+      applicationIdsByPe.set(row.productsEnterprisesId, list);
+    }
+
+    const priceIdByPe = new Map(
+      priceRows.map((row) => [row.productsEnterprisesId, row.id]),
+    );
+
+    const promotionalIdsByPe = new Map<string, string[]>();
+    for (const row of promotionalRows) {
+      const list = promotionalIdsByPe.get(row.productsEnterprisesId) ?? [];
+      list.push(row.id);
+      promotionalIdsByPe.set(row.productsEnterprisesId, list);
+    }
+
+    return items.map((item) => ({
+      ...item,
+      productApplicationIds: applicationIdsByPe.get(item.id) ?? [],
+      priceId: priceIdByPe.get(item.id) ?? null,
+      promotionalPriceIds: promotionalIdsByPe.get(item.id) ?? [],
+    }));
   }
 
   public async list(
@@ -602,7 +739,8 @@ export class ProductsEnterprisesService {
         .where(where),
     ]);
     const total = Number(totalRows[0]?.c ?? 0);
-    return { items, total, limit, offset };
+    const enriched = await this.attachRelatedIds(items);
+    return { items: enriched, total, limit, offset };
   }
 
   public async getById(enterpriseId: string, id: string) {
@@ -622,6 +760,19 @@ export class ProductsEnterprisesService {
         productGroup: true,
         productSubgroup: true,
         productBrand: true,
+        productApplications: {
+          orderBy: [
+            asc(productApplication.description),
+            asc(productApplication.id),
+          ],
+        },
+        price: true,
+        promotionalPrices: {
+          orderBy: [
+            asc(promotionalPrices.startDate),
+            asc(promotionalPrices.id),
+          ],
+        },
       },
     });
 
@@ -653,6 +804,9 @@ export class ProductsEnterprisesService {
       productSubgroupId: _productSubgroupId,
       productBrand,
       productBrandId: _productBrandId,
+      productApplications,
+      price,
+      promotionalPrices: promotionalPricesRows,
       ...link
     } = row;
 
@@ -670,6 +824,9 @@ export class ProductsEnterprisesService {
       productGroup,
       productSubgroup,
       productBrand,
+      productApplications,
+      price: price ?? null,
+      promotionalPrices: promotionalPricesRows,
     };
   }
 

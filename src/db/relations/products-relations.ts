@@ -74,6 +74,12 @@ export const productsEnterprisesRelations = relations(
       fields: [productsEnterprises.productBrandId],
       references: [productBrands.id],
     }),
+    productApplications: many(productApplication),
+    price: one(prices, {
+      fields: [productsEnterprises.id],
+      references: [prices.productsEnterprisesId],
+    }),
+    promotionalPrices: many(promotionalPrices),
     stockSectorsRental: many(stockSectorsRental),
     stockBatches: many(stockBatches),
   }),

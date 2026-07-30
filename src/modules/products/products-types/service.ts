@@ -1,4 +1,4 @@
-import { and, asc, count, eq } from "drizzle-orm";
+import { and, asc, count, eq, ilike } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import { productTypes, typeSped } from "../../../db/schema.js";
 import {
@@ -20,7 +20,16 @@ import type {
   PatchTypeProductInput,
 } from "./schema.js";
 
+type ProductTypeWithTypeSped = typeof productTypes.$inferSelect & {
+  typeSped: typeof typeSped.$inferSelect;
+};
+
 export class TypesProductsService {
+  private toResponse(row: ProductTypeWithTypeSped) {
+    const { typeSpedId: _typeSpedId, typeSped: typeSpedRow, ...rest } = row;
+    return { ...rest, typeSped: typeSpedRow };
+  }
+
   private async assertTypeSpedExists(typeSpedId: string) {
     const rows = await db
       .select({ id: typeSped.id })
@@ -35,23 +44,7 @@ export class TypesProductsService {
     }
   }
 
-  public async list(query: ListTypesProductsQuery = {}) {
-    const { limit, offset } = resolveListPagination(query);
-    const [items, totalRows] = await Promise.all([
-      db
-        .select()
-        .from(productTypes)
-        .orderBy(asc(productTypes.description), asc(productTypes.id))
-        .limit(limit)
-        .offset(offset),
-      db.select({ c: count() }).from(productTypes),
-    ]);
-
-    const total = Number(totalRows[0]?.c ?? 0);
-    return { items, total, limit, offset };
-  }
-
-  public async getById(id: string) {
+  private async getPlainById(id: string) {
     const rows = await db
       .select()
       .from(productTypes)
@@ -65,6 +58,49 @@ export class TypesProductsService {
       );
     }
     return row;
+  }
+
+  public async list(query: ListTypesProductsQuery = {}) {
+    const { limit, offset } = resolveListPagination(query);
+    const conditions = [];
+    if (query.description) {
+      conditions.push(
+        ilike(productTypes.description, `%${query.description.toUpperCase()}%`),
+      );
+    }
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+    const [items, totalRows] = await Promise.all([
+      db.query.productTypes.findMany({
+        where,
+        with: { typeSped: true },
+        orderBy: [asc(productTypes.description), asc(productTypes.id)],
+        limit,
+        offset,
+      }),
+      db.select({ c: count() }).from(productTypes).where(where),
+    ]);
+
+    const total = Number(totalRows[0]?.c ?? 0);
+    return {
+      items: items.map((row) => this.toResponse(row)),
+      total,
+      limit,
+      offset,
+    };
+  }
+
+  public async getById(id: string) {
+    const row = await db.query.productTypes.findFirst({
+      where: eq(productTypes.id, id),
+      with: { typeSped: true },
+    });
+    if (!row) {
+      throw new NotFoundError(
+        "Tipo de produto nao encontrado",
+        "TYPE_PRODUCT_NOT_FOUND",
+      );
+    }
+    return this.toResponse(row);
   }
 
   public async create(
@@ -174,7 +210,7 @@ export class TypesProductsService {
   }
 
   public async delete(typeProductId: string, audit: EntityAuditContext) {
-    const existing = await this.getById(typeProductId);
+    const existing = await this.getPlainById(typeProductId);
     const [row] = await db
       .delete(productTypes)
       .where(eq(productTypes.id, typeProductId))

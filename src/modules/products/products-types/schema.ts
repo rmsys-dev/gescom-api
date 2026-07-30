@@ -1,7 +1,11 @@
 import { z } from "zod";
-import { createPaginationQuerySchema } from "../../../shared/validation/common-schemas.js";
+import { catalogListQueryBase } from "../shared/catalog-list-query.js";
 
-export const listTypesProductsQuerySchema = createPaginationQuerySchema(100);
+export const listTypesProductsQuerySchema = z
+  .object({
+    ...catalogListQueryBase,
+  })
+  .strict();
 
 const typeCodeSchema = z
   .string()

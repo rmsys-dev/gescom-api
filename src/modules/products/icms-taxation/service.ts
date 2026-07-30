@@ -1,4 +1,4 @@
-import { and, asc, count, eq, isNull } from "drizzle-orm";
+import { and, asc, count, eq, ilike } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import { icmsTaxation } from "../../../db/schema.js";
 import {
@@ -19,18 +19,31 @@ import type {
   ListIcmsTaxationQuery,
   PatchIcmsTaxationInput,
 } from "./schema.js";
+import { fiscalCodeIlikeCondition } from "../shared/fiscal-code-filter.js";
 
 export class IcmsTaxationService {
   public async list(query: ListIcmsTaxationQuery = {}) {
     const { limit, offset } = resolveListPagination(query);
+    const conditions = [];
+    if (query.description) {
+      conditions.push(
+        ilike(icmsTaxation.description, `%${query.description}%`),
+      );
+    }
+    if (query.icms) {
+      conditions.push(fiscalCodeIlikeCondition(icmsTaxation.icms, query.icms));
+    }
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+
     const [items, totalRows] = await Promise.all([
       db
         .select()
         .from(icmsTaxation)
+        .where(where)
         .orderBy(asc(icmsTaxation.description), asc(icmsTaxation.id))
         .limit(limit)
         .offset(offset),
-      db.select({ c: count() }).from(icmsTaxation),
+      db.select({ c: count() }).from(icmsTaxation).where(where),
     ]);
 
     const total = Number(totalRows[0]?.c ?? 0);

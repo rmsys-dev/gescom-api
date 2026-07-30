@@ -1,8 +1,15 @@
-import { refine, z } from "zod";
-import { createPaginationQuerySchema } from "../../../shared/validation/common-schemas.js";
+import { z } from "zod";
+import {
+  catalogListFilterText,
+  catalogListQueryBase,
+} from "../shared/catalog-list-query.js";
 
-export const listPisCofinsSituationQuerySchema =
-  createPaginationQuerySchema(100);
+export const listPisCofinsSituationQuerySchema = z
+  .object({
+    ...catalogListQueryBase,
+    cst: catalogListFilterText,
+  })
+  .strict();
 
 const pisCofinsTypeSchema = z.enum(["ENTRADA", "SAIDA"]).transform((val) => val.toUpperCase())
   .refine(

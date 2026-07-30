@@ -1,7 +1,15 @@
 import { z } from "zod";
-import { createPaginationQuerySchema } from "../../../shared/validation/common-schemas.js";
+import {
+  catalogListFilterText,
+  catalogListQueryBase,
+} from "../shared/catalog-list-query.js";
 
-export const listIcmsTaxationQuerySchema = createPaginationQuerySchema(100);
+export const listIcmsTaxationQuerySchema = z
+  .object({
+    ...catalogListQueryBase,
+    icms: catalogListFilterText,
+  })
+  .strict();
 
 const icmsCodeSchema = z.string().trim().min(1).max(255);
 

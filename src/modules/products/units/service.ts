@@ -1,4 +1,4 @@
-import { asc, count, eq } from "drizzle-orm";
+import { and, asc, count, eq, ilike } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import { measurementUnits } from "../../../db/schema.js";
 import {
@@ -23,17 +23,28 @@ import type {
 export class UnitsService {
   public async list(query: ListUnitsQuery = {}) {
     const { limit, offset } = resolveListPagination(query);
+    const conditions = [];
+    if (query.description) {
+      conditions.push(
+        ilike(
+          measurementUnits.description,
+          `%${query.description.toUpperCase()}%`,
+        ),
+      );
+    }
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
     const [items, totalRows] = await Promise.all([
       db
         .select()
         .from(measurementUnits)
+        .where(where)
         .orderBy(
           asc(measurementUnits.description),
           asc(measurementUnits.id),
         )
         .limit(limit)
         .offset(offset),
-      db.select({ c: count() }).from(measurementUnits)
+      db.select({ c: count() }).from(measurementUnits).where(where),
     ]);
 
     const total = Number(totalRows[0]?.c ?? 0);

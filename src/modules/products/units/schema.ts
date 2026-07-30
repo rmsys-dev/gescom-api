@@ -1,7 +1,11 @@
 import { z } from "zod";
-import { createPaginationQuerySchema } from "../../../shared/validation/common-schemas.js";
+import { catalogListQueryBase } from "../shared/catalog-list-query.js";
 
-export const listUnitsQuerySchema = createPaginationQuerySchema(100);
+export const listUnitsQuerySchema = z
+  .object({
+    ...catalogListQueryBase,
+  })
+  .strict();
 
 const unitCodeSchema = z
   .string()

@@ -1,7 +1,8 @@
-import { and, asc, count, eq } from "drizzle-orm";
+import { and, asc, count, eq, inArray } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import {
   productsEnterprises,
+  stockLocations,
   stockSectorsRental,
 } from "../../../db/schema.js";
 import {
@@ -18,18 +19,53 @@ import {
 } from "../../../shared/audit/entity-audit.js";
 import { toAuditRecord } from "../../../shared/audit/build-field-diff.js";
 import { EntityTypes } from "../../../shared/audit/entity-types.js";
-import { getProductEnterpriseForStock, assertStockLocationBelongsToEnterprise } from "../balance.js";
+import {
+  getProductEnterpriseForStock,
+  assertStockLocationBelongsToEnterprise,
+} from "../balance.js";
 import type {
   CreateStockSectorRentalInput,
   ListStockSectorsRentalQuery,
   PatchStockSectorRentalInput,
 } from "./schema.js";
 
+type StockSectorRentalWithRelations = typeof stockSectorsRental.$inferSelect & {
+  productsEnterprises: typeof productsEnterprises.$inferSelect;
+  stockLocation: typeof stockLocations.$inferSelect;
+};
+
 export class StockSectorsRentalService {
-  private scope(enterpriseId: string, id?: string) {
-    const base = [eq(productsEnterprises.enterprisesId, enterpriseId)];
-    if (id) base.push(eq(stockSectorsRental.id, id));
-    return and(...base);
+  private toResponse(row: StockSectorRentalWithRelations) {
+    const {
+      productsEnterprisesId: _productsEnterprisesId,
+      stockLocationId: _stockLocationId,
+      productsEnterprises: productsEnterprisesRow,
+      stockLocation: stockLocationRow,
+      ...rest
+    } = row;
+    return {
+      ...rest,
+      productsEnterprises: productsEnterprisesRow,
+      stockLocation: stockLocationRow,
+    };
+  }
+
+  private enterpriseProductsEnterprisesIds(enterpriseId: string) {
+    return db
+      .select({ id: productsEnterprises.id })
+      .from(productsEnterprises)
+      .where(eq(productsEnterprises.enterprisesId, enterpriseId));
+  }
+
+  private scopeWhere(enterpriseId: string, id?: string) {
+    const conditions = [
+      inArray(
+        stockSectorsRental.productsEnterprisesId,
+        this.enterpriseProductsEnterprisesIds(enterpriseId),
+      ),
+    ];
+    if (id) conditions.push(eq(stockSectorsRental.id, id));
+    return and(...conditions);
   }
 
   private async assertRefs(
@@ -58,45 +94,7 @@ export class StockSectorsRentalService {
     );
   }
 
-  public async list(
-    enterpriseId: string,
-    query: ListStockSectorsRentalQuery = {},
-  ) {
-    const { limit, offset } = resolveListPagination(query);
-    const where = this.scope(enterpriseId);
-    const [items, totalRows] = await Promise.all([
-      db
-        .select({
-          id: stockSectorsRental.id,
-          productsEnterprisesId: stockSectorsRental.productsEnterprisesId,
-          stockLocationId: stockSectorsRental.stockLocationId,
-          quantity: stockSectorsRental.quantity,
-          createdAt: stockSectorsRental.createdAt,
-          updatedAt: stockSectorsRental.updatedAt,
-        })
-        .from(stockSectorsRental)
-        .innerJoin(
-          productsEnterprises,
-          eq(stockSectorsRental.productsEnterprisesId, productsEnterprises.id),
-        )
-        .where(where)
-        .orderBy(asc(stockSectorsRental.id))
-        .limit(limit)
-        .offset(offset),
-      db
-        .select({ c: count() })
-        .from(stockSectorsRental)
-        .innerJoin(
-          productsEnterprises,
-          eq(stockSectorsRental.productsEnterprisesId, productsEnterprises.id),
-        )
-        .where(where),
-    ]);
-    const total = Number(totalRows[0]?.c ?? 0);
-    return { items, total, limit, offset };
-  }
-
-  public async getById(enterpriseId: string, id: string) {
+  private async getPlainById(enterpriseId: string, id: string) {
     const row = (
       await db
         .select({
@@ -112,7 +110,12 @@ export class StockSectorsRentalService {
           productsEnterprises,
           eq(stockSectorsRental.productsEnterprisesId, productsEnterprises.id),
         )
-        .where(this.scope(enterpriseId, id))
+        .where(
+          and(
+            eq(productsEnterprises.enterprisesId, enterpriseId),
+            eq(stockSectorsRental.id, id),
+          ),
+        )
         .limit(1)
     )[0];
     if (!row) {
@@ -122,6 +125,51 @@ export class StockSectorsRentalService {
       );
     }
     return row;
+  }
+
+  public async list(
+    enterpriseId: string,
+    query: ListStockSectorsRentalQuery = {},
+  ) {
+    const { limit, offset } = resolveListPagination(query);
+    const where = this.scopeWhere(enterpriseId);
+    const [items, totalRows] = await Promise.all([
+      db.query.stockSectorsRental.findMany({
+        where,
+        with: {
+          productsEnterprises: true,
+          stockLocation: true,
+        },
+        orderBy: [asc(stockSectorsRental.id)],
+        limit,
+        offset,
+      }),
+      db.select({ c: count() }).from(stockSectorsRental).where(where),
+    ]);
+    const total = Number(totalRows[0]?.c ?? 0);
+    return {
+      items: items.map((row) => this.toResponse(row)),
+      total,
+      limit,
+      offset,
+    };
+  }
+
+  public async getById(enterpriseId: string, id: string) {
+    const row = await db.query.stockSectorsRental.findFirst({
+      where: this.scopeWhere(enterpriseId, id),
+      with: {
+        productsEnterprises: true,
+        stockLocation: true,
+      },
+    });
+    if (!row) {
+      throw new NotFoundError(
+        "Saldo de estoque nao encontrado",
+        "STOCK_SECTOR_RENTAL_NOT_FOUND",
+      );
+    }
+    return this.toResponse(row);
   }
 
   public async create(
@@ -146,7 +194,7 @@ export class StockSectorsRentalService {
         after: row,
         ctx: audit,
       });
-      return row;
+      return this.getById(enterpriseId, row.id);
     } catch (err) {
       if (isPostgresUniqueViolation(err)) {
         throw new ConflictError(
@@ -164,7 +212,7 @@ export class StockSectorsRentalService {
     input: PatchStockSectorRentalInput,
     audit: EntityAuditContext,
   ) {
-    const existing = await this.getById(enterpriseId, id);
+    const existing = await this.getPlainById(enterpriseId, id);
     await this.assertRefs(enterpriseId, {
       productsEnterprisesId:
         input.productsEnterprisesId ?? existing.productsEnterprisesId,
@@ -201,7 +249,7 @@ export class StockSectorsRentalService {
         after: toAuditRecord(row),
         ctx: audit,
       });
-      return row;
+      return this.getById(enterpriseId, id);
     } catch (err) {
       if (isPostgresUniqueViolation(err)) {
         throw new ConflictError(
@@ -218,7 +266,7 @@ export class StockSectorsRentalService {
     id: string,
     audit: EntityAuditContext,
   ) {
-    const existing = await this.getById(enterpriseId, id);
+    const existing = await this.getPlainById(enterpriseId, id);
     const [row] = await db
       .delete(stockSectorsRental)
       .where(eq(stockSectorsRental.id, id))

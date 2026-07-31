@@ -32,7 +32,7 @@ export const enterprisesMembers = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
 
     code: integer("code"), // Código do membro
-    status: statusEnum("status").default("PENDENTE").notNull(), // Status da venda.
+    status: statusEnum("status").default("PENDENTE").notNull(), // Status do membro
     postSalesStatus: statusEnum("post_sales_status")
       .default("PENDENTE")
       .notNull(), // Status pós-venda

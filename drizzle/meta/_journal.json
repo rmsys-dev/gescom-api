@@ -407,6 +407,13 @@
       "when": 1785250000000,
       "tag": "0057_sale_status_inativa",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1785430000000,
+      "tag": "0058_enterprises_members_approved_by",
+      "breakpoints": true
     }
   ]
 }

@@ -118,6 +118,18 @@ type ConversionStockLine = {
 type BudgetStatus = "ABERTA" | "PARCIAL" | "FINALIZADA";
 type BudgetConversionKind = "PARCIAL" | "TOTAL";
 
+const POST_SALES_STATUS_TO_APPLY = [
+  "INATIVO",
+  "BLOQUEADO",
+  "FUNCIONARIO",
+] as const;
+
+const CREDIT_SALE_ALLOWED_MEMBER_STATUSES = [
+  "ATIVO",
+  "ESPECIAL",
+  "FUNCIONARIO",
+] as const;
+
 const dec = (v: number | undefined | null) =>
   v !== undefined && v !== null ? v.toString() : null;
 
@@ -1219,6 +1231,120 @@ export class SalesService {  // Servico de vendas
     }
   }
 
+  private async hasAPrazoPayment(
+    tx: Tx | typeof db,
+    payments: SalePaymentInput[],
+  ): Promise<boolean> {
+    if (payments.length === 0) return false;
+    const paymentTypeIds = payments.map((payment) => payment.paymentTypeId);
+    const rows = await tx
+      .select({ paymentType: paymentTypes.paymentType })
+      .from(paymentTypes)
+      .where(inArray(paymentTypes.id, paymentTypeIds));
+    return rows.some((row) => row.paymentType === "A_PRAZO");
+  }
+
+  private async assertMemberActiveForCreditSale(
+    tx: Tx | typeof db,
+    enterpriseId: string,
+    memberId: string,
+  ) {
+    const row = (
+      await tx
+        .select({ status: enterprisesMembers.status })
+        .from(enterprisesMembers)
+        .where(
+          and(
+            eq(enterprisesMembers.id, memberId),
+            eq(enterprisesMembers.enterpriseId, enterpriseId),
+            isNull(enterprisesMembers.deletedAt),
+          ),
+        )
+        .limit(1)
+    )[0];
+    if (
+      !row ||
+      !(CREDIT_SALE_ALLOWED_MEMBER_STATUSES as readonly string[]).includes(
+        row.status,
+      )
+    ) {
+      throw new ValidationError(
+        [
+          {
+            path: "body.memberId",
+            message:
+              "Cliente deve estar ATIVO, ESPECIAL ou FUNCIONARIO para venda a prazo",
+          },
+        ],
+        "Cliente inelegivel para venda a prazo",
+      );
+    }
+  }
+
+  private async applyMemberPostSalesStatusAfterCreditSale(
+    tx: Tx,
+    enterpriseId: string,
+    memberId: string,
+    payments: SalePaymentInput[],
+  ) {
+    if (!(await this.hasAPrazoPayment(tx, payments))) return;
+
+    const member = (
+      await tx
+        .select({
+          postSalesStatus: enterprisesMembers.postSalesStatus,
+        })
+        .from(enterprisesMembers)
+        .where(
+          and(
+            eq(enterprisesMembers.id, memberId),
+            eq(enterprisesMembers.enterpriseId, enterpriseId),
+            isNull(enterprisesMembers.deletedAt),
+          ),
+        )
+        .limit(1)
+    )[0];
+    if (!member) return;
+
+    if (
+      !(POST_SALES_STATUS_TO_APPLY as readonly string[]).includes(
+        member.postSalesStatus,
+      )
+    ) {
+      return;
+    }
+
+    await tx
+      .update(enterprisesMembers)
+      .set({
+        status: member.postSalesStatus,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(enterprisesMembers.id, memberId),
+          eq(enterprisesMembers.enterpriseId, enterpriseId),
+          isNull(enterprisesMembers.deletedAt),
+        ),
+      );
+  }
+
+  private async handleCreditSaleMemberStatusOnFinalize(
+    tx: Tx,
+    enterpriseId: string,
+    memberId: string,
+    payments: SalePaymentInput[],
+  ) {
+    if (!(await this.hasAPrazoPayment(tx, payments))) return;
+    await this.assertMemberActiveForCreditSale(tx, enterpriseId, memberId);
+    await this.applyMemberPostSalesStatusAfterCreditSale(
+      tx,
+      enterpriseId,
+      memberId,
+      payments,
+    );
+  }
+
   private async assertSaleHasNoPayments(tx: Tx, saleId: string) {   // Verifica se a venda nao possui pagamentos cadastrados
     const existing = (
       await tx
@@ -1913,20 +2039,23 @@ export class SalesService {  // Servico de vendas
     };
   }
 
-  private async assertClientMember(  // Verifica se o cliente esta ativo na empresa
+  private async assertClientMember(  // Verifica se o cliente existe; status so em venda a prazo
     tx: Tx | typeof db,
     enterpriseId: string,
     memberId: string,
+    payments?: SalePaymentInput[],
   ) {
     const row = (
       await tx
-        .select({ id: enterprisesMembers.id })
+        .select({
+          id: enterprisesMembers.id,
+          status: enterprisesMembers.status,
+        })
         .from(enterprisesMembers)
         .where(
           and(
             eq(enterprisesMembers.id, memberId),
             eq(enterprisesMembers.enterpriseId, enterpriseId),
-            eq(enterprisesMembers.status, "ATIVO"),
             isNull(enterprisesMembers.deletedAt),
           ),
         )
@@ -1936,6 +2065,29 @@ export class SalesService {  // Servico de vendas
       throw new NotFoundError(
         "Membro cliente nao encontrado na empresa",
         "SALE_CLIENT_MEMBER_NOT_FOUND",
+      );
+    }
+
+    const isCreditSale =
+      payments !== undefined &&
+      (await this.hasAPrazoPayment(tx, payments));
+
+    if (!isCreditSale) return;
+
+    if (
+      !(CREDIT_SALE_ALLOWED_MEMBER_STATUSES as readonly string[]).includes(
+        row.status,
+      )
+    ) {
+      throw new ValidationError(
+        [
+          {
+            path: "body.memberId",
+            message:
+              "Cliente deve estar ATIVO, ESPECIAL ou FUNCIONARIO para venda a prazo",
+          },
+        ],
+        "Cliente inelegivel para venda a prazo",
       );
     }
   }
@@ -2054,7 +2206,6 @@ export class SalesService {  // Servico de vendas
           and(
             eq(enterprisesMembers.id, memberId),
             eq(enterprisesMembers.enterpriseId, enterpriseId),
-            eq(enterprisesMembers.status, "ATIVO"),
             isNull(enterprisesMembers.deletedAt),
           ),
         )
@@ -2541,7 +2692,12 @@ export class SalesService {  // Servico de vendas
 
     try {
       const saleId = await db.transaction(async (tx) => {
-        await this.assertClientMember(tx, enterpriseId, input.memberId);
+        await this.assertClientMember(
+          tx,
+          enterpriseId,
+          input.memberId,
+          status === "FINALIZADA" ? input.payments : undefined,
+        );
         if (input.vehiclesEnterprisesMembersId) {
           await this.assertVehiclesEnterprisesMember(
             tx,
@@ -2732,6 +2888,12 @@ export class SalesService {  // Servico de vendas
           this.assertSalePaymentsMatchSale(
             updatedSale.valueLiquid,
             updatedSale.createdAt,
+            input.payments,
+          );
+          await this.handleCreditSaleMemberStatusOnFinalize(
+            tx,
+            enterpriseId,
+            input.memberId,
             input.payments,
           );
           await this.insertSalePayments(tx, sale.id, input.payments);
@@ -2943,7 +3105,12 @@ export class SalesService {  // Servico de vendas
       beforeRow = await this.getSaleRow(tx, enterpriseId, id);
 
       if (input.memberId !== undefined) {
-        await this.assertClientMember(tx, enterpriseId, input.memberId);
+        await this.assertClientMember(
+          tx,
+          enterpriseId,
+          input.memberId,
+          finalize ? input.payments : undefined,
+        );
       }
 
       const nextMemberId = input.memberId ?? beforeRow.memberId;
@@ -3073,6 +3240,12 @@ export class SalesService {  // Servico de vendas
         this.assertSalePaymentsMatchSale(
           row.valueLiquid,
           row.createdAt,
+          input.payments!,
+        );
+        await this.handleCreditSaleMemberStatusOnFinalize(
+          tx,
+          enterpriseId,
+          row.memberId,
           input.payments!,
         );
         await this.insertSalePayments(tx, id, input.payments!);
@@ -3240,7 +3413,12 @@ export class SalesService {  // Servico de vendas
             "Cliente obrigatorio",
           );
         }
-        await this.assertClientMember(tx, enterpriseId, memberId);
+        await this.assertClientMember(
+          tx,
+          enterpriseId,
+          memberId,
+          status === "FINALIZADA" ? input.payments : undefined,
+        );
 
         const vehiclesEnterprisesMembersId =
           this.resolveVehiclesEnterprisesMembersId(
@@ -3434,6 +3612,12 @@ export class SalesService {  // Servico de vendas
           this.assertSalePaymentsMatchSale(
             updatedSale.valueLiquid,
             updatedSale.createdAt,
+            input.payments,
+          );
+          await this.handleCreditSaleMemberStatusOnFinalize(
+            tx,
+            enterpriseId,
+            memberId,
             input.payments,
           );
           await this.insertSalePayments(tx, generatedSale.id, input.payments);
@@ -4064,7 +4248,12 @@ export class SalesService {  // Servico de vendas
             "Cliente obrigatorio",
           );
         }
-        await this.assertClientMember(tx, enterpriseId, memberId);
+        await this.assertClientMember(
+          tx,
+          enterpriseId,
+          memberId,
+          status === "FINALIZADA" ? input.payments : undefined,
+        );
 
         const vehiclesEnterprisesMembersId =
           this.resolveVehiclesEnterprisesMembersId(
@@ -4248,6 +4437,12 @@ export class SalesService {  // Servico de vendas
           this.assertSalePaymentsMatchSale(
             updatedSale.valueLiquid,
             updatedSale.createdAt,
+            input.payments,
+          );
+          await this.handleCreditSaleMemberStatusOnFinalize(
+            tx,
+            enterpriseId,
+            memberId,
             input.payments,
           );
           await this.insertSalePayments(tx, generatedSale.id, input.payments);

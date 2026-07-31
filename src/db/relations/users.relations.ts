@@ -15,6 +15,7 @@ import {
   usersCredentials,
   userSessions,
 } from "../entities/authentication.js";
+import { stockMovements } from "../entities/stock.js";
 
 export const usersRelations = relations(users, ({ many, one }) => ({
   memberships: many(enterprisesMembers),
@@ -27,6 +28,9 @@ export const usersRelations = relations(users, ({ many, one }) => ({
   relationships: one(usersRelationships),
   taxInfos: one(usersTaxInfos),
   financialInfo: one(usersFinancialInfo),
+  stockMovements: many(stockMovements, {
+    relationName: "stockMovementsUser",
+  }),
 }));
 
 export const userInvitationsRelations = relations(

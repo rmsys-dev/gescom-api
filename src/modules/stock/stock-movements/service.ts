@@ -1,6 +1,13 @@
-import { and, asc, count, desc, eq, gte, lte } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, lte } from "drizzle-orm";
 import { db } from "../../../db/index.js";
-import { productsEnterprises, stockMovements } from "../../../db/schema.js";
+import {
+  productsEnterprises,
+  stockBatches,
+  stockLocations,
+  stockMovements,
+  stockSectors,
+  users,
+} from "../../../db/schema.js";
 import { NotFoundError } from "../../../shared/errors/app-error.js";
 import { resolveListPagination } from "../../../shared/pagination/pagination-params.js";
 import {
@@ -15,19 +22,81 @@ import type {
   ListStockMovementsQuery,
 } from "./schema.js";
 
+type StockMovementWithRelations = typeof stockMovements.$inferSelect & {
+  productsEnterprises: typeof productsEnterprises.$inferSelect;
+  fromStockSector: typeof stockSectors.$inferSelect | null;
+  toStockSector: typeof stockSectors.$inferSelect | null;
+  fromStockLocation: typeof stockLocations.$inferSelect | null;
+  toStockLocation: typeof stockLocations.$inferSelect | null;
+  fromStockBatch: typeof stockBatches.$inferSelect | null;
+  toStockBatch: typeof stockBatches.$inferSelect | null;
+  user: typeof users.$inferSelect | null;
+};
+
+const movementDetailWith = {
+  productsEnterprises: true,
+  fromStockSector: true,
+  toStockSector: true,
+  fromStockLocation: true,
+  toStockLocation: true,
+  fromStockBatch: true,
+  toStockBatch: true,
+  user: true,
+} as const;
+
 export class StockMovementsService {
-  private scope(enterpriseId: string, id?: string) {
-    const base = [eq(productsEnterprises.enterprisesId, enterpriseId)];
-    if (id) base.push(eq(stockMovements.id, id));
-    return and(...base);
+  private toResponse(row: StockMovementWithRelations) {
+    const {
+      productsEnterprisesId: _productsEnterprisesId,
+      fromStockSectorId: _fromStockSectorId,
+      fromStockLocationId: _fromStockLocationId,
+      fromStockBatchId: _fromStockBatchId,
+      toStockSectorId: _toStockSectorId,
+      toStockLocationId: _toStockLocationId,
+      toStockBatchId: _toStockBatchId,
+      userId: _userId,
+      productsEnterprises: productsEnterprisesRow,
+      fromStockSector,
+      toStockSector,
+      fromStockLocation,
+      toStockLocation,
+      fromStockBatch,
+      toStockBatch,
+      user,
+      ...rest
+    } = row;
+    return {
+      ...rest,
+      productsEnterprises: productsEnterprisesRow,
+      fromStockSector: fromStockSector ?? null,
+      toStockSector: toStockSector ?? null,
+      fromStockLocation: fromStockLocation ?? null,
+      toStockLocation: toStockLocation ?? null,
+      fromStockBatch: fromStockBatch ?? null,
+      toStockBatch: toStockBatch ?? null,
+      user: user ?? null,
+    };
   }
 
-  public async list(
+  private enterpriseProductsEnterprisesIds(enterpriseId: string) {
+    return db
+      .select({ id: productsEnterprises.id })
+      .from(productsEnterprises)
+      .where(eq(productsEnterprises.enterprisesId, enterpriseId));
+  }
+
+  private scopeWhere(
     enterpriseId: string,
+    id?: string,
     query: ListStockMovementsQuery = {},
   ) {
-    const { limit, offset } = resolveListPagination(query);
-    const conditions = [eq(productsEnterprises.enterprisesId, enterpriseId)];
+    const conditions = [
+      inArray(
+        stockMovements.productsEnterprisesId,
+        this.enterpriseProductsEnterprisesIds(enterpriseId),
+      ),
+    ];
+    if (id) conditions.push(eq(stockMovements.id, id));
     if (query.productsEnterprisesId) {
       conditions.push(
         eq(stockMovements.productsEnterprisesId, query.productsEnterprisesId),
@@ -42,91 +111,48 @@ export class StockMovementsService {
     if (query.dateTo) {
       conditions.push(lte(stockMovements.createdAt, query.dateTo));
     }
-    const where = and(...conditions);
+    return and(...conditions);
+  }
+
+  public async list(
+    enterpriseId: string,
+    query: ListStockMovementsQuery = {},
+  ) {
+    const { limit, offset } = resolveListPagination(query);
+    const where = this.scopeWhere(enterpriseId, undefined, query);
     const [items, totalRows] = await Promise.all([
-      db
-        .select({
-          id: stockMovements.id,
-          transferGroupId: stockMovements.transferGroupId,
-          type: stockMovements.type,
-          productsEnterprisesId: stockMovements.productsEnterprisesId,
-          fromStockSectorId: stockMovements.fromStockSectorId,
-          fromStockLocationId: stockMovements.fromStockLocationId,
-          fromStockBatchId: stockMovements.fromStockBatchId,
-          toStockSectorId: stockMovements.toStockSectorId,
-          toStockLocationId: stockMovements.toStockLocationId,
-          toStockBatchId: stockMovements.toStockBatchId,
-          quantity: stockMovements.quantity,
-          fromQuantityBefore: stockMovements.fromQuantityBefore,
-          fromQuantityAfter: stockMovements.fromQuantityAfter,
-          toQuantityBefore: stockMovements.toQuantityBefore,
-          toQuantityAfter: stockMovements.toQuantityAfter,
-          userId: stockMovements.userId,
-          notes: stockMovements.notes,
-          documentRef: stockMovements.documentRef,
-          createdAt: stockMovements.createdAt,
-        })
-        .from(stockMovements)
-        .innerJoin(
-          productsEnterprises,
-          eq(stockMovements.productsEnterprisesId, productsEnterprises.id),
-        )
-        .where(where)
-        .orderBy(desc(stockMovements.createdAt), asc(stockMovements.id))
-        .limit(limit)
-        .offset(offset),
-      db
-        .select({ c: count() })
-        .from(stockMovements)
-        .innerJoin(
-          productsEnterprises,
-          eq(stockMovements.productsEnterprisesId, productsEnterprises.id),
-        )
-        .where(where),
+      db.query.stockMovements.findMany({
+        where,
+        with: movementDetailWith,
+        orderBy: [desc(stockMovements.createdAt), asc(stockMovements.id)],
+        limit,
+        offset,
+      }),
+      db.select({ c: count() }).from(stockMovements).where(where),
     ]);
     const total = Number(totalRows[0]?.c ?? 0);
-    return { items, total, limit, offset };
+    return {
+      items: items.map((row) =>
+        this.toResponse(row as StockMovementWithRelations),
+      ),
+      total,
+      limit,
+      offset,
+    };
   }
 
   public async getById(enterpriseId: string, id: string) {
-    const row = (
-      await db
-        .select({
-          id: stockMovements.id,
-          transferGroupId: stockMovements.transferGroupId,
-          type: stockMovements.type,
-          productsEnterprisesId: stockMovements.productsEnterprisesId,
-          fromStockSectorId: stockMovements.fromStockSectorId,
-          fromStockLocationId: stockMovements.fromStockLocationId,
-          fromStockBatchId: stockMovements.fromStockBatchId,
-          toStockSectorId: stockMovements.toStockSectorId,
-          toStockLocationId: stockMovements.toStockLocationId,
-          toStockBatchId: stockMovements.toStockBatchId,
-          quantity: stockMovements.quantity,
-          fromQuantityBefore: stockMovements.fromQuantityBefore,
-          fromQuantityAfter: stockMovements.fromQuantityAfter,
-          toQuantityBefore: stockMovements.toQuantityBefore,
-          toQuantityAfter: stockMovements.toQuantityAfter,
-          userId: stockMovements.userId,
-          notes: stockMovements.notes,
-          documentRef: stockMovements.documentRef,
-          createdAt: stockMovements.createdAt,
-        })
-        .from(stockMovements)
-        .innerJoin(
-          productsEnterprises,
-          eq(stockMovements.productsEnterprisesId, productsEnterprises.id),
-        )
-        .where(this.scope(enterpriseId, id))
-        .limit(1)
-    )[0];
+    const row = await db.query.stockMovements.findFirst({
+      where: this.scopeWhere(enterpriseId, id),
+      with: movementDetailWith,
+    });
     if (!row) {
       throw new NotFoundError(
         "Movimento de estoque nao encontrado",
         "STOCK_MOVEMENT_NOT_FOUND",
       );
     }
-    return row;
+    return this.toResponse(row as StockMovementWithRelations);
   }
 
   public async create(
@@ -174,7 +200,7 @@ export class StockMovementsService {
       ctx: audit,
     });
 
-    return row;
+    return this.getById(enterpriseId, row.id);
   }
 }
 

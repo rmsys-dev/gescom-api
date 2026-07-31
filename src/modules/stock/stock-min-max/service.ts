@@ -1,4 +1,4 @@
-import { and, asc, count, eq } from "drizzle-orm";
+import { and, asc, count, eq, inArray } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import { productsEnterprises, stockMinMax } from "../../../db/schema.js";
 import {
@@ -22,49 +22,42 @@ import type {
   PatchStockMinMaxInput,
 } from "./schema.js";
 
+type StockMinMaxWithRelations = typeof stockMinMax.$inferSelect & {
+  productsEnterprises: typeof productsEnterprises.$inferSelect;
+};
+
 export class StockMinMaxService {
-  private scope(enterpriseId: string, id?: string) {
-    const base = [eq(productsEnterprises.enterprisesId, enterpriseId)];
-    if (id) base.push(eq(stockMinMax.id, id));
-    return and(...base);
+  private toResponse(row: StockMinMaxWithRelations) {
+    const {
+      productsEnterprisesId: _productsEnterprisesId,
+      productsEnterprises: productsEnterprisesRow,
+      ...rest
+    } = row;
+    return {
+      ...rest,
+      productsEnterprises: productsEnterprisesRow,
+    };
   }
 
-  public async list(enterpriseId: string, query: ListStockMinMaxQuery = {}) {
-    const { limit, offset } = resolveListPagination(query);
-    const where = this.scope(enterpriseId);
-    const [items, totalRows] = await Promise.all([
-      db
-        .select({
-          id: stockMinMax.id,
-          quantityMin: stockMinMax.quantityMin,
-          quantityMax: stockMinMax.quantityMax,
-          productsEnterprisesId: stockMinMax.productsEnterprisesId,
-          createdAt: stockMinMax.createdAt,
-          updatedAt: stockMinMax.updatedAt,
-        })
-        .from(stockMinMax)
-        .innerJoin(
-          productsEnterprises,
-          eq(stockMinMax.productsEnterprisesId, productsEnterprises.id),
-        )
-        .where(where)
-        .orderBy(asc(stockMinMax.id))
-        .limit(limit)
-        .offset(offset),
-      db
-        .select({ c: count() })
-        .from(stockMinMax)
-        .innerJoin(
-          productsEnterprises,
-          eq(stockMinMax.productsEnterprisesId, productsEnterprises.id),
-        )
-        .where(where),
-    ]);
-    const total = Number(totalRows[0]?.c ?? 0);
-    return { items, total, limit, offset };
+  private enterpriseProductsEnterprisesIds(enterpriseId: string) {
+    return db
+      .select({ id: productsEnterprises.id })
+      .from(productsEnterprises)
+      .where(eq(productsEnterprises.enterprisesId, enterpriseId));
   }
 
-  public async getById(enterpriseId: string, id: string) {
+  private scopeWhere(enterpriseId: string, id?: string) {
+    const conditions = [
+      inArray(
+        stockMinMax.productsEnterprisesId,
+        this.enterpriseProductsEnterprisesIds(enterpriseId),
+      ),
+    ];
+    if (id) conditions.push(eq(stockMinMax.id, id));
+    return and(...conditions);
+  }
+
+  private async getPlainById(enterpriseId: string, id: string) {
     const row = (
       await db
         .select({
@@ -80,7 +73,12 @@ export class StockMinMaxService {
           productsEnterprises,
           eq(stockMinMax.productsEnterprisesId, productsEnterprises.id),
         )
-        .where(this.scope(enterpriseId, id))
+        .where(
+          and(
+            eq(productsEnterprises.enterprisesId, enterpriseId),
+            eq(stockMinMax.id, id),
+          ),
+        )
         .limit(1)
     )[0];
     if (!row) {
@@ -90,6 +88,46 @@ export class StockMinMaxService {
       );
     }
     return row;
+  }
+
+  public async list(enterpriseId: string, query: ListStockMinMaxQuery = {}) {
+    const { limit, offset } = resolveListPagination(query);
+    const where = this.scopeWhere(enterpriseId);
+    const [items, totalRows] = await Promise.all([
+      db.query.stockMinMax.findMany({
+        where,
+        with: {
+          productsEnterprises: true,
+        },
+        orderBy: [asc(stockMinMax.id)],
+        limit,
+        offset,
+      }),
+      db.select({ c: count() }).from(stockMinMax).where(where),
+    ]);
+    const total = Number(totalRows[0]?.c ?? 0);
+    return {
+      items: items.map((row) => this.toResponse(row)),
+      total,
+      limit,
+      offset,
+    };
+  }
+
+  public async getById(enterpriseId: string, id: string) {
+    const row = await db.query.stockMinMax.findFirst({
+      where: this.scopeWhere(enterpriseId, id),
+      with: {
+        productsEnterprises: true,
+      },
+    });
+    if (!row) {
+      throw new NotFoundError(
+        "Estoque min/max nao encontrado",
+        "STOCK_MIN_MAX_NOT_FOUND",
+      );
+    }
+    return this.toResponse(row);
   }
 
   public async create(
@@ -117,7 +155,7 @@ export class StockMinMaxService {
         after: row,
         ctx: audit,
       });
-      return row;
+      return this.getById(enterpriseId, row.id);
     } catch (err) {
       if (isPostgresUniqueViolation(err)) {
         throw new ConflictError(
@@ -135,7 +173,7 @@ export class StockMinMaxService {
     input: PatchStockMinMaxInput,
     audit: EntityAuditContext,
   ) {
-    const existing = await this.getById(enterpriseId, id);
+    const existing = await this.getPlainById(enterpriseId, id);
     const min =
       input.quantityMin !== undefined
         ? input.quantityMin
@@ -192,7 +230,7 @@ export class StockMinMaxService {
         after: toAuditRecord(row),
         ctx: audit,
       });
-      return row;
+      return this.getById(enterpriseId, id);
     } catch (err) {
       if (isPostgresUniqueViolation(err)) {
         throw new ConflictError(
@@ -209,7 +247,7 @@ export class StockMinMaxService {
     id: string,
     audit: EntityAuditContext,
   ) {
-    const existing = await this.getById(enterpriseId, id);
+    const existing = await this.getPlainById(enterpriseId, id);
     const [row] = await db
       .delete(stockMinMax)
       .where(eq(stockMinMax.id, id))

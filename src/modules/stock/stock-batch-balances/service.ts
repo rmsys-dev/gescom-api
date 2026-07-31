@@ -1,9 +1,10 @@
-import { and, asc, count, eq } from "drizzle-orm";
+import { and, asc, count, eq, inArray } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import {
   productsEnterprises,
   stockBatchBalances,
   stockBatches,
+  stockLocations,
 } from "../../../db/schema.js";
 import {
   ConflictError,
@@ -30,11 +31,57 @@ import type {
   PatchStockBatchBalanceInput,
 } from "./schema.js";
 
+type StockBatchBalanceWithRelations = typeof stockBatchBalances.$inferSelect & {
+  stockBatch: typeof stockBatches.$inferSelect & {
+    productsEnterprises: typeof productsEnterprises.$inferSelect;
+  };
+  stockLocation: typeof stockLocations.$inferSelect;
+};
+
 export class StockBatchBalancesService {
-  private scope(enterpriseId: string, id?: string) {
-    const base = [eq(productsEnterprises.enterprisesId, enterpriseId)];
-    if (id) base.push(eq(stockBatchBalances.id, id));
-    return and(...base);
+  private toResponse(row: StockBatchBalanceWithRelations) {
+    const {
+      stockBatchId: _stockBatchId,
+      stockLocationId: _stockLocationId,
+      stockBatch: stockBatchRow,
+      stockLocation: stockLocationRow,
+      ...rest
+    } = row;
+    const {
+      productsEnterprisesId: _productsEnterprisesId,
+      productsEnterprises: productsEnterprisesRow,
+      ...stockBatchRest
+    } = stockBatchRow;
+    return {
+      ...rest,
+      stockBatch: {
+        ...stockBatchRest,
+        productsEnterprises: productsEnterprisesRow,
+      },
+      stockLocation: stockLocationRow,
+    };
+  }
+
+  private enterpriseStockBatchIds(enterpriseId: string) {
+    return db
+      .select({ id: stockBatches.id })
+      .from(stockBatches)
+      .innerJoin(
+        productsEnterprises,
+        eq(stockBatches.productsEnterprisesId, productsEnterprises.id),
+      )
+      .where(eq(productsEnterprises.enterprisesId, enterpriseId));
+  }
+
+  private scopeWhere(enterpriseId: string, id?: string) {
+    const conditions = [
+      inArray(
+        stockBatchBalances.stockBatchId,
+        this.enterpriseStockBatchIds(enterpriseId),
+      ),
+    ];
+    if (id) conditions.push(eq(stockBatchBalances.id, id));
+    return and(...conditions);
   }
 
   private async assertRefs(
@@ -79,53 +126,7 @@ export class StockBatchBalancesService {
     );
   }
 
-  public async list(
-    enterpriseId: string,
-    query: ListStockBatchBalancesQuery = {},
-  ) {
-    const { limit, offset } = resolveListPagination(query);
-    const where = this.scope(enterpriseId);
-    const [items, totalRows] = await Promise.all([
-      db
-        .select({
-          id: stockBatchBalances.id,
-          stockBatchId: stockBatchBalances.stockBatchId,
-          stockLocationId: stockBatchBalances.stockLocationId,
-          quantity: stockBatchBalances.quantity,
-          createdAt: stockBatchBalances.createdAt,
-          updatedAt: stockBatchBalances.updatedAt,
-        })
-        .from(stockBatchBalances)
-        .innerJoin(
-          stockBatches,
-          eq(stockBatchBalances.stockBatchId, stockBatches.id),
-        )
-        .innerJoin(
-          productsEnterprises,
-          eq(stockBatches.productsEnterprisesId, productsEnterprises.id),
-        )
-        .where(where)
-        .orderBy(asc(stockBatchBalances.id))
-        .limit(limit)
-        .offset(offset),
-      db
-        .select({ c: count() })
-        .from(stockBatchBalances)
-        .innerJoin(
-          stockBatches,
-          eq(stockBatchBalances.stockBatchId, stockBatches.id),
-        )
-        .innerJoin(
-          productsEnterprises,
-          eq(stockBatches.productsEnterprisesId, productsEnterprises.id),
-        )
-        .where(where),
-    ]);
-    const total = Number(totalRows[0]?.c ?? 0);
-    return { items, total, limit, offset };
-  }
-
-  public async getById(enterpriseId: string, id: string) {
+  private async getPlainById(enterpriseId: string, id: string) {
     const row = (
       await db
         .select({
@@ -145,7 +146,12 @@ export class StockBatchBalancesService {
           productsEnterprises,
           eq(stockBatches.productsEnterprisesId, productsEnterprises.id),
         )
-        .where(this.scope(enterpriseId, id))
+        .where(
+          and(
+            eq(productsEnterprises.enterprisesId, enterpriseId),
+            eq(stockBatchBalances.id, id),
+          ),
+        )
         .limit(1)
     )[0];
     if (!row) {
@@ -155,6 +161,61 @@ export class StockBatchBalancesService {
       );
     }
     return row;
+  }
+
+  public async list(
+    enterpriseId: string,
+    query: ListStockBatchBalancesQuery = {},
+  ) {
+    const { limit, offset } = resolveListPagination(query);
+    const where = this.scopeWhere(enterpriseId);
+    const [items, totalRows] = await Promise.all([
+      db.query.stockBatchBalances.findMany({
+        where,
+        with: {
+          stockBatch: {
+            with: {
+              productsEnterprises: true,
+            },
+          },
+          stockLocation: true,
+        },
+        orderBy: [asc(stockBatchBalances.id)],
+        limit,
+        offset,
+      }),
+      db.select({ c: count() }).from(stockBatchBalances).where(where),
+    ]);
+    const total = Number(totalRows[0]?.c ?? 0);
+    return {
+      items: items.map((row) =>
+        this.toResponse(row as StockBatchBalanceWithRelations),
+      ),
+      total,
+      limit,
+      offset,
+    };
+  }
+
+  public async getById(enterpriseId: string, id: string) {
+    const row = await db.query.stockBatchBalances.findFirst({
+      where: this.scopeWhere(enterpriseId, id),
+      with: {
+        stockBatch: {
+          with: {
+            productsEnterprises: true,
+          },
+        },
+        stockLocation: true,
+      },
+    });
+    if (!row) {
+      throw new NotFoundError(
+        "Saldo de lote nao encontrado",
+        "STOCK_BATCH_BALANCE_NOT_FOUND",
+      );
+    }
+    return this.toResponse(row as StockBatchBalanceWithRelations);
   }
 
   public async create(
@@ -179,7 +240,7 @@ export class StockBatchBalancesService {
         after: row,
         ctx: audit,
       });
-      return row;
+      return this.getById(enterpriseId, row.id);
     } catch (err) {
       if (isPostgresUniqueViolation(err)) {
         throw new ConflictError(
@@ -197,7 +258,7 @@ export class StockBatchBalancesService {
     input: PatchStockBatchBalanceInput,
     audit: EntityAuditContext,
   ) {
-    const existing = await this.getById(enterpriseId, id);
+    const existing = await this.getPlainById(enterpriseId, id);
     await this.assertRefs(enterpriseId, {
       stockBatchId: input.stockBatchId ?? existing.stockBatchId,
       stockLocationId: input.stockLocationId ?? existing.stockLocationId,
@@ -233,7 +294,7 @@ export class StockBatchBalancesService {
         after: toAuditRecord(row),
         ctx: audit,
       });
-      return row;
+      return this.getById(enterpriseId, id);
     } catch (err) {
       if (isPostgresUniqueViolation(err)) {
         throw new ConflictError(
@@ -250,7 +311,7 @@ export class StockBatchBalancesService {
     id: string,
     audit: EntityAuditContext,
   ) {
-    const existing = await this.getById(enterpriseId, id);
+    const existing = await this.getPlainById(enterpriseId, id);
     const [row] = await db
       .delete(stockBatchBalances)
       .where(eq(stockBatchBalances.id, id))

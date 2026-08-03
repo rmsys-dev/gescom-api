@@ -252,3 +252,130 @@ export const timezoneSqlLiteral = (timezone: string) =>
 /** Data local corrente no fuso informado. */
 export const analyticsLocalTodaySql = (timezone: string) =>
   sql`(CURRENT_TIMESTAMP AT TIME ZONE ${timezoneSqlLiteral(timezone)})::date`;
+
+/** Avanca um bucket a partir de uma data ISO (UTC date-only). */
+const addBucket = (iso: string, granularity: string): string => {
+  const date = parseDateOnly(iso);
+  switch (granularity) {
+    case "week":
+      date.setUTCDate(date.getUTCDate() + 7);
+      break;
+    case "month":
+      date.setUTCMonth(date.getUTCMonth() + 1);
+      break;
+    case "year":
+      date.setUTCFullYear(date.getUTCFullYear() + 1);
+      break;
+    default:
+      date.setUTCDate(date.getUTCDate() + 1);
+  }
+  return formatDateOnly(
+    date.getUTCFullYear(),
+    date.getUTCMonth() + 1,
+    date.getUTCDate(),
+  );
+};
+
+/** Truncata a data ao inicio do bucket (segunda para week, dia 1 para month/year). */
+export const truncateToBucketStart = (
+  iso: string,
+  granularity: string,
+): string => {
+  const [y, m, d] = iso.split("-").map(Number) as [number, number, number];
+  switch (granularity) {
+    case "week": {
+      const start = startOfWeekMonday(y, m, d);
+      return formatDateOnly(start.y, start.m, start.d);
+    }
+    case "month":
+      return formatDateOnly(y, m, 1);
+    case "year":
+      return formatDateOnly(y, 1, 1);
+    default:
+      return formatDateOnly(y, m, d);
+  }
+};
+
+/** Lista todos os bucketStart do periodo (inclusivo), densos. */
+export const enumerateBucketStarts = (
+  period: ResolvedPeriod,
+  granularity: string,
+): string[] => {
+  const starts: string[] = [];
+  let cursor = truncateToBucketStart(period.from, granularity);
+  const end = truncateToBucketStart(period.to, granularity);
+
+  while (cursor <= end) {
+    starts.push(cursor);
+    cursor = addBucket(cursor, granularity);
+  }
+  return starts;
+};
+
+/** Label pronto para eixo X / legenda. */
+export const formatBucketLabel = (
+  bucketStart: string,
+  granularity: string,
+): string => {
+  const [y, m, d] = bucketStart.split("-");
+  switch (granularity) {
+    case "week": {
+      const end = parseDateOnly(bucketStart);
+      end.setUTCDate(end.getUTCDate() + 6);
+      const endLabel = formatDateOnly(
+        end.getUTCFullYear(),
+        end.getUTCMonth() + 1,
+        end.getUTCDate(),
+      );
+      return `${d}/${m}–${endLabel.slice(8)}/${endLabel.slice(5, 7)}`;
+    }
+    case "month":
+      return `${y}-${m}`;
+    case "year":
+      return y!;
+    default:
+      return `${d}/${m}/${y}`;
+  }
+};
+
+/**
+ * Preenche a serie com zeros para todos os buckets do periodo.
+ * Cada ponto recebe bucketLabel pronto para render.
+ */
+export const fillDenseSeries = <T extends { bucketStart: string }>(
+  period: ResolvedPeriod,
+  granularity: string,
+  sparse: T[],
+  emptyPoint: (bucketStart: string, bucketLabel: string) => T & {
+    bucketStart: string;
+    bucketLabel: string;
+  },
+): Array<T & { bucketStart: string; bucketLabel: string }> => {
+  const byStart = new Map(sparse.map((p) => [p.bucketStart, p]));
+  return enumerateBucketStarts(period, granularity).map((bucketStart) => {
+    const bucketLabel = formatBucketLabel(bucketStart, granularity);
+    const existing = byStart.get(bucketStart);
+    if (existing) {
+      return { ...existing, bucketStart, bucketLabel };
+    }
+    return emptyPoint(bucketStart, bucketLabel);
+  });
+};
+
+/**
+ * Anexa valores do periodo de comparacao em cada ponto (indice a indice).
+ * Pronto para grafico com linha actual + linha anterior sem zip no front.
+ */
+export const withPreviousSeriesPoints = <
+  T extends { bucketStart: string; bucketLabel: string },
+  P extends { bucketStart: string; bucketLabel: string },
+>(
+  series: T[],
+  comparisonSeries: P[] | undefined,
+): Array<T & { previous?: P }> => {
+  if (!comparisonSeries) return series;
+  return series.map((point, index) => {
+    const previous = comparisonSeries[index];
+    return previous ? { ...point, previous } : point;
+  });
+};

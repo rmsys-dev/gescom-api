@@ -1,6 +1,7 @@
 import { and, eq, gte, lte, sql, type SQL } from "drizzle-orm";
 import {
   sales,
+  salesDues,
   salesItems,
   salesPayments,
   salesReturns,
@@ -26,6 +27,10 @@ export const localCreatedDateSql = (timezone: string) =>
 /** Data local de criacao da devolucao. */
 export const localReturnCreatedDateSql = (timezone: string) =>
   sql`DATE(timezone(${timezoneSqlLiteral(timezone)}, ${salesReturns.createdAt}))`;
+
+/** Data de calendario UTC da parcela (dueDate e date-only armazenado em UTC). */
+export const dueDateUtcSql = () =>
+  sql`DATE(timezone('UTC', ${salesDues.dueDate}))`;
 
 /** Condicao de data de realizacao da venda. */
 export const buildRealizedDateCondition = (
@@ -60,7 +65,7 @@ export const buildReturnDateCondition = (
   );
 };
 
-/** Condicoes de filtro de venda. */
+/** Condicoes de filtro de venda (nivel documento). */
 export const buildSaleFilterConditions = (filters: AnalyticsFilters): SQL[] => {
   const conditions: SQL[] = [];
   if (filters.sellerId) {
@@ -100,6 +105,67 @@ export const buildSaleFilterConditions = (filters: AnalyticsFilters): SQL[] => {
   return conditions;
 };
 
+/**
+ * Filtros no nivel da linha de item (para rankings/agregacoes de sales_items).
+ * Evita "vazamento" de itens nao filtrados quando o EXISTS so restringe a venda.
+ */
+export const buildItemLineFilterConditions = (
+  filters: AnalyticsFilters,
+): SQL[] => {
+  const conditions: SQL[] = [];
+  if (filters.productsEnterprisesId) {
+    conditions.push(
+      eq(salesItems.productsEnterprisesId, filters.productsEnterprisesId),
+    );
+  }
+  if (filters.productGroupId) {
+    conditions.push(
+      sql`EXISTS (
+        SELECT 1 FROM products_enterprises pe
+        WHERE pe.id = ${salesItems.productsEnterprisesId}
+        AND pe.product_group_id = ${filters.productGroupId}
+      )`,
+    );
+  }
+  return conditions;
+};
+
+/** Filtro no nivel da linha de pagamento. */
+export const buildPaymentLineFilterConditions = (
+  filters: AnalyticsFilters,
+): SQL[] => {
+  const conditions: SQL[] = [];
+  if (filters.paymentTypeId) {
+    conditions.push(eq(salesPayments.paymentTypeId, filters.paymentTypeId));
+  }
+  return conditions;
+};
+
+/**
+ * Filtros no nivel da linha de devolucao (via item).
+ * seller/member/payment continuam no documento; produto/grupo restringem a linha.
+ */
+export const buildReturnLineFilterConditions = (
+  filters: AnalyticsFilters,
+): SQL[] => {
+  const conditions: SQL[] = [];
+  if (filters.productsEnterprisesId) {
+    conditions.push(
+      eq(salesItems.productsEnterprisesId, filters.productsEnterprisesId),
+    );
+  }
+  if (filters.productGroupId) {
+    conditions.push(
+      sql`EXISTS (
+        SELECT 1 FROM products_enterprises pe
+        WHERE pe.id = ${salesItems.productsEnterprisesId}
+        AND pe.product_group_id = ${filters.productGroupId}
+      )`,
+    );
+  }
+  return conditions;
+};
+
 /** Scope de venda realizada. */
 export const buildRealizedScope = (
   enterpriseId: string,
@@ -127,14 +193,21 @@ export const buildPipelineScope = (
     ...buildSaleFilterConditions(filters),
   );
 
-/** Scope de devolucao. */
+/**
+ * Scope de devolucao alinhado ao bruto (mesmos filtros de documento).
+ * Com filtro de produto/grupo, inclui devolucoes de vendas que contem o produto
+ * (mesmo criterio EXISTS do grossRevenue), nao so a linha do produto.
+ */
 export const buildReturnsScope = (
   enterpriseId: string,
   period: ResolvedPeriod,
+  filters: AnalyticsFilters = {},
 ) =>
   and(
     eq(sales.enterprisesId, enterpriseId),
+    eq(sales.type, "VENDA"),
     buildReturnDateCondition(period),
+    ...buildSaleFilterConditions(filters),
   );
 
 /** Valor proporcional da linha de devolucao com base no item da venda. */
@@ -144,6 +217,22 @@ export const returnLineValueSql = () =>
     then (${salesItems.valueTotal} / ${salesItems.quantity}) * ${salesReturns.quantity}
     else 0
   end`;
+
+/**
+ * Receita liquida do item apos devolucoes acumuladas:
+ * valueTotal * (quantity - quantityReturned) / quantity.
+ */
+export const netItemRevenueSql = () =>
+  sql`case
+    when ${salesItems.quantity} > 0
+    then (${salesItems.valueTotal} / ${salesItems.quantity})
+      * (${salesItems.quantity} - ${salesItems.quantityReturned})
+    else 0
+  end`;
+
+/** Quantidade liquida do item. */
+export const netItemQuantitySql = () =>
+  sql`(${salesItems.quantity} - ${salesItems.quantityReturned})`;
 
 /** Extrai os filtros da consulta. */
 export const extractFilters = (query: AnalyticsFilters): AnalyticsFilters => ({

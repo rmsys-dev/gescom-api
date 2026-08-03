@@ -1,5 +1,4 @@
 import { and, eq, sql } from "drizzle-orm";
-import { alias } from "drizzle-orm/pg-core";
 import { db } from "../../../db/index.js";
 import {
   enterprisesMembers,
@@ -13,12 +12,22 @@ import {
   salesReturns,
   users,
 } from "../../../db/schema.js";
-import { decNum, roundMoney, sharePercent } from "./metrics.js";
+import {
+  buildRankingPayload,
+  decNum,
+  ratePercent,
+  roundMoney,
+} from "./metrics.js";
 import { resolveAnalyticsPeriod } from "./period.js";
 import {
+  buildItemLineFilterConditions,
+  buildPaymentLineFilterConditions,
   buildRealizedScope,
+  buildReturnLineFilterConditions,
   buildReturnsScope,
   extractFilters,
+  netItemQuantitySql,
+  netItemRevenueSql,
   returnLineValueSql,
 } from "./scope.js";
 import type {
@@ -34,34 +43,49 @@ export class DimensionsAnalyticsService {
     const period = resolveAnalyticsPeriod(query);
     const filters = extractFilters(query);
     const scope = buildRealizedScope(enterpriseId, period, filters);
+    const paymentLineFilters = buildPaymentLineFilterConditions(filters);
+    const where = and(scope, ...paymentLineFilters);
 
-    const rows = await db
-      .select({
-        id: paymentTypes.id,
-        label: paymentTypes.description,
-        revenue: sql<string>`coalesce(sum(${salesPayments.valueTotal}), 0)`,
-        salesCount: sql<string>`count(distinct ${sales.id})`,
-      })
-      .from(salesPayments)
-      .innerJoin(sales, eq(salesPayments.salesId, sales.id))
-      .innerJoin(paymentTypes, eq(salesPayments.paymentTypeId, paymentTypes.id))
-      .where(scope)
-      .groupBy(paymentTypes.id, paymentTypes.description)
-      .orderBy(sql`sum(${salesPayments.valueTotal}) desc`)
-      .limit(query.limit ?? 10);
+    const [rows, totalRow] = await Promise.all([
+      db
+        .select({
+          id: paymentTypes.id,
+          label: paymentTypes.description,
+          revenue: sql<string>`coalesce(sum(${salesPayments.valueTotal}), 0)`,
+          salesCount: sql<string>`count(distinct ${sales.id})`,
+        })
+        .from(salesPayments)
+        .innerJoin(sales, eq(salesPayments.salesId, sales.id))
+        .innerJoin(
+          paymentTypes,
+          eq(salesPayments.paymentTypeId, paymentTypes.id),
+        )
+        .where(where)
+        .groupBy(paymentTypes.id, paymentTypes.description)
+        .orderBy(sql`sum(${salesPayments.valueTotal}) desc`)
+        .limit(query.limit ?? 10),
+      db
+        .select({
+          totalRevenue: sql<string>`coalesce(sum(${salesPayments.valueTotal}), 0)`,
+        })
+        .from(salesPayments)
+        .innerJoin(sales, eq(salesPayments.salesId, sales.id))
+        .where(where),
+    ]);
 
-    const totalRevenue = rows.reduce((sum, r) => sum + decNum(r.revenue), 0);
+    const ranking = buildRankingPayload(
+      rows.map((row) => ({
+        id: row.id,
+        label: row.label,
+        revenue: roundMoney(decNum(row.revenue)),
+        salesCount: Number(row.salesCount),
+      })),
+      decNum(totalRow[0]?.totalRevenue),
+    );
 
     return {
       period: { from: period.from, to: period.to, timezone: period.timezone },
-      items: rows.map((row) => ({
-        id: row.id,
-        label: row.label,
-        revenue: decNum(row.revenue),
-        salesCount: Number(row.salesCount),
-        sharePercent: sharePercent(decNum(row.revenue), totalRevenue),
-      })),
-      totalRevenue: roundMoney(totalRevenue),
+      ...ranking,
     };
   }
 
@@ -70,31 +94,40 @@ export class DimensionsAnalyticsService {
     const filters = extractFilters(query);
     const scope = buildRealizedScope(enterpriseId, period, filters);
 
-    const rows = await db
-      .select({
-        id: sales.sellerId,
-        label: sales.sellerLegalName,
-        revenue: sql<string>`coalesce(sum(${sales.valueLiquid}), 0)`,
-        salesCount: sql<string>`count(*)`,
-      })
-      .from(sales)
-      .where(scope)
-      .groupBy(sales.sellerId, sales.sellerLegalName)
-      .orderBy(sql`sum(${sales.valueLiquid}) desc`)
-      .limit(query.limit ?? 10);
+    const [rows, totalRow] = await Promise.all([
+      db
+        .select({
+          id: sales.sellerId,
+          label: sales.sellerLegalName,
+          revenue: sql<string>`coalesce(sum(${sales.valueLiquid}), 0)`,
+          salesCount: sql<string>`count(*)`,
+        })
+        .from(sales)
+        .where(scope)
+        .groupBy(sales.sellerId, sales.sellerLegalName)
+        .orderBy(sql`sum(${sales.valueLiquid}) desc`)
+        .limit(query.limit ?? 10),
+      db
+        .select({
+          totalRevenue: sql<string>`coalesce(sum(${sales.valueLiquid}), 0)`,
+        })
+        .from(sales)
+        .where(scope),
+    ]);
 
-    const totalRevenue = rows.reduce((sum, r) => sum + decNum(r.revenue), 0);
+    const ranking = buildRankingPayload(
+      rows.map((row) => ({
+        id: row.id,
+        label: row.label,
+        revenue: roundMoney(decNum(row.revenue)),
+        salesCount: Number(row.salesCount),
+      })),
+      decNum(totalRow[0]?.totalRevenue),
+    );
 
     return {
       period: { from: period.from, to: period.to, timezone: period.timezone },
-      items: rows.map((row) => ({
-        id: row.id,
-        label: row.label,
-        revenue: decNum(row.revenue),
-        salesCount: Number(row.salesCount),
-        sharePercent: sharePercent(decNum(row.revenue), totalRevenue),
-      })),
-      totalRevenue: roundMoney(totalRevenue),
+      ...ranking,
     };
   }
 
@@ -109,36 +142,45 @@ export class DimensionsAnalyticsService {
       sql`${sales.memberId} is not null`,
     );
 
-    const rows = await db
-      .select({
-        id: sales.memberId,
-        label: users.userName,
-        revenue: sql<string>`coalesce(sum(${sales.valueLiquid}), 0)`,
-        salesCount: sql<string>`count(*)`,
-      })
-      .from(sales)
-      .leftJoin(
-        enterprisesMembers,
-        eq(sales.memberId, enterprisesMembers.id),
-      )
-      .leftJoin(users, eq(enterprisesMembers.userId, users.id))
-      .where(scope)
-      .groupBy(sales.memberId, users.userName)
-      .orderBy(sql`sum(${sales.valueLiquid}) desc`)
-      .limit(query.limit ?? 10);
+    const [rows, totalRow] = await Promise.all([
+      db
+        .select({
+          id: sales.memberId,
+          label: users.userName,
+          revenue: sql<string>`coalesce(sum(${sales.valueLiquid}), 0)`,
+          salesCount: sql<string>`count(*)`,
+        })
+        .from(sales)
+        .leftJoin(
+          enterprisesMembers,
+          eq(sales.memberId, enterprisesMembers.id),
+        )
+        .leftJoin(users, eq(enterprisesMembers.userId, users.id))
+        .where(scope)
+        .groupBy(sales.memberId, users.userName)
+        .orderBy(sql`sum(${sales.valueLiquid}) desc`)
+        .limit(query.limit ?? 10),
+      db
+        .select({
+          totalRevenue: sql<string>`coalesce(sum(${sales.valueLiquid}), 0)`,
+        })
+        .from(sales)
+        .where(scope),
+    ]);
 
-    const totalRevenue = rows.reduce((sum, r) => sum + decNum(r.revenue), 0);
+    const ranking = buildRankingPayload(
+      rows.map((row) => ({
+        id: row.id,
+        label: row.label ?? "Cliente sem nome",
+        revenue: roundMoney(decNum(row.revenue)),
+        salesCount: Number(row.salesCount),
+      })),
+      decNum(totalRow[0]?.totalRevenue),
+    );
 
     return {
       period: { from: period.from, to: period.to, timezone: period.timezone },
-      items: rows.map((row) => ({
-        id: row.id,
-        label: row.label ?? "Cliente sem nome",
-        revenue: decNum(row.revenue),
-        salesCount: Number(row.salesCount),
-        sharePercent: sharePercent(decNum(row.revenue), totalRevenue),
-      })),
-      totalRevenue: roundMoney(totalRevenue),
+      ...ranking,
     };
   }
 
@@ -149,51 +191,65 @@ export class DimensionsAnalyticsService {
     const period = resolveAnalyticsPeriod(query);
     const filters = extractFilters(query);
     const scope = buildRealizedScope(enterpriseId, period, filters);
+    const itemLineFilters = buildItemLineFilterConditions(filters);
+    const where = and(scope, ...itemLineFilters);
     const sortBy = query.sortBy ?? "revenue";
+    const netRevenue = netItemRevenueSql();
+    const netQuantity = netItemQuantitySql();
 
-    const rows = await db
-      .select({
-        id: productsEnterprises.id,
-        code: productsEnterprises.code,
-        label: productsEnterprises.description,
-        revenue: sql<string>`coalesce(sum(${salesItems.valueTotal}), 0)`,
-        quantity: sql<string>`coalesce(sum(${salesItems.quantity} - ${salesItems.quantityReturned}), 0)`,
-        salesCount: sql<string>`count(distinct ${sales.id})`,
-      })
-      .from(salesItems)
-      .innerJoin(sales, eq(salesItems.salesId, sales.id))
-      .innerJoin(
-        productsEnterprises,
-        eq(salesItems.productsEnterprisesId, productsEnterprises.id),
-      )
-      .where(scope)
-      .groupBy(
-        productsEnterprises.id,
-        productsEnterprises.code,
-        productsEnterprises.description,
-      )
-      .orderBy(
-        sortBy === "quantity"
-          ? sql`sum(${salesItems.quantity} - ${salesItems.quantityReturned}) desc`
-          : sql`sum(${salesItems.valueTotal}) desc`,
-      )
-      .limit(query.limit ?? 10);
+    const [rows, totalRow] = await Promise.all([
+      db
+        .select({
+          id: productsEnterprises.id,
+          code: productsEnterprises.code,
+          label: productsEnterprises.description,
+          revenue: sql<string>`coalesce(sum(${netRevenue}), 0)`,
+          quantity: sql<string>`coalesce(sum(${netQuantity}), 0)`,
+          salesCount: sql<string>`count(distinct ${sales.id})`,
+        })
+        .from(salesItems)
+        .innerJoin(sales, eq(salesItems.salesId, sales.id))
+        .innerJoin(
+          productsEnterprises,
+          eq(salesItems.productsEnterprisesId, productsEnterprises.id),
+        )
+        .where(where)
+        .groupBy(
+          productsEnterprises.id,
+          productsEnterprises.code,
+          productsEnterprises.description,
+        )
+        .orderBy(
+          sortBy === "quantity"
+            ? sql`sum(${netQuantity}) desc`
+            : sql`sum(${netRevenue}) desc`,
+        )
+        .limit(query.limit ?? 10),
+      db
+        .select({
+          totalRevenue: sql<string>`coalesce(sum(${netRevenue}), 0)`,
+        })
+        .from(salesItems)
+        .innerJoin(sales, eq(salesItems.salesId, sales.id))
+        .where(where),
+    ]);
 
-    const totalRevenue = rows.reduce((sum, r) => sum + decNum(r.revenue), 0);
+    const ranking = buildRankingPayload(
+      rows.map((row) => ({
+        id: row.id,
+        code: row.code,
+        label: row.label,
+        revenue: roundMoney(decNum(row.revenue)),
+        quantity: decNum(row.quantity),
+        salesCount: Number(row.salesCount),
+      })),
+      decNum(totalRow[0]?.totalRevenue),
+    );
 
     return {
       period: { from: period.from, to: period.to, timezone: period.timezone },
       sortBy,
-      items: rows.map((row) => ({
-        id: row.id,
-        code: row.code,
-        label: row.label,
-        revenue: decNum(row.revenue),
-        quantity: decNum(row.quantity),
-        salesCount: Number(row.salesCount),
-        sharePercent: sharePercent(decNum(row.revenue), totalRevenue),
-      })),
-      totalRevenue: roundMoney(totalRevenue),
+      ...ranking,
     };
   }
 
@@ -219,6 +275,10 @@ export class DimensionsAnalyticsService {
     const period = resolveAnalyticsPeriod(query);
     const filters = extractFilters(query);
     const scope = buildRealizedScope(enterpriseId, period, filters);
+    const itemLineFilters = buildItemLineFilterConditions(filters);
+    const where = and(scope, ...itemLineFilters);
+    const netRevenue = netItemRevenueSql();
+    const netQuantity = netItemQuantitySql();
 
     const dimTable = dimension === "group" ? productGroups : productBrands;
     const dimIdCol =
@@ -226,39 +286,57 @@ export class DimensionsAnalyticsService {
         ? productsEnterprises.productGroupId
         : productsEnterprises.productBrandId;
 
-    const rows = await db
-      .select({
-        id: dimTable.id,
-        label: dimTable.description,
-        revenue: sql<string>`coalesce(sum(${salesItems.valueTotal}), 0)`,
-        quantity: sql<string>`coalesce(sum(${salesItems.quantity} - ${salesItems.quantityReturned}), 0)`,
-        salesCount: sql<string>`count(distinct ${sales.id})`,
-      })
-      .from(salesItems)
-      .innerJoin(sales, eq(salesItems.salesId, sales.id))
-      .innerJoin(
-        productsEnterprises,
-        eq(salesItems.productsEnterprisesId, productsEnterprises.id),
-      )
-      .innerJoin(dimTable, eq(dimIdCol, dimTable.id))
-      .where(scope)
-      .groupBy(dimTable.id, dimTable.description)
-      .orderBy(sql`sum(${salesItems.valueTotal}) desc`)
-      .limit(query.limit ?? 10);
+    const baseFrom = () =>
+      db
+        .select({
+          id: dimTable.id,
+          label: dimTable.description,
+          revenue: sql<string>`coalesce(sum(${netRevenue}), 0)`,
+          quantity: sql<string>`coalesce(sum(${netQuantity}), 0)`,
+          salesCount: sql<string>`count(distinct ${sales.id})`,
+        })
+        .from(salesItems)
+        .innerJoin(sales, eq(salesItems.salesId, sales.id))
+        .innerJoin(
+          productsEnterprises,
+          eq(salesItems.productsEnterprisesId, productsEnterprises.id),
+        )
+        .innerJoin(dimTable, eq(dimIdCol, dimTable.id))
+        .where(where);
 
-    const totalRevenue = rows.reduce((sum, r) => sum + decNum(r.revenue), 0);
+    const [rows, totalRow] = await Promise.all([
+      baseFrom()
+        .groupBy(dimTable.id, dimTable.description)
+        .orderBy(sql`sum(${netRevenue}) desc`)
+        .limit(query.limit ?? 10),
+      db
+        .select({
+          totalRevenue: sql<string>`coalesce(sum(${netRevenue}), 0)`,
+        })
+        .from(salesItems)
+        .innerJoin(sales, eq(salesItems.salesId, sales.id))
+        .innerJoin(
+          productsEnterprises,
+          eq(salesItems.productsEnterprisesId, productsEnterprises.id),
+        )
+        .innerJoin(dimTable, eq(dimIdCol, dimTable.id))
+        .where(where),
+    ]);
+
+    const ranking = buildRankingPayload(
+      rows.map((row) => ({
+        id: row.id,
+        label: row.label,
+        revenue: roundMoney(decNum(row.revenue)),
+        quantity: decNum(row.quantity),
+        salesCount: Number(row.salesCount),
+      })),
+      decNum(totalRow[0]?.totalRevenue),
+    );
 
     return {
       period: { from: period.from, to: period.to, timezone: period.timezone },
-      items: rows.map((row) => ({
-        id: row.id,
-        label: row.label,
-        revenue: decNum(row.revenue),
-        quantity: decNum(row.quantity),
-        salesCount: Number(row.salesCount),
-        sharePercent: sharePercent(decNum(row.revenue), totalRevenue),
-      })),
-      totalRevenue: roundMoney(totalRevenue),
+      ...ranking,
     };
   }
 
@@ -267,12 +345,10 @@ export class DimensionsAnalyticsService {
     query: AnalyticsRankingQuery,
   ) {
     const period = resolveAnalyticsPeriod(query);
-    const returnsScope = buildReturnsScope(enterpriseId, period);
-    const realizedScope = buildRealizedScope(
-      enterpriseId,
-      period,
-      extractFilters(query),
-    );
+    const filters = extractFilters(query);
+    const returnsScope = buildReturnsScope(enterpriseId, period, filters);
+    const returnLineFilters = buildReturnLineFilterConditions(filters);
+    const realizedScope = buildRealizedScope(enterpriseId, period, filters);
 
     const [returnsAgg, grossAgg, topProducts] = await Promise.all([
       db
@@ -304,29 +380,29 @@ export class DimensionsAnalyticsService {
           productsEnterprises,
           eq(salesItems.productsEnterprisesId, productsEnterprises.id),
         )
-        .where(returnsScope)
+        .where(and(returnsScope, ...returnLineFilters))
         .groupBy(productsEnterprises.id, productsEnterprises.description)
         .orderBy(sql`sum(${returnLineValueSql()}) desc`)
         .limit(query.limit ?? 10),
     ]);
 
-    const returnsTotal = decNum(returnsAgg[0]?.returnsTotal);
-    const grossRevenue = decNum(grossAgg[0]?.grossRevenue);
+    const returnsTotal = roundMoney(decNum(returnsAgg[0]?.returnsTotal));
+    const grossRevenue = roundMoney(decNum(grossAgg[0]?.grossRevenue));
+    const topReturnedProducts = topProducts.map((row) => ({
+      id: row.id,
+      label: row.label,
+      quantity: decNum(row.quantity),
+      revenue: roundMoney(decNum(row.revenue)),
+      sharePercent: ratePercent(decNum(row.revenue), returnsTotal),
+    }));
 
     return {
       period: { from: period.from, to: period.to, timezone: period.timezone },
-      returnsTotal: roundMoney(returnsTotal),
+      returnsTotal,
       returnCount: Number(returnsAgg[0]?.returnCount ?? 0),
-      returnRatePercent:
-        grossRevenue > 0
-          ? roundMoney((returnsTotal / grossRevenue) * 100)
-          : 0,
-      topReturnedProducts: topProducts.map((row) => ({
-        id: row.id,
-        label: row.label,
-        quantity: decNum(row.quantity),
-        revenue: decNum(row.revenue),
-      })),
+      returnRatePercent: ratePercent(returnsTotal, grossRevenue),
+      grossRevenue,
+      topReturnedProducts,
     };
   }
 }

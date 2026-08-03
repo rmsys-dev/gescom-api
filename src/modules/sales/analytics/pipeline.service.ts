@@ -5,11 +5,14 @@ import {
   sales,
   salesBudgetConversions,
 } from "../../../db/schema.js";
-import { decNum, kpiWithComparison, roundMoney } from "./metrics.js";
+import { decNum, kpiWithComparison, ratePercent, roundMoney } from "./metrics.js";
 import {
+  fillDenseSeries,
   pgGranularitySql,
   resolveAnalyticsPeriod,
   resolveComparisonPeriod,
+  timezoneSqlLiteral,
+  withPreviousSeriesPoints,
   type ResolvedPeriod,
 } from "./period.js";
 import {
@@ -33,8 +36,63 @@ export type PipelineKpis = {
   openBudgetsValue: number;
   budgetsPartialCount: number;
   budgetsClosedCount: number;
+  budgetsTotalCount: number;
   conversionCountInPeriod: number;
   conversionRatePercent: number;
+  /** Soma openSalesValue + openBudgetsValue (card unico de pipeline aberto). */
+  openPipelineValue: number;
+};
+
+const conversionDateCondition = (period: ResolvedPeriod) => {
+  const tz = timezoneSqlLiteral(period.timezone);
+  return and(
+    sql`DATE(timezone(${tz}, ${salesBudgetConversions.createdAt})) >= ${period.from}::date`,
+    sql`DATE(timezone(${tz}, ${salesBudgetConversions.createdAt})) <= ${period.to}::date`,
+  );
+};
+
+/** Filtros dimensionais aplicados ao orçamento origem (alias de sales). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const buildBudgetAliasFilterConditions = (
+  budgetSale: any,
+  filters: AnalyticsFilters,
+) => {
+  const conditions = [];
+  if (filters.sellerId) {
+    conditions.push(eq(budgetSale.sellerId, filters.sellerId));
+  }
+  if (filters.memberId) {
+    conditions.push(eq(budgetSale.memberId, filters.memberId));
+  }
+  if (filters.productsEnterprisesId) {
+    conditions.push(
+      sql`EXISTS (
+        SELECT 1 FROM sales_items si
+        WHERE si.sales_id = ${budgetSale.id}
+        AND si.products_enterprises_id = ${filters.productsEnterprisesId}
+      )`,
+    );
+  }
+  if (filters.productGroupId) {
+    conditions.push(
+      sql`EXISTS (
+        SELECT 1 FROM sales_items si
+        INNER JOIN products_enterprises pe ON pe.id = si.products_enterprises_id
+        WHERE si.sales_id = ${budgetSale.id}
+        AND pe.product_group_id = ${filters.productGroupId}
+      )`,
+    );
+  }
+  if (filters.paymentTypeId) {
+    conditions.push(
+      sql`EXISTS (
+        SELECT 1 FROM sales_payments sp
+        WHERE sp.sales_id = ${budgetSale.id}
+        AND sp.payment_type_id = ${filters.paymentTypeId}
+      )`,
+    );
+  }
+  return conditions;
 };
 
 const fetchPipelineKpis = async (
@@ -43,6 +101,7 @@ const fetchPipelineKpis = async (
   filters: AnalyticsFilters,
 ): Promise<PipelineKpis> => {
   const scope = buildPipelineScope(enterpriseId, period, filters);
+  const budgetSale = alias(sales, "budget_for_conversion");
 
   const [openSales, openBudgets, budgetStatus, conversions] = await Promise.all([
     db
@@ -79,11 +138,16 @@ const fetchPipelineKpis = async (
         count: sql<string>`count(*)`,
       })
       .from(salesBudgetConversions)
+      .innerJoin(
+        budgetSale,
+        eq(salesBudgetConversions.budgetSaleId, budgetSale.id),
+      )
       .where(
         and(
           eq(salesBudgetConversions.enterprisesId, enterpriseId),
-          sql`DATE(timezone(${period.timezone}, ${salesBudgetConversions.createdAt})) >= ${period.from}::date`,
-          sql`DATE(timezone(${period.timezone}, ${salesBudgetConversions.createdAt})) <= ${period.to}::date`,
+          conversionDateCondition(period),
+          eq(budgetSale.enterprisesId, enterpriseId),
+          ...buildBudgetAliasFilterConditions(budgetSale, filters),
         ),
       ),
   ]);
@@ -94,22 +158,42 @@ const fetchPipelineKpis = async (
     budgetStatus.find((r) => r.status === "FINALIZADA")?.count ?? "0";
   const openBudgetsCount = Number(openBudgets[0]?.count ?? 0);
   const conversionCount = Number(conversions[0]?.count ?? 0);
-  const totalBudgetsInPeriod = openBudgetsCount + Number(closedCount);
+  const budgetsTotalCount = budgetStatus.reduce(
+    (sum, row) => sum + Number(row.count),
+    0,
+  );
 
   return {
     openSalesCount: Number(openSales[0]?.count ?? 0),
-    openSalesValue: decNum(openSales[0]?.value),
+    openSalesValue: roundMoney(decNum(openSales[0]?.value)),
     openBudgetsCount,
-    openBudgetsValue: decNum(openBudgets[0]?.value),
+    openBudgetsValue: roundMoney(decNum(openBudgets[0]?.value)),
     budgetsPartialCount: Number(partialCount),
     budgetsClosedCount: Number(closedCount),
+    budgetsTotalCount,
     conversionCountInPeriod: conversionCount,
     conversionRatePercent:
-      totalBudgetsInPeriod > 0
-        ? roundMoney((conversionCount / totalBudgetsInPeriod) * 100)
+      budgetsTotalCount > 0
+        ? roundMoney((conversionCount / budgetsTotalCount) * 100)
         : 0,
+    openPipelineValue: roundMoney(
+      decNum(openSales[0]?.value) + decNum(openBudgets[0]?.value),
+    ),
   };
 };
+
+const emptyPipelinePoint = (
+  bucketStart: string,
+  bucketLabel: string,
+): PipelineSeriesPoint => ({
+  bucketStart,
+  bucketLabel,
+  openSalesValue: 0,
+  openBudgetsValue: 0,
+  openSalesCount: 0,
+  openBudgetsCount: 0,
+  openPipelineValue: 0,
+});
 
 type PipelineSeriesPoint = {
   bucketStart: string;
@@ -118,6 +202,7 @@ type PipelineSeriesPoint = {
   openBudgetsValue: number;
   openSalesCount: number;
   openBudgetsCount: number;
+  openPipelineValue: number;
 };
 
 const fetchPipelineSeries = async (
@@ -134,7 +219,6 @@ const fetchPipelineSeries = async (
   const rows = await db
     .select({
       bucketStart: sql<string>`to_char(${bucket}, 'YYYY-MM-DD')`,
-      bucketLabel: sql<string>`to_char(${bucket}, 'YYYY-MM')`,
       openSalesValue: sql<string>`coalesce(sum(CASE WHEN ${sales.type} = 'VENDA' THEN ${sales.valueLiquid} ELSE 0 END), 0)`,
       openBudgetsValue: sql<string>`coalesce(sum(CASE WHEN ${sales.type} = 'ORCAMENTO' THEN ${sales.valueLiquid} ELSE 0 END), 0)`,
       openSalesCount: sql<string>`count(*) FILTER (WHERE ${sales.type} = 'VENDA')`,
@@ -145,14 +229,20 @@ const fetchPipelineSeries = async (
     .groupBy(bucket)
     .orderBy(bucket);
 
-  return rows.map((row) => ({
-    bucketStart: row.bucketStart,
-    bucketLabel: row.bucketLabel,
-    openSalesValue: decNum(row.openSalesValue),
-    openBudgetsValue: decNum(row.openBudgetsValue),
-    openSalesCount: Number(row.openSalesCount),
-    openBudgetsCount: Number(row.openBudgetsCount),
-  }));
+  const sparse = rows.map((row) => {
+    const openSalesValue = roundMoney(decNum(row.openSalesValue));
+    const openBudgetsValue = roundMoney(decNum(row.openBudgetsValue));
+    return {
+      bucketStart: row.bucketStart,
+      openSalesValue,
+      openBudgetsValue,
+      openSalesCount: Number(row.openSalesCount),
+      openBudgetsCount: Number(row.openBudgetsCount),
+      openPipelineValue: roundMoney(openSalesValue + openBudgetsValue),
+    };
+  });
+
+  return fillDenseSeries(period, granularity, sparse, emptyPipelinePoint);
 };
 
 export class PipelineAnalyticsService {
@@ -200,15 +290,31 @@ export class PipelineAnalyticsService {
         openSalesCount: kpiWithComparison(
           current.openSalesCount,
           comparison.openSalesCount,
-        ).changePercent,
+        ),
         openSalesValue: kpiWithComparison(
           current.openSalesValue,
           comparison.openSalesValue,
-        ).changePercent,
+        ),
+        openBudgetsCount: kpiWithComparison(
+          current.openBudgetsCount,
+          comparison.openBudgetsCount,
+        ),
+        openBudgetsValue: kpiWithComparison(
+          current.openBudgetsValue,
+          comparison.openBudgetsValue,
+        ),
+        openPipelineValue: kpiWithComparison(
+          current.openPipelineValue,
+          comparison.openPipelineValue,
+        ),
         conversionCountInPeriod: kpiWithComparison(
           current.conversionCountInPeriod,
           comparison.conversionCountInPeriod,
-        ).changePercent,
+        ),
+        conversionRatePercent: kpiWithComparison(
+          current.conversionRatePercent,
+          comparison.conversionRatePercent,
+        ),
       },
     };
   }
@@ -245,26 +351,26 @@ export class PipelineAnalyticsService {
     return {
       period: { from: period.from, to: period.to, timezone: period.timezone },
       granularity,
-      series,
+      series: withPreviousSeriesPoints(series, comparisonSeries),
       ...(comparisonSeries ? { comparisonSeries } : {}),
     };
   }
 
   public async budgets(enterpriseId: string, query: AnalyticsPeriodQuery) {
     const period = resolveAnalyticsPeriod(query);
+    const tz = timezoneSqlLiteral(period.timezone);
     const budgetSales = alias(sales, "budget");
 
     const budgetScope = and(
       eq(sales.enterprisesId, enterpriseId),
       eq(sales.type, "ORCAMENTO"),
-      sql`DATE(timezone(${period.timezone}, ${sales.createdAt})) >= ${period.from}::date`,
-      sql`DATE(timezone(${period.timezone}, ${sales.createdAt})) <= ${period.to}::date`,
+      sql`DATE(timezone(${tz}, ${sales.createdAt})) >= ${period.from}::date`,
+      sql`DATE(timezone(${tz}, ${sales.createdAt})) <= ${period.to}::date`,
     );
 
     const conversionDateFilter = and(
       eq(salesBudgetConversions.enterprisesId, enterpriseId),
-      sql`DATE(timezone(${period.timezone}, ${salesBudgetConversions.createdAt})) >= ${period.from}::date`,
-      sql`DATE(timezone(${period.timezone}, ${salesBudgetConversions.createdAt})) <= ${period.to}::date`,
+      conversionDateCondition(period),
     );
 
     const [totals, convertedValue, avgConversionDays] = await Promise.all([
@@ -301,18 +407,19 @@ export class PipelineAnalyticsService {
 
     const budgetCount = Number(totals[0]?.count ?? 0);
     const conversionCount = Number(convertedValue[0]?.convertedCount ?? 0);
+    const budgetsTotalValue = roundMoney(decNum(totals[0]?.totalValue));
+    const openBudgetsValue = roundMoney(decNum(totals[0]?.openValue));
+    const convertedVal = roundMoney(decNum(convertedValue[0]?.convertedValue));
 
     return {
       period: { from: period.from, to: period.to, timezone: period.timezone },
       budgetsCount: budgetCount,
-      budgetsTotalValue: decNum(totals[0]?.totalValue),
-      openBudgetsValue: decNum(totals[0]?.openValue),
-      convertedValue: decNum(convertedValue[0]?.convertedValue),
+      budgetsTotalValue,
+      openBudgetsValue,
+      openBudgetsSharePercent: ratePercent(openBudgetsValue, budgetsTotalValue),
+      convertedValue: convertedVal,
       conversionCount,
-      conversionRatePercent:
-        budgetCount > 0
-          ? roundMoney((conversionCount / budgetCount) * 100)
-          : 0,
+      conversionRatePercent: ratePercent(conversionCount, budgetCount),
       avgConversionDays: roundMoney(decNum(avgConversionDays[0]?.avgDays)),
     };
   }
@@ -322,6 +429,15 @@ export class PipelineAnalyticsService {
     query: AnalyticsPeriodQuery,
   ) {
     const period = resolveAnalyticsPeriod(query);
+    const tz = timezoneSqlLiteral(period.timezone);
+
+    const statusLabels: Record<string, string> = {
+      ABERTA: "Aberta",
+      PARCIAL: "Parcial",
+      FINALIZADA: "Finalizada",
+      CANCELADA: "Cancelada",
+      INATIVA: "Inativa",
+    };
 
     const rows = await db
       .select({
@@ -334,8 +450,8 @@ export class PipelineAnalyticsService {
         and(
           eq(sales.enterprisesId, enterpriseId),
           eq(sales.type, "ORCAMENTO"),
-          sql`DATE(timezone(${period.timezone}, ${sales.createdAt})) >= ${period.from}::date`,
-          sql`DATE(timezone(${period.timezone}, ${sales.createdAt})) <= ${period.to}::date`,
+          sql`DATE(timezone(${tz}, ${sales.createdAt})) >= ${period.from}::date`,
+          sql`DATE(timezone(${tz}, ${sales.createdAt})) <= ${period.to}::date`,
         ),
       )
       .groupBy(sales.status);
@@ -345,15 +461,18 @@ export class PipelineAnalyticsService {
 
     return {
       period: { from: period.from, to: period.to, timezone: period.timezone },
-      funnel: rows.map((row) => ({
-        status: row.status,
-        count: Number(row.count),
-        value: decNum(row.value),
-        sharePercent:
-          totalCount > 0
-            ? roundMoney((Number(row.count) / totalCount) * 100)
-            : 0,
-      })),
+      funnel: rows.map((row) => {
+        const count = Number(row.count);
+        const value = roundMoney(decNum(row.value));
+        return {
+          status: row.status,
+          label: statusLabels[row.status] ?? row.status,
+          count,
+          value,
+          sharePercent: ratePercent(count, totalCount),
+          valueSharePercent: ratePercent(value, totalValue),
+        };
+      }),
       totalCount,
       totalValue: roundMoney(totalValue),
     };

@@ -1,11 +1,18 @@
 import { eq, sql } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import { sales, salesItems, salesReturns } from "../../../db/schema.js";
-import { decNum, kpiWithComparison, roundMoney } from "./metrics.js";
 import {
+  decNum,
+  kpiWithComparison,
+  ratePercent,
+  roundMoney,
+} from "./metrics.js";
+import {
+  fillDenseSeries,
   pgGranularitySql,
   resolveAnalyticsPeriod,
   resolveComparisonPeriod,
+  withPreviousSeriesPoints,
   type ResolvedPeriod,
 } from "./period.js";
 import {
@@ -32,8 +39,11 @@ export type RealizedKpis = {
   discountTotal: number;
   returnsTotal: number;
   returnCount: number;
+  returnRatePercent: number;
   pieRevenue: number;
   serviceRevenue: number;
+  pieSharePercent: number;
+  serviceSharePercent: number;
 };
 
 const fetchRealizedKpis = async (
@@ -60,7 +70,7 @@ const fetchRealizedKpis = async (
       .where(scope),
     db
       .select({
-        itemsSold: sql<string>`coalesce(sum(${salesItems.quantity} - ${salesItems.quantityReturned}), 0)`,
+        itemsSold: sql<string>`coalesce(sum(${salesItems.quantity}), 0)`,
       })
       .from(salesItems)
       .innerJoin(sales, eq(salesItems.salesId, sales.id))
@@ -73,12 +83,15 @@ const fetchRealizedKpis = async (
       .from(salesReturns)
       .innerJoin(sales, eq(salesReturns.salesId, sales.id))
       .innerJoin(salesItems, eq(salesReturns.saleItemId, salesItems.id))
-      .where(buildReturnsScope(enterpriseId, period)),
+      .where(buildReturnsScope(enterpriseId, period, filters)),
   ]);
 
   const grossRevenue = decNum(salesAgg[0]?.grossRevenue);
   const returnsTotal = decNum(returnsAgg[0]?.returnsTotal);
   const salesCount = Number(salesAgg[0]?.salesCount ?? 0);
+  const pieRevenue = roundMoney(decNum(salesAgg[0]?.pieRevenue));
+  const serviceRevenue = roundMoney(decNum(salesAgg[0]?.serviceRevenue));
+  const pieServiceBase = pieRevenue + serviceRevenue;
 
   return {
     grossRevenue: roundMoney(grossRevenue),
@@ -87,11 +100,14 @@ const fetchRealizedKpis = async (
     averageTicket:
       salesCount > 0 ? roundMoney(grossRevenue / salesCount) : 0,
     itemsSold: decNum(itemsAgg[0]?.itemsSold),
-    discountTotal: decNum(salesAgg[0]?.discountTotal),
+    discountTotal: roundMoney(decNum(salesAgg[0]?.discountTotal)),
     returnsTotal: roundMoney(returnsTotal),
     returnCount: Number(returnsAgg[0]?.returnCount ?? 0),
-    pieRevenue: decNum(salesAgg[0]?.pieRevenue),
-    serviceRevenue: decNum(salesAgg[0]?.serviceRevenue),
+    returnRatePercent: ratePercent(returnsTotal, grossRevenue),
+    pieRevenue,
+    serviceRevenue,
+    pieSharePercent: ratePercent(pieRevenue, pieServiceBase),
+    serviceSharePercent: ratePercent(serviceRevenue, pieServiceBase),
   };
 };
 
@@ -117,9 +133,16 @@ const buildOverviewKpis = (
   returnsTotal: {
     ...kpiWithComparison(current.returnsTotal, previous?.returnsTotal),
     returnCount: current.returnCount,
+    returnRatePercent: current.returnRatePercent,
   },
-  pieRevenue: { value: current.pieRevenue },
-  serviceRevenue: { value: current.serviceRevenue },
+  pieRevenue: {
+    ...kpiWithComparison(current.pieRevenue, previous?.pieRevenue),
+    sharePercent: current.pieSharePercent,
+  },
+  serviceRevenue: {
+    ...kpiWithComparison(current.serviceRevenue, previous?.serviceRevenue),
+    sharePercent: current.serviceSharePercent,
+  },
 });
 
 type RealizedSeriesPoint = {
@@ -131,12 +154,24 @@ type RealizedSeriesPoint = {
   returnsTotal: number;
 };
 
-const fetchRealizedSeries = async (
+const emptyRealizedPoint = (
+  bucketStart: string,
+  bucketLabel: string,
+): RealizedSeriesPoint => ({
+  bucketStart,
+  bucketLabel,
+  grossRevenue: 0,
+  netRevenue: 0,
+  salesCount: 0,
+  returnsTotal: 0,
+});
+
+const fetchRealizedSeriesSparse = async (
   enterpriseId: string,
   period: ResolvedPeriod,
   filters: AnalyticsFilters,
   granularity: string,
-): Promise<RealizedSeriesPoint[]> => {
+): Promise<Array<Omit<RealizedSeriesPoint, "bucketLabel"> & { bucketLabel?: string }>> => {
   const scope = buildRealizedScope(enterpriseId, period, filters);
   const pgGran = pgGranularitySql(granularity);
   const effective = effectiveCompletionDateSql(period.timezone);
@@ -145,7 +180,6 @@ const fetchRealizedSeries = async (
   const rows = await db
     .select({
       bucketStart: sql<string>`to_char(${bucket}, 'YYYY-MM-DD')`,
-      bucketLabel: sql<string>`to_char(${bucket}, 'YYYY-MM')`,
       grossRevenue: sql<string>`coalesce(sum(${sales.valueLiquid}), 0)`,
       salesCount: sql<string>`count(*)`,
     })
@@ -154,7 +188,7 @@ const fetchRealizedSeries = async (
     .groupBy(bucket)
     .orderBy(bucket);
 
-  const returnsScope = buildReturnsScope(enterpriseId, period);
+  const returnsScope = buildReturnsScope(enterpriseId, period, filters);
   const returnBucket = sql`date_trunc(${pgGran}, ${localReturnCreatedDateSql(period.timezone)}::timestamp)`;
 
   const returnRows = await db
@@ -168,22 +202,51 @@ const fetchRealizedSeries = async (
     .where(returnsScope)
     .groupBy(returnBucket);
 
+  const salesByBucket = new Map(
+    rows.map((r) => [
+      r.bucketStart,
+      {
+        grossRevenue: decNum(r.grossRevenue),
+        salesCount: Number(r.salesCount),
+      },
+    ]),
+  );
   const returnsByBucket = new Map(
     returnRows.map((r) => [r.bucketStart, decNum(r.returnsTotal)]),
   );
 
-  return rows.map((row) => {
-    const grossRevenue = decNum(row.grossRevenue);
-    const returnsTotal = returnsByBucket.get(row.bucketStart) ?? 0;
+  const bucketStarts = new Set([
+    ...salesByBucket.keys(),
+    ...returnsByBucket.keys(),
+  ]);
+
+  return [...bucketStarts].map((bucketStart) => {
+    const sale = salesByBucket.get(bucketStart);
+    const grossRevenue = sale?.grossRevenue ?? 0;
+    const returnsTotal = returnsByBucket.get(bucketStart) ?? 0;
     return {
-      bucketStart: row.bucketStart,
-      bucketLabel: row.bucketLabel,
+      bucketStart,
       grossRevenue: roundMoney(grossRevenue),
       netRevenue: roundMoney(grossRevenue - returnsTotal),
-      salesCount: Number(row.salesCount),
+      salesCount: sale?.salesCount ?? 0,
       returnsTotal: roundMoney(returnsTotal),
     };
   });
+};
+
+const fetchRealizedSeries = async (
+  enterpriseId: string,
+  period: ResolvedPeriod,
+  filters: AnalyticsFilters,
+  granularity: string,
+): Promise<RealizedSeriesPoint[]> => {
+  const sparse = await fetchRealizedSeriesSparse(
+    enterpriseId,
+    period,
+    filters,
+    granularity,
+  );
+  return fillDenseSeries(period, granularity, sparse, emptyRealizedPoint);
 };
 
 export class RealizedAnalyticsService {
@@ -241,19 +304,31 @@ export class RealizedAnalyticsService {
       grossRevenue: kpiWithComparison(
         current.grossRevenue,
         comparison.grossRevenue,
-      ).changePercent,
-      netRevenue: kpiWithComparison(
-        current.netRevenue,
-        comparison.netRevenue,
-      ).changePercent,
-      salesCount: kpiWithComparison(current.salesCount, comparison.salesCount)
-        .changePercent,
+      ),
+      netRevenue: kpiWithComparison(current.netRevenue, comparison.netRevenue),
+      salesCount: kpiWithComparison(current.salesCount, comparison.salesCount),
       averageTicket: kpiWithComparison(
         current.averageTicket,
         comparison.averageTicket,
-      ).changePercent,
-      itemsSold: kpiWithComparison(current.itemsSold, comparison.itemsSold)
-        .changePercent,
+      ),
+      itemsSold: kpiWithComparison(current.itemsSold, comparison.itemsSold),
+      discountTotal: kpiWithComparison(
+        current.discountTotal,
+        comparison.discountTotal,
+      ),
+      returnsTotal: kpiWithComparison(
+        current.returnsTotal,
+        comparison.returnsTotal,
+      ),
+      returnRatePercent: kpiWithComparison(
+        current.returnRatePercent,
+        comparison.returnRatePercent,
+      ),
+      pieRevenue: kpiWithComparison(current.pieRevenue, comparison.pieRevenue),
+      serviceRevenue: kpiWithComparison(
+        current.serviceRevenue,
+        comparison.serviceRevenue,
+      ),
     };
 
     return {
@@ -298,10 +373,15 @@ export class RealizedAnalyticsService {
         )
       : undefined;
 
+    const seriesWithPrevious = withPreviousSeriesPoints(
+      series,
+      comparisonSeries,
+    );
+
     return {
       period: { from: period.from, to: period.to, timezone: period.timezone },
       granularity,
-      series,
+      series: seriesWithPrevious,
       ...(comparisonSeries ? { comparisonSeries } : {}),
     };
   }

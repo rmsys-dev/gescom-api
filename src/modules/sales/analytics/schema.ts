@@ -24,6 +24,24 @@ export const granularitySchema = z.enum(["day", "week", "month", "year"]);
 
 export const sortByProductSchema = z.enum(["revenue", "quantity"]);
 
+const isValidIanaTimezone = (timezone: string): boolean => {
+  try {
+    Intl.DateTimeFormat("en-US", { timeZone: timezone });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const timezoneSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .refine(isValidIanaTimezone, {
+    message: "timezone deve ser um identificador IANA valido",
+  })
+  .default("America/Sao_Paulo");
+
 const optionalFiltersSchema = z.object({
   sellerId: z.string().uuid().optional(),
   memberId: z.string().uuid().optional(),
@@ -37,7 +55,7 @@ const periodFieldsSchema = z
     dateFrom: dateOnlyIsoSchema("dateFrom").optional(),
     dateTo: dateOnlyIsoSchema("dateTo").optional(),
     periodPreset: periodPresetSchema.optional(),
-    timezone: z.string().trim().min(1).default("America/Sao_Paulo"),
+    timezone: timezoneSchema,
     compareMode: compareModeSchema.default("none"),
   })
   .strict();
@@ -101,6 +119,14 @@ export const analyticsTimeseriesQuerySchema = periodFieldsSchema
       });
     }
 
+    if (data.granularity === "week" && days > 366 * 2) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["dateTo"],
+        message: "Intervalo maximo de 2 anos para granularidade week",
+      });
+    }
+
     if (
       (data.granularity === "month" || data.granularity === "year") &&
       days > 366 * 5
@@ -131,7 +157,7 @@ export const analyticsOperationsQuerySchema = periodFieldsSchema
 
 export const analyticsReceivablesQuerySchema = z
   .object({
-    timezone: z.string().trim().min(1).default("America/Sao_Paulo"),
+    timezone: timezoneSchema,
     sellerId: z.string().uuid().optional(),
     memberId: z.string().uuid().optional(),
   })

@@ -1,11 +1,15 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import { db } from "../../db/schema.js";
 import {
+  ceps,
+  cities,
+  countries,
   enterprises,
   enterprisesAddress,
   enterprisesMembers,
   enterprisesSequences,
   membersDepartments,
+  states,
 } from "../../db/schema.js";
 import { ConflictError, NotFoundError } from "../../shared/errors/app-error.js";
 import { isActiveEnterprise, activeUserMembershipWhere } from "../../shared/db/tenant-predicates.js";
@@ -40,6 +44,68 @@ const mapMembershipsToListItem = (
     memberId: row.memberId,
     class: row.class,
   }));
+
+type EnterpriseAddressWithDetails = typeof enterprisesAddress.$inferSelect & {
+  cep?:
+    | (typeof ceps.$inferSelect & {
+        city?:
+          | (typeof cities.$inferSelect & {
+              state?:
+                | (typeof states.$inferSelect & {
+                    country?: typeof countries.$inferSelect | null;
+                  })
+                | null;
+            })
+          | null;
+      })
+    | null;
+};
+
+function mapEnterpriseAddressDetails(address: EnterpriseAddressWithDetails) {
+  const city = address.cep?.city;
+  const state = city?.state;
+  const country = state?.country;
+
+  return {
+    id: address.id,
+    number: address.number,
+    complement: address.complement,
+    adressType: address.adressType,
+    enterpriseId: address.enterpriseId,
+    createdAt: address.createdAt,
+    updatedAt: address.updatedAt,
+    deletedAt: address.deletedAt,
+    cep: address.cep
+      ? {
+          id: address.cep.id,
+          cepNumber: address.cep.cepNumber,
+          address: address.cep.address,
+          neighborhood: address.cep.neighborhood,
+          city: city
+            ? {
+                id: city.id,
+                ibgeCode: city.ibgeCode,
+                citieName: city.citieName,
+                state: state
+                  ? {
+                      id: state.id,
+                      acronym: state.acronym,
+                      description: state.description,
+                      country: country
+                        ? {
+                            id: country.id,
+                            countryCode: country.countryCode,
+                            countryName: country.countryName,
+                          }
+                        : null,
+                    }
+                  : null,
+              }
+            : null,
+        }
+      : null,
+  };
+}
 
 export class EnterprisesService {
   //Listagem de empresas
@@ -95,13 +161,32 @@ export class EnterprisesService {
     };
   }
 
-  //Busca uma empresa por ID (cadastro, endereços e sequências activos)
+  //Busca uma empresa por ID (cadastro, endereços detalhados e sequências activos)
   public async getById(id: string) {
     const row = await db.query.enterprises.findFirst({
       where: and(eq(enterprises.id, id), isNull(enterprises.deletedAt)),
       with: {
         addresses: {
           where: isNull(enterprisesAddress.deletedAt),
+          orderBy: [
+            asc(enterprisesAddress.adressType),
+            asc(enterprisesAddress.id),
+          ],
+          with: {
+            cep: {
+              with: {
+                city: {
+                  with: {
+                    state: {
+                      with: {
+                        country: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
         },
         sequences: {
           where: isNull(enterprisesSequences.deletedAt),
@@ -114,7 +199,13 @@ export class EnterprisesService {
     }
 
     const { addresses, sequences, ...enterprise } = row;
-    return { ...enterprise, addresses, sequences };
+    return {
+      ...enterprise,
+      addresses: (addresses as EnterpriseAddressWithDetails[]).map(
+        mapEnterpriseAddressDetails,
+      ),
+      sequences,
+    };
   }
 
   //Altera uma empresa

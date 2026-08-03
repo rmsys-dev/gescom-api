@@ -17,11 +17,13 @@ import {
 import { db } from "../../db/index.js";
 import {
   enterprisesMembers,
+  measurementUnits,
   mechanicSalesItems,
   membersDepartments,
   paymentTypes,
   productTypes,
   productsEnterprises,
+  promotionalPrices,
   sales,
   salesBudgetConversionItems,
   salesBudgetConversions,
@@ -31,9 +33,13 @@ import {
   salesMembers,
   salesPayments,
   salesReturns,
+  stockBatches,
+  stockLocations,
+  stockSectors,
   users,
   usersAddress,
   usersContact,
+  vehicles,
   vehiclesEnterprisesMembers,
 } from "../../db/schema.js";
 import {
@@ -644,17 +650,88 @@ export class SalesService {  // Servico de vendas
     };
   }
 
+  private nullableById<T extends { id: string | null }>(
+    row: T | null | undefined,
+  ): (Omit<T, "id"> & { id: string }) | null {
+    if (!row?.id) return null;
+    return row as Omit<T, "id"> & { id: string };
+  }
+
   private async loadSaleItems(saleId: string) {
     const rows = await db
       .select({
         item: salesItems,
-        productDescription: productsEnterprises.description,
-        productCode: productsEnterprises.code,
+        productsEnterprises: {
+          id: productsEnterprises.id,
+          code: productsEnterprises.code,
+          description: productsEnterprises.description,
+        },
+        unit: {
+          id: measurementUnits.id,
+          unit: measurementUnits.unit,
+          description: measurementUnits.description,
+          compatible: measurementUnits.compatible,
+          wholeFractional: measurementUnits.wholeFractional,
+        },
+        productType: {
+          id: productTypes.id,
+          type: productTypes.type,
+          description: productTypes.description,
+        },
+        stockSector: {
+          id: stockSectors.id,
+          description: stockSectors.description,
+        },
+        stockLocation: {
+          id: stockLocations.id,
+          box: stockLocations.box,
+          description: stockLocations.description,
+          status: stockLocations.status,
+        },
+        stockBatch: {
+          id: stockBatches.id,
+          batchNumber: stockBatches.batchNumber,
+          status: stockBatches.status,
+          manufacturingDate: stockBatches.manufacturingDate,
+          expiryDate: stockBatches.expiryDate,
+          documentRef: stockBatches.documentRef,
+        },
+        promotionalPrice: {
+          id: promotionalPrices.id,
+          description: promotionalPrices.description,
+          price: promotionalPrices.price,
+          startDate: promotionalPrices.startDate,
+          endDate: promotionalPrices.endDate,
+        },
       })
       .from(salesItems)
       .innerJoin(
         productsEnterprises,
         eq(salesItems.productsEnterprisesId, productsEnterprises.id),
+      )
+      .innerJoin(
+        measurementUnits,
+        eq(salesItems.unitid, measurementUnits.id),
+      )
+      .innerJoin(
+        productTypes,
+        eq(salesItems.productTypeId, productTypes.id),
+      )
+      .leftJoin(
+        stockSectors,
+        eq(salesItems.stockSectorId, stockSectors.id),
+      )
+      .leftJoin(
+        stockLocations,
+        eq(salesItems.stockLocationId, stockLocations.id),
+      )
+      .leftJoin(
+        stockBatches,
+        eq(salesItems.stockBatchId, stockBatches.id),
+      )
+      .leftJoin(
+        promotionalPrices,
+        eq(salesItems.promotionalPriceId, promotionalPrices.id),
       )
       .where(eq(salesItems.salesId, saleId));
 
@@ -662,15 +739,48 @@ export class SalesService {  // Servico de vendas
     const mechanicsRows =
       itemIds.length > 0
         ? await db
-            .select()
+            .select({
+              id: mechanicSalesItems.id,
+              mechanic: mechanicSalesItems.mechanic,
+              salesItemsId: mechanicSalesItems.salesItemsId,
+              comissionService: mechanicSalesItems.comissionService,
+              createdAt: mechanicSalesItems.createdAt,
+              updatedAt: mechanicSalesItems.updatedAt,
+              member: {
+                id: enterprisesMembers.id,
+                code: enterprisesMembers.code,
+                status: enterprisesMembers.status,
+                class: enterprisesMembers.class,
+                userName: users.userName,
+              },
+            })
             .from(mechanicSalesItems)
+            .innerJoin(
+              enterprisesMembers,
+              eq(mechanicSalesItems.mechanic, enterprisesMembers.id),
+            )
+            .innerJoin(users, eq(enterprisesMembers.userId, users.id))
             .where(inArray(mechanicSalesItems.salesItemsId, itemIds))
             .orderBy(asc(mechanicSalesItems.id))
         : [];
 
     const mechanicsByItemId = new Map<
       string,
-      (typeof mechanicSalesItems.$inferSelect)[]
+      {
+        id: string;
+        mechanic: string;
+        salesItemsId: string;
+        comissionService: string;
+        createdAt: Date;
+        updatedAt: Date | null;
+        member: {
+          id: string;
+          code: number | null;
+          status: string;
+          class: string;
+          userName: string;
+        };
+      }[]
     >();
     for (const row of mechanicsRows) {
       const list = mechanicsByItemId.get(row.salesItemsId) ?? [];
@@ -678,10 +788,120 @@ export class SalesService {  // Servico de vendas
       mechanicsByItemId.set(row.salesItemsId, list);
     }
 
-    return rows.map(({ item, productDescription, productCode }) => ({
-      ...this.mapSaleItemResponse(item, { productDescription, productCode }),
-      mechanics: mechanicsByItemId.get(item.id) ?? [],
-    }));
+    return rows.map(
+      ({
+        item,
+        productsEnterprises: pe,
+        unit,
+        productType,
+        stockSector,
+        stockLocation,
+        stockBatch,
+        promotionalPrice,
+      }) => ({
+        ...this.mapSaleItemResponse(item, {
+          productDescription: pe.description,
+          productCode: pe.code,
+        }),
+        user: { id: item.userId, userName: item.userLegalName },
+        seller: { id: item.sellerId, userName: item.sellerLegalName },
+        productsEnterprises: pe,
+        unit,
+        productType,
+        stockSector: this.nullableById(stockSector),
+        stockLocation: this.nullableById(stockLocation),
+        stockBatch: this.nullableById(stockBatch),
+        promotionalPrice: this.nullableById(promotionalPrice),
+        mechanics: mechanicsByItemId.get(item.id) ?? [],
+      }),
+    );
+  }
+
+  private async loadSaleVehicleLink(
+    enterpriseId: string,
+    vehiclesEnterprisesMembersId: string | null,
+  ) {
+    if (!vehiclesEnterprisesMembersId) return null;
+    const row = (
+      await db
+        .select({
+          id: vehiclesEnterprisesMembers.id,
+          status: vehiclesEnterprisesMembers.status,
+          vehiclesId: vehiclesEnterprisesMembers.vehiclesId,
+          enterprisesMembersId:
+            vehiclesEnterprisesMembers.enterprisesMembersId,
+          createdAt: vehiclesEnterprisesMembers.createdAt,
+          updatedAt: vehiclesEnterprisesMembers.updatedAt,
+          plate: vehicles.plate,
+          model: vehicles.model,
+          renavam: vehicles.renavam,
+          color: vehicles.color,
+          fuelType: vehicles.fuelType,
+          vehicleYear: vehicles.vehicleYear,
+          fleetNumber: vehicles.fleetNumber,
+        })
+        .from(vehiclesEnterprisesMembers)
+        .innerJoin(
+          enterprisesMembers,
+          eq(
+            vehiclesEnterprisesMembers.enterprisesMembersId,
+            enterprisesMembers.id,
+          ),
+        )
+        .innerJoin(
+          vehicles,
+          eq(vehiclesEnterprisesMembers.vehiclesId, vehicles.id),
+        )
+        .where(
+          and(
+            eq(vehiclesEnterprisesMembers.id, vehiclesEnterprisesMembersId),
+            eq(enterprisesMembers.enterpriseId, enterpriseId),
+          ),
+        )
+        .limit(1)
+    )[0];
+    return row ?? null;
+  }
+
+  private async loadUsersByIds(userIds: Array<string | null | undefined>) {
+    const ids = [...new Set(userIds.filter((id): id is string => !!id))];
+    if (ids.length === 0) return new Map<string, { id: string; userName: string }>();
+
+    const rows = await db
+      .select({
+        id: users.id,
+        userName: users.userName,
+      })
+      .from(users)
+      .where(inArray(users.id, ids));
+
+    return new Map(rows.map((row) => [row.id, row]));
+  }
+
+  private async loadPaymentTypesByIds(paymentTypeIds: string[]) {
+    if (paymentTypeIds.length === 0) {
+      return new Map<
+        string,
+        {
+          id: string;
+          description: string;
+          paymentType: string;
+          status: string;
+        }
+      >();
+    }
+
+    const rows = await db
+      .select({
+        id: paymentTypes.id,
+        description: paymentTypes.description,
+        paymentType: paymentTypes.paymentType,
+        status: paymentTypes.status,
+      })
+      .from(paymentTypes)
+      .where(inArray(paymentTypes.id, paymentTypeIds));
+
+    return new Map(rows.map((row) => [row.id, row]));
   }
 
   private async assertMechanicMember(
@@ -2378,6 +2598,7 @@ export class SalesService {  // Servico de vendas
       await db
         .select({
           id: salesMembers.id,
+          salesId: salesMembers.salesId,
           memberLegalName: salesMembers.memberLegalName,
           memberAddress: salesMembers.memberAddress,
           memberSector: salesMembers.memberSector,
@@ -2393,7 +2614,30 @@ export class SalesService {  // Servico de vendas
         .from(salesMembers)
         .where(eq(salesMembers.salesId, saleId))
         .limit(1)
-    )[0];
+    )[0] ?? null;
+  }
+
+  /** Snapshot de sales_members; se ausente, monta a partir do membro vinculado. */
+  private async loadSaleMemberDetail(
+    enterpriseId: string,
+    saleId: string,
+    memberId: string,
+  ) {
+    const existing = await this.loadSaleMember(saleId);
+    if (existing) return existing;
+
+    const snapshot = await this.buildSaleMemberSnapshot(
+      db,
+      enterpriseId,
+      memberId,
+    );
+    return {
+      id: null as string | null,
+      salesId: saleId,
+      ...snapshot,
+      createdAt: null as Date | null,
+      updatedAt: null as Date | null,
+    };
   }
 
   public async list(enterpriseId: string, query: ListSalesQuery = {}) {
@@ -2482,11 +2726,59 @@ export class SalesService {  // Servico de vendas
   }
 
   private async loadSaleReturns(saleId: string) {
-    return db
-      .select()
+    const rows = await db
+      .select({
+        id: salesReturns.id,
+        returnOrder: salesReturns.returnOrder,
+        salesId: salesReturns.salesId,
+        saleItemId: salesReturns.saleItemId,
+        quantity: salesReturns.quantity,
+        userId: salesReturns.userId,
+        createdAt: salesReturns.createdAt,
+        updatedAt: salesReturns.updatedAt,
+        saleItem: {
+          id: salesItems.id,
+          productsEnterprisesId: salesItems.productsEnterprisesId,
+          quantity: salesItems.quantity,
+          valueUnit: salesItems.valueUnit,
+          valueTotal: salesItems.valueTotal,
+          description: salesItems.description,
+          productDescription: productsEnterprises.description,
+          productCode: productsEnterprises.code,
+        },
+        user: {
+          id: users.id,
+          userName: users.userName,
+        },
+      })
       .from(salesReturns)
+      .innerJoin(salesItems, eq(salesReturns.saleItemId, salesItems.id))
+      .innerJoin(
+        productsEnterprises,
+        eq(salesItems.productsEnterprisesId, productsEnterprises.id),
+      )
+      .innerJoin(users, eq(salesReturns.userId, users.id))
       .where(eq(salesReturns.salesId, saleId))
       .orderBy(desc(salesReturns.createdAt), asc(salesReturns.id));
+
+    return rows.map((row) => ({
+      id: row.id,
+      returnOrder: row.returnOrder,
+      salesId: row.salesId,
+      saleItemId: row.saleItemId,
+      quantity: row.quantity,
+      userId: row.userId,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      saleItem: {
+        ...row.saleItem,
+        description: row.saleItem.description?.trim() || null,
+        productDescription:
+          row.saleItem.description?.trim() ||
+          row.saleItem.productDescription,
+      },
+      user: row.user,
+    }));
   }
 
   /**
@@ -2553,6 +2845,16 @@ export class SalesService {  // Servico de vendas
 
     return conversions.map((conversion) => ({
       ...conversion,
+      user: {
+        id: conversion.userId,
+        userName: conversion.userLegalName,
+      },
+      generatedSale: {
+        id: conversion.generatedSaleId,
+        orderNumber: conversion.generatedOrderNumber,
+        status: conversion.generatedStatus,
+        valueLiquid: conversion.generatedValueLiquid,
+      },
       items: conversionItems.filter(
         (item) => item.conversionId === conversion.id,
       ),
@@ -2578,22 +2880,34 @@ export class SalesService {  // Servico de vendas
     if (!sale) {
       throw new NotFoundError("Venda nao encontrada", "SALE_NOT_FOUND");
     }
-    const [items, payments, member, returns, budgetConversions] =
+    const [items, payments, member, returns, budgetConversions, vehicleLink, serviceUsers] =
       await Promise.all([
         this.loadSaleItems(id),
         db.select().from(salesPayments).where(eq(salesPayments.salesId, id)),
-        this.loadSaleMember(id),
+        this.loadSaleMemberDetail(enterpriseId, id, sale.memberId),
         this.loadSaleReturns(id),
         this.loadBudgetConversionsCascade(enterpriseId, id, "linked"),
+        this.loadSaleVehicleLink(
+          enterpriseId,
+          sale.vehiclesEnterprisesMembersId,
+        ),
+        this.loadUsersByIds([
+          sale.userId,
+          sale.sellerId,
+          sale.userModificationServiceId,
+          sale.userClosedServiceId,
+        ]),
       ]);
     const paymentIds = payments.map((p) => p.id);
-    const allDues =
+    const [allDues, paymentTypesById] = await Promise.all([
       paymentIds.length > 0
-        ? await db
+        ? db
             .select()
             .from(salesDues)
             .where(inArray(salesDues.salesPaymentId, paymentIds))
-        : [];
+        : Promise.resolve([]),
+      this.loadPaymentTypesByIds(payments.map((p) => p.paymentTypeId)),
+    ]);
 
     const generatedSales =
       sale.type === "ORCAMENTO"
@@ -2618,12 +2932,40 @@ export class SalesService {  // Servico de vendas
           )
         : undefined;
 
+    const user = serviceUsers.get(sale.userId) ?? {
+      id: sale.userId,
+      userName: sale.userLegalName,
+    };
+    const seller = serviceUsers.get(sale.sellerId) ?? {
+      id: sale.sellerId,
+      userName: sale.sellerLegalName,
+    };
+
     return {
       ...sale,
+      user,
+      seller,
+      memberRef: sale.memberId
+        ? { id: sale.memberId, userName: sale.memberName }
+        : null,
+      vehiclesEnterprisesMembers: vehicleLink,
+      userModificationService: sale.userModificationServiceId
+        ? (serviceUsers.get(sale.userModificationServiceId) ?? {
+            id: sale.userModificationServiceId,
+            userName: null,
+          })
+        : null,
+      userClosedService: sale.userClosedServiceId
+        ? (serviceUsers.get(sale.userClosedServiceId) ?? {
+            id: sale.userClosedServiceId,
+            userName: null,
+          })
+        : null,
       items,
-      ...(member ? { member } : {}),
+      member,
       payments: payments.map((p) => ({
         ...p,
+        paymentType: paymentTypesById.get(p.paymentTypeId) ?? null,
         dues: allDues.filter((d) => d.salesPaymentId === p.id),
       })),
       returns,

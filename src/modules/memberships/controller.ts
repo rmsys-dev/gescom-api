@@ -9,18 +9,16 @@ import {
 } from "../../shared/responses/send-success-response.js";
 import type {
   AddMemberDepartmentInput,
+  CreateMembershipInput,
   CreateOnboardMembershipInput,
-  InviteMembershipBody,
   ListMembersQuery,
   PatchMemberDepartmentInput,
   PatchMemberDepartmentPermissionInput,
   PatchMembershipInput,
 } from "./schema.js";
 import {
-  auditContextFromAuth,
   auditContextFromPatchAuth,
   auditContextFromPostAuth,
-  auditMetaFromRequest,
 } from "../../shared/audit/request-meta.js";
 import { membershipsService } from "./service.js";
 
@@ -80,7 +78,27 @@ export class MembershipsController {
     });
   };
 
-  //Cria um membro com usuário e verifica se ele tem acesso à empresa
+  /** Vínculo a utilizador já existente (POST /members). */
+  public create = async (req: Request, res: Response): Promise<void> => {
+    const reqAuth = req as RequestWithAuth;
+    const enterpriseId = req.params["enterpriseId"] as string;
+    const body = req.body as CreateMembershipInput;
+    const row = await membershipsService.createMembership(
+      enterpriseId,
+      body,
+      reqAuth.auth.userId,
+      membershipPostAudit(req, enterpriseId, "memberships.service.createMembership"),
+    );
+    sendSuccessResponse(res, HttpStatus.CREATED, {
+      message: "Membro criado com sucesso.",
+      data: row,
+    });
+  };
+
+  /**
+   * create-with-user: cria utilizador+membro ou, se CPF/e-mail/telefone já existirem,
+   * apenas o vínculo PENDENTE (linkedExistingUser).
+   */
   public createOnboard = async (req: Request, res: Response): Promise<void> => {
     const reqAuth = req as RequestWithAuth;
     const enterpriseId = req.params["enterpriseId"] as string;
@@ -92,23 +110,9 @@ export class MembershipsController {
       membershipPostAudit(req, enterpriseId, "memberships.service.createWithNewUser"),
     );
     sendSuccessResponse(res, HttpStatus.CREATED, {
-      message: "Membro e usuário criados com sucesso.",
-      data: row,
-    });
-  };
-
-  public inviteMembership = async (req: Request, res: Response): Promise<void> => {
-    const reqAuth = req as RequestWithAuth;
-    const enterpriseId = req.params["enterpriseId"] as string;
-    const body = req.body as InviteMembershipBody;
-    const row = await membershipsService.inviteMembership(
-      enterpriseId,
-      body,
-      reqAuth.auth.userId,
-      membershipPostAudit(req, enterpriseId, "memberships.service.inviteMembership"),
-    );
-    sendSuccessResponse(res, HttpStatus.CREATED, {
-      message: "Membro criado com sucesso.",
+      message: row.linkedExistingUser
+        ? "Usuario encontrado. Membro vinculado com sucesso."
+        : "Membro e usuário criados com sucesso.",
       data: row,
     });
   };

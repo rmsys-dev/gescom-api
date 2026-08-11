@@ -6,8 +6,8 @@ import { validateSchema } from "../../shared/middleware/validate-schema.js";
 import { membershipsController } from "./controller.js";
 import {
   addMemberDepartmentSchema,
+  createMembershipSchema,
   createOnboardMembershipSchema,
-  inviteMembershipBodySchema,
   listMembersQuerySchema,
   memberDepartmentBaseParamsSchema,
   memberDepartmentParamsSchema,
@@ -26,7 +26,7 @@ import {
 
 const membershipsRouter = Router({ mergeParams: true });
 
-//Criação de membro com usuário (membro/departamentos PENDENTE; aprovação activa)
+// Criação com utilizador: cria user+membro ou, se contactos já existirem, só o vínculo (PENDENTE)
 membershipsRouter.post(
   "/create-with-user",
   authMiddleware,
@@ -40,17 +40,17 @@ membershipsRouter.post(
   membershipsController.createOnboard,
 );
 
-// Convite de vínculo (membro/departamentos PENDENTE; e-mail só na aprovação)
+// Vínculo de membro a utilizador já existente (PENDENTE; e-mail na aprovação, excepto CLIENTE)
 membershipsRouter.post(
-  "/invite",
+  "/",
   authMiddleware,
   tenantMiddleware,
   requirePermission("incluir_membros"),
   validateSchema({
     params: membershipEnterpriseParamsSchema,
-    body: inviteMembershipBodySchema,
+    body: createMembershipSchema,
   }),
-  membershipsController.inviteMembership,
+  membershipsController.create,
 );
 
 //Listagem de membros

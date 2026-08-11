@@ -138,15 +138,14 @@ const createMembershipInnerSchema = z
   })
   .merge(membershipSalesFieldsSchema);
 
-//Esquema base de criação de membro (tipagem partilhada; rota pública de create directo removida)
+/** Vínculo de membro a utilizador já existente (POST /members). Status inicial: PENDENTE. */
 export const createMembershipSchema = createMembershipInnerSchema.superRefine(
   refineMembershipDepartmentsByClass,
 );
 
-//Tipo de entrada de criação de membro
 export type CreateMembershipInput = z.infer<typeof createMembershipSchema>;
 
-//Esquema de criação de membro com utilizador (parte `member` sem userId)
+/** Parte `member` do create-with-user (sem userId — resolvido por contactos ou criação). */
 export const createOnboardMemberPartSchema = createMembershipInnerSchema
   .omit({ userId: true })
   .superRefine(refineMembershipDepartmentsByClass);
@@ -158,24 +157,9 @@ export const createOnboardMembershipSchema = z
   })
   .strict();
 
-//Tipo de entrada de criação de membro com usuário e verifica se ele tem acesso à empresa
 export type CreateOnboardMembershipInput = z.infer<
   typeof createOnboardMembershipSchema
 >;
-
-export const inviteMembershipBodySchema = z
-  .object({
-    member: createOnboardMemberPartSchema,
-    inviteEmail: emailSchema("inviteEmail").optional(),
-    invitePhone: phoneSchema("invitePhone").optional(),
-  })
-  .strict()
-  .refine((b) => Boolean(b.inviteEmail ?? b.invitePhone), {
-    message: "Informe inviteEmail e/ou invitePhone",
-    path: ["inviteEmail"],
-  });
-
-export type InviteMembershipBody = z.infer<typeof inviteMembershipBodySchema>;
 
 //Esquema de parâmetros de patch de membro (empresa + id do vínculo)
 export const membershipPatchParamsSchema = z

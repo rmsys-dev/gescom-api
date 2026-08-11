@@ -55,6 +55,7 @@ import {
 import {
   createUser,
   findUserByEmail,
+  findUserById,
   findUserByPhone,
   findUserByRegistration,
 } from "../auth/repository.js";
@@ -66,16 +67,10 @@ import {
   userHasAnyActiveCredential,
 } from "../auth/invitations-repository.js";
 import { hashPassword } from "../auth/password.js";
-import {
-  normalizeCpfCnpj,
-  normalizeEmail,
-  normalizePhone,
-} from "../../shared/validation/data-normalizers.js";
 import type {
   AddMemberDepartmentInput,
   CreateMembershipInput,
   CreateOnboardMembershipInput,
-  InviteMembershipBody,
   ListMembersQuery,
   PatchMemberDepartmentInput,
   PatchMemberDepartmentPermissionInput,
@@ -750,52 +745,30 @@ export class MembershipsService {
   }
 
   /**
-   * Convite de vínculo: membro e departamentos sempre PENDENTE; snapshot de
-   * permissões e e-mails (MEMBERSHIP_ACCEPT) só na aprovação.
-   * Exige credenciais ativas, excepto classe CLIENTE.
+   * Vínculo a utilizador já existente (POST /members).
+   * Membro e departamentos ficam PENDENTE; snapshot de permissões e e-mails
+   * (FIRST_ACCESS / MEMBERSHIP_ACCEPT) só na aprovação — excepto classe CLIENTE.
    */
-  public async inviteMembership(
+  public async createMembership(
     enterpriseId: string,
-    input: InviteMembershipBody,
+    input: CreateMembershipInput,
     actorUserId: string,
     audit: EntityAuditContext,
   ) {
     await this.assertEnterpriseExists(enterpriseId);
+    await this.assertDepartmentsExistAndActive(input.departments);
+    await this.assertMembershipTypeReferences(input);
 
-    const emailPart = input.inviteEmail
-      ? await findUserByEmail(normalizeEmail(input.inviteEmail))
-      : null;
-    const phonePart = input.invitePhone
-      ? await findUserByPhone(normalizePhone(input.invitePhone))
-      : null;
-
-    if (emailPart && phonePart && emailPart.id !== phonePart.id) {
-      throw new ConflictError(
-        "Email e telefone correspondem a utilizadores diferentes",
-        "INVITE_USER_MISMATCH",
-      );
-    }
-
-    const targetUser = emailPart ?? phonePart;
+    const targetUser = await findUserById(input.userId);
     if (!targetUser) {
       throw new NotFoundError("Usuario nao encontrado", "USER_NOT_FOUND");
     }
 
-    const isCliente = input.member.class === "CLIENTE";
-    const hasCredentials = await userHasAnyActiveCredential(targetUser.id);
-    if (!hasCredentials && !isCliente) {
-      throw new ConflictError(
-        "Nao e possivel convidar um usuario sem credenciais (excepto CLIENTE)",
-        "MEMBERSHIP_CREDENTIALS_REQUIRED",
-      );
-    }
-
     await this.assertMembershipNotExists(
       enterpriseId,
-      targetUser.id,
-      input.member.class,
+      input.userId,
+      input.class,
     );
-    await this.assertDepartmentsExistAndActive(input.member.departments);
 
     const auditCtx = withEnterpriseAuditContext(
       {
@@ -809,17 +782,17 @@ export class MembershipsService {
       const m = await this.createMembershipStructure(
         {
           enterpriseId,
-          userId: targetUser.id,
+          userId: input.userId,
           actorUserId,
-          code: input.member.code,
-          class: input.member.class,
+          code: input.code,
+          class: input.class,
           status: "PENDENTE",
-          departments: input.member.departments,
+          departments: input.departments,
           approvedAt: null,
           approvedBy: null,
           memberDepartmentStatus: "PENDENTE",
           skipPermissionSnapshot: true,
-          salesFields: input.member,
+          salesFields: input,
         },
         tx,
       );
@@ -835,7 +808,7 @@ export class MembershipsService {
       return m;
     });
 
-    return { memberId: member.id };
+    return { memberId: member.id, userId: input.userId, member };
   }
 
   /**
@@ -1029,7 +1002,12 @@ export class MembershipsService {
     }
   }
 
-  //Cria um membro com usuário e verifica se ele tem acesso à empresa
+  /**
+   * create-with-user: cria utilizador + vínculo PENDENTE.
+   * Se CPF/e-mail/telefone já existirem no mesmo utilizador, apenas cria o
+   * vínculo (equivalente a POST /members) com linkedExistingUser=true.
+   * E-mails de primeiro acesso / convite só na aprovação (excepto CLIENTE).
+   */
   public async createWithNewUser(
     enterpriseId: string,
     input: CreateOnboardMembershipInput,
@@ -1038,6 +1016,7 @@ export class MembershipsService {
   ) {
     await this.assertEnterpriseExists(enterpriseId);
     await this.assertDepartmentsExistAndActive(input.member.departments);
+    await this.assertMembershipTypeReferences(input.member);
 
     const {
       userRegistration: registrationNormalized,
@@ -1055,17 +1034,36 @@ export class MembershipsService {
       phone ? findUserByPhone(phone) : Promise.resolve(null),
     ]);
 
-    if (byReg) {
+    const matchedUsers = [byReg, byEmail, byPhone].filter(
+      (row): row is NonNullable<typeof row> => row !== null,
+    );
+    const uniqueMatchedIds = [...new Set(matchedUsers.map((u) => u.id))];
+
+    if (uniqueMatchedIds.length > 1) {
       throw new ConflictError(
-        "CPF/CNPJ ja cadastrado",
-        "REGISTRATION_ALREADY_EXISTS",
+        "CPF/CNPJ, e-mail ou telefone pertencem a usuarios diferentes",
+        "USER_CONTACT_CONFLICT",
       );
     }
-    if (byEmail) {
-      throw new ConflictError("Email ja cadastrado", "EMAIL_ALREADY_EXISTS");
-    }
-    if (byPhone) {
-      throw new ConflictError("Telefone ja cadastrado", "PHONE_ALREADY_EXISTS");
+
+    const existingUser = matchedUsers[0] ?? null;
+
+    if (existingUser) {
+      const linked = await this.createMembership(
+        enterpriseId,
+        {
+          userId: existingUser.id,
+          ...input.member,
+        },
+        actorUserId,
+        audit,
+      );
+
+      return {
+        user: mapUserToApiSummary(existingUser),
+        member: linked.member,
+        linkedExistingUser: true as const,
+      };
     }
 
     const auditCtx = withEnterpriseAuditContext(
@@ -1130,6 +1128,7 @@ export class MembershipsService {
       return {
         user: mapUserToApiSummary(createdUser),
         member,
+        linkedExistingUser: false as const,
       };
     });
 
@@ -1138,7 +1137,7 @@ export class MembershipsService {
 
   /**
    * Aprovação de cadastro (qualquer classe): status ATIVO, approvedAt e approvedBy.
-   * Se houver departamentos PENDENTE (ex.: create-with-user / invite), activa-os e faz snapshot de permissões.
+   * Se houver departamentos PENDENTE (ex.: create-with-user / POST members), activa-os e faz snapshot de permissões.
    * Após activar, envia FIRST_ACCESS (sem credenciais) ou MEMBERSHIP_ACCEPT (com credenciais),
    * excepto classe CLIENTE.
    */

@@ -1,4 +1,4 @@
-import { and, asc, count, eq, ilike, or } from "drizzle-orm";
+import { and, asc, count, eq, ilike, isNull, or } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { products } from "../../db/schema.js";
 import { ConflictError, NotFoundError } from "../../shared/errors/app-error.js";
@@ -19,7 +19,33 @@ import type {
   PatchProductInput,
 } from "./schema.js";
 
+type ProductRow = typeof products.$inferSelect;
+
 export class ProductsService {
+  /**
+   * Resolve produto raiz pela chave única (description + barCode).
+   * Sem barCode no input → procura descrição com barCode NULL.
+   */
+  private async findExistingProduct(
+    description: string,
+    barCode?: string,
+  ): Promise<ProductRow | null> {
+    const conditions = [eq(products.description, description)];
+    if (barCode !== undefined) {
+      conditions.push(eq(products.barCode, barCode));
+    } else {
+      conditions.push(isNull(products.barCode));
+    }
+    const row = (
+      await db
+        .select()
+        .from(products)
+        .where(and(...conditions))
+        .limit(1)
+    )[0];
+    return row ?? null;
+  }
+
   public async list(query: ListProductsQuery = {}) {
     const { limit, offset } = resolveListPagination(query);
     const conditions = [];
@@ -57,6 +83,12 @@ export class ProductsService {
     return row;
   }
 
+  /**
+   * POST /products — espelha create-with-user de membros:
+   * cria produto raiz + vínculo, ou, se a chave (description + barCode) já
+   * existir, apenas o vínculo (`linkedExistingProduct: true`).
+   * Não actualiza campos da raiz quando reutiliza produto existente.
+   */
   public async create(
     enterpriseId: string,
     input: CreateProductWithEnterpriseInput,
@@ -68,16 +100,40 @@ export class ProductsService {
     );
     const enterpriseAudit = withEnterpriseAuditContext(audit, enterpriseId);
 
+    const description = input.product.description.trim();
+    const barCode =
+      input.product.barCode !== undefined
+        ? input.product.barCode.trim()
+        : undefined;
+
+    const linkExisting = async (product: ProductRow) => {
+      const enterprise = await productsEnterprisesService.createForProduct(
+        enterpriseId,
+        product.id,
+        input.enterprise,
+        undefined,
+        enterpriseAudit,
+      );
+      return {
+        product,
+        enterprise,
+        linkedExistingProduct: true as const,
+      };
+    };
+
+    const existing = await this.findExistingProduct(description, barCode);
+    if (existing) {
+      return linkExisting(existing);
+    }
+
     try {
       return await db.transaction(async (tx) => {
         const [product] = await tx
           .insert(products)
           .values({
             status: input.product.status ?? "ATIVO",
-            description: input.product.description.trim(),
-            ...(input.product.barCode !== undefined
-              ? { barCode: input.product.barCode.trim() }
-              : {}),
+            description,
+            ...(barCode !== undefined ? { barCode } : {}),
           })
           .returning();
         if (!product) throw new Error("Falha ao criar produto");
@@ -90,19 +146,30 @@ export class ProductsService {
           tx,
         });
 
-        return productsEnterprisesService.createForProduct(
+        const enterprise = await productsEnterprisesService.createForProduct(
           enterpriseId,
           product.id,
           input.enterprise,
           tx,
           enterpriseAudit,
         );
+
+        return {
+          product,
+          enterprise,
+          linkedExistingProduct: false as const,
+        };
       });
     } catch (err) {
       if (err instanceof ConflictError) {
         throw err;
       }
       if (isPostgresUniqueViolation(err)) {
+        // Corrida: outro request criou a mesma chave — reutiliza e vincula.
+        const raced = await this.findExistingProduct(description, barCode);
+        if (raced) {
+          return linkExisting(raced);
+        }
         throw new ConflictError(
           "Produto em conflito (descricao ou codigo de barras duplicado)",
           "PRODUCT_CONFLICT",

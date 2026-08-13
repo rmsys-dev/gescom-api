@@ -37,7 +37,7 @@ productsRouter.post(
   requirePermission("incluir_produtos"),
   validateSchema({ body: createProductWithEnterpriseSchema }),
   productsController.create,
-);
+); // Cria produto+vínculo ou, se description+barCode já existirem, só o vínculo
 
 productsRouter.patch(
   "/:productId",

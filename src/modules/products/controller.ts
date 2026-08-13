@@ -41,6 +41,10 @@ export class ProductsController {
     });
   };
 
+  /**
+   * POST /products: cria produto+vínculo ou, se description+barCode já existirem,
+   * apenas o vínculo (linkedExistingProduct) — espelha create-with-user.
+   */
   public create = async (req: Request, res: Response): Promise<void> => {
     const body = req.body as CreateProductWithEnterpriseInput;
     const reqAuth = req as RequestWithAuth;
@@ -54,7 +58,9 @@ export class ProductsController {
       }),
     );
     sendSuccessResponse(res, HttpStatus.CREATED, {
-      message: "Produto criado com sucesso.",
+      message: row.linkedExistingProduct
+        ? "Produto encontrado. Vinculo com a empresa criado com sucesso."
+        : "Produto e vinculo com a empresa criados com sucesso.",
       data: row,
     });
   };

@@ -48,6 +48,8 @@ export const createProductEnterpriseSchema = z
     productGroupId: z.string().uuid(),
     productSubgroupId: z.string().uuid(),
     productBrandId: z.string().uuid(),
+    productPisCofinsSituationId: z.string().uuid(),
+    productTaxationId: z.string().uuid(),
     controlsBatch: z.boolean().optional(),
   })
   .strict();
@@ -67,6 +69,8 @@ export const patchProductEnterpriseSchema = z
     productGroupId: z.string().uuid().optional(),
     productSubgroupId: z.string().uuid().optional(),
     productBrandId: z.string().uuid().optional(),
+    productPisCofinsSituationId: z.string().uuid().optional(),
+    productTaxationId: z.string().uuid().optional(),
     controlsBatch: z.boolean().optional(),
   })
   .strict()

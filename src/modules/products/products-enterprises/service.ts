@@ -9,11 +9,13 @@ import {
   productsAnp,
   productGroups,
   productSubgroups,
+  productTaxation,
   productTypes,
   productsCest,
   productsEnterprises,
   productsNcm,
   productsNbs,
+  pisCofinsSituation,
   promotionalPrices,
   stockBatchBalances,
   stockBatches,
@@ -67,6 +69,8 @@ const productEnterpriseSelectFields = {
   productGroupId: productsEnterprises.productGroupId,
   productSubgroupId: productsEnterprises.productSubgroupId,
   productBrandId: productsEnterprises.productBrandId,
+  productPisCofinsSituationId: productsEnterprises.productPisCofinsSituationId,
+  productTaxationId: productsEnterprises.productTaxationId,
   controlsBatch: productsEnterprises.controlsBatch,
   status: products.status,
   barCode: products.barCode,
@@ -246,6 +250,36 @@ export class ProductsEnterprisesService {
           );
         }
       },
+      pisCofinsSituation: async (id: string) => {
+        const row = (
+          await db
+            .select({ id: pisCofinsSituation.id })
+            .from(pisCofinsSituation)
+            .where(eq(pisCofinsSituation.id, id))
+            .limit(1)
+        )[0];
+        if (!row) {
+          throw new NotFoundError(
+            "Situacao PIS/COFINS nao encontrada",
+            "PIS_COFINS_SITUATION_NOT_FOUND",
+          );
+        }
+      },
+      productTaxation: async (id: string) => {
+        const row = (
+          await db
+            .select({ id: productTaxation.id })
+            .from(productTaxation)
+            .where(eq(productTaxation.id, id))
+            .limit(1)
+        )[0];
+        if (!row) {
+          throw new NotFoundError(
+            "Tributacao do produto nao encontrada",
+            "PRODUCT_TAXATION_NOT_FOUND",
+          );
+        }
+      },
     };
   }
 
@@ -332,6 +366,8 @@ export class ProductsEnterprisesService {
     productGroupId: string;
     productSubgroupId: string;
     productBrandId: string;
+    productPisCofinsSituationId?: string | null;
+    productTaxationId?: string | null;
   },
   ) {
     await this.validateProductTypeRules(input);
@@ -344,6 +380,12 @@ export class ProductsEnterprisesService {
       fk.subgroup(input.productSubgroupId),
       fk.brand(input.productBrandId),
     ];
+    if (input.productPisCofinsSituationId) {
+      checks.push(fk.pisCofinsSituation(input.productPisCofinsSituationId));
+    }
+    if (input.productTaxationId) {
+      checks.push(fk.productTaxation(input.productTaxationId));
+    }
     if (input.productNcmId) {
       checks.push(fk.ncm(input.productNcmId));
     }
@@ -390,6 +432,8 @@ export class ProductsEnterprisesService {
         productGroupId: input.productGroupId,
         productSubgroupId: input.productSubgroupId,
         productBrandId: input.productBrandId,
+        productPisCofinsSituationId: input.productPisCofinsSituationId,
+        productTaxationId: input.productTaxationId,
         controlsBatch: input.controlsBatch ?? false,
       })
       .returning({ id: productsEnterprises.id });
@@ -752,14 +796,28 @@ export class ProductsEnterprisesService {
       with: {
         product: true,
         measurementUnit: true,
-        productType: true,
+        productType: {
+          with: { typeSped: true },
+        },
         productNcm: true,
-        productCest: true,
+        productCest: {
+          with: { productsNcm: true },
+        },
         productAnp: true,
         productNbs: true,
         productGroup: true,
         productSubgroup: true,
         productBrand: true,
+        productPisCofinsSituation: true,
+        productTaxation: {
+          with: {
+            cstPisEntrada: true,
+            cstPisSaida: true,
+            cstCofinsEntrada: true,
+            cstCofinsSaida: true,
+            icmsTaxation: true,
+          },
+        },
         productApplications: {
           orderBy: [
             asc(productApplication.description),
@@ -804,11 +862,53 @@ export class ProductsEnterprisesService {
       productSubgroupId: _productSubgroupId,
       productBrand,
       productBrandId: _productBrandId,
+      productPisCofinsSituation,
+      productPisCofinsSituationId: _productPisCofinsSituationId,
+      productTaxation,
+      productTaxationId: _productTaxationId,
       productApplications,
       price,
       promotionalPrices: promotionalPricesRows,
       ...link
     } = row;
+
+    const { typeSpedId: _typeSpedId, typeSped, ...productTypeRest } =
+      productType;
+    const productCestDetail = productCest
+      ? (() => {
+          const {
+            productsNcmId: _cestNcmId,
+            productsNcm,
+            ...cestRest
+          } = productCest;
+          return { ...cestRest, productsNcm };
+        })()
+      : null;
+    const productTaxationDetail = productTaxation
+      ? (() => {
+          const {
+            cstPisEntradaId: _cstPisEntradaId,
+            cstPisSaidaId: _cstPisSaidaId,
+            cstCofinsEntradaId: _cstCofinsEntradaId,
+            cstCofinsSaidaId: _cstCofinsSaidaId,
+            icmsTaxationId: _icmsTaxationId,
+            cstPisEntrada,
+            cstPisSaida,
+            cstCofinsEntrada,
+            cstCofinsSaida,
+            icmsTaxation,
+            ...productTaxationRest
+          } = productTaxation;
+          return {
+            ...productTaxationRest,
+            cstPisEntrada,
+            cstPisSaida,
+            cstCofinsEntrada,
+            cstCofinsSaida,
+            icmsTaxation,
+          };
+        })()
+      : null;
 
     return {
       ...link,
@@ -816,14 +916,16 @@ export class ProductsEnterprisesService {
       barCode: product.barCode,
       product,
       measurementUnit,
-      productType,
+      productType: { ...productTypeRest, typeSped },
       productNcm: productNcm ?? null,
-      productCest: productCest ?? null,
+      productCest: productCestDetail,
       productAnp: productAnp ?? null,
       productNbs: productNbs ?? null,
       productGroup,
       productSubgroup,
       productBrand,
+      productPisCofinsSituation: productPisCofinsSituation ?? null,
+      productTaxation: productTaxationDetail,
       productApplications,
       price: price ?? null,
       promotionalPrices: promotionalPricesRows,
@@ -901,6 +1003,10 @@ export class ProductsEnterprisesService {
       productGroupId: input.productGroupId ?? existing.productGroupId,
       productSubgroupId: input.productSubgroupId ?? existing.productSubgroupId,
       productBrandId: input.productBrandId ?? existing.productBrandId,
+      productPisCofinsSituationId:
+        input.productPisCofinsSituationId ??
+        existing.productPisCofinsSituationId,
+      productTaxationId: input.productTaxationId ?? existing.productTaxationId,
     };
     if (
       input.measurementUnitId ||
@@ -911,7 +1017,9 @@ export class ProductsEnterprisesService {
       input.productNbsId !== undefined ||
       input.productGroupId ||
       input.productSubgroupId ||
-      input.productBrandId
+      input.productBrandId ||
+      input.productPisCofinsSituationId ||
+      input.productTaxationId
     ) {
       await this.validateProductFks(enterpriseId, merged);
     }
@@ -962,6 +1070,14 @@ export class ProductsEnterprisesService {
             : {}),
           ...(input.productBrandId !== undefined
             ? { productBrandId: input.productBrandId }
+            : {}),
+          ...(input.productPisCofinsSituationId !== undefined
+            ? {
+                productPisCofinsSituationId: input.productPisCofinsSituationId,
+              }
+            : {}),
+          ...(input.productTaxationId !== undefined
+            ? { productTaxationId: input.productTaxationId }
             : {}),
           ...(input.controlsBatch !== undefined
             ? { controlsBatch: input.controlsBatch }

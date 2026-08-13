@@ -1,10 +1,9 @@
-import { and, asc, count, eq } from "drizzle-orm";
+import { asc, count, eq } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import {
   icmsTaxation,
   pisCofinsSituation,
   productTaxation,
-  productsEnterprises,
 } from "../../../db/schema.js";
 import {
   ConflictError,
@@ -25,27 +24,45 @@ import type {
   PatchProductTaxationInput,
 } from "./schema.js";
 
-export class ProductTaxationService {
-  private scope(id?: string) {
-    const base = [];
-    if (id) base.push(eq(productTaxation.id, id));
-    return and(...base);
-  }
+const productTaxationDetailWith = {
+  cstPisEntrada: true,
+  cstPisSaida: true,
+  cstCofinsEntrada: true,
+  cstCofinsSaida: true,
+  icmsTaxation: true,
+} as const;
 
-  private async assertProductExists(productsEnterprisesId: string) {
-    const row = (
-      await db
-        .select({ id: productsEnterprises.id })
-        .from(productsEnterprises)
-        .where(eq(productsEnterprises.id, productsEnterprisesId))
-        .limit(1)
-    )[0];
-    if (!row) {
-      throw new NotFoundError(
-        "Produto/empresa nao encontrado",
-        "PRODUCT_ENTERPRISE _NOT_FOUND",
-      );
-    }
+type ProductTaxationDetailRow = typeof productTaxation.$inferSelect & {
+  cstPisEntrada: typeof pisCofinsSituation.$inferSelect;
+  cstPisSaida: typeof pisCofinsSituation.$inferSelect;
+  cstCofinsEntrada: typeof pisCofinsSituation.$inferSelect;
+  cstCofinsSaida: typeof pisCofinsSituation.$inferSelect;
+  icmsTaxation: typeof icmsTaxation.$inferSelect;
+};
+
+export class ProductTaxationService {
+  private toResponse(row: ProductTaxationDetailRow) {
+    const {
+      cstPisEntradaId: _cstPisEntradaId,
+      cstPisSaidaId: _cstPisSaidaId,
+      cstCofinsEntradaId: _cstCofinsEntradaId,
+      cstCofinsSaidaId: _cstCofinsSaidaId,
+      icmsTaxationId: _icmsTaxationId,
+      cstPisEntrada,
+      cstPisSaida,
+      cstCofinsEntrada,
+      cstCofinsSaida,
+      icmsTaxation: icmsTaxationRow,
+      ...rest
+    } = row;
+    return {
+      ...rest,
+      cstPisEntrada,
+      cstPisSaida,
+      cstCofinsEntrada,
+      cstCofinsSaida,
+      icmsTaxation: icmsTaxationRow,
+    };
   }
 
   private async assertIcmsExists(icmsTaxationId: string) {
@@ -84,26 +101,13 @@ export class ProductTaxationService {
     await Promise.all(ids.map((id) => this.assertPisCofinsSituationExists(id)));
   }
 
-  public async list(query: ListProductTaxationQuery = {}) {
-    const { limit, offset } = resolveListPagination(query);
-    const where = this.scope();
-    const [items, totalRows] = await Promise.all([
-      db
+  private async getPlainById(id: string) {
+    const row = (
+      await db
         .select()
         .from(productTaxation)
-        .where(where)
-        .orderBy(asc(productTaxation.id))
-        .limit(limit)
-        .offset(offset),
-      db.select({ c: count() }).from(productTaxation).where(where),
-    ]);
-    const total = Number(totalRows[0]?.c ?? 0);
-    return { items, total, limit, offset };
-  }
-
-  public async getById(id: string) {
-    const row = (
-      await db.select().from(productTaxation).where(this.scope(id)).limit(1)
+        .where(eq(productTaxation.id, id))
+        .limit(1)
     )[0];
     if (!row) {
       throw new NotFoundError(
@@ -114,12 +118,45 @@ export class ProductTaxationService {
     return row;
   }
 
+  public async list(query: ListProductTaxationQuery = {}) {
+    const { limit, offset } = resolveListPagination(query);
+    const [items, totalRows] = await Promise.all([
+      db.query.productTaxation.findMany({
+        with: productTaxationDetailWith,
+        orderBy: [asc(productTaxation.id)],
+        limit,
+        offset,
+      }),
+      db.select({ c: count() }).from(productTaxation),
+    ]);
+    const total = Number(totalRows[0]?.c ?? 0);
+    return {
+      items: items.map((row) => this.toResponse(row)),
+      total,
+      limit,
+      offset,
+    };
+  }
+
+  public async getById(id: string) {
+    const row = await db.query.productTaxation.findFirst({
+      where: eq(productTaxation.id, id),
+      with: productTaxationDetailWith,
+    });
+    if (!row) {
+      throw new NotFoundError(
+        "Tributacao do produto nao encontrada",
+        "PRODUCT_TAXATION_NOT_FOUND",
+      );
+    }
+    return this.toResponse(row);
+  }
+
   public async create(
     input: CreateProductTaxationInput,
     audit: EntityAuditContext,
   ) {
     await Promise.all([
-      this.assertProductExists(input.productsEnterprisesId),
       this.assertIcmsExists(input.icmsTaxationId),
       this.assertPisCofinsSituationsExist([
         input.cstPisEntradaId,
@@ -136,7 +173,6 @@ export class ProductTaxationService {
           cstPisSaidaId: input.cstPisSaidaId,
           cstCofinsEntradaId: input.cstCofinsEntradaId,
           cstCofinsSaidaId: input.cstCofinsSaidaId,
-          productsEnterprisesId: input.productsEnterprisesId,
           icmsTaxationId: input.icmsTaxationId,
         })
         .returning();
@@ -147,11 +183,11 @@ export class ProductTaxationService {
         after: row,
         ctx: audit,
       });
-      return row;
+      return this.getById(row.id);
     } catch (err) {
       if (isPostgresUniqueViolation(err)) {
         throw new ConflictError(
-          "Tributacao do produto ja existe para este produto/empresa",
+          "Tributacao do produto em conflito (combinacao de CST PIS/COFINS e ICMS duplicada)",
           "PRODUCT_TAXATION_CONFLICT",
         );
       }
@@ -164,9 +200,7 @@ export class ProductTaxationService {
     input: PatchProductTaxationInput,
     audit: EntityAuditContext,
   ) {
-    const existing = await this.getById(id);
-    if (input.productsEnterprisesId)
-      await this.assertProductExists(input.productsEnterprisesId);
+    const existing = await this.getPlainById(id);
     if (input.icmsTaxationId) {
       await this.assertIcmsExists(input.icmsTaxationId);
     }
@@ -195,15 +229,12 @@ export class ProductTaxationService {
           ...(input.cstCofinsSaidaId !== undefined
             ? { cstCofinsSaidaId: input.cstCofinsSaidaId }
             : {}),
-          ...(input.productsEnterprisesId !== undefined
-            ? { productsEnterprisesId: input.productsEnterprisesId }
-            : {}),
           ...(input.icmsTaxationId !== undefined
             ? { icmsTaxationId: input.icmsTaxationId }
             : {}),
           updatedAt: new Date(),
         })
-        .where(this.scope(id))
+        .where(eq(productTaxation.id, id))
         .returning();
       if (!row) {
         throw new NotFoundError(
@@ -219,11 +250,11 @@ export class ProductTaxationService {
         after: toAuditRecord(row),
         ctx: audit,
       });
-      return row;
+      return this.getById(id);
     } catch (err) {
       if (isPostgresUniqueViolation(err)) {
         throw new ConflictError(
-          "Tributacao do produto ja existe para este produto/empresa",
+          "Tributacao do produto em conflito (combinacao de CST PIS/COFINS e ICMS duplicada)",
           "PRODUCT_TAXATION_CONFLICT",
         );
       }
@@ -232,10 +263,10 @@ export class ProductTaxationService {
   }
 
   public async delete(id: string, audit: EntityAuditContext) {
-    const existing = await this.getById(id);
+    const existing = await this.getPlainById(id);
     const [row] = await db
       .delete(productTaxation)
-      .where(this.scope(id))
+      .where(eq(productTaxation.id, id))
       .returning();
     if (!row) {
       throw new NotFoundError(

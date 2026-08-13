@@ -169,9 +169,6 @@ export const productTaxation = pgTable(
     cstCofinsSaidaId: uuid("cst_cofins_saida_id")
       .notNull()
       .references(() => pisCofinsSituation.id, { onDelete: "restrict" }),
-    productsEnterprisesId: uuid("products_enterprises_id")
-      .notNull()
-      .references(() => productsEnterprises.id, { onDelete: "restrict" }),
     icmsTaxationId: uuid("icms_taxation_id")
       .notNull()
       .references(() => icmsTaxation.id, { onDelete: "restrict" }),
@@ -179,8 +176,12 @@ export const productTaxation = pgTable(
     updatedAt: tz("updated_at"),
   },
   (t) => [
-    uniqueIndex("product_taxation_products_enterprises_id_unique").on(
-      t.productsEnterprisesId,
+    uniqueIndex("product_taxation_cst_icms_unique").on(
+      t.cstPisEntradaId,
+      t.cstPisSaidaId,
+      t.cstCofinsEntradaId,
+      t.cstCofinsSaidaId,
+      t.icmsTaxationId,
     ),
   ],
 );
@@ -341,6 +342,13 @@ export const productsEnterprises = pgTable(
     productBrandId: uuid("product_brand_id") // marca de produtos
       .notNull()
       .references(() => productBrands.id, { onDelete: "restrict" }),
+    productPisCofinsSituationId: uuid("product_pis_cofins_situation_id") // situação do PIS/COFINS do produto
+      .notNull()
+      .references(() => pisCofinsSituation.id, { onDelete: "restrict" }),
+    productTaxationId: uuid("product_taxation_id") // tributação do produto
+      .notNull()
+      .references(() => productTaxation.id, { onDelete: "restrict" }),
+
     controlsBatch: boolean("controls_batch").notNull().default(false), // controla lote do produto
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),

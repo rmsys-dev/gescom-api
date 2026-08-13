@@ -11,7 +11,6 @@ export const createProductTaxationSchema = z
     cstPisSaidaId: pisCofinsSituationIdSchema,
     cstCofinsEntradaId: pisCofinsSituationIdSchema,
     cstCofinsSaidaId: pisCofinsSituationIdSchema,
-    productsEnterprisesId: z.string().uuid(),
     icmsTaxationId: z.string().uuid(),
   })
   .strict();
@@ -22,7 +21,6 @@ export const patchProductTaxationSchema = z
     cstPisSaidaId: pisCofinsSituationIdSchema.optional(),
     cstCofinsEntradaId: pisCofinsSituationIdSchema.optional(),
     cstCofinsSaidaId: pisCofinsSituationIdSchema.optional(),
-    productsEnterprisesId: z.string().uuid().optional(),
     icmsTaxationId: z.string().uuid().optional(),
   })
   .strict()

@@ -74,6 +74,14 @@ export const productsEnterprisesRelations = relations(
       fields: [productsEnterprises.productBrandId],
       references: [productBrands.id],
     }),
+    productPisCofinsSituation: one(pisCofinsSituation, {
+      fields: [productsEnterprises.productPisCofinsSituationId],
+      references: [pisCofinsSituation.id],
+    }),
+    productTaxation: one(productTaxation, {
+      fields: [productsEnterprises.productTaxationId],
+      references: [productTaxation.id],
+    }),
     productApplications: many(productApplication),
     price: one(prices, {
       fields: [productsEnterprises.id],
@@ -137,11 +145,8 @@ export const icmsTaxationRelations = relations(icmsTaxation, ({ many }) => ({
 // relações da tabela de tributação do produto.
 export const productTaxationRelations = relations(
   productTaxation,
-  ({ one }) => ({
-    productsEnterprises: one(productsEnterprises, {
-      fields: [productTaxation.productsEnterprisesId],
-      references: [productsEnterprises.id],
-    }),
+  ({ one, many }) => ({
+    productsEnterprises: many(productsEnterprises),
     icmsTaxation: one(icmsTaxation, {
       fields: [productTaxation.icmsTaxationId],
       references: [icmsTaxation.id],
@@ -172,6 +177,7 @@ export const productTaxationRelations = relations(
 export const pisCofinsSituationRelations = relations(
   pisCofinsSituation,
   ({ many }) => ({
+    productsEnterprises: many(productsEnterprises),
     productTaxationsAsCstPisEntrada: many(productTaxation, {
       relationName: "productTaxationCstPisEntrada",
     }),

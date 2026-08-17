@@ -526,6 +526,18 @@ const saleWithMemberSelect = {
   updatedAt: sales.updatedAt,
 };
 
+type SalePaymentTypeSummary = {
+  id: string;
+  description: string;
+  paymentType: string;
+  status: string;
+};
+
+type SalePaymentResponse = typeof salesPayments.$inferSelect & {
+  paymentType: SalePaymentTypeSummary | null;
+  dues: (typeof salesDues.$inferSelect)[];
+};
+
 export class SalesService {  // Servico de vendas
   private async recordSaleUpdateAudit(
     enterpriseId: string,
@@ -880,15 +892,7 @@ export class SalesService {  // Servico de vendas
 
   private async loadPaymentTypesByIds(paymentTypeIds: string[]) {
     if (paymentTypeIds.length === 0) {
-      return new Map<
-        string,
-        {
-          id: string;
-          description: string;
-          paymentType: string;
-          status: string;
-        }
-      >();
+      return new Map<string, SalePaymentTypeSummary>();
     }
 
     const rows = await db
@@ -902,6 +906,52 @@ export class SalesService {  // Servico de vendas
       .where(inArray(paymentTypes.id, paymentTypeIds));
 
     return new Map(rows.map((row) => [row.id, row]));
+  }
+
+  private async loadSalePaymentsBySaleIds(saleIds: string[]) {
+    const paymentsBySaleId = new Map<string, SalePaymentResponse[]>();
+    for (const saleId of saleIds) {
+      paymentsBySaleId.set(saleId, []);
+    }
+    if (saleIds.length === 0) return paymentsBySaleId;
+
+    const payments = await db
+      .select()
+      .from(salesPayments)
+      .where(inArray(salesPayments.salesId, saleIds))
+      .orderBy(asc(salesPayments.createdAt), asc(salesPayments.id));
+
+    const paymentIds = payments.map((payment) => payment.id);
+    const [allDues, paymentTypesById] = await Promise.all([
+      paymentIds.length > 0
+        ? db
+            .select()
+            .from(salesDues)
+            .where(inArray(salesDues.salesPaymentId, paymentIds))
+            .orderBy(asc(salesDues.dueDate), asc(salesDues.id))
+        : Promise.resolve([]),
+      this.loadPaymentTypesByIds(payments.map((payment) => payment.paymentTypeId)),
+    ]);
+
+    const duesByPaymentId = new Map<string, (typeof salesDues.$inferSelect)[]>();
+    for (const due of allDues) {
+      const dues = duesByPaymentId.get(due.salesPaymentId) ?? [];
+      dues.push(due);
+      duesByPaymentId.set(due.salesPaymentId, dues);
+    }
+
+    for (const payment of payments) {
+      const mapped: SalePaymentResponse = {
+        ...payment,
+        paymentType: paymentTypesById.get(payment.paymentTypeId) ?? null,
+        dues: duesByPaymentId.get(payment.id) ?? [],
+      };
+      const list = paymentsBySaleId.get(payment.salesId) ?? [];
+      list.push(mapped);
+      paymentsBySaleId.set(payment.salesId, list);
+    }
+
+    return paymentsBySaleId;
   }
 
   private async assertMechanicMember(
@@ -2652,7 +2702,18 @@ export class SalesService {  // Servico de vendas
       this.listCountFromWithMemberJoins().where(where),
     ]);
     const total = Number(totalRows[0]?.c ?? 0);
-    return { items, total, limit, offset };
+    const paymentsBySaleId = await this.loadSalePaymentsBySaleIds(
+      items.map((item) => item.id),
+    );
+    return {
+      items: items.map((item) => ({
+        ...item,
+        payments: paymentsBySaleId.get(item.id) ?? [],
+      })),
+      total,
+      limit,
+      offset,
+    };
   }
 
   private async loadGeneratedSalesSummary(  // Obtem o resumo das vendas/OS geradas a partir do orcamento
@@ -2880,10 +2941,10 @@ export class SalesService {  // Servico de vendas
     if (!sale) {
       throw new NotFoundError("Venda nao encontrada", "SALE_NOT_FOUND");
     }
-    const [items, payments, member, returns, budgetConversions, vehicleLink, serviceUsers] =
+    const [items, paymentsBySaleId, member, returns, budgetConversions, vehicleLink, serviceUsers] =
       await Promise.all([
         this.loadSaleItems(id),
-        db.select().from(salesPayments).where(eq(salesPayments.salesId, id)),
+        this.loadSalePaymentsBySaleIds([id]),
         this.loadSaleMemberDetail(enterpriseId, id, sale.memberId),
         this.loadSaleReturns(id),
         this.loadBudgetConversionsCascade(enterpriseId, id, "linked"),
@@ -2898,16 +2959,7 @@ export class SalesService {  // Servico de vendas
           sale.userClosedServiceId,
         ]),
       ]);
-    const paymentIds = payments.map((p) => p.id);
-    const [allDues, paymentTypesById] = await Promise.all([
-      paymentIds.length > 0
-        ? db
-            .select()
-            .from(salesDues)
-            .where(inArray(salesDues.salesPaymentId, paymentIds))
-        : Promise.resolve([]),
-      this.loadPaymentTypesByIds(payments.map((p) => p.paymentTypeId)),
-    ]);
+    const payments = paymentsBySaleId.get(id) ?? [];
 
     const generatedSales =
       sale.type === "ORCAMENTO"
@@ -2963,11 +3015,7 @@ export class SalesService {  // Servico de vendas
         : null,
       items,
       member,
-      payments: payments.map((p) => ({
-        ...p,
-        paymentType: paymentTypesById.get(p.paymentTypeId) ?? null,
-        dues: allDues.filter((d) => d.salesPaymentId === p.id),
-      })),
+      payments,
       returns,
       budgetConversions,
       ...(generatedSales !== undefined ? { generatedSales } : {}),

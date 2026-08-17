@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { createPaginationQuerySchema } from "../../../shared/validation/common-schemas.js";
+import {
+  createPaginationQuerySchema,
+  optionalTrimmedStringSchema,
+} from "../../../shared/validation/common-schemas.js";
 
 const fuelTypeSchema = z.enum(["GASOLINA", "ALCOOL", "DIESEL", "ELETRICO"]);
 const ownerTypeSchema = z.enum(["PROPRIETARIO", "LOCATARIO", "OUTROS"]);
@@ -47,9 +50,12 @@ const monthNullable = z.number().int().min(1).max(12).nullable().optional();
 const yearNullable = z.number().int().min(1900).max(2100).nullable().optional();
 const uuidNullable = z.string().uuid().nullable().optional();
 
+/** Filtros dedicados combinados com AND; `search` mantém busca ampla (OR). */
 export const listVehiclesQuerySchema = createPaginationQuerySchema(100).extend({
-  plate: z.string().trim().min(1).max(255).optional(),
-  search: z.string().trim().min(1).max(255).optional(),
+  plate: optionalTrimmedStringSchema("plate", 255).optional(),
+  model: optionalTrimmedStringSchema("model", 255).optional(),
+  renavam: optionalTrimmedStringSchema("renavam", 255).optional(),
+  search: optionalTrimmedStringSchema("search", 255).optional(),
 });
 
 export const createVehicleSchema = z

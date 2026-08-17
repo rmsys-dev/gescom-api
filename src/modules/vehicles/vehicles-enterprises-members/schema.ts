@@ -1,13 +1,21 @@
 import { z } from "zod";
-import { createPaginationQuerySchema } from "../../../shared/validation/common-schemas.js";
+import {
+  createPaginationQuerySchema,
+  optionalTrimmedStringSchema,
+} from "../../../shared/validation/common-schemas.js";
 
 const linkStatusSchema = z.enum(["ATIVO", "INATIVO"]);
 
+/** Filtros combinados com AND. `client` busca o nome do membro (users.userName). */
 export const listVehiclesEnterprisesMembersQuerySchema =
   createPaginationQuerySchema(100).extend({
     vehiclesId: z.string().uuid().optional(),
     enterprisesMembersId: z.string().uuid().optional(),
     status: linkStatusSchema.optional(),
+    plate: optionalTrimmedStringSchema("plate", 255).optional(),
+    model: optionalTrimmedStringSchema("model", 255).optional(),
+    renavam: optionalTrimmedStringSchema("renavam", 255).optional(),
+    client: optionalTrimmedStringSchema("client", 255).optional(),
   });
 
 export const createVehiclesEnterprisesMemberSchema = z

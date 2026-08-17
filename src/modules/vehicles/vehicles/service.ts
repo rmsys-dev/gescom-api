@@ -57,10 +57,16 @@ export class VehiclesService {
     const filters: SQL[] = [];
 
     if (query.plate) {
-      filters.push(ilike(vehicles.plate, `%${query.plate.trim()}%`));
+      filters.push(ilike(vehicles.plate, `%${query.plate}%`));
+    }
+    if (query.model) {
+      filters.push(ilike(vehicles.model, `%${query.model}%`));
+    }
+    if (query.renavam) {
+      filters.push(ilike(vehicles.renavam, `%${query.renavam}%`));
     }
     if (query.search) {
-      const term = `%${query.search.trim()}%`;
+      const term = `%${query.search}%`;
       filters.push(
         or(
           ilike(vehicles.plate, term),

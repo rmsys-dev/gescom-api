@@ -1,7 +1,8 @@
-import { and, asc, count, eq, isNull } from "drizzle-orm";
+import { and, asc, count, eq, ilike, isNull, type SQL } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import {
   enterprisesMembers,
+  users,
   vehicles,
   vehiclesEnterprisesMembers,
 } from "../../../db/schema.js";
@@ -87,7 +88,7 @@ export class VehiclesEnterprisesMembersService {
     query: ListVehiclesEnterprisesMembersQuery = {},
   ) {
     const { limit, offset } = resolveListPagination(query);
-    const filters = [this.tenantScope(enterpriseId)!];
+    const filters: SQL[] = [this.tenantScope(enterpriseId)!];
     if (query.vehiclesId) {
       filters.push(eq(vehiclesEnterprisesMembers.vehiclesId, query.vehiclesId));
     }
@@ -101,6 +102,18 @@ export class VehiclesEnterprisesMembersService {
     }
     if (query.status) {
       filters.push(eq(vehiclesEnterprisesMembers.status, query.status));
+    }
+    if (query.plate) {
+      filters.push(ilike(vehicles.plate, `%${query.plate}%`));
+    }
+    if (query.model) {
+      filters.push(ilike(vehicles.model, `%${query.model}%`));
+    }
+    if (query.renavam) {
+      filters.push(ilike(vehicles.renavam, `%${query.renavam}%`));
+    }
+    if (query.client) {
+      filters.push(ilike(users.userName, `%${query.client}%`));
     }
     const where = and(...filters);
 
@@ -134,6 +147,7 @@ export class VehiclesEnterprisesMembersService {
           vehicles,
           eq(vehiclesEnterprisesMembers.vehiclesId, vehicles.id),
         )
+        .innerJoin(users, eq(users.id, enterprisesMembers.userId))
         .where(where)
         .orderBy(asc(vehicles.plate), asc(vehiclesEnterprisesMembers.id))
         .limit(limit)
@@ -148,6 +162,11 @@ export class VehiclesEnterprisesMembersService {
             enterprisesMembers.id,
           ),
         )
+        .innerJoin(
+          vehicles,
+          eq(vehiclesEnterprisesMembers.vehiclesId, vehicles.id),
+        )
+        .innerJoin(users, eq(users.id, enterprisesMembers.userId))
         .where(where),
     ]);
     const total = Number(totalRows[0]?.c ?? 0);

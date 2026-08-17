@@ -287,7 +287,6 @@ export class ProductsEnterprisesService {
     productTypeId: string;
     productNcmId?: string | null;
     productCestId?: string | null;
-    productAnpId?: string | null;
     productNbsId?: string | null;
   }) {
     const typeCode = await getProductTypeCode(input.productTypeId);
@@ -338,12 +337,6 @@ export class ProductsEnterprisesService {
       missing.push({
         path: "productCestId",
         message: "CEST obrigatorio para produto que nao e servico",
-      });
-    }
-    if (!input.productAnpId) {
-      missing.push({
-        path: "productAnpId",
-        message: "ANP obrigatorio para produto que nao e servico",
       });
     }
     if (missing.length > 0) {

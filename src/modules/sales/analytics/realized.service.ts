@@ -1,6 +1,11 @@
 import { eq, sql } from "drizzle-orm";
 import { db } from "../../../db/index.js";
-import { sales, salesItems, salesReturns } from "../../../db/schema.js";
+import {
+  sales,
+  salesDues,
+  salesItems,
+  salesReturns,
+} from "../../../db/schema.js";
 import {
   decNum,
   kpiWithComparison,
@@ -16,11 +21,17 @@ import {
   type ResolvedPeriod,
 } from "./period.js";
 import {
-  buildRealizedScope,
+  buildRealizedDueScope,
   buildReturnsScope,
-  effectiveCompletionDateSql,
+  effectiveRecognizedDateSql,
   extractFilters,
   localReturnCreatedDateSql,
+  recognizedAmountSql,
+  recognizedCostSql,
+  recognizedDiscountSql,
+  recognizedFractionSql,
+  recognizedPieRevenueSql,
+  recognizedServiceRevenueSql,
   returnLineValueSql,
   type AnalyticsFilters,
 } from "./scope.js";
@@ -44,6 +55,10 @@ export type RealizedKpis = {
   serviceRevenue: number;
   pieSharePercent: number;
   serviceSharePercent: number;
+  costTotal: number;
+  grossProfit: number;
+  netProfit: number;
+  grossMarginPercent: number;
 };
 
 const fetchRealizedKpis = async (
@@ -51,29 +66,30 @@ const fetchRealizedKpis = async (
   period: ResolvedPeriod,
   filters: AnalyticsFilters,
 ): Promise<RealizedKpis> => {
-  const scope = buildRealizedScope(enterpriseId, period, filters);
+  const scope = buildRealizedDueScope(enterpriseId, period, filters);
+  const amount = recognizedAmountSql();
+  const fraction = recognizedFractionSql();
 
   const [salesAgg, itemsAgg, returnsAgg] = await Promise.all([
     db
       .select({
-        grossRevenue: sql<string>`coalesce(sum(${sales.valueLiquid}), 0)`,
-        salesCount: sql<string>`count(*)`,
-        pieRevenue: sql<string>`coalesce(sum(${sales.valuePie}), 0)`,
-        serviceRevenue: sql<string>`coalesce(sum(${sales.valueService}), 0)`,
-        discountTotal: sql<string>`coalesce(sum(
-          coalesce(${sales.discountValuetems}, 0)
-          + coalesce(${sales.valueDiscountFinancialPie}, 0)
-          + coalesce(${sales.valueDiscountFinancialService}, 0)
-        ), 0)`,
+        grossRevenue: sql<string>`coalesce(sum(${amount}), 0)`,
+        salesCount: sql<string>`count(distinct ${sales.id})`,
+        pieRevenue: sql<string>`coalesce(sum(${recognizedPieRevenueSql()}), 0)`,
+        serviceRevenue: sql<string>`coalesce(sum(${recognizedServiceRevenueSql()}), 0)`,
+        discountTotal: sql<string>`coalesce(sum(${recognizedDiscountSql()}), 0)`,
+        costTotal: sql<string>`coalesce(sum(${recognizedCostSql()}), 0)`,
       })
-      .from(sales)
+      .from(salesDues)
+      .innerJoin(sales, eq(salesDues.salesId, sales.id))
       .where(scope),
     db
       .select({
-        itemsSold: sql<string>`coalesce(sum(${salesItems.quantity}), 0)`,
+        itemsSold: sql<string>`coalesce(sum(${salesItems.quantity} * ${fraction}), 0)`,
       })
-      .from(salesItems)
-      .innerJoin(sales, eq(salesItems.salesId, sales.id))
+      .from(salesDues)
+      .innerJoin(sales, eq(salesDues.salesId, sales.id))
+      .innerJoin(salesItems, eq(salesItems.salesId, sales.id))
       .where(scope),
     db
       .select({
@@ -92,10 +108,14 @@ const fetchRealizedKpis = async (
   const pieRevenue = roundMoney(decNum(salesAgg[0]?.pieRevenue));
   const serviceRevenue = roundMoney(decNum(salesAgg[0]?.serviceRevenue));
   const pieServiceBase = pieRevenue + serviceRevenue;
+  const costTotal = roundMoney(decNum(salesAgg[0]?.costTotal));
+  const netRevenue = roundMoney(grossRevenue - returnsTotal);
+  const grossProfit = roundMoney(grossRevenue - costTotal);
+  const netProfit = roundMoney(netRevenue - costTotal);
 
   return {
     grossRevenue: roundMoney(grossRevenue),
-    netRevenue: roundMoney(grossRevenue - returnsTotal),
+    netRevenue,
     salesCount,
     averageTicket:
       salesCount > 0 ? roundMoney(grossRevenue / salesCount) : 0,
@@ -108,6 +128,10 @@ const fetchRealizedKpis = async (
     serviceRevenue,
     pieSharePercent: ratePercent(pieRevenue, pieServiceBase),
     serviceSharePercent: ratePercent(serviceRevenue, pieServiceBase),
+    costTotal,
+    grossProfit,
+    netProfit,
+    grossMarginPercent: ratePercent(grossProfit, grossRevenue),
   };
 };
 
@@ -143,6 +167,12 @@ const buildOverviewKpis = (
     ...kpiWithComparison(current.serviceRevenue, previous?.serviceRevenue),
     sharePercent: current.serviceSharePercent,
   },
+  costTotal: kpiWithComparison(current.costTotal, previous?.costTotal),
+  grossProfit: {
+    ...kpiWithComparison(current.grossProfit, previous?.grossProfit),
+    marginPercent: current.grossMarginPercent,
+  },
+  netProfit: kpiWithComparison(current.netProfit, previous?.netProfit),
 });
 
 type RealizedSeriesPoint = {
@@ -152,6 +182,9 @@ type RealizedSeriesPoint = {
   netRevenue: number;
   salesCount: number;
   returnsTotal: number;
+  costTotal: number;
+  grossProfit: number;
+  netProfit: number;
 };
 
 const emptyRealizedPoint = (
@@ -164,6 +197,9 @@ const emptyRealizedPoint = (
   netRevenue: 0,
   salesCount: 0,
   returnsTotal: 0,
+  costTotal: 0,
+  grossProfit: 0,
+  netProfit: 0,
 });
 
 const fetchRealizedSeriesSparse = async (
@@ -172,18 +208,21 @@ const fetchRealizedSeriesSparse = async (
   filters: AnalyticsFilters,
   granularity: string,
 ): Promise<Array<Omit<RealizedSeriesPoint, "bucketLabel"> & { bucketLabel?: string }>> => {
-  const scope = buildRealizedScope(enterpriseId, period, filters);
+  const scope = buildRealizedDueScope(enterpriseId, period, filters);
   const pgGran = pgGranularitySql(granularity);
-  const effective = effectiveCompletionDateSql(period.timezone);
-  const bucket = sql`date_trunc(${pgGran}, ${effective}::timestamp)`;
+  const recognized = effectiveRecognizedDateSql(period.timezone);
+  const bucket = sql`date_trunc(${pgGran}, ${recognized}::timestamp)`;
+  const amount = recognizedAmountSql();
 
   const rows = await db
     .select({
       bucketStart: sql<string>`to_char(${bucket}, 'YYYY-MM-DD')`,
-      grossRevenue: sql<string>`coalesce(sum(${sales.valueLiquid}), 0)`,
-      salesCount: sql<string>`count(*)`,
+      grossRevenue: sql<string>`coalesce(sum(${amount}), 0)`,
+      salesCount: sql<string>`count(distinct ${sales.id})`,
+      costTotal: sql<string>`coalesce(sum(${recognizedCostSql()}), 0)`,
     })
-    .from(sales)
+    .from(salesDues)
+    .innerJoin(sales, eq(salesDues.salesId, sales.id))
     .where(scope)
     .groupBy(bucket)
     .orderBy(bucket);
@@ -208,6 +247,7 @@ const fetchRealizedSeriesSparse = async (
       {
         grossRevenue: decNum(r.grossRevenue),
         salesCount: Number(r.salesCount),
+        costTotal: decNum(r.costTotal),
       },
     ]),
   );
@@ -224,12 +264,17 @@ const fetchRealizedSeriesSparse = async (
     const sale = salesByBucket.get(bucketStart);
     const grossRevenue = sale?.grossRevenue ?? 0;
     const returnsTotal = returnsByBucket.get(bucketStart) ?? 0;
+    const costTotal = sale?.costTotal ?? 0;
+    const netRevenue = grossRevenue - returnsTotal;
     return {
       bucketStart,
       grossRevenue: roundMoney(grossRevenue),
-      netRevenue: roundMoney(grossRevenue - returnsTotal),
+      netRevenue: roundMoney(netRevenue),
       salesCount: sale?.salesCount ?? 0,
       returnsTotal: roundMoney(returnsTotal),
+      costTotal: roundMoney(costTotal),
+      grossProfit: roundMoney(grossRevenue - costTotal),
+      netProfit: roundMoney(netRevenue - costTotal),
     };
   });
 };
@@ -328,6 +373,13 @@ export class RealizedAnalyticsService {
       serviceRevenue: kpiWithComparison(
         current.serviceRevenue,
         comparison.serviceRevenue,
+      ),
+      costTotal: kpiWithComparison(current.costTotal, comparison.costTotal),
+      grossProfit: kpiWithComparison(current.grossProfit, comparison.grossProfit),
+      netProfit: kpiWithComparison(current.netProfit, comparison.netProfit),
+      grossMarginPercent: kpiWithComparison(
+        current.grossMarginPercent,
+        comparison.grossMarginPercent,
       ),
     };
 

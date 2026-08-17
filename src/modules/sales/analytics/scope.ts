@@ -32,7 +32,57 @@ export const localReturnCreatedDateSql = (timezone: string) =>
 export const dueDateUtcSql = () =>
   sql`DATE(timezone('UTC', ${salesDues.dueDate}))`;
 
-/** Condicao de data de realizacao da venda. */
+/** Data de reconhecimento financeiro (vencimento da parcela). */
+export const effectiveRecognizedDateSql = (_timezone?: string) =>
+  dueDateUtcSql();
+
+/** Valor reconhecido no dia: valor da parcela. */
+export const recognizedAmountSql = () =>
+  sql`coalesce(${salesDues.valueInstallment}, 0)`;
+
+/**
+ * Fracao da venda representada pelo valor reconhecido.
+ * Usada para ratear pecas/servico, desconto, quantidade e custo na parcela.
+ */
+export const recognizedFractionSql = () =>
+  sql`case
+    when coalesce(${sales.valueLiquid}, 0) > 0
+    then ${recognizedAmountSql()} / ${sales.valueLiquid}
+    else 0
+  end`;
+
+/** Custo bruto da venda (quantidade original × custo unitario). */
+export const saleGrossCostSql = () =>
+  sql`coalesce((
+    SELECT sum(
+      coalesce(si.quantity, 0)
+      * coalesce(si.average_cost, si.actual_real_cost, si.price_cost, 0)
+    )
+    FROM sales_items si
+    WHERE si.sales_id = ${sales.id}
+  ), 0)`;
+
+/** Custo da parcela (custo da venda × fracao reconhecida). */
+export const recognizedCostSql = () =>
+  sql`${saleGrossCostSql()} * ${recognizedFractionSql()}`;
+
+/** Receita de pecas rateada na parcela. */
+export const recognizedPieRevenueSql = () =>
+  sql`coalesce(${sales.valuePie}, 0) * ${recognizedFractionSql()}`;
+
+/** Receita de servicos rateada na parcela. */
+export const recognizedServiceRevenueSql = () =>
+  sql`coalesce(${sales.valueService}, 0) * ${recognizedFractionSql()}`;
+
+/** Desconto rateado na parcela. */
+export const recognizedDiscountSql = () =>
+  sql`(
+    coalesce(${sales.discountValuetems}, 0)
+    + coalesce(${sales.valueDiscountFinancialPie}, 0)
+    + coalesce(${sales.valueDiscountFinancialService}, 0)
+  ) * ${recognizedFractionSql()}`;
+
+/** Condicao de data de realizacao da venda (conclusao do documento). */
 export const buildRealizedDateCondition = (
   period: ResolvedPeriod,
 ): SQL | undefined => {
@@ -40,6 +90,17 @@ export const buildRealizedDateCondition = (
   return and(
     gte(effective, sql`${period.from}::date`),
     lte(effective, sql`${period.to}::date`),
+  );
+};
+
+/** Condicao de data de reconhecimento financeiro (vencimento da parcela). */
+export const buildRecognizedDateCondition = (
+  period: ResolvedPeriod,
+): SQL | undefined => {
+  const recognized = effectiveRecognizedDateSql(period.timezone);
+  return and(
+    gte(recognized, sql`${period.from}::date`),
+    lte(recognized, sql`${period.to}::date`),
   );
 };
 
@@ -65,8 +126,10 @@ export const buildReturnDateCondition = (
   );
 };
 
-/** Condicoes de filtro de venda (nivel documento). */
-export const buildSaleFilterConditions = (filters: AnalyticsFilters): SQL[] => {
+/** Filtros de documento sem forma de pagamento (vendedor, cliente, produto). */
+export const buildSaleDocumentFilterConditions = (
+  filters: AnalyticsFilters,
+): SQL[] => {
   const conditions: SQL[] = [];
   if (filters.sellerId) {
     conditions.push(eq(sales.sellerId, filters.sellerId));
@@ -93,6 +156,26 @@ export const buildSaleFilterConditions = (filters: AnalyticsFilters): SQL[] => {
       )`,
     );
   }
+  return conditions;
+};
+
+/** Filtro de forma de pagamento na parcela (nao no documento inteiro). */
+export const buildDuePaymentFilterConditions = (
+  filters: AnalyticsFilters,
+): SQL[] => {
+  if (!filters.paymentTypeId) return [];
+  return [
+    sql`EXISTS (
+      SELECT 1 FROM ${salesPayments}
+      WHERE ${salesPayments.id} = ${salesDues.salesPaymentId}
+      AND ${salesPayments.paymentTypeId} = ${filters.paymentTypeId}
+    )`,
+  ];
+};
+
+/** Condicoes de filtro de venda (nivel documento). */
+export const buildSaleFilterConditions = (filters: AnalyticsFilters): SQL[] => {
+  const conditions = buildSaleDocumentFilterConditions(filters);
   if (filters.paymentTypeId) {
     conditions.push(
       sql`EXISTS (
@@ -166,7 +249,7 @@ export const buildReturnLineFilterConditions = (
   return conditions;
 };
 
-/** Scope de venda realizada. */
+/** Scope de venda realizada por data de conclusao do documento. */
 export const buildRealizedScope = (
   enterpriseId: string,
   period: ResolvedPeriod,
@@ -178,6 +261,24 @@ export const buildRealizedScope = (
     eq(sales.status, "FINALIZADA"),
     buildRealizedDateCondition(period),
     ...buildSaleFilterConditions(filters),
+  );
+
+/**
+ * Scope financeiro realizado: venda finalizada cuja parcela vence no periodo.
+ * Exige FROM/JOIN em sales_dues.
+ */
+export const buildRealizedDueScope = (
+  enterpriseId: string,
+  period: ResolvedPeriod,
+  filters: AnalyticsFilters = {},
+) =>
+  and(
+    eq(sales.enterprisesId, enterpriseId),
+    eq(sales.type, "VENDA"),
+    eq(sales.status, "FINALIZADA"),
+    buildRecognizedDateCondition(period),
+    ...buildSaleDocumentFilterConditions(filters),
+    ...buildDuePaymentFilterConditions(filters),
   );
 
 /** Scope de venda em pipeline. */
@@ -233,6 +334,14 @@ export const netItemRevenueSql = () =>
 /** Quantidade liquida do item. */
 export const netItemQuantitySql = () =>
   sql`(${salesItems.quantity} - ${salesItems.quantityReturned})`;
+
+/** Receita liquida do item rateada na parcela do periodo. */
+export const recognizedItemRevenueSql = () =>
+  sql`(${netItemRevenueSql()}) * ${recognizedFractionSql()}`;
+
+/** Quantidade liquida do item rateada na parcela do periodo. */
+export const recognizedItemQuantitySql = () =>
+  sql`(${netItemQuantitySql()}) * ${recognizedFractionSql()}`;
 
 /** Extrai os filtros da consulta. */
 export const extractFilters = (query: AnalyticsFilters): AnalyticsFilters => ({

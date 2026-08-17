@@ -7,6 +7,7 @@ import {
   productGroups,
   productsEnterprises,
   sales,
+  salesDues,
   salesItems,
   salesPayments,
   salesReturns,
@@ -22,12 +23,14 @@ import { resolveAnalyticsPeriod } from "./period.js";
 import {
   buildItemLineFilterConditions,
   buildPaymentLineFilterConditions,
-  buildRealizedScope,
+  buildRealizedDueScope,
   buildReturnLineFilterConditions,
   buildReturnsScope,
   extractFilters,
-  netItemQuantitySql,
-  netItemRevenueSql,
+  recognizedAmountSql,
+  recognizedCostSql,
+  recognizedItemQuantitySql,
+  recognizedItemRevenueSql,
   returnLineValueSql,
 } from "./scope.js";
 import type {
@@ -42,34 +45,43 @@ export class DimensionsAnalyticsService {
   ) {
     const period = resolveAnalyticsPeriod(query);
     const filters = extractFilters(query);
-    const scope = buildRealizedScope(enterpriseId, period, filters);
+    const scope = buildRealizedDueScope(enterpriseId, period, filters);
     const paymentLineFilters = buildPaymentLineFilterConditions(filters);
     const where = and(scope, ...paymentLineFilters);
+    const amount = recognizedAmountSql();
 
     const [rows, totalRow] = await Promise.all([
       db
         .select({
           id: paymentTypes.id,
           label: paymentTypes.description,
-          revenue: sql<string>`coalesce(sum(${salesPayments.valueTotal}), 0)`,
+          revenue: sql<string>`coalesce(sum(${amount}), 0)`,
           salesCount: sql<string>`count(distinct ${sales.id})`,
         })
-        .from(salesPayments)
-        .innerJoin(sales, eq(salesPayments.salesId, sales.id))
+        .from(salesDues)
+        .innerJoin(sales, eq(salesDues.salesId, sales.id))
+        .innerJoin(
+          salesPayments,
+          eq(salesDues.salesPaymentId, salesPayments.id),
+        )
         .innerJoin(
           paymentTypes,
           eq(salesPayments.paymentTypeId, paymentTypes.id),
         )
         .where(where)
         .groupBy(paymentTypes.id, paymentTypes.description)
-        .orderBy(sql`sum(${salesPayments.valueTotal}) desc`)
+        .orderBy(sql`sum(${amount}) desc`)
         .limit(query.limit ?? 10),
       db
         .select({
-          totalRevenue: sql<string>`coalesce(sum(${salesPayments.valueTotal}), 0)`,
+          totalRevenue: sql<string>`coalesce(sum(${amount}), 0)`,
         })
-        .from(salesPayments)
-        .innerJoin(sales, eq(salesPayments.salesId, sales.id))
+        .from(salesDues)
+        .innerJoin(sales, eq(salesDues.salesId, sales.id))
+        .innerJoin(
+          salesPayments,
+          eq(salesDues.salesPaymentId, salesPayments.id),
+        )
         .where(where),
     ]);
 
@@ -92,36 +104,47 @@ export class DimensionsAnalyticsService {
   public async bySeller(enterpriseId: string, query: AnalyticsRankingQuery) {
     const period = resolveAnalyticsPeriod(query);
     const filters = extractFilters(query);
-    const scope = buildRealizedScope(enterpriseId, period, filters);
+    const scope = buildRealizedDueScope(enterpriseId, period, filters);
+    const amount = recognizedAmountSql();
+    const cost = recognizedCostSql();
 
     const [rows, totalRow] = await Promise.all([
       db
         .select({
           id: sales.sellerId,
           label: sales.sellerLegalName,
-          revenue: sql<string>`coalesce(sum(${sales.valueLiquid}), 0)`,
-          salesCount: sql<string>`count(*)`,
+          revenue: sql<string>`coalesce(sum(${amount}), 0)`,
+          costTotal: sql<string>`coalesce(sum(${cost}), 0)`,
+          salesCount: sql<string>`count(distinct ${sales.id})`,
         })
-        .from(sales)
+        .from(salesDues)
+        .innerJoin(sales, eq(salesDues.salesId, sales.id))
         .where(scope)
         .groupBy(sales.sellerId, sales.sellerLegalName)
-        .orderBy(sql`sum(${sales.valueLiquid}) desc`)
+        .orderBy(sql`sum(${amount}) desc`)
         .limit(query.limit ?? 10),
       db
         .select({
-          totalRevenue: sql<string>`coalesce(sum(${sales.valueLiquid}), 0)`,
+          totalRevenue: sql<string>`coalesce(sum(${amount}), 0)`,
         })
-        .from(sales)
+        .from(salesDues)
+        .innerJoin(sales, eq(salesDues.salesId, sales.id))
         .where(scope),
     ]);
 
     const ranking = buildRankingPayload(
-      rows.map((row) => ({
-        id: row.id,
-        label: row.label,
-        revenue: roundMoney(decNum(row.revenue)),
-        salesCount: Number(row.salesCount),
-      })),
+      rows.map((row) => {
+        const revenue = roundMoney(decNum(row.revenue));
+        const costTotal = roundMoney(decNum(row.costTotal));
+        return {
+          id: row.id,
+          label: row.label,
+          revenue,
+          costTotal,
+          grossProfit: roundMoney(revenue - costTotal),
+          salesCount: Number(row.salesCount),
+        };
+      }),
       decNum(totalRow[0]?.totalRevenue),
     );
 
@@ -138,19 +161,23 @@ export class DimensionsAnalyticsService {
     const period = resolveAnalyticsPeriod(query);
     const filters = extractFilters(query);
     const scope = and(
-      buildRealizedScope(enterpriseId, period, filters),
+      buildRealizedDueScope(enterpriseId, period, filters),
       sql`${sales.memberId} is not null`,
     );
+    const amount = recognizedAmountSql();
+    const cost = recognizedCostSql();
 
     const [rows, totalRow] = await Promise.all([
       db
         .select({
           id: sales.memberId,
           label: users.userName,
-          revenue: sql<string>`coalesce(sum(${sales.valueLiquid}), 0)`,
-          salesCount: sql<string>`count(*)`,
+          revenue: sql<string>`coalesce(sum(${amount}), 0)`,
+          costTotal: sql<string>`coalesce(sum(${cost}), 0)`,
+          salesCount: sql<string>`count(distinct ${sales.id})`,
         })
-        .from(sales)
+        .from(salesDues)
+        .innerJoin(sales, eq(salesDues.salesId, sales.id))
         .leftJoin(
           enterprisesMembers,
           eq(sales.memberId, enterprisesMembers.id),
@@ -158,23 +185,30 @@ export class DimensionsAnalyticsService {
         .leftJoin(users, eq(enterprisesMembers.userId, users.id))
         .where(scope)
         .groupBy(sales.memberId, users.userName)
-        .orderBy(sql`sum(${sales.valueLiquid}) desc`)
+        .orderBy(sql`sum(${amount}) desc`)
         .limit(query.limit ?? 10),
       db
         .select({
-          totalRevenue: sql<string>`coalesce(sum(${sales.valueLiquid}), 0)`,
+          totalRevenue: sql<string>`coalesce(sum(${amount}), 0)`,
         })
-        .from(sales)
+        .from(salesDues)
+        .innerJoin(sales, eq(salesDues.salesId, sales.id))
         .where(scope),
     ]);
 
     const ranking = buildRankingPayload(
-      rows.map((row) => ({
-        id: row.id,
-        label: row.label ?? "Cliente sem nome",
-        revenue: roundMoney(decNum(row.revenue)),
-        salesCount: Number(row.salesCount),
-      })),
+      rows.map((row) => {
+        const revenue = roundMoney(decNum(row.revenue));
+        const costTotal = roundMoney(decNum(row.costTotal));
+        return {
+          id: row.id,
+          label: row.label ?? "Cliente sem nome",
+          revenue,
+          costTotal,
+          grossProfit: roundMoney(revenue - costTotal),
+          salesCount: Number(row.salesCount),
+        };
+      }),
       decNum(totalRow[0]?.totalRevenue),
     );
 
@@ -190,12 +224,12 @@ export class DimensionsAnalyticsService {
   ) {
     const period = resolveAnalyticsPeriod(query);
     const filters = extractFilters(query);
-    const scope = buildRealizedScope(enterpriseId, period, filters);
+    const scope = buildRealizedDueScope(enterpriseId, period, filters);
     const itemLineFilters = buildItemLineFilterConditions(filters);
     const where = and(scope, ...itemLineFilters);
     const sortBy = query.sortBy ?? "revenue";
-    const netRevenue = netItemRevenueSql();
-    const netQuantity = netItemQuantitySql();
+    const netRevenue = recognizedItemRevenueSql();
+    const netQuantity = recognizedItemQuantitySql();
 
     const [rows, totalRow] = await Promise.all([
       db
@@ -207,8 +241,9 @@ export class DimensionsAnalyticsService {
           quantity: sql<string>`coalesce(sum(${netQuantity}), 0)`,
           salesCount: sql<string>`count(distinct ${sales.id})`,
         })
-        .from(salesItems)
-        .innerJoin(sales, eq(salesItems.salesId, sales.id))
+        .from(salesDues)
+        .innerJoin(sales, eq(salesDues.salesId, sales.id))
+        .innerJoin(salesItems, eq(salesItems.salesId, sales.id))
         .innerJoin(
           productsEnterprises,
           eq(salesItems.productsEnterprisesId, productsEnterprises.id),
@@ -229,8 +264,9 @@ export class DimensionsAnalyticsService {
         .select({
           totalRevenue: sql<string>`coalesce(sum(${netRevenue}), 0)`,
         })
-        .from(salesItems)
-        .innerJoin(sales, eq(salesItems.salesId, sales.id))
+        .from(salesDues)
+        .innerJoin(sales, eq(salesDues.salesId, sales.id))
+        .innerJoin(salesItems, eq(salesItems.salesId, sales.id))
         .where(where),
     ]);
 
@@ -274,11 +310,11 @@ export class DimensionsAnalyticsService {
   ) {
     const period = resolveAnalyticsPeriod(query);
     const filters = extractFilters(query);
-    const scope = buildRealizedScope(enterpriseId, period, filters);
+    const scope = buildRealizedDueScope(enterpriseId, period, filters);
     const itemLineFilters = buildItemLineFilterConditions(filters);
     const where = and(scope, ...itemLineFilters);
-    const netRevenue = netItemRevenueSql();
-    const netQuantity = netItemQuantitySql();
+    const netRevenue = recognizedItemRevenueSql();
+    const netQuantity = recognizedItemQuantitySql();
 
     const dimTable = dimension === "group" ? productGroups : productBrands;
     const dimIdCol =
@@ -295,8 +331,9 @@ export class DimensionsAnalyticsService {
           quantity: sql<string>`coalesce(sum(${netQuantity}), 0)`,
           salesCount: sql<string>`count(distinct ${sales.id})`,
         })
-        .from(salesItems)
-        .innerJoin(sales, eq(salesItems.salesId, sales.id))
+        .from(salesDues)
+        .innerJoin(sales, eq(salesDues.salesId, sales.id))
+        .innerJoin(salesItems, eq(salesItems.salesId, sales.id))
         .innerJoin(
           productsEnterprises,
           eq(salesItems.productsEnterprisesId, productsEnterprises.id),
@@ -313,8 +350,9 @@ export class DimensionsAnalyticsService {
         .select({
           totalRevenue: sql<string>`coalesce(sum(${netRevenue}), 0)`,
         })
-        .from(salesItems)
-        .innerJoin(sales, eq(salesItems.salesId, sales.id))
+        .from(salesDues)
+        .innerJoin(sales, eq(salesDues.salesId, sales.id))
+        .innerJoin(salesItems, eq(salesItems.salesId, sales.id))
         .innerJoin(
           productsEnterprises,
           eq(salesItems.productsEnterprisesId, productsEnterprises.id),
@@ -348,7 +386,8 @@ export class DimensionsAnalyticsService {
     const filters = extractFilters(query);
     const returnsScope = buildReturnsScope(enterpriseId, period, filters);
     const returnLineFilters = buildReturnLineFilterConditions(filters);
-    const realizedScope = buildRealizedScope(enterpriseId, period, filters);
+    const realizedScope = buildRealizedDueScope(enterpriseId, period, filters);
+    const amount = recognizedAmountSql();
 
     const [returnsAgg, grossAgg, topProducts] = await Promise.all([
       db
@@ -362,9 +401,10 @@ export class DimensionsAnalyticsService {
         .where(returnsScope),
       db
         .select({
-          grossRevenue: sql<string>`coalesce(sum(${sales.valueLiquid}), 0)`,
+          grossRevenue: sql<string>`coalesce(sum(${amount}), 0)`,
         })
-        .from(sales)
+        .from(salesDues)
+        .innerJoin(sales, eq(salesDues.salesId, sales.id))
         .where(realizedScope),
       db
         .select({

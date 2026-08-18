@@ -19,7 +19,7 @@ export const wholeFractionalSchema = z.enum(["INTEIRO", "FRACIONADO"]);
 export const createUnitSchema = z
   .object({
     unit: unitCodeSchema,
-    description: z.string().trim().min(1).max(255).toUpperCase(),
+    description: z.string().trim().min(1).max(255),
     compatible: unitCodeSchema.optional(),
     wholeFractional: wholeFractionalSchema,
   })
@@ -28,7 +28,7 @@ export const createUnitSchema = z
 export const patchUnitSchema = z
   .object({
     unit: unitCodeSchema.optional(),
-    description: z.string().trim().min(1).max(255).toUpperCase().optional(),
+    description: z.string().trim().min(1).max(255).optional(),
     compatible: unitCodeSchema.optional(),
     wholeFractional: wholeFractionalSchema.optional(),
   })

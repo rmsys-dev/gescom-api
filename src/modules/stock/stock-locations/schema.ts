@@ -8,7 +8,7 @@ const statusSchema = z.enum(statusEnum.enumValues);
 
 export const createStockLocationSchema = z
   .object({
-    box: z.string().trim().min(1).max(64).toUpperCase().optional(),
+    box: z.string().trim().min(1).max(64).optional(),
     description: z.string().trim().max(255).optional(),
     stockSectorId: z.string().uuid(),
     status: statusSchema.optional(),
@@ -17,7 +17,7 @@ export const createStockLocationSchema = z
 
 export const patchStockLocationSchema = z
   .object({
-    box: z.string().trim().min(1).max(64).toUpperCase().optional(),
+    box: z.string().trim().min(1).max(64).optional(),
     description: z.string().trim().max(255).nullable().optional(),
     stockSectorId: z.string().uuid().optional(),
     status: statusSchema.optional(),
@@ -39,5 +39,7 @@ export const stockLocationParamsSchema = z
 export type ListStockLocationsQuery = z.infer<
   typeof listStockLocationsQuerySchema
 >;
-export type CreateStockLocationInput = z.infer<typeof createStockLocationSchema>;
+export type CreateStockLocationInput = z.infer<
+  typeof createStockLocationSchema
+>;
 export type PatchStockLocationInput = z.infer<typeof patchStockLocationSchema>;

@@ -5,13 +5,13 @@ export const listStockSectorsQuerySchema = createPaginationQuerySchema(100);
 
 export const createStockSectorSchema = z
   .object({
-    description: z.string().trim().min(1).max(255).toUpperCase(),
+    description: z.string().trim().min(1).max(255),
   })
   .strict();
 
 export const patchStockSectorSchema = z
   .object({
-    description: z.string().trim().min(1).max(255).toUpperCase().optional(),
+    description: z.string().trim().min(1).max(255).optional(),
   })
   .strict()
   .refine(

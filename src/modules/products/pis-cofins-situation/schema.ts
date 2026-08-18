@@ -11,7 +11,9 @@ export const listPisCofinsSituationQuerySchema = z
   })
   .strict();
 
-const pisCofinsTypeSchema = z.enum(["ENTRADA", "SAIDA"]).transform((val) => val.toUpperCase())
+const pisCofinsTypeSchema = z
+  .enum(["ENTRADA", "SAIDA"])
+  .transform((val) => val)
   .refine(
     (val) => val === "ENTRADA" || val === "SAIDA",
     "Tipo deve ser 'ENTRADA' ou 'SAIDA'",
@@ -22,7 +24,7 @@ export type PisCofinsType = z.infer<typeof pisCofinsTypeSchema>;
 export const createPisCofinsSituationSchema = z
   .object({
     cst: z.string().trim().min(1).max(255),
-    description: z.string().trim().min(1).max(255).toUpperCase(),
+    description: z.string().trim().min(1).max(255),
     type: pisCofinsTypeSchema,
     framing: z.number().int(),
     pisRate: z.number().min(0).optional(),
@@ -33,7 +35,7 @@ export const createPisCofinsSituationSchema = z
 export const patchPisCofinsSituationSchema = z
   .object({
     cst: z.string().trim().min(1).max(255).optional(),
-    description: z.string().trim().min(1).max(255).toUpperCase().optional(),
+    description: z.string().trim().min(1).max(255).optional(),
     type: pisCofinsTypeSchema.optional(),
     framing: z.number().int().optional(),
     pisRate: z.number().min(0).nullable().optional(),

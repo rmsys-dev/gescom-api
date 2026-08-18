@@ -9,7 +9,7 @@ const paymentTypeSchema = z.enum(paymentTypeEnum.enumValues);
 
 export const createPaymentTypeSchema = z
   .object({
-    description: z.string().trim().min(1).max(255).toUpperCase(),
+    description: z.string().trim().min(1).max(255),
     paymentType: paymentTypeSchema,
     status: statusSchema.default("ATIVO").optional(),
   })
@@ -17,7 +17,7 @@ export const createPaymentTypeSchema = z
 
 export const patchPaymentTypeSchema = z
   .object({
-    description: z.string().trim().min(1).max(255).toUpperCase().optional(),
+    description: z.string().trim().min(1).max(255).optional(),
     paymentType: paymentTypeSchema.optional(),
     status: statusSchema.optional(),
   })

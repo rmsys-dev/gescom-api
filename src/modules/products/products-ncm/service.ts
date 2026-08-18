@@ -26,9 +26,7 @@ export class ProductsNcmService {
     const { limit, offset } = resolveListPagination(query);
     const conditions = [];
     if (query.description) {
-      conditions.push(
-        ilike(productsNcm.description, `%${query.description.toUpperCase()}%`),
-      );
+      conditions.push(ilike(productsNcm.description, `%${query.description}%`));
     }
     if (query.ncm) {
       conditions.push(fiscalCodeIlikeCondition(productsNcm.ncm, query.ncm));

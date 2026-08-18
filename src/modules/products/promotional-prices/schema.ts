@@ -6,7 +6,7 @@ export const listPromotionalPricesQuerySchema =
 
 export const createPromotionalPriceSchema = z
   .object({
-    description: z.string().trim().max(255).toUpperCase().optional(),
+    description: z.string().trim().max(255).optional(),
     price: z.number().positive(),
     startDate: z.coerce.date(),
     endDate: z.coerce.date(),
@@ -20,7 +20,7 @@ export const createPromotionalPriceSchema = z
 
 export const patchPromotionalPriceSchema = z
   .object({
-    description: z.string().trim().max(255).toUpperCase().nullable().optional(),
+    description: z.string().trim().max(255).nullable().optional(),
     price: z.number().positive().optional(),
     startDate: z.coerce.date().optional(),
     endDate: z.coerce.date().optional(),

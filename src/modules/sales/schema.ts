@@ -211,44 +211,29 @@ export const salePaymentInputSchema = z
   })
   .strict();
 
-const saleMemberCepSchema = z.preprocess(
-  (value) => {
-    if (typeof value !== "string") {
-      return value;
-    }
-    const digits = value.replace(/\D/g, "");
-    return digits === "" ? undefined : digits;
-  },
-  z
-    .string()
-    .length(8, "Campo 'memberCep' deve conter 8 digitos")
-    .optional(),
-);
+const saleMemberCepSchema = z.preprocess((value) => {
+  if (typeof value !== "string") {
+    return value;
+  }
+  const digits = value.replace(/\D/g, "");
+  return digits === "" ? undefined : digits;
+}, z.string().length(8, "Campo 'memberCep' deve conter 8 digitos").optional());
 
-const saleMemberStateSchema = z.preprocess(
-  (value) => {
-    if (typeof value !== "string") {
-      return value;
-    }
-    const trimmed = value.trim();
-    return trimmed === "" ? undefined : trimmed.toUpperCase();
-  },
-  z
-    .string()
-    .length(2, "Campo 'memberState' deve ter 2 caracteres")
-    .optional(),
-);
+const saleMemberStateSchema = z.preprocess((value) => {
+  if (typeof value !== "string") {
+    return value;
+  }
+  const trimmed = value.trim();
+  return trimmed === "" ? undefined : trimmed;
+}, z.string().length(2, "Campo 'memberState' deve ter 2 caracteres").optional());
 
-const optionalRegistrationSchema = z.preprocess(
-  (value) => {
-    if (typeof value !== "string") {
-      return value;
-    }
-    const trimmed = value.trim();
-    return trimmed === "" ? undefined : trimmed;
-  },
-  cpfCnpjSchema("registration").optional(),
-);
+const optionalRegistrationSchema = z.preprocess((value) => {
+  if (typeof value !== "string") {
+    return value;
+  }
+  const trimmed = value.trim();
+  return trimmed === "" ? undefined : trimmed;
+}, cpfCnpjSchema("registration").optional());
 
 /** Overrides parciais do snapshot do cliente na venda (sales_members). */
 export const saleMemberOverrideSchema = z
@@ -413,9 +398,7 @@ export const saleParamsSchema = z
 export const saleItemParamsSchema = z
   .object({
     saleId: z.string().uuid("Campo 'saleId' deve ser um UUID valido"),
-    saleItemId: z
-      .string()
-      .uuid("Campo 'saleItemId' deve ser um UUID valido"),
+    saleItemId: z.string().uuid("Campo 'saleItemId' deve ser um UUID valido"),
   })
   .strict();
 
@@ -681,6 +664,8 @@ export type PatchSaleInput = z.infer<typeof patchSaleSchema>;
 export type CreateSaleItemInput = z.infer<typeof createSaleItemSchema>;
 export type PatchSaleItemInput = z.infer<typeof patchSaleItemSchema>;
 export type ListSalesQuery = z.infer<typeof listSalesQuerySchema>;
-export type ConvertBudgetToSaleInput = z.infer<typeof convertBudgetToSaleSchema>;
+export type ConvertBudgetToSaleInput = z.infer<
+  typeof convertBudgetToSaleSchema
+>;
 export type ConvertBudgetToOsInput = z.infer<typeof convertBudgetToOsSchema>;
 export type ConvertOsToSaleInput = z.infer<typeof convertOsToSaleSchema>;

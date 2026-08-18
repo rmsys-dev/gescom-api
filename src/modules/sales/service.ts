@@ -42,11 +42,7 @@ import {
   vehicles,
   vehiclesEnterprisesMembers,
 } from "../../db/schema.js";
-import {
-  ceps,
-  cities,
-  states,
-} from "../../db/entities/addresses.js";
+import { ceps, cities, states } from "../../db/entities/addresses.js";
 import { departments } from "../../db/entities/departments.js";
 import {
   ConflictError,
@@ -75,9 +71,7 @@ import {
 import { PERM } from "../auth/default-permissions.js";
 import { isAllowed, resolvePermissions } from "../auth/permissions.js";
 import { findPrimaryMemberDepartmentIdByMemberId } from "../auth/repository.js";
-import {
-  resolveDefaultSaleItemStockRefs,
-} from "../stock/balance.js";
+import { resolveDefaultSaleItemStockRefs } from "../stock/balance.js";
 import {
   assertSaleOrderNumberAvailable,
   nextSaleOrderNumber,
@@ -91,10 +85,7 @@ import {
   syncSaleItemStockOnUpdate,
   validateSaleItemStock,
 } from "./sale-stock.js";
-import {
-  resolveSaleClosingOrigin,
-  type SaleOrigin,
-} from "./sale-origin.js";
+import { resolveSaleClosingOrigin, type SaleOrigin } from "./sale-origin.js";
 import { effectiveCompletionDateSql } from "./analytics/scope.js";
 import {
   computeItemValueTotal,
@@ -305,10 +296,10 @@ const buildSaleServiceFieldValues = (
     patch.vehicleMileage = input.vehicleMileage;
   }
   if (input.observations !== undefined) {
-    patch.observations = input.observations.trim().toUpperCase();
+    patch.observations = input.observations.trim();
   }
   if (input.defect !== undefined) {
-    patch.defect = input.defect.trim().toUpperCase();
+    patch.defect = input.defect.trim();
   }
   // serviceType e NOT NULL com default SERVICO; override so em ORDEM DE SERVICO.
   if (input.type === "ORDEM DE SERVICO" && input.serviceType !== undefined) {
@@ -356,22 +347,22 @@ const normalizeSaleMemberOverrides = (
   const result: Partial<SaleMemberSnapshot> = {};
 
   if (input.memberLegalName !== undefined) {
-    result.memberLegalName = input.memberLegalName.trim().toUpperCase();
+    result.memberLegalName = input.memberLegalName.trim();
   }
   if (input.memberAddress !== undefined) {
-    result.memberAddress = input.memberAddress.trim().toUpperCase();
+    result.memberAddress = input.memberAddress.trim();
   }
   if (input.memberSector !== undefined) {
-    result.memberSector = input.memberSector.trim().toUpperCase();
+    result.memberSector = input.memberSector.trim();
   }
   if (input.memberCep !== undefined) {
     result.memberCep = input.memberCep.trim();
   }
   if (input.memberCity !== undefined) {
-    result.memberCity = input.memberCity.trim().toUpperCase();
+    result.memberCity = input.memberCity.trim();
   }
   if (input.memberState !== undefined) {
-    result.memberState = input.memberState.trim().toUpperCase();
+    result.memberState = input.memberState.trim();
   }
   if (input.registration !== undefined) {
     result.registration = input.registration.trim();
@@ -404,7 +395,9 @@ const mergeSaleMemberSnapshot = (
 };
 
 const formatSaleMemberAddressLine = (street: string, number: string) => {
-  const parts = [street.trim(), number.trim()].filter((part) => part.length > 0);
+  const parts = [street.trim(), number.trim()].filter(
+    (part) => part.length > 0,
+  );
   return parts.join(", ");
 };
 
@@ -427,9 +420,7 @@ const getPostgresConstraintName = (err: unknown): string | undefined => {
       return (current as { constraint: string }).constraint;
     }
     current =
-      typeof current === "object" &&
-      current !== null &&
-      "cause" in current
+      typeof current === "object" && current !== null && "cause" in current
         ? (current as { cause: unknown }).cause
         : undefined;
   }
@@ -483,7 +474,7 @@ export type SaleAuthContext = {
 
 const SELLER_INELIGIBLE_MEMBER_CLASSES = ["CLIENTE", "FORNECEDOR"] as const;
 
-const saleWithMemberSelect = { 
+const saleWithMemberSelect = {
   id: sales.id,
   orderNumber: sales.orderNumber,
   userId: sales.userId,
@@ -538,7 +529,8 @@ type SalePaymentResponse = typeof salesPayments.$inferSelect & {
   dues: (typeof salesDues.$inferSelect)[];
 };
 
-export class SalesService {  // Servico de vendas
+export class SalesService {
+  // Servico de vendas
   private async recordSaleUpdateAudit(
     enterpriseId: string,
     saleId: string,
@@ -556,7 +548,8 @@ export class SalesService {  // Servico de vendas
     });
   }
 
-  private scope(enterpriseId: string, id?: string) {  // Scope para buscar vendas
+  private scope(enterpriseId: string, id?: string) {
+    // Scope para buscar vendas
     const base = [eq(sales.enterprisesId, enterpriseId)];
     if (id) base.push(eq(sales.id, id));
     return and(...base);
@@ -621,10 +614,7 @@ export class SalesService {  // Servico de vendas
     return db
       .select(saleWithMemberSelect)
       .from(sales)
-      .leftJoin(
-        enterprisesMembers,
-        eq(sales.memberId, enterprisesMembers.id),
-      )
+      .leftJoin(enterprisesMembers, eq(sales.memberId, enterprisesMembers.id))
       .leftJoin(users, eq(enterprisesMembers.userId, users.id))
       .leftJoin(salesMembers, eq(salesMembers.salesId, sales.id));
   }
@@ -633,10 +623,7 @@ export class SalesService {  // Servico de vendas
     return db
       .select({ c: count() })
       .from(sales)
-      .leftJoin(
-        enterprisesMembers,
-        eq(sales.memberId, enterprisesMembers.id),
-      )
+      .leftJoin(enterprisesMembers, eq(sales.memberId, enterprisesMembers.id))
       .leftJoin(users, eq(enterprisesMembers.userId, users.id))
       .leftJoin(salesMembers, eq(salesMembers.salesId, sales.id));
   }
@@ -721,26 +708,14 @@ export class SalesService {  // Servico de vendas
         productsEnterprises,
         eq(salesItems.productsEnterprisesId, productsEnterprises.id),
       )
-      .innerJoin(
-        measurementUnits,
-        eq(salesItems.unitid, measurementUnits.id),
-      )
-      .innerJoin(
-        productTypes,
-        eq(salesItems.productTypeId, productTypes.id),
-      )
-      .leftJoin(
-        stockSectors,
-        eq(salesItems.stockSectorId, stockSectors.id),
-      )
+      .innerJoin(measurementUnits, eq(salesItems.unitid, measurementUnits.id))
+      .innerJoin(productTypes, eq(salesItems.productTypeId, productTypes.id))
+      .leftJoin(stockSectors, eq(salesItems.stockSectorId, stockSectors.id))
       .leftJoin(
         stockLocations,
         eq(salesItems.stockLocationId, stockLocations.id),
       )
-      .leftJoin(
-        stockBatches,
-        eq(salesItems.stockBatchId, stockBatches.id),
-      )
+      .leftJoin(stockBatches, eq(salesItems.stockBatchId, stockBatches.id))
       .leftJoin(
         promotionalPrices,
         eq(salesItems.promotionalPriceId, promotionalPrices.id),
@@ -840,8 +815,7 @@ export class SalesService {  // Servico de vendas
           id: vehiclesEnterprisesMembers.id,
           status: vehiclesEnterprisesMembers.status,
           vehiclesId: vehiclesEnterprisesMembers.vehiclesId,
-          enterprisesMembersId:
-            vehiclesEnterprisesMembers.enterprisesMembersId,
+          enterprisesMembersId: vehiclesEnterprisesMembers.enterprisesMembersId,
           createdAt: vehiclesEnterprisesMembers.createdAt,
           updatedAt: vehiclesEnterprisesMembers.updatedAt,
           plate: vehicles.plate,
@@ -877,7 +851,8 @@ export class SalesService {  // Servico de vendas
 
   private async loadUsersByIds(userIds: Array<string | null | undefined>) {
     const ids = [...new Set(userIds.filter((id): id is string => !!id))];
-    if (ids.length === 0) return new Map<string, { id: string; userName: string }>();
+    if (ids.length === 0)
+      return new Map<string, { id: string; userName: string }>();
 
     const rows = await db
       .select({
@@ -930,10 +905,15 @@ export class SalesService {  // Servico de vendas
             .where(inArray(salesDues.salesPaymentId, paymentIds))
             .orderBy(asc(salesDues.dueDate), asc(salesDues.id))
         : Promise.resolve([]),
-      this.loadPaymentTypesByIds(payments.map((payment) => payment.paymentTypeId)),
+      this.loadPaymentTypesByIds(
+        payments.map((payment) => payment.paymentTypeId),
+      ),
     ]);
 
-    const duesByPaymentId = new Map<string, (typeof salesDues.$inferSelect)[]>();
+    const duesByPaymentId = new Map<
+      string,
+      (typeof salesDues.$inferSelect)[]
+    >();
     for (const due of allDues) {
       const dues = duesByPaymentId.get(due.salesPaymentId) ?? [];
       dues.push(due);
@@ -1061,10 +1041,16 @@ export class SalesService {  // Servico de vendas
     return "ABERTA";
   }
 
-  private assertBudgetOpenForConversion(budget: typeof sales.$inferSelect) {  // Verifica se o orcamento esta aberto para conversao
+  private assertBudgetOpenForConversion(budget: typeof sales.$inferSelect) {
+    // Verifica se o orcamento esta aberto para conversao
     if (budget.type !== "ORCAMENTO") {
       throw new ValidationError(
-        [{ path: "params.saleId", message: "Somente orcamentos podem ser convertidos" }],
+        [
+          {
+            path: "params.saleId",
+            message: "Somente orcamentos podem ser convertidos",
+          },
+        ],
         "Tipo invalido",
       );
     }
@@ -1184,7 +1170,8 @@ export class SalesService {  // Servico de vendas
     }
   }
 
-  private assertBudgetEditableForItems(budget: typeof sales.$inferSelect) {  // Verifica se o orcamento/OS esta aberto para alterar itens
+  private assertBudgetEditableForItems(budget: typeof sales.$inferSelect) {
+    // Verifica se o orcamento/OS esta aberto para alterar itens
     this.assertSaleOpenForItems(budget);
     if (
       (budget.type === "ORCAMENTO" || budget.type === "ORDEM DE SERVICO") &&
@@ -1205,7 +1192,8 @@ export class SalesService {  // Servico de vendas
     }
   }
 
-  private assertBudgetItemEditable(  // Verifica se o item do orcamento/OS esta aberto para alterar
+  private assertBudgetItemEditable(
+    // Verifica se o item do orcamento/OS esta aberto para alterar
     budget: typeof sales.$inferSelect,
     item: typeof salesItems.$inferSelect,
     nextQuantity?: number,
@@ -1335,8 +1323,8 @@ export class SalesService {  // Servico de vendas
       line?.stockLocationId ?? budgetItem.stockLocationId ?? undefined;
     let stockBatchId =
       line?.stockBatchId !== undefined
-        ? line.stockBatchId ?? undefined
-        : budgetItem.stockBatchId ?? undefined;
+        ? (line.stockBatchId ?? undefined)
+        : (budgetItem.stockBatchId ?? undefined);
 
     if (!stockSectorId || !stockLocationId) {
       const defaults = await resolveDefaultSaleItemStockRefs(
@@ -1360,11 +1348,13 @@ export class SalesService {  // Servico de vendas
     };
   }
 
-  private async getSaleRow(  // Obtem a venda pelo id
+  private async getSaleRow(
+    // Obtem a venda pelo id
     tx: Tx | typeof db,
     enterpriseId: string,
     saleId: string,
-  ) {  // Obtem a venda pelo id
+  ) {
+    // Obtem a venda pelo id
     const row = (
       await tx
         .select()
@@ -1378,7 +1368,8 @@ export class SalesService {  // Servico de vendas
     return row;
   }
 
-  private assertSaleOpenForItems(sale: { status: string }) {     // Verifica se a venda esta aberta para adicionar itens
+  private assertSaleOpenForItems(sale: { status: string }) {
+    // Verifica se a venda esta aberta para adicionar itens
     if (sale.status !== "ABERTA") {
       throw new ValidationError(
         [
@@ -1392,7 +1383,8 @@ export class SalesService {  // Servico de vendas
     }
   }
 
-  private assertSalePaymentsMatchSale(   // Verifica se o valor liquido da venda corresponde a soma dos pagamentos
+  private assertSalePaymentsMatchSale(
+    // Verifica se o valor liquido da venda corresponde a soma dos pagamentos
     valueLiquid: string | number | null,
     saleCreatedAt: Date,
     payments: SalePaymentInput[],
@@ -1402,7 +1394,8 @@ export class SalesService {  // Servico de vendas
     if (valueLiquid === null || valueLiquid === "") {
       issues.push({
         path: "body.valueLiquid",
-        message: "Valor liquido da venda e obrigatorio para fechar com pagamentos",
+        message:
+          "Valor liquido da venda e obrigatorio para fechar com pagamentos",
       });
     }
 
@@ -1458,7 +1451,8 @@ export class SalesService {  // Servico de vendas
       if (duesSumCents !== moneyCents(payment.valueTotal)) {
         issues.push({
           path: `${paymentPath}.dues`,
-          message: "Soma das parcelas deve ser igual ao valor total do pagamento",
+          message:
+            "Soma das parcelas deve ser igual ao valor total do pagamento",
         });
       }
     }
@@ -1475,7 +1469,8 @@ export class SalesService {  // Servico de vendas
     }
   }
 
-  private async insertSalePayments(   // Insere os pagamentos na venda
+  private async insertSalePayments(
+    // Insere os pagamentos na venda
     tx: Tx,
     saleId: string,
     payments: SalePaymentInput[],
@@ -1615,7 +1610,8 @@ export class SalesService {  // Servico de vendas
     );
   }
 
-  private async assertSaleHasNoPayments(tx: Tx, saleId: string) {   // Verifica se a venda nao possui pagamentos cadastrados
+  private async assertSaleHasNoPayments(tx: Tx, saleId: string) {
+    // Verifica se a venda nao possui pagamentos cadastrados
     const existing = (
       await tx
         .select({ id: salesPayments.id })
@@ -1640,7 +1636,10 @@ export class SalesService {  // Servico de vendas
     tx: Tx | typeof db,
     item: CreateSaleItemInput,
     at: Date = new Date(),
-  ): Promise<{ item: CreateSaleItemInput; priceSnapshot: PriceSnapshot | null }> {
+  ): Promise<{
+    item: CreateSaleItemInput;
+    priceSnapshot: PriceSnapshot | null;
+  }> {
     const effective = await resolveEffectiveSalePrice(
       item.productsEnterprisesId,
       at,
@@ -1776,10 +1775,9 @@ export class SalesService {  // Servico de vendas
             eq(enterprisesMembers.enterpriseId, enterpriseId),
             eq(enterprisesMembers.status, "ATIVO"),
             isNull(enterprisesMembers.deletedAt),
-            notInArray(
-              enterprisesMembers.class,
-              [...SELLER_INELIGIBLE_MEMBER_CLASSES],
-            ),
+            notInArray(enterprisesMembers.class, [
+              ...SELLER_INELIGIBLE_MEMBER_CLASSES,
+            ]),
           ),
         )
         .limit(1)
@@ -1914,11 +1912,7 @@ export class SalesService {  // Servico de vendas
     return member.comissionPartial;
   }
 
-  private async applySaleItemsCommission(
-    tx: Tx,
-    saleId: string,
-    rate: string,
-  ) {
+  private async applySaleItemsCommission(tx: Tx, saleId: string, rate: string) {
     await tx
       .update(salesItems)
       .set({
@@ -1981,7 +1975,8 @@ export class SalesService {  // Servico de vendas
     );
   }
 
-  private async recalculateSaleTotalsFromItems(   // Recalcula os totais da venda a partir dos itens
+  private async recalculateSaleTotalsFromItems(
+    // Recalcula os totais da venda a partir dos itens
     tx: Tx,
     enterpriseId: string,
     saleId: string,
@@ -2092,14 +2087,12 @@ export class SalesService {  // Servico de vendas
     };
   }
 
-  private mergeSaleItemPatch(  
+  private mergeSaleItemPatch(
     existing: typeof salesItems.$inferSelect,
     input: PatchSaleItemInput,
   ): CreateSaleItemInput {
     const quantity =
-      input.quantity !== undefined
-        ? input.quantity
-        : Number(existing.quantity);
+      input.quantity !== undefined ? input.quantity : Number(existing.quantity);
     const valueUnit =
       input.valueUnit !== undefined
         ? input.valueUnit
@@ -2135,16 +2128,16 @@ export class SalesService {  // Servico de vendas
         input.stockLocationId ?? existing.stockLocationId ?? undefined,
       stockBatchId:
         input.stockBatchId !== undefined
-          ? input.stockBatchId ?? undefined
-          : existing.stockBatchId ?? undefined,
+          ? (input.stockBatchId ?? undefined)
+          : (existing.stockBatchId ?? undefined),
       description:
         input.description !== undefined
           ? input.description
-          : existing.description ?? undefined,
+          : (existing.description ?? undefined),
       typeService:
         input.typeService !== undefined
           ? input.typeService
-          : existing.typeService ?? undefined,
+          : (existing.typeService ?? undefined),
     };
   }
 
@@ -2200,7 +2193,7 @@ export class SalesService {  // Servico de vendas
     }
     return {
       userId: row.id,
-      userLegalName: row.userName.trim().toUpperCase(),
+      userLegalName: row.userName.trim(),
     };
   }
 
@@ -2218,10 +2211,9 @@ export class SalesService {  // Servico de vendas
             eq(enterprisesMembers.enterpriseId, enterpriseId),
             eq(enterprisesMembers.status, "ATIVO"),
             isNull(enterprisesMembers.deletedAt),
-            notInArray(
-              enterprisesMembers.class,
-              [...SELLER_INELIGIBLE_MEMBER_CLASSES],
-            ),
+            notInArray(enterprisesMembers.class, [
+              ...SELLER_INELIGIBLE_MEMBER_CLASSES,
+            ]),
           ),
         )
         .limit(1)
@@ -2309,7 +2301,8 @@ export class SalesService {  // Servico de vendas
     };
   }
 
-  private async assertClientMember(  // Verifica se o cliente existe; status so em venda a prazo
+  private async assertClientMember(
+    // Verifica se o cliente existe; status so em venda a prazo
     tx: Tx | typeof db,
     enterpriseId: string,
     memberId: string,
@@ -2339,8 +2332,7 @@ export class SalesService {  // Servico de vendas
     }
 
     const isCreditSale =
-      payments !== undefined &&
-      (await this.hasAPrazoPayment(tx, payments));
+      payments !== undefined && (await this.hasAPrazoPayment(tx, payments));
 
     if (!isCreditSale) return;
 
@@ -2553,13 +2545,13 @@ export class SalesService {  // Servico de vendas
       : null;
 
     return {
-      memberLegalName: memberRow.userName.trim().toUpperCase(),
+      memberLegalName: memberRow.userName.trim(),
       registration: memberRow.userRegistration?.trim() || null,
       memberAddress: addressLine || null,
       memberCep: addressRow?.cepNumber?.trim() || null,
-      memberCity: addressRow?.cityName?.trim().toUpperCase() || null,
-      memberState: addressRow?.stateAcronym?.trim().toUpperCase() || null,
-      memberSector: departmentRow?.departmentName?.trim().toUpperCase() || null,
+      memberCity: addressRow?.cityName?.trim() || null,
+      memberState: addressRow?.stateAcronym?.trim() || null,
+      memberSector: departmentRow?.departmentName?.trim() || null,
       memberPhone: contactRow?.phone?.trim() || null,
       memberMobile:
         contactRow?.whatsapp?.trim() || contactRow?.phone?.trim() || null,
@@ -2603,22 +2595,24 @@ export class SalesService {  // Servico de vendas
     saleId: string,
   ): Promise<SaleMemberSnapshot | null> {
     return (
-      await executor
-        .select({
-          memberLegalName: salesMembers.memberLegalName,
-          memberAddress: salesMembers.memberAddress,
-          memberSector: salesMembers.memberSector,
-          memberCep: salesMembers.memberCep,
-          memberCity: salesMembers.memberCity,
-          memberState: salesMembers.memberState,
-          registration: salesMembers.registration,
-          memberPhone: salesMembers.memberPhone,
-          memberMobile: salesMembers.memberMobile,
-        })
-        .from(salesMembers)
-        .where(eq(salesMembers.salesId, saleId))
-        .limit(1)
-    )[0] ?? null;
+      (
+        await executor
+          .select({
+            memberLegalName: salesMembers.memberLegalName,
+            memberAddress: salesMembers.memberAddress,
+            memberSector: salesMembers.memberSector,
+            memberCep: salesMembers.memberCep,
+            memberCity: salesMembers.memberCity,
+            memberState: salesMembers.memberState,
+            registration: salesMembers.registration,
+            memberPhone: salesMembers.memberPhone,
+            memberMobile: salesMembers.memberMobile,
+          })
+          .from(salesMembers)
+          .where(eq(salesMembers.salesId, saleId))
+          .limit(1)
+      )[0] ?? null
+    );
   }
 
   private async syncSaleMemberSnapshot(
@@ -2645,26 +2639,28 @@ export class SalesService {  // Servico de vendas
 
   private async loadSaleMember(saleId: string) {
     return (
-      await db
-        .select({
-          id: salesMembers.id,
-          salesId: salesMembers.salesId,
-          memberLegalName: salesMembers.memberLegalName,
-          memberAddress: salesMembers.memberAddress,
-          memberSector: salesMembers.memberSector,
-          memberCep: salesMembers.memberCep,
-          memberCity: salesMembers.memberCity,
-          memberState: salesMembers.memberState,
-          registration: salesMembers.registration,
-          memberPhone: salesMembers.memberPhone,
-          memberMobile: salesMembers.memberMobile,
-          createdAt: salesMembers.createdAt,
-          updatedAt: salesMembers.updatedAt,
-        })
-        .from(salesMembers)
-        .where(eq(salesMembers.salesId, saleId))
-        .limit(1)
-    )[0] ?? null;
+      (
+        await db
+          .select({
+            id: salesMembers.id,
+            salesId: salesMembers.salesId,
+            memberLegalName: salesMembers.memberLegalName,
+            memberAddress: salesMembers.memberAddress,
+            memberSector: salesMembers.memberSector,
+            memberCep: salesMembers.memberCep,
+            memberCity: salesMembers.memberCity,
+            memberState: salesMembers.memberState,
+            registration: salesMembers.registration,
+            memberPhone: salesMembers.memberPhone,
+            memberMobile: salesMembers.memberMobile,
+            createdAt: salesMembers.createdAt,
+            updatedAt: salesMembers.updatedAt,
+          })
+          .from(salesMembers)
+          .where(eq(salesMembers.salesId, saleId))
+          .limit(1)
+      )[0] ?? null
+    );
   }
 
   /** Snapshot de sales_members; se ausente, monta a partir do membro vinculado. */
@@ -2716,7 +2712,8 @@ export class SalesService {  // Servico de vendas
     };
   }
 
-  private async loadGeneratedSalesSummary(  // Obtem o resumo das vendas/OS geradas a partir do orcamento
+  private async loadGeneratedSalesSummary(
+    // Obtem o resumo das vendas/OS geradas a partir do orcamento
     enterpriseId: string,
     budgetSaleId: string,
   ) {
@@ -2835,8 +2832,7 @@ export class SalesService {  // Servico de vendas
         ...row.saleItem,
         description: row.saleItem.description?.trim() || null,
         productDescription:
-          row.saleItem.description?.trim() ||
-          row.saleItem.productDescription,
+          row.saleItem.description?.trim() || row.saleItem.productDescription,
       },
       user: row.user,
     }));
@@ -2873,15 +2869,9 @@ export class SalesService {  // Servico de vendas
         createdAt: salesBudgetConversions.createdAt,
       })
       .from(salesBudgetConversions)
-      .innerJoin(
-        sales,
-        eq(salesBudgetConversions.generatedSaleId, sales.id),
-      )
+      .innerJoin(sales, eq(salesBudgetConversions.generatedSaleId, sales.id))
       .where(
-        and(
-          eq(salesBudgetConversions.enterprisesId, enterpriseId),
-          linkFilter,
-        ),
+        and(eq(salesBudgetConversions.enterprisesId, enterpriseId), linkFilter),
       )
       .orderBy(
         asc(salesBudgetConversions.createdAt),
@@ -2925,15 +2915,13 @@ export class SalesService {  // Servico de vendas
     }));
   }
 
-  public async getById(enterpriseId: string, id: string) {  // Obtem a venda pelo id
+  public async getById(enterpriseId: string, id: string) {
+    // Obtem a venda pelo id
     const sale = (
       await db
         .select(saleWithMemberSelect)
         .from(sales)
-        .leftJoin(
-          enterprisesMembers,
-          eq(sales.memberId, enterprisesMembers.id),
-        )
+        .leftJoin(enterprisesMembers, eq(sales.memberId, enterprisesMembers.id))
         .leftJoin(users, eq(enterprisesMembers.userId, users.id))
         .where(this.scope(enterpriseId, id))
         .limit(1)
@@ -2941,24 +2929,28 @@ export class SalesService {  // Servico de vendas
     if (!sale) {
       throw new NotFoundError("Venda nao encontrada", "SALE_NOT_FOUND");
     }
-    const [items, paymentsBySaleId, member, returns, budgetConversions, vehicleLink, serviceUsers] =
-      await Promise.all([
-        this.loadSaleItems(id),
-        this.loadSalePaymentsBySaleIds([id]),
-        this.loadSaleMemberDetail(enterpriseId, id, sale.memberId),
-        this.loadSaleReturns(id),
-        this.loadBudgetConversionsCascade(enterpriseId, id, "linked"),
-        this.loadSaleVehicleLink(
-          enterpriseId,
-          sale.vehiclesEnterprisesMembersId,
-        ),
-        this.loadUsersByIds([
-          sale.userId,
-          sale.sellerId,
-          sale.userModificationServiceId,
-          sale.userClosedServiceId,
-        ]),
-      ]);
+    const [
+      items,
+      paymentsBySaleId,
+      member,
+      returns,
+      budgetConversions,
+      vehicleLink,
+      serviceUsers,
+    ] = await Promise.all([
+      this.loadSaleItems(id),
+      this.loadSalePaymentsBySaleIds([id]),
+      this.loadSaleMemberDetail(enterpriseId, id, sale.memberId),
+      this.loadSaleReturns(id),
+      this.loadBudgetConversionsCascade(enterpriseId, id, "linked"),
+      this.loadSaleVehicleLink(enterpriseId, sale.vehiclesEnterprisesMembersId),
+      this.loadUsersByIds([
+        sale.userId,
+        sale.sellerId,
+        sale.userModificationServiceId,
+        sale.userClosedServiceId,
+      ]),
+    ]);
     const payments = paymentsBySaleId.get(id) ?? [];
 
     const generatedSales =
@@ -3024,7 +3016,11 @@ export class SalesService {  // Servico de vendas
     };
   }
 
-  public async listBudgetConversions(enterpriseId: string, budgetSaleId: string) {  // Lista as conversões de orcamentos  
+  public async listBudgetConversions(
+    enterpriseId: string,
+    budgetSaleId: string,
+  ) {
+    // Lista as conversões de orcamentos
     const budget = await this.getSaleRow(db, enterpriseId, budgetSaleId);
     if (budget.type !== "ORCAMENTO") {
       throw new ValidationError(
@@ -3114,11 +3110,7 @@ export class SalesService {  // Servico de vendas
             input.orderNumber,
             tx,
           );
-          await syncSaleOrderSequenceFloor(
-            enterpriseId,
-            input.orderNumber,
-            tx,
-          );
+          await syncSaleOrderSequenceFloor(enterpriseId, input.orderNumber, tx);
           orderNumber = input.orderNumber;
         } else {
           orderNumber = await nextSaleOrderNumber(enterpriseId, tx);
@@ -3344,7 +3336,12 @@ export class SalesService {  // Servico de vendas
       input.status !== "CANCELADA"
     ) {
       throw new ValidationError(
-        [{ path: "body.status", message: "Venda cancelada nao pode mudar de status" }],
+        [
+          {
+            path: "body.status",
+            message: "Venda cancelada nao pode mudar de status",
+          },
+        ],
         "Status invalido",
       );
     }
@@ -3491,132 +3488,166 @@ export class SalesService {  // Servico de vendas
 
     let beforeRow!: typeof sales.$inferSelect;
     try {
-    await db.transaction(async (tx) => {
-      beforeRow = await this.getSaleRow(tx, enterpriseId, id);
+      await db.transaction(async (tx) => {
+        beforeRow = await this.getSaleRow(tx, enterpriseId, id);
 
-      if (input.memberId !== undefined) {
-        await this.assertClientMember(
-          tx,
-          enterpriseId,
-          input.memberId,
-          finalize ? input.payments : undefined,
-        );
-      }
-
-      const nextMemberId = input.memberId ?? beforeRow.memberId;
-      const nextVehiclesEnterprisesMembersId =
-        input.vehiclesEnterprisesMembersId !== undefined
-          ? input.vehiclesEnterprisesMembersId
-          : beforeRow.vehiclesEnterprisesMembersId;
-      if (
-        nextVehiclesEnterprisesMembersId &&
-        (input.vehiclesEnterprisesMembersId !== undefined ||
-          input.memberId !== undefined)
-      ) {
-        await this.assertVehiclesEnterprisesMember(
-          tx,
-          enterpriseId,
-          nextVehiclesEnterprisesMembersId,
-          nextMemberId,
-        );
-      }
-
-      let row = (
-        await tx
-          .update(sales)
-          .set({
-            ...(input.memberId !== undefined ? { memberId: input.memberId } : {}),
-            ...(sellerUpdate
-              ? {
-                  sellerId: sellerUpdate.sellerId,
-                  sellerLegalName: sellerUpdate.sellerLegalName,
-                }
-              : {}),
-            ...(input.status !== undefined ? { status: input.status } : {}),
-            ...buildSaleFinancialAdjustmentValues(input),
-            ...buildSaleServiceFieldValues({
-              ...input,
-              type: existing.type,
-            }),
-            ...(input.discountValuetems !== undefined
-              ? { discountValuetems: dec(input.discountValuetems) }
-              : {}),
-            ...(input.valueAcresceItems !== undefined
-              ? { valueAcresceItems: dec(input.valueAcresceItems) }
-              : {}),
-            ...(input.valueLiquid !== undefined
-              ? { valueLiquid: input.valueLiquid.toString() }
-              : {}),
-            ...(completedionDate !== undefined
-              ? { completedionDate }
-              : {}),
-            ...(closingOrigin !== undefined ? { origin: closingOrigin } : {}),
-            ...(input.vehiclesEnterprisesMembersId !== undefined
-              ? {
-                  vehiclesEnterprisesMembersId:
-                    input.vehiclesEnterprisesMembersId,
-                }
-              : {}),
-            updatedAt: new Date(),
-          })
-          .where(this.scope(enterpriseId, id))
-          .returning()
-      )[0];
-      if (!row) {
-        throw new NotFoundError("Venda nao encontrada", "SALE_NOT_FOUND");
-      }
-
-      if (input.memberId !== undefined || input.member !== undefined) {
-        const memberId = input.memberId ?? row.memberId;
-        if (!memberId) {
-          throw new ValidationError(
-            [
-              {
-                path: "body.member",
-                message:
-                  "Informe memberId para associar membro a venda antes de alterar o snapshot",
-              },
-            ],
-            "Membro obrigatorio",
+        if (input.memberId !== undefined) {
+          await this.assertClientMember(
+            tx,
+            enterpriseId,
+            input.memberId,
+            finalize ? input.payments : undefined,
           );
         }
 
-        await this.syncSaleMemberSnapshot(tx, enterpriseId, id, memberId, {
-          rebuildFromMember: input.memberId !== undefined,
-          overrides: input.member,
-        });
-      }
+        const nextMemberId = input.memberId ?? beforeRow.memberId;
+        const nextVehiclesEnterprisesMembersId =
+          input.vehiclesEnterprisesMembersId !== undefined
+            ? input.vehiclesEnterprisesMembersId
+            : beforeRow.vehiclesEnterprisesMembersId;
+        if (
+          nextVehiclesEnterprisesMembersId &&
+          (input.vehiclesEnterprisesMembersId !== undefined ||
+            input.memberId !== undefined)
+        ) {
+          await this.assertVehiclesEnterprisesMember(
+            tx,
+            enterpriseId,
+            nextVehiclesEnterprisesMembersId,
+            nextMemberId,
+          );
+        }
 
-      if (shouldRecalculateTotals && row.status === "ABERTA") {
-        await this.recalculateSaleTotalsFromItems(tx, enterpriseId, id, row);
-        row = (await this.getSaleRow(tx, enterpriseId, id))!;
-      }
+        let row = (
+          await tx
+            .update(sales)
+            .set({
+              ...(input.memberId !== undefined
+                ? { memberId: input.memberId }
+                : {}),
+              ...(sellerUpdate
+                ? {
+                    sellerId: sellerUpdate.sellerId,
+                    sellerLegalName: sellerUpdate.sellerLegalName,
+                  }
+                : {}),
+              ...(input.status !== undefined ? { status: input.status } : {}),
+              ...buildSaleFinancialAdjustmentValues(input),
+              ...buildSaleServiceFieldValues({
+                ...input,
+                type: existing.type,
+              }),
+              ...(input.discountValuetems !== undefined
+                ? { discountValuetems: dec(input.discountValuetems) }
+                : {}),
+              ...(input.valueAcresceItems !== undefined
+                ? { valueAcresceItems: dec(input.valueAcresceItems) }
+                : {}),
+              ...(input.valueLiquid !== undefined
+                ? { valueLiquid: input.valueLiquid.toString() }
+                : {}),
+              ...(completedionDate !== undefined ? { completedionDate } : {}),
+              ...(closingOrigin !== undefined ? { origin: closingOrigin } : {}),
+              ...(input.vehiclesEnterprisesMembersId !== undefined
+                ? {
+                    vehiclesEnterprisesMembersId:
+                      input.vehiclesEnterprisesMembersId,
+                  }
+                : {}),
+              updatedAt: new Date(),
+            })
+            .where(this.scope(enterpriseId, id))
+            .returning()
+        )[0];
+        if (!row) {
+          throw new NotFoundError("Venda nao encontrada", "SALE_NOT_FOUND");
+        }
 
-      if (row.status === "ABERTA") {
-        await this.assertSaleDiscountWithinMemberLimitForSeller(
-          tx,
-          enterpriseId,
-          sellerUpdate?.sellerId ?? row.sellerId,
-          {
-            subTotal: decNum(row.subTotal),
-            discountValuetems: decNum(row.discountValuetems),
-            valueDiscountFinancialPie: decNum(row.valueDiscountFinancialPie),
-            valueDiscountFinancialService: decNum(
-              row.valueDiscountFinancialService,
-            ),
-          },
-        );
-      }
+        if (input.memberId !== undefined || input.member !== undefined) {
+          const memberId = input.memberId ?? row.memberId;
+          if (!memberId) {
+            throw new ValidationError(
+              [
+                {
+                  path: "body.member",
+                  message:
+                    "Informe memberId para associar membro a venda antes de alterar o snapshot",
+                },
+              ],
+              "Membro obrigatorio",
+            );
+          }
 
-      const items = await tx
-        .select()
-        .from(salesItems)
-        .where(eq(salesItems.salesId, id));
+          await this.syncSaleMemberSnapshot(tx, enterpriseId, id, memberId, {
+            rebuildFromMember: input.memberId !== undefined,
+            overrides: input.member,
+          });
+        }
 
-      if (finalize) {
-        if (this.shouldMoveStock(existing)) {
+        if (shouldRecalculateTotals && row.status === "ABERTA") {
+          await this.recalculateSaleTotalsFromItems(tx, enterpriseId, id, row);
+          row = (await this.getSaleRow(tx, enterpriseId, id))!;
+        }
+
+        if (row.status === "ABERTA") {
+          await this.assertSaleDiscountWithinMemberLimitForSeller(
+            tx,
+            enterpriseId,
+            sellerUpdate?.sellerId ?? row.sellerId,
+            {
+              subTotal: decNum(row.subTotal),
+              discountValuetems: decNum(row.discountValuetems),
+              valueDiscountFinancialPie: decNum(row.valueDiscountFinancialPie),
+              valueDiscountFinancialService: decNum(
+                row.valueDiscountFinancialService,
+              ),
+            },
+          );
+        }
+
+        const items = await tx
+          .select()
+          .from(salesItems)
+          .where(eq(salesItems.salesId, id));
+
+        if (finalize) {
+          if (this.shouldMoveStock(existing)) {
+            for (const item of items) {
+              await applySaleItemStockOut(tx, {
+                enterpriseId,
+                userId: auth?.userId ?? null,
+                saleId: id,
+                orderNumber: row.orderNumber,
+                item,
+              });
+            }
+            await assertSaleItemsStockCommitted(tx, id, items);
+          }
+          await this.assertSaleHasNoPayments(tx, id);
+          this.assertSalePaymentsMatchSale(
+            row.valueLiquid,
+            row.createdAt,
+            input.payments!,
+          );
+          await this.handleCreditSaleMemberStatusOnFinalize(
+            tx,
+            enterpriseId,
+            row.memberId,
+            input.payments!,
+          );
+          await this.insertSalePayments(tx, id, input.payments!);
+          await this.recalculateSaleItemsCommission(
+            tx,
+            id,
+            sellerUpdate?.sellerId ?? existing.sellerId,
+            enterpriseId,
+            input.payments!,
+          );
+        }
+
+        if (cancelSale) {
           for (const item of items) {
-            await applySaleItemStockOut(tx, {
+            await applySaleItemStockReturn(tx, {
               enterpriseId,
               userId: auth?.userId ?? null,
               saleId: id,
@@ -3624,45 +3655,11 @@ export class SalesService {  // Servico de vendas
               item,
             });
           }
-          await assertSaleItemsStockCommitted(tx, id, items);
         }
-        await this.assertSaleHasNoPayments(tx, id);
-        this.assertSalePaymentsMatchSale(
-          row.valueLiquid,
-          row.createdAt,
-          input.payments!,
-        );
-        await this.handleCreditSaleMemberStatusOnFinalize(
-          tx,
-          enterpriseId,
-          row.memberId,
-          input.payments!,
-        );
-        await this.insertSalePayments(tx, id, input.payments!);
-        await this.recalculateSaleItemsCommission(
-          tx,
-          id,
-          sellerUpdate?.sellerId ?? existing.sellerId,
-          enterpriseId,
-          input.payments!,
-        );
-      }
+      });
 
-      if (cancelSale) {
-        for (const item of items) {
-          await applySaleItemStockReturn(tx, {
-            enterpriseId,
-            userId: auth?.userId ?? null,
-            saleId: id,
-            orderNumber: row.orderNumber,
-            item,
-          });
-        }
-      }
-    });
-
-    await this.recordSaleUpdateAudit(enterpriseId, id, beforeRow, audit);
-    return this.getById(enterpriseId, id);
+      await this.recordSaleUpdateAudit(enterpriseId, id, beforeRow, audit);
+      return this.getById(enterpriseId, id);
     } catch (err) {
       const conflict = mapSaleUniqueViolation(err);
       if (conflict) throw conflict;
@@ -3799,7 +3796,12 @@ export class SalesService {  // Servico de vendas
         const memberId = input.memberId ?? budget.memberId;
         if (!memberId) {
           throw new ValidationError(
-            [{ path: "params.saleId", message: "Orcamento sem cliente vinculado" }],
+            [
+              {
+                path: "params.saleId",
+                message: "Orcamento sem cliente vinculado",
+              },
+            ],
             "Cliente obrigatorio",
           );
         }
@@ -3880,7 +3882,8 @@ export class SalesService {  // Servico de vendas
             enterprisesId: enterpriseId,
           })
           .returning();
-        if (!generatedSale) throw new Error("Falha ao gerar venda do orcamento");
+        if (!generatedSale)
+          throw new Error("Falha ao gerar venda do orcamento");
 
         await this.upsertSaleMember(tx, generatedSale.id, memberSnapshot);
 
@@ -3944,7 +3947,8 @@ export class SalesService {  // Servico de vendas
               quantityConverted: formatQuantity(convertQuantity),
             })
             .returning();
-          if (!inserted) throw new Error("Falha ao incluir item na venda gerada");
+          if (!inserted)
+            throw new Error("Falha ao incluir item na venda gerada");
 
           await applySaleItemStockOut(tx, {
             enterpriseId,
@@ -4078,7 +4082,11 @@ export class SalesService {  // Servico de vendas
         return generatedSale.id;
       });
 
-      const generatedRow = await this.getSaleRow(db, enterpriseId, generatedSaleId);
+      const generatedRow = await this.getSaleRow(
+        db,
+        enterpriseId,
+        generatedSaleId,
+      );
       await recordCreateAudit({
         entityType: EntityTypes.SALES,
         entityId: generatedSaleId,
@@ -4232,7 +4240,12 @@ export class SalesService {  // Servico de vendas
         const memberId = input.memberId ?? budget.memberId;
         if (!memberId) {
           throw new ValidationError(
-            [{ path: "params.saleId", message: "Orcamento sem cliente vinculado" }],
+            [
+              {
+                path: "params.saleId",
+                message: "Orcamento sem cliente vinculado",
+              },
+            ],
             "Cliente obrigatorio",
           );
         }
@@ -4282,8 +4295,7 @@ export class SalesService {  // Servico de vendas
           serviceType: input.serviceType ?? budget.serviceType ?? undefined,
           vehicleMileage:
             input.vehicleMileage ?? budget.vehicleMileage ?? undefined,
-          observations:
-            input.observations ?? budget.observations ?? undefined,
+          observations: input.observations ?? budget.observations ?? undefined,
           defect: input.defect ?? budget.defect ?? undefined,
         });
 
@@ -4483,7 +4495,11 @@ export class SalesService {  // Servico de vendas
         return generatedSale.id;
       });
 
-      const generatedRow = await this.getSaleRow(db, enterpriseId, generatedSaleId);
+      const generatedRow = await this.getSaleRow(
+        db,
+        enterpriseId,
+        generatedSaleId,
+      );
       await recordCreateAudit({
         entityType: EntityTypes.SALES,
         entityId: generatedSaleId,
@@ -4870,7 +4886,11 @@ export class SalesService {  // Servico de vendas
         return generatedSale.id;
       });
 
-      const generatedRow = await this.getSaleRow(db, enterpriseId, generatedSaleId);
+      const generatedRow = await this.getSaleRow(
+        db,
+        enterpriseId,
+        generatedSaleId,
+      );
       await recordCreateAudit({
         entityType: EntityTypes.SALES,
         entityId: generatedSaleId,
@@ -5136,10 +5156,11 @@ export class SalesService {  // Servico de vendas
       );
 
       if (sale.type === "VENDA") {
-        const existingTypeCode = await getProductTypeCode(existing.productTypeId);
+        const existingTypeCode = await getProductTypeCode(
+          existing.productTypeId,
+        );
         const existingIsService =
-          existingTypeCode != null &&
-          isServiceProductType(existingTypeCode);
+          existingTypeCode != null && isServiceProductType(existingTypeCode);
         if (!existingIsService) {
           await this.assertVendaDoesNotAcceptService(
             sale.type,
@@ -5197,8 +5218,7 @@ export class SalesService {  // Servico de vendas
             ? { typeService: pricedItem.typeService }
             : {}),
           priceSale: priceSnapshot?.priceSale ?? existing.priceSale,
-          promotionalPriceId:
-            priceSnapshot?.promotionalPriceId ?? null,
+          promotionalPriceId: priceSnapshot?.promotionalPriceId ?? null,
           averageCost: priceSnapshot?.averageCost ?? existing.averageCost,
           actualRealCost:
             priceSnapshot?.actualRealCost ?? existing.actualRealCost,

@@ -19,20 +19,18 @@ const ncmCodeSchema = z
 export const createProductsNcmSchema = z
   .object({
     ncm: ncmCodeSchema,
-    description: z.string().trim().min(1).max(255).toUpperCase(),
+    description: z.string().trim().min(1).max(255),
   })
   .strict();
 
 export const patchProductsNcmSchema = z
   .object({
     ncm: ncmCodeSchema.optional(),
-    description: z.string().trim().min(1).max(255).toUpperCase().optional(),
+    description: z.string().trim().min(1).max(255).optional(),
   })
   .strict()
   .refine(
-    (data) =>
-      data.ncm !== undefined ||
-      data.description !== undefined,
+    (data) => data.ncm !== undefined || data.description !== undefined,
     "Deve haver ao menos um campo para atualizar",
   );
 

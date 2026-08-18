@@ -13,7 +13,7 @@ export const listProductsQuerySchema = createPaginationQuerySchema(100).extend({
 export const createProductSchema = z
   .object({
     status: statusSchema.default("ATIVO").optional(),
-    description: z.string().trim().min(1).max(255).toUpperCase(),
+    description: z.string().trim().min(1).max(255),
     barCode: z.string().trim().min(1).max(255).optional(),
   })
   .strict();
@@ -21,7 +21,7 @@ export const createProductSchema = z
 export const patchProductSchema = z
   .object({
     status: statusSchema.optional(),
-    description: z.string().trim().min(1).max(255).toUpperCase().optional(),
+    description: z.string().trim().min(1).max(255).optional(),
     barCode: z.string().trim().min(1).max(255).optional(),
   })
   .strict()

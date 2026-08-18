@@ -74,8 +74,8 @@ export class IcmsTaxationService {
       const [row] = await db
         .insert(icmsTaxation)
         .values({
-          icms: input.icms.trim().toUpperCase(),
-          description: input.description.trim().toUpperCase(),
+          icms: input.icms.trim(),
+          description: input.description.trim(),
           icmsRate: (input.icmsRate ?? 0).toString(),
           simplesIcmsRate: (input.simplesIcmsRate ?? 0).toString(),
         })
@@ -125,11 +125,9 @@ export class IcmsTaxationService {
       const [row] = await db
         .update(icmsTaxation)
         .set({
-          ...(input.icms !== undefined
-            ? { icms: input.icms.trim().toUpperCase() }
-            : {}),
+          ...(input.icms !== undefined ? { icms: input.icms.trim() } : {}),
           ...(input.description !== undefined
-            ? { description: input.description.trim().toUpperCase() }
+            ? { description: input.description.trim() }
             : {}),
           ...(input.icmsRate !== undefined
             ? { icmsRate: input.icmsRate.toString() }

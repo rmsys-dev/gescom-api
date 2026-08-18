@@ -65,7 +65,7 @@ export class TypesProductsService {
     const conditions = [];
     if (query.description) {
       conditions.push(
-        ilike(productTypes.description, `%${query.description.toUpperCase()}%`),
+        ilike(productTypes.description, `%${query.description}%`),
       );
     }
     const where = conditions.length > 0 ? and(...conditions) : undefined;

@@ -15,19 +15,17 @@ const typeCodeSchema = z
 export const createTypeProductSchema = z
   .object({
     type: typeCodeSchema,
-    description: z.string().trim().min(1).max(255).toUpperCase(),
+    description: z.string().trim().min(1).max(255),
     manufacturing: z.boolean().default(false).optional(),
     sales: z.boolean().default(false).optional(),
-    typeSpedId: z
-      .string()
-      .uuid("Campo 'typeSpedId' deve ser um UUID valido"),
+    typeSpedId: z.string().uuid("Campo 'typeSpedId' deve ser um UUID valido"),
   })
   .strict();
 
 export const patchTypeProductSchema = z
   .object({
     type: typeCodeSchema.optional(),
-    description: z.string().trim().min(1).max(255).toUpperCase().optional(),
+    description: z.string().trim().min(1).max(255).optional(),
     manufacturing: z.boolean().optional(),
     sales: z.boolean().optional(),
     typeSpedId: z
@@ -54,7 +52,9 @@ export const typeProductParamsSchema = z
   })
   .strict();
 
-export type ListTypesProductsQuery = z.infer<typeof listTypesProductsQuerySchema>;
+export type ListTypesProductsQuery = z.infer<
+  typeof listTypesProductsQuerySchema
+>;
 export type CreateTypeProductInput = z.infer<typeof createTypeProductSchema>;
 export type PatchTypeProductInput = z.infer<typeof patchTypeProductSchema>;
 export type TypeProductParams = z.infer<typeof typeProductParamsSchema>;

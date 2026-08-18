@@ -24,16 +24,21 @@ const ncmCodeSchema = z
 export const createProductsCestSchema = z
   .object({
     cest: cestCodeSchema,
-    description: z.string().trim().min(1).max(255).toUpperCase(),
-    productsNcmId: z.string().uuid("Campo 'productsNcmId' deve ser um UUID valido"),
+    description: z.string().trim().min(1).max(255),
+    productsNcmId: z
+      .string()
+      .uuid("Campo 'productsNcmId' deve ser um UUID valido"),
   })
   .strict();
 
 export const patchProductsCestSchema = z
   .object({
     cest: cestCodeSchema.optional(),
-    description: z.string().trim().min(1).max(255).toUpperCase().optional(),
-    productsNcmId: z.string().uuid("Campo 'productsNcmId' deve ser um UUID valido").optional(),
+    description: z.string().trim().min(1).max(255).optional(),
+    productsNcmId: z
+      .string()
+      .uuid("Campo 'productsNcmId' deve ser um UUID valido")
+      .optional(),
   })
   .strict()
   .refine(

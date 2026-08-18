@@ -36,7 +36,7 @@ export const createProductEnterpriseSchema = z
   .object({
     productId: z.string().uuid(),
     code: z.coerce.number().int().optional(),
-    description: z.string().trim().min(1).max(255).toUpperCase(),
+    description: z.string().trim().min(1).max(255),
     origin: z.string().trim().max(255).optional(),
     manufacturer: z.string().trim().max(255).optional(),
     measurementUnitId: z.string().uuid(),
@@ -57,7 +57,7 @@ export const createProductEnterpriseSchema = z
 export const patchProductEnterpriseSchema = z
   .object({
     code: z.coerce.number().int().nullable().optional(),
-    description: z.string().trim().min(1).max(255).toUpperCase().optional(),
+    description: z.string().trim().min(1).max(255).optional(),
     origin: z.string().trim().max(255).nullable().optional(),
     manufacturer: z.string().trim().max(255).nullable().optional(),
     measurementUnitId: z.string().uuid().optional(),

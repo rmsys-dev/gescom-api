@@ -11,7 +11,7 @@ const typeSpedCodeSchema = z
 export const createTypeSpedSchema = z
   .object({
     type: typeSpedCodeSchema,
-    description: z.string().trim().min(1).max(255).toUpperCase(),
+    description: z.string().trim().min(1).max(255),
     generateInventory: z.boolean().default(true).optional(),
   })
   .strict();
@@ -19,7 +19,7 @@ export const createTypeSpedSchema = z
 export const patchTypeSpedSchema = z
   .object({
     type: typeSpedCodeSchema.optional(),
-    description: z.string().trim().min(1).max(255).toUpperCase().optional(),
+    description: z.string().trim().min(1).max(255).optional(),
     generateInventory: z.boolean().optional(),
   })
   .strict()

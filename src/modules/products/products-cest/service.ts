@@ -27,8 +27,11 @@ type ProductsCestWithNcm = typeof productsCest.$inferSelect & {
 
 export class ProductsCestService {
   private toResponse(row: ProductsCestWithNcm) {
-    const { productsNcmId: _productsNcmId, productsNcm: productsNcmRow, ...rest } =
-      row;
+    const {
+      productsNcmId: _productsNcmId,
+      productsNcm: productsNcmRow,
+      ...rest
+    } = row;
     return { ...rest, productsNcm: productsNcmRow };
   }
 
@@ -53,7 +56,7 @@ export class ProductsCestService {
     const conditions = [];
     if (query.description) {
       conditions.push(
-        ilike(productsCest.description, `%${query.description.toUpperCase()}%`),
+        ilike(productsCest.description, `%${query.description}%`),
       );
     }
     if (query.cest) {

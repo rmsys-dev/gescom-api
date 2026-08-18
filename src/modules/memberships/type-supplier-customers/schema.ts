@@ -14,7 +14,7 @@ const percentageSchema = z.number().min(0).max(100);
 
 export const createTypeSupplierCustomerSchema = z
   .object({
-    description: z.string().trim().min(1).max(255).toUpperCase(),
+    description: z.string().trim().min(1).max(255),
     status: statusSchema.default("ATIVO").optional(),
     icmsReduction: percentageSchema.optional().nullable(),
     low: z.boolean().default(false).optional(),
@@ -28,7 +28,7 @@ export const createTypeSupplierCustomerSchema = z
 
 export const patchTypeSupplierCustomerSchema = z
   .object({
-    description: z.string().trim().min(1).max(255).toUpperCase().optional(),
+    description: z.string().trim().min(1).max(255).optional(),
     status: statusSchema.optional(),
     icmsReduction: percentageSchema.optional().nullable(),
     low: z.boolean().optional(),

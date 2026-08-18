@@ -16,7 +16,7 @@ const icmsCodeSchema = z.string().trim().min(1).max(255);
 export const createIcmsTaxationSchema = z
   .object({
     icms: icmsCodeSchema,
-    description: z.string().trim().min(1).max(255).toUpperCase(),
+    description: z.string().trim().min(1).max(255),
     icmsRate: z.number().min(0).max(100).default(0).optional(),
     simplesIcmsRate: z.number().min(0).max(100).default(0).optional(),
   })
@@ -25,7 +25,7 @@ export const createIcmsTaxationSchema = z
 export const patchIcmsTaxationSchema = z
   .object({
     icms: icmsCodeSchema.optional(),
-    description: z.string().trim().min(1).max(255).toUpperCase().optional(),
+    description: z.string().trim().min(1).max(255).optional(),
     icmsRate: z.number().min(0).max(100).optional(),
     simplesIcmsRate: z.number().min(0).max(100).optional(),
   })
@@ -36,7 +36,7 @@ export const patchIcmsTaxationSchema = z
       data.description !== undefined ||
       data.icmsRate !== undefined ||
       data.simplesIcmsRate !== undefined ||
-    "Deve haver ao menos um campo para atualizar",
+      "Deve haver ao menos um campo para atualizar",
   );
 
 export const icmsTaxationParamsSchema = z

@@ -8,14 +8,14 @@ const statusSchema = z.enum(statusEnum.enumValues);
 
 export const createTypeNetworkSchema = z
   .object({
-    description: z.string().trim().min(1).max(255).toUpperCase(),
+    description: z.string().trim().min(1).max(255),
     status: statusSchema.default("ATIVO").optional(),
   })
   .strict();
 
 export const patchTypeNetworkSchema = z
   .object({
-    description: z.string().trim().min(1).max(255).toUpperCase().optional(),
+    description: z.string().trim().min(1).max(255).optional(),
     status: statusSchema.optional(),
   })
   .strict()

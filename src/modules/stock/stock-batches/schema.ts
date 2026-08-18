@@ -7,7 +7,7 @@ const batchStatusSchema = z.enum(["ATIVO", "BLOQUEADO", "ESGOTADO"]);
 
 export const createStockBatchSchema = z
   .object({
-    batchNumber: z.string().trim().min(1).max(64).toUpperCase(),
+    batchNumber: z.string().trim().min(1).max(64),
     productsEnterprisesId: z.string().uuid(),
     manufacturingDate: z.coerce.date().optional(),
     expiryDate: z.coerce.date().optional(),
@@ -19,7 +19,7 @@ export const createStockBatchSchema = z
 
 export const patchStockBatchSchema = z
   .object({
-    batchNumber: z.string().trim().min(1).max(64).toUpperCase().optional(),
+    batchNumber: z.string().trim().min(1).max(64).optional(),
     manufacturingDate: z.coerce.date().nullable().optional(),
     expiryDate: z.coerce.date().nullable().optional(),
     documentRef: z.string().trim().max(100).nullable().optional(),
@@ -34,7 +34,9 @@ export const patchStockBatchSchema = z
 
 export const stockBatchParamsSchema = z
   .object({
-    stockBatchId: z.string().uuid("Campo 'stockBatchId' deve ser um UUID valido"),
+    stockBatchId: z
+      .string()
+      .uuid("Campo 'stockBatchId' deve ser um UUID valido"),
   })
   .strict();
 

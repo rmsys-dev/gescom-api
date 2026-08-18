@@ -7,12 +7,15 @@ import {
 const nbsCodeSchema = z
   .string()
   .trim()
-  .regex(/^\d+(\.\d+)+$/, "NBS deve seguir o formato numerico com pontos (ex.: 1.1502.10.00)");
+  .regex(
+    /^\d+(\.\d+)+$/,
+    "NBS deve seguir o formato numerico com pontos (ex.: 1.1502.10.00)",
+  );
 
 const snSchema = z
   .string()
   .trim()
-  .toUpperCase()
+
   .refine((v) => v === "S" || v === "N", "Valor deve ser S ou N");
 
 const productsNbsFieldsSchema = z.object({

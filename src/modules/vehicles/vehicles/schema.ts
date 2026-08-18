@@ -40,7 +40,7 @@ const plateSchema = z
   .trim()
   .min(1)
   .max(255)
-  .transform((v) => v.toUpperCase());
+  .transform((v) => v);
 
 const textField = z.string().trim().min(1).max(255);
 const textNullable = textField.nullable().optional();

@@ -5,6 +5,7 @@ import { stockMovements } from "../../db/schema.js";
 import { ValidationError } from "../../shared/errors/app-error.js";
 import {
   adjustStockBalance,
+  assertStockMinMaxLimits,
   getLocationSectorId,
   getProductEnterpriseForStock,
 } from "./balance.js";
@@ -136,7 +137,18 @@ export async function createStockMovementInTx(  // REGISTRA MOVIMENTAÇÃO DE ES
     "AJUSTE",
   ];
 
-  if (decreaseTypes.includes(input.type) && input.fromStockLocationId) {  // DECRESCENTE: SAIDA, PERDA, VENDA, TRANSFERENCIA
+  const willDecrease =
+    decreaseTypes.includes(input.type) && Boolean(input.fromStockLocationId);
+  const willIncrease =
+    increaseTypes.includes(input.type) && Boolean(input.toStockLocationId);
+  const netDelta = (willIncrease ? qty : 0) - (willDecrease ? qty : 0);
+
+  await assertStockMinMaxLimits(tx, {
+    productsEnterprises: productEnterprise,
+    netDelta,
+  });
+
+  if (willDecrease && input.fromStockLocationId) {  // DECRESCENTE: SAIDA, PERDA, VENDA, TRANSFERENCIA
     const sector = await getLocationSectorId(input.fromStockLocationId, tx);
     fromStockSectorId = sector.stockSectorId;
     const r = await adjustStockBalance(tx, {
@@ -149,7 +161,7 @@ export async function createStockMovementInTx(  // REGISTRA MOVIMENTAÇÃO DE ES
     fromAfter = r.after;
   }
 
-  if (increaseTypes.includes(input.type) && input.toStockLocationId) {  // CRESCENTE: ENTRADA, COMPRA, DEVOLUCAO, TRANSFERENCIA, AJUSTE
+  if (willIncrease && input.toStockLocationId) {  // CRESCENTE: ENTRADA, COMPRA, DEVOLUCAO, TRANSFERENCIA, AJUSTE
     const sector = await getLocationSectorId(input.toStockLocationId, tx);
     toStockSectorId = sector.stockSectorId;
     const r = await adjustStockBalance(tx, {

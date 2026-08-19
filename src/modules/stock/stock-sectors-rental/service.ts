@@ -1,10 +1,6 @@
 import { and, asc, count, eq, inArray } from "drizzle-orm";
 import { db } from "../../../db/index.js";
-import {
-  productsEnterprises,
-  stockLocations,
-  stockSectorsRental,
-} from "../../../db/schema.js";
+import { productsEnterprises, stockSectorsRental } from "../../../db/schema.js";
 import {
   ConflictError,
   NotFoundError,
@@ -23,6 +19,11 @@ import {
   getProductEnterpriseForStock,
   assertStockLocationBelongsToEnterprise,
 } from "../balance.js";
+import {
+  stockLocationDetailWith,
+  toStockLocationResponse,
+  type StockLocationWithSector,
+} from "../nested-response.js";
 import type {
   CreateStockSectorRentalInput,
   ListStockSectorsRentalQuery,
@@ -31,7 +32,7 @@ import type {
 
 type StockSectorRentalWithRelations = typeof stockSectorsRental.$inferSelect & {
   productsEnterprises: typeof productsEnterprises.$inferSelect;
-  stockLocation: typeof stockLocations.$inferSelect;
+  stockLocation: StockLocationWithSector;
 };
 
 export class StockSectorsRentalService {
@@ -46,7 +47,7 @@ export class StockSectorsRentalService {
     return {
       ...rest,
       productsEnterprises: productsEnterprisesRow,
-      stockLocation: stockLocationRow,
+      stockLocation: toStockLocationResponse(stockLocationRow),
     };
   }
 
@@ -138,7 +139,9 @@ export class StockSectorsRentalService {
         where,
         with: {
           productsEnterprises: true,
-          stockLocation: true,
+          stockLocation: {
+            with: stockLocationDetailWith,
+          },
         },
         orderBy: [asc(stockSectorsRental.id)],
         limit,
@@ -148,7 +151,9 @@ export class StockSectorsRentalService {
     ]);
     const total = Number(totalRows[0]?.c ?? 0);
     return {
-      items: items.map((row) => this.toResponse(row)),
+      items: items.map((row) =>
+        this.toResponse(row as StockSectorRentalWithRelations),
+      ),
       total,
       limit,
       offset,
@@ -160,7 +165,9 @@ export class StockSectorsRentalService {
       where: this.scopeWhere(enterpriseId, id),
       with: {
         productsEnterprises: true,
-        stockLocation: true,
+        stockLocation: {
+          with: stockLocationDetailWith,
+        },
       },
     });
     if (!row) {
@@ -169,7 +176,7 @@ export class StockSectorsRentalService {
         "STOCK_SECTOR_RENTAL_NOT_FOUND",
       );
     }
-    return this.toResponse(row);
+    return this.toResponse(row as StockSectorRentalWithRelations);
   }
 
   public async create(

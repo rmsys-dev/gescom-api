@@ -2,8 +2,6 @@ import { and, asc, count, desc, eq, gte, inArray, lte } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import {
   productsEnterprises,
-  stockBatches,
-  stockLocations,
   stockMovements,
   stockSectors,
   users,
@@ -17,6 +15,14 @@ import {
 import { EntityTypes } from "../../../shared/audit/entity-types.js";
 import { assertStockLocationBelongsToEnterprise } from "../balance.js";
 import { createStockMovementInTx } from "../movement.js";
+import {
+  stockBatchDetailWith,
+  stockLocationDetailWith,
+  toStockBatchResponse,
+  toStockLocationResponse,
+  type StockBatchWithProductEnterprise,
+  type StockLocationWithSector,
+} from "../nested-response.js";
 import type {
   CreateStockMovementInput,
   ListStockMovementsQuery,
@@ -26,10 +32,10 @@ type StockMovementWithRelations = typeof stockMovements.$inferSelect & {
   productsEnterprises: typeof productsEnterprises.$inferSelect;
   fromStockSector: typeof stockSectors.$inferSelect | null;
   toStockSector: typeof stockSectors.$inferSelect | null;
-  fromStockLocation: typeof stockLocations.$inferSelect | null;
-  toStockLocation: typeof stockLocations.$inferSelect | null;
-  fromStockBatch: typeof stockBatches.$inferSelect | null;
-  toStockBatch: typeof stockBatches.$inferSelect | null;
+  fromStockLocation: StockLocationWithSector | null;
+  toStockLocation: StockLocationWithSector | null;
+  fromStockBatch: StockBatchWithProductEnterprise | null;
+  toStockBatch: StockBatchWithProductEnterprise | null;
   user: typeof users.$inferSelect | null;
 };
 
@@ -37,10 +43,18 @@ const movementDetailWith = {
   productsEnterprises: true,
   fromStockSector: true,
   toStockSector: true,
-  fromStockLocation: true,
-  toStockLocation: true,
-  fromStockBatch: true,
-  toStockBatch: true,
+  fromStockLocation: {
+    with: stockLocationDetailWith,
+  },
+  toStockLocation: {
+    with: stockLocationDetailWith,
+  },
+  fromStockBatch: {
+    with: stockBatchDetailWith,
+  },
+  toStockBatch: {
+    with: stockBatchDetailWith,
+  },
   user: true,
 } as const;
 
@@ -70,10 +84,16 @@ export class StockMovementsService {
       productsEnterprises: productsEnterprisesRow,
       fromStockSector: fromStockSector ?? null,
       toStockSector: toStockSector ?? null,
-      fromStockLocation: fromStockLocation ?? null,
-      toStockLocation: toStockLocation ?? null,
-      fromStockBatch: fromStockBatch ?? null,
-      toStockBatch: toStockBatch ?? null,
+      fromStockLocation: fromStockLocation
+        ? toStockLocationResponse(fromStockLocation)
+        : null,
+      toStockLocation: toStockLocation
+        ? toStockLocationResponse(toStockLocation)
+        : null,
+      fromStockBatch: fromStockBatch
+        ? toStockBatchResponse(fromStockBatch)
+        : null,
+      toStockBatch: toStockBatch ? toStockBatchResponse(toStockBatch) : null,
       user: user ?? null,
     };
   }

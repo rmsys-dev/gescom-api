@@ -4,7 +4,6 @@ import {
   productsEnterprises,
   stockBatchBalances,
   stockBatches,
-  stockLocations,
 } from "../../../db/schema.js";
 import {
   ConflictError,
@@ -25,6 +24,14 @@ import {
   assertStockLocationBelongsToEnterprise,
   getProductEnterpriseForStock,
 } from "../balance.js";
+import {
+  stockBatchDetailWith,
+  stockLocationDetailWith,
+  toStockBatchResponse,
+  toStockLocationResponse,
+  type StockBatchWithProductEnterprise,
+  type StockLocationWithSector,
+} from "../nested-response.js";
 import type {
   CreateStockBatchBalanceInput,
   ListStockBatchBalancesQuery,
@@ -32,10 +39,8 @@ import type {
 } from "./schema.js";
 
 type StockBatchBalanceWithRelations = typeof stockBatchBalances.$inferSelect & {
-  stockBatch: typeof stockBatches.$inferSelect & {
-    productsEnterprises: typeof productsEnterprises.$inferSelect;
-  };
-  stockLocation: typeof stockLocations.$inferSelect;
+  stockBatch: StockBatchWithProductEnterprise;
+  stockLocation: StockLocationWithSector;
 };
 
 export class StockBatchBalancesService {
@@ -47,18 +52,10 @@ export class StockBatchBalancesService {
       stockLocation: stockLocationRow,
       ...rest
     } = row;
-    const {
-      productsEnterprisesId: _productsEnterprisesId,
-      productsEnterprises: productsEnterprisesRow,
-      ...stockBatchRest
-    } = stockBatchRow;
     return {
       ...rest,
-      stockBatch: {
-        ...stockBatchRest,
-        productsEnterprises: productsEnterprisesRow,
-      },
-      stockLocation: stockLocationRow,
+      stockBatch: toStockBatchResponse(stockBatchRow),
+      stockLocation: toStockLocationResponse(stockLocationRow),
     };
   }
 
@@ -174,11 +171,11 @@ export class StockBatchBalancesService {
         where,
         with: {
           stockBatch: {
-            with: {
-              productsEnterprises: true,
-            },
+            with: stockBatchDetailWith,
           },
-          stockLocation: true,
+          stockLocation: {
+            with: stockLocationDetailWith,
+          },
         },
         orderBy: [asc(stockBatchBalances.id)],
         limit,
@@ -202,11 +199,11 @@ export class StockBatchBalancesService {
       where: this.scopeWhere(enterpriseId, id),
       with: {
         stockBatch: {
-          with: {
-            productsEnterprises: true,
-          },
+          with: stockBatchDetailWith,
         },
-        stockLocation: true,
+        stockLocation: {
+          with: stockLocationDetailWith,
+        },
       },
     });
     if (!row) {

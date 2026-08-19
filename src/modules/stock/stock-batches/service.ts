@@ -1,4 +1,4 @@
-import { and, asc, count, eq } from "drizzle-orm";
+import { and, asc, count, eq, inArray } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import { productsEnterprises, stockBatches } from "../../../db/schema.js";
 import {
@@ -15,6 +15,11 @@ import {
 } from "../../../shared/audit/entity-audit.js";
 import { toAuditRecord } from "../../../shared/audit/build-field-diff.js";
 import { EntityTypes } from "../../../shared/audit/entity-types.js";
+import {
+  stockBatchDetailWith,
+  toStockBatchResponse,
+  type StockBatchWithProductEnterprise,
+} from "../nested-response.js";
 import type {
   CreateStockBatchInput,
   ListStockBatchesQuery,
@@ -22,10 +27,22 @@ import type {
 } from "./schema.js";
 
 export class StockBatchesService {
-  private scope(enterpriseId: string, id?: string) {
-    const base = [eq(productsEnterprises.enterprisesId, enterpriseId)];
-    if (id) base.push(eq(stockBatches.id, id));
-    return and(...base);
+  private enterpriseProductsEnterprisesIds(enterpriseId: string) {
+    return db
+      .select({ id: productsEnterprises.id })
+      .from(productsEnterprises)
+      .where(eq(productsEnterprises.enterprisesId, enterpriseId));
+  }
+
+  private scopeWhere(enterpriseId: string, id?: string) {
+    const conditions = [
+      inArray(
+        stockBatches.productsEnterprisesId,
+        this.enterpriseProductsEnterprisesIds(enterpriseId),
+      ),
+    ];
+    if (id) conditions.push(eq(stockBatches.id, id));
+    return and(...conditions);
   }
 
   private async assertProductEnterprise(
@@ -67,46 +84,7 @@ export class StockBatchesService {
     return row;
   }
 
-  public async list(enterpriseId: string, query: ListStockBatchesQuery = {}) {
-    const { limit, offset } = resolveListPagination(query);
-    const where = this.scope(enterpriseId);
-    const [items, totalRows] = await Promise.all([
-      db
-        .select({
-          id: stockBatches.id,
-          batchNumber: stockBatches.batchNumber,
-          productsEnterprisesId: stockBatches.productsEnterprisesId,
-          manufacturingDate: stockBatches.manufacturingDate,
-          expiryDate: stockBatches.expiryDate,
-          documentRef: stockBatches.documentRef,
-          status: stockBatches.status,
-          notes: stockBatches.notes,
-          createdAt: stockBatches.createdAt,
-          updatedAt: stockBatches.updatedAt,
-        })
-        .from(stockBatches)
-        .innerJoin(
-          productsEnterprises,
-          eq(stockBatches.productsEnterprisesId, productsEnterprises.id),
-        )
-        .where(where)
-        .orderBy(asc(stockBatches.expiryDate), asc(stockBatches.batchNumber))
-        .limit(limit)
-        .offset(offset),
-      db
-        .select({ c: count() })
-        .from(stockBatches)
-        .innerJoin(
-          productsEnterprises,
-          eq(stockBatches.productsEnterprisesId, productsEnterprises.id),
-        )
-        .where(where),
-    ]);
-    const total = Number(totalRows[0]?.c ?? 0);
-    return { items, total, limit, offset };
-  }
-
-  public async getById(enterpriseId: string, id: string) {
+  private async getPlainById(enterpriseId: string, id: string) {
     const row = (
       await db
         .select({
@@ -126,13 +104,53 @@ export class StockBatchesService {
           productsEnterprises,
           eq(stockBatches.productsEnterprisesId, productsEnterprises.id),
         )
-        .where(this.scope(enterpriseId, id))
+        .where(
+          and(
+            eq(productsEnterprises.enterprisesId, enterpriseId),
+            eq(stockBatches.id, id),
+          ),
+        )
         .limit(1)
     )[0];
     if (!row) {
       throw new NotFoundError("Lote nao encontrado", "STOCK_BATCH_NOT_FOUND");
     }
     return row;
+  }
+
+  public async list(enterpriseId: string, query: ListStockBatchesQuery = {}) {
+    const { limit, offset } = resolveListPagination(query);
+    const where = this.scopeWhere(enterpriseId);
+    const [items, totalRows] = await Promise.all([
+      db.query.stockBatches.findMany({
+        where,
+        with: stockBatchDetailWith,
+        orderBy: [asc(stockBatches.expiryDate), asc(stockBatches.batchNumber)],
+        limit,
+        offset,
+      }),
+      db.select({ c: count() }).from(stockBatches).where(where),
+    ]);
+    const total = Number(totalRows[0]?.c ?? 0);
+    return {
+      items: items.map((row) =>
+        toStockBatchResponse(row as StockBatchWithProductEnterprise),
+      ),
+      total,
+      limit,
+      offset,
+    };
+  }
+
+  public async getById(enterpriseId: string, id: string) {
+    const row = await db.query.stockBatches.findFirst({
+      where: this.scopeWhere(enterpriseId, id),
+      with: stockBatchDetailWith,
+    });
+    if (!row) {
+      throw new NotFoundError("Lote nao encontrado", "STOCK_BATCH_NOT_FOUND");
+    }
+    return toStockBatchResponse(row as StockBatchWithProductEnterprise);
   }
 
   public async create(
@@ -164,7 +182,7 @@ export class StockBatchesService {
         after: row,
         ctx: audit,
       });
-      return row;
+      return this.getById(enterpriseId, row.id);
     } catch (err) {
       if (isPostgresUniqueViolation(err)) {
         throw new ConflictError(
@@ -182,7 +200,7 @@ export class StockBatchesService {
     input: PatchStockBatchInput,
     audit: EntityAuditContext,
   ) {
-    const existing = await this.getById(enterpriseId, id);
+    const existing = await this.getPlainById(enterpriseId, id);
     try {
       const [row] = await db
         .update(stockBatches)
@@ -218,7 +236,7 @@ export class StockBatchesService {
         after: toAuditRecord(row),
         ctx: audit,
       });
-      return row;
+      return this.getById(enterpriseId, id);
     } catch (err) {
       if (isPostgresUniqueViolation(err)) {
         throw new ConflictError(
@@ -235,7 +253,7 @@ export class StockBatchesService {
     id: string,
     audit: EntityAuditContext,
   ) {
-    const existing = await this.getById(enterpriseId, id);
+    const existing = await this.getPlainById(enterpriseId, id);
     const [row] = await db
       .delete(stockBatches)
       .where(eq(stockBatches.id, id))

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { normalizeUppercaseCode } from "../../../shared/validation/data-normalizers.js";
 import { catalogListQueryBase } from "../shared/catalog-list-query.js";
 
 export const listUnitsQuerySchema = z
@@ -12,7 +13,7 @@ const unitCodeSchema = z
   .trim()
   .length(2, "Unidade de medida deve conter exatamente 2 letras")
   .regex(/^[A-Za-z]{2}$/, "Unidade de medida deve conter exatamente 2 letras")
-  .transform((val) => val.toUpperCase());
+  .transform(normalizeUppercaseCode);
 
 export const wholeFractionalSchema = z.enum(["INTEIRO", "FRACIONADO"]);
 

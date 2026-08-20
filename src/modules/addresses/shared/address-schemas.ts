@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { uuidSchema } from "../../../shared/validation/common-schemas.js";
+import { normalizeUppercaseCode } from "../../../shared/validation/data-normalizers.js";
 
 export const taxRateSchema = z
   .union([z.string(), z.number()])
@@ -27,14 +28,14 @@ export const twoLetterCodeSchema = (label: string) =>
     .string()
     .trim()
     .length(2, `${label} deve conter exatamente 2 caracteres`)
-    .transform((v) => v.toUpperCase());
+    .transform(normalizeUppercaseCode);
 
 export const countryCodeSchema = z
   .string()
   .trim()
   .min(1, "Codigo do pais e obrigatorio")
   .max(4, "Codigo do pais deve ter no maximo 4 caracteres")
-  .transform((v) => v.toUpperCase());
+  .transform(normalizeUppercaseCode);
 
 export const cepNumberSchema = z
   .string()

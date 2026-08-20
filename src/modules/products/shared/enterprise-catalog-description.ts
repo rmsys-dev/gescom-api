@@ -1,4 +1,4 @@
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import {
   productBrands,
@@ -6,10 +6,10 @@ import {
   productSubgroups,
 } from "../../../db/schema.js";
 import { ConflictError } from "../../../shared/errors/app-error.js";
-import { normalizeUppercaseCode } from "../../../shared/validation/data-normalizers.js";
+import { normalizeTrimmedText } from "../../../shared/validation/data-normalizers.js";
 
 export const normalizeEnterpriseCatalogDescription = (value: string): string =>
-  normalizeUppercaseCode(value).replace(/\s+/g, " ");
+  normalizeTrimmedText(value).replace(/\s+/g, " ");
 
 type EnterpriseCatalogTable =
   | typeof productGroups
@@ -28,7 +28,7 @@ export const assertEnterpriseCatalogDescriptionAvailable = async (params: {
   const { table, enterpriseId, excludeId, conflictCode, message } = params;
   const conditions = [
     eq(table.enterprisesId, enterpriseId),
-    eq(table.description, normalized),
+    sql`lower(${table.description}) = ${normalized.toLowerCase()}`,
   ];
   if (excludeId) {
     conditions.push(ne(table.id, excludeId));

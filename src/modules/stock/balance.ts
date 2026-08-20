@@ -1,11 +1,10 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import {
   productsEnterprises,
   stockBatchBalances,
   stockBatches,
   stockLocations,
-  stockMinMax,
   stockSectors,
   stockSectorsRental,
 } from "../../db/schema.js";
@@ -222,96 +221,6 @@ export async function assertSufficientStock(  // VERIFICA SE O SALDO DE ESTOQUE 
         },
       ],
       "Saldo insuficiente",
-    );
-  }
-}
-
-export async function getStockMinMaxRule(
-  tx: Tx,
-  productsEnterprisesId: string,
-): Promise<{ quantityMin: number; quantityMax: number } | null> {
-  const row = (
-    await tx
-      .select({
-        quantityMin: stockMinMax.quantityMin,
-        quantityMax: stockMinMax.quantityMax,
-      })
-      .from(stockMinMax)
-      .where(eq(stockMinMax.productsEnterprisesId, productsEnterprisesId))
-      .limit(1)
-  )[0];
-  if (!row) return null;
-  return {
-    quantityMin: Number(row.quantityMin),
-    quantityMax: Number(row.quantityMax),
-  };
-}
-
-export async function getTotalStockQuantity(
-  tx: Tx,
-  productEnterprise: ProductEnterpriseStock,
-): Promise<number> {
-  if (productEnterprise.controlsBatch) {
-    const rows = await tx
-      .select({
-        total: sql<string>`coalesce(sum(${stockBatchBalances.quantity}), 0)`,
-      })
-      .from(stockBatchBalances)
-      .innerJoin(
-        stockBatches,
-        eq(stockBatchBalances.stockBatchId, stockBatches.id),
-      )
-      .where(eq(stockBatches.productsEnterprisesId, productEnterprise.id));
-    return Number(rows[0]?.total ?? 0);
-  }
-
-  const rows = await tx
-    .select({
-      total: sql<string>`coalesce(sum(${stockSectorsRental.quantity}), 0)`,
-    })
-    .from(stockSectorsRental)
-    .where(eq(stockSectorsRental.productsEnterprisesId, productEnterprise.id));
-  return Number(rows[0]?.total ?? 0);
-}
-
-export async function assertStockMinMaxLimits(
-  tx: Tx,
-  params: {
-    productsEnterprises: ProductEnterpriseStock;
-    netDelta: number;
-    pathPrefix?: string;
-  },
-) {
-  if (params.netDelta === 0) return;
-
-  const rule = await getStockMinMaxRule(tx, params.productsEnterprises.id);
-  if (!rule) return;
-
-  const current = await getTotalStockQuantity(tx, params.productsEnterprises);
-  const projected = current + params.netDelta;
-  const path = params.pathPrefix ?? "body.quantity";
-
-  if (params.netDelta > 0 && projected > rule.quantityMax) {
-    throw new ValidationError(
-      [
-        {
-          path,
-          message: `Quantidade excede o estoque maximo (${rule.quantityMax}). Saldo atual: ${current}`,
-        },
-      ],
-      "Estoque maximo excedido",
-    );
-  }
-
-  if (params.netDelta < 0 && projected < rule.quantityMin) {
-    throw new ValidationError(
-      [
-        {
-          path,
-          message: `Quantidade fica abaixo do estoque minimo (${rule.quantityMin}). Saldo atual: ${current}`,
-        },
-      ],
-      "Estoque minimo violado",
     );
   }
 }

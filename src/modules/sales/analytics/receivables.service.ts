@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import { sales, salesDues } from "../../../db/schema.js";
 import { decNum, ratePercent, roundMoney } from "./metrics.js";
@@ -6,12 +6,24 @@ import { analyticsLocalTodaySql } from "./period.js";
 import { dueDateUtcSql } from "./scope.js";
 import type { AnalyticsReceivablesQuery } from "./schema.js";
 
+/** Parcelas abertas: venda finalizada ou com devolucao parcial (total sai do AR). */
+const receivablesSaleStatus = () =>
+  inArray(sales.status, ["FINALIZADA", "PARCIAL"]);
+
+/** Aging só de recebimentos futuros (exclui hoje e vencidas). */
 const agingBucketLabels: Record<string, string> = {
-  a_vencer: "A vencer",
-  vencido_1_30: "Vencido 1–30 dias",
-  vencido_31_60: "Vencido 31–60 dias",
-  vencido_60_plus: "Vencido +60 dias",
+  a_vencer_1_7: "A vencer 1–7 dias",
+  a_vencer_8_30: "A vencer 8–30 dias",
+  a_vencer_31_60: "A vencer 31–60 dias",
+  a_vencer_60_plus: "A vencer +60 dias",
 };
+
+const agingBucketOrder = [
+  "a_vencer_1_7",
+  "a_vencer_8_30",
+  "a_vencer_31_60",
+  "a_vencer_60_plus",
+] as const;
 
 export class ReceivablesAnalyticsService {
   public async summary(
@@ -25,19 +37,20 @@ export class ReceivablesAnalyticsService {
     const conditions = [
       eq(sales.enterprisesId, enterpriseId),
       eq(sales.type, "VENDA"),
-      eq(sales.status, "FINALIZADA"),
+      receivablesSaleStatus(),
     ];
     if (query.sellerId) conditions.push(eq(sales.sellerId, query.sellerId));
     if (query.memberId) conditions.push(eq(sales.memberId, query.memberId));
 
+    // Exclui o dia actual: total = vencidas + futuras (a partir de amanhã).
     const rows = await db
       .select({
-        totalOutstanding: sql<string>`coalesce(sum(${salesDues.valueInstallment}), 0)`,
-        dueCount: sql<string>`count(*)`,
+        totalOutstanding: sql<string>`coalesce(sum(CASE WHEN ${dueDate} <> ${today} THEN ${salesDues.valueInstallment} ELSE 0 END), 0)`,
+        dueCount: sql<string>`count(*) FILTER (WHERE ${dueDate} <> ${today})`,
         overdueTotal: sql<string>`coalesce(sum(CASE WHEN ${dueDate} < ${today} THEN ${salesDues.valueInstallment} ELSE 0 END), 0)`,
         overdueCount: sql<string>`count(*) FILTER (WHERE ${dueDate} < ${today})`,
-        upcomingTotal: sql<string>`coalesce(sum(CASE WHEN ${dueDate} >= ${today} THEN ${salesDues.valueInstallment} ELSE 0 END), 0)`,
-        upcomingCount: sql<string>`count(*) FILTER (WHERE ${dueDate} >= ${today})`,
+        upcomingTotal: sql<string>`coalesce(sum(CASE WHEN ${dueDate} > ${today} THEN ${salesDues.valueInstallment} ELSE 0 END), 0)`,
+        upcomingCount: sql<string>`count(*) FILTER (WHERE ${dueDate} > ${today})`,
       })
       .from(salesDues)
       .innerJoin(sales, eq(salesDues.salesId, sales.id))
@@ -70,20 +83,23 @@ export class ReceivablesAnalyticsService {
     const timezone = query.timezone ?? "America/Sao_Paulo";
     const today = analyticsLocalTodaySql(timezone);
     const dueDate = dueDateUtcSql();
+    const daysUntilDue = sql`${dueDate} - ${today}`;
 
     const conditions = [
       eq(sales.enterprisesId, enterpriseId),
       eq(sales.type, "VENDA"),
-      eq(sales.status, "FINALIZADA"),
+      receivablesSaleStatus(),
+      // Panorama futuro: só parcelas com vencimento a partir de amanhã.
+      sql`${dueDate} > ${today}`,
     ];
     if (query.sellerId) conditions.push(eq(sales.sellerId, query.sellerId));
     if (query.memberId) conditions.push(eq(sales.memberId, query.memberId));
 
     const agingBucket = sql<string>`CASE
-          WHEN ${dueDate} >= ${today} THEN 'a_vencer'
-          WHEN ${today} - ${dueDate} <= 30 THEN 'vencido_1_30'
-          WHEN ${today} - ${dueDate} <= 60 THEN 'vencido_31_60'
-          ELSE 'vencido_60_plus'
+          WHEN ${daysUntilDue} <= 7 THEN 'a_vencer_1_7'
+          WHEN ${daysUntilDue} <= 30 THEN 'a_vencer_8_30'
+          WHEN ${daysUntilDue} <= 60 THEN 'a_vencer_31_60'
+          ELSE 'a_vencer_60_plus'
         END`;
 
     const rows = await db
@@ -97,19 +113,13 @@ export class ReceivablesAnalyticsService {
       .where(and(...conditions))
       .groupBy(sql`1`);
 
-    const bucketOrder = [
-      "a_vencer",
-      "vencido_1_30",
-      "vencido_31_60",
-      "vencido_60_plus",
-    ];
     const byBucket = new Map(rows.map((r) => [r.bucket, r]));
     const totalAmount = rows.reduce((sum, r) => sum + decNum(r.total), 0);
     const totalCount = rows.reduce((sum, r) => sum + Number(r.count), 0);
 
     return {
       timezone,
-      buckets: bucketOrder.map((key) => {
+      buckets: agingBucketOrder.map((key) => {
         const row = byBucket.get(key);
         const total = roundMoney(decNum(row?.total));
         const count = Number(row?.count ?? 0);

@@ -1,4 +1,4 @@
-import { and, eq, gte, lte, sql, type SQL } from "drizzle-orm";
+import { and, eq, gte, inArray, lte, or, sql, type SQL } from "drizzle-orm";
 import {
   sales,
   salesDues,
@@ -7,6 +7,21 @@ import {
   salesReturns,
 } from "../../../db/schema.js";
 import { timezoneSqlLiteral, type ResolvedPeriod } from "./period.js";
+
+/**
+ * Status de venda que entram no faturamento/realizado.
+ * FINALIZADA = sem devolucao; PARCIAL = devolucao parcial;
+ * CANCELADA + returnSituation PARCIAL/TOTAL = cancelada por devolucao (ainda conta no bruto historico).
+ * CANCELADA operacional (SEM_DEVOLUCAO) fica de fora.
+ */
+export const realizedSaleStatusCondition = (): SQL =>
+  or(
+    inArray(sales.status, ["FINALIZADA", "PARCIAL"]),
+    and(
+      eq(sales.status, "CANCELADA"),
+      inArray(sales.returnSituation, ["PARCIAL", "TOTAL"]),
+    ),
+  )!;
 
 export type AnalyticsFilters = {
   sellerId?: string;
@@ -51,11 +66,14 @@ export const recognizedFractionSql = () =>
     else 0
   end`;
 
-/** Custo bruto da venda (quantidade original × custo unitario). */
+/** Custo liquido da venda ((quantidade − devolvida) × custo unitario). */
 export const saleGrossCostSql = () =>
   sql`coalesce((
     SELECT sum(
-      coalesce(si.quantity, 0)
+      greatest(
+        coalesce(si.quantity, 0) - coalesce(si.quantity_returned, 0),
+        0
+      )
       * coalesce(si.average_cost, si.actual_real_cost, si.price_cost, 0)
     )
     FROM sales_items si
@@ -74,7 +92,7 @@ export const recognizedPieRevenueSql = () =>
 export const recognizedServiceRevenueSql = () =>
   sql`coalesce(${sales.valueService}, 0) * ${recognizedFractionSql()}`;
 
-/** Desconto rateado na parcela. */
+/** Desconto rateado na parcela (itens + financeiro pie/service). */
 export const recognizedDiscountSql = () =>
   sql`(
     coalesce(${sales.discountValuetems}, 0)
@@ -258,14 +276,14 @@ export const buildRealizedScope = (
   and(
     eq(sales.enterprisesId, enterpriseId),
     eq(sales.type, "VENDA"),
-    eq(sales.status, "FINALIZADA"),
+    realizedSaleStatusCondition(),
     buildRealizedDateCondition(period),
     ...buildSaleFilterConditions(filters),
   );
 
 /**
- * Scope financeiro realizado: venda finalizada cuja parcela vence no periodo.
- * Exige FROM/JOIN em sales_dues.
+ * Scope financeiro realizado: venda realizada (incl. devolucao parcial/total)
+ * cuja parcela vence no periodo. Exige FROM/JOIN em sales_dues.
  */
 export const buildRealizedDueScope = (
   enterpriseId: string,
@@ -275,7 +293,7 @@ export const buildRealizedDueScope = (
   and(
     eq(sales.enterprisesId, enterpriseId),
     eq(sales.type, "VENDA"),
-    eq(sales.status, "FINALIZADA"),
+    realizedSaleStatusCondition(),
     buildRecognizedDateCondition(period),
     ...buildSaleDocumentFilterConditions(filters),
     ...buildDuePaymentFilterConditions(filters),

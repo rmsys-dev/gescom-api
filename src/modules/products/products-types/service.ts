@@ -5,7 +5,10 @@ import {
   ConflictError,
   NotFoundError,
 } from "../../../shared/errors/app-error.js";
-import { isPostgresUniqueViolation } from "../../../shared/db/postgres-errors.js";
+import {
+  isPostgresForeignKeyViolation,
+  isPostgresUniqueViolation,
+} from "../../../shared/db/postgres-errors.js";
 import { resolveListPagination } from "../../../shared/pagination/pagination-params.js";
 import {
   recordCreateAudit,
@@ -211,25 +214,35 @@ export class TypesProductsService {
 
   public async delete(typeProductId: string, audit: EntityAuditContext) {
     const existing = await this.getPlainById(typeProductId);
-    const [row] = await db
-      .delete(productTypes)
-      .where(eq(productTypes.id, typeProductId))
-      .returning();
-    if (!row) {
-      throw new NotFoundError(
-        "Tipo de produto nao encontrado",
-        "TYPE_PRODUCT_NOT_FOUND",
-      );
+    try {
+      const [row] = await db
+        .delete(productTypes)
+        .where(eq(productTypes.id, typeProductId))
+        .returning();
+      if (!row) {
+        throw new NotFoundError(
+          "Tipo de produto nao encontrado",
+          "TYPE_PRODUCT_NOT_FOUND",
+        );
+      }
+      await recordEntityAudit({
+        entityType: EntityTypes.PRODUCT_TYPES,
+        entityId: typeProductId,
+        action: "DELETE",
+        before: toAuditRecord(existing),
+        after: toAuditRecord(row),
+        ctx: audit,
+      });
+      return row;
+    } catch (err) {
+      if (isPostgresForeignKeyViolation(err)) {
+        throw new ConflictError(
+          "Tipo de produto possui vinculos ativos e não pode ser excluido",
+          "TYPE_PRODUCT_IN_USE",
+        );
+      }
+      throw err;
     }
-    await recordEntityAudit({
-      entityType: EntityTypes.PRODUCT_TYPES,
-      entityId: typeProductId,
-      action: "DELETE",
-      before: toAuditRecord(existing),
-      after: toAuditRecord(row),
-      ctx: audit,
-    });
-    return row;
   }
 }
 

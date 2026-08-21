@@ -69,10 +69,10 @@ export class SalesAnalyticsService {
     query: AnalyticsOperationsQuery,
   ) => operationsAnalyticsService.statusBreakdown(enterpriseId, query);
 
-  public cancellations = (
+  public operationsReturns = (
     enterpriseId: string,
     query: AnalyticsOperationsQuery,
-  ) => operationsAnalyticsService.cancellations(enterpriseId, query);
+  ) => operationsAnalyticsService.returns(enterpriseId, query);
 
   public receivablesSummary = (
     enterpriseId: string,

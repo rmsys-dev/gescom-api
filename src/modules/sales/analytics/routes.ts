@@ -134,10 +134,10 @@ salesAnalyticsRouter.get(
 );
 
 salesAnalyticsRouter.get(
-  "/operations/cancellations",
+  "/operations/returns",
   ...readAnalytics,
   validateSchema({ query: analyticsOperationsQuerySchema }),
-  salesAnalyticsController.cancellations,
+  salesAnalyticsController.operationsReturns,
 );
 
 salesAnalyticsRouter.get(

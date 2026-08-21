@@ -34,8 +34,9 @@ export type PipelineKpis = {
   openSalesValue: number;
   openBudgetsCount: number;
   openBudgetsValue: number;
-  budgetsPartialCount: number;
-  budgetsClosedCount: number;
+  /** Ordens de servico com status ABERTA no periodo (scope de pipeline). */
+  openWorkOrdersCount: number;
+  openWorkOrdersValue: number;
   budgetsTotalCount: number;
   conversionCountInPeriod: number;
   conversionRatePercent: number;
@@ -103,73 +104,72 @@ const fetchPipelineKpis = async (
   const scope = buildPipelineScope(enterpriseId, period, filters);
   const budgetSale = alias(sales, "budget_for_conversion");
 
-  const [openSales, openBudgets, budgetStatus, conversions] = await Promise.all([
-    db
-      .select({
-        count: sql<string>`count(*)`,
-        value: sql<string>`coalesce(sum(${sales.valueLiquid}), 0)`,
-      })
-      .from(sales)
-      .where(and(scope, eq(sales.type, "VENDA"))),
-    db
-      .select({
-        count: sql<string>`count(*)`,
-        value: sql<string>`coalesce(sum(${sales.valueLiquid}), 0)`,
-      })
-      .from(sales)
-      .where(and(scope, eq(sales.type, "ORCAMENTO"))),
-    db
-      .select({
-        status: sales.status,
-        count: sql<string>`count(*)`,
-      })
-      .from(sales)
-      .where(
-        and(
-          eq(sales.enterprisesId, enterpriseId),
-          eq(sales.type, "ORCAMENTO"),
-          buildPipelineDateCondition(period),
-          ...buildSaleFilterConditions(filters),
+  const [openSales, openBudgets, openWorkOrders, budgetsTotal, conversions] =
+    await Promise.all([
+      db
+        .select({
+          count: sql<string>`count(*)`,
+          value: sql<string>`coalesce(sum(${sales.valueLiquid}), 0)`,
+        })
+        .from(sales)
+        .where(and(scope, eq(sales.type, "VENDA"))),
+      db
+        .select({
+          count: sql<string>`count(*)`,
+          value: sql<string>`coalesce(sum(${sales.valueLiquid}), 0)`,
+        })
+        .from(sales)
+        .where(and(scope, eq(sales.type, "ORCAMENTO"))),
+      db
+        .select({
+          count: sql<string>`count(*)`,
+          value: sql<string>`coalesce(sum(${sales.valueLiquid}), 0)`,
+        })
+        .from(sales)
+        .where(and(scope, eq(sales.type, "ORDEM DE SERVICO"))),
+      db
+        .select({
+          count: sql<string>`count(*)`,
+        })
+        .from(sales)
+        .where(
+          and(
+            eq(sales.enterprisesId, enterpriseId),
+            eq(sales.type, "ORCAMENTO"),
+            buildPipelineDateCondition(period),
+            ...buildSaleFilterConditions(filters),
+          ),
         ),
-      )
-      .groupBy(sales.status),
-    db
-      .select({
-        count: sql<string>`count(*)`,
-      })
-      .from(salesBudgetConversions)
-      .innerJoin(
-        budgetSale,
-        eq(salesBudgetConversions.budgetSaleId, budgetSale.id),
-      )
-      .where(
-        and(
-          eq(salesBudgetConversions.enterprisesId, enterpriseId),
-          conversionDateCondition(period),
-          eq(budgetSale.enterprisesId, enterpriseId),
-          ...buildBudgetAliasFilterConditions(budgetSale, filters),
+      db
+        .select({
+          count: sql<string>`count(*)`,
+        })
+        .from(salesBudgetConversions)
+        .innerJoin(
+          budgetSale,
+          eq(salesBudgetConversions.budgetSaleId, budgetSale.id),
+        )
+        .where(
+          and(
+            eq(salesBudgetConversions.enterprisesId, enterpriseId),
+            conversionDateCondition(period),
+            eq(budgetSale.enterprisesId, enterpriseId),
+            ...buildBudgetAliasFilterConditions(budgetSale, filters),
+          ),
         ),
-      ),
-  ]);
+    ]);
 
-  const partialCount =
-    budgetStatus.find((r) => r.status === "PARCIAL")?.count ?? "0";
-  const closedCount =
-    budgetStatus.find((r) => r.status === "FINALIZADA")?.count ?? "0";
   const openBudgetsCount = Number(openBudgets[0]?.count ?? 0);
   const conversionCount = Number(conversions[0]?.count ?? 0);
-  const budgetsTotalCount = budgetStatus.reduce(
-    (sum, row) => sum + Number(row.count),
-    0,
-  );
+  const budgetsTotalCount = Number(budgetsTotal[0]?.count ?? 0);
 
   return {
     openSalesCount: Number(openSales[0]?.count ?? 0),
     openSalesValue: roundMoney(decNum(openSales[0]?.value)),
     openBudgetsCount,
     openBudgetsValue: roundMoney(decNum(openBudgets[0]?.value)),
-    budgetsPartialCount: Number(partialCount),
-    budgetsClosedCount: Number(closedCount),
+    openWorkOrdersCount: Number(openWorkOrders[0]?.count ?? 0),
+    openWorkOrdersValue: roundMoney(decNum(openWorkOrders[0]?.value)),
     budgetsTotalCount,
     conversionCountInPeriod: conversionCount,
     conversionRatePercent:
@@ -302,6 +302,14 @@ export class PipelineAnalyticsService {
         openBudgetsValue: kpiWithComparison(
           current.openBudgetsValue,
           comparison.openBudgetsValue,
+        ),
+        openWorkOrdersCount: kpiWithComparison(
+          current.openWorkOrdersCount,
+          comparison.openWorkOrdersCount,
+        ),
+        openWorkOrdersValue: kpiWithComparison(
+          current.openWorkOrdersValue,
+          comparison.openWorkOrdersValue,
         ),
         openPipelineValue: kpiWithComparison(
           current.openPipelineValue,

@@ -29,6 +29,7 @@ import {
   extractFilters,
   recognizedAmountSql,
   recognizedCostSql,
+  recognizedDiscountSql,
   recognizedItemQuantitySql,
   recognizedItemRevenueSql,
   returnLineValueSql,
@@ -401,7 +402,8 @@ export class DimensionsAnalyticsService {
         .where(returnsScope),
       db
         .select({
-          grossRevenue: sql<string>`coalesce(sum(${amount}), 0)`,
+          liquidRevenue: sql<string>`coalesce(sum(${amount}), 0)`,
+          discountTotal: sql<string>`coalesce(sum(${recognizedDiscountSql()}), 0)`,
         })
         .from(salesDues)
         .innerJoin(sales, eq(salesDues.salesId, sales.id))
@@ -427,7 +429,9 @@ export class DimensionsAnalyticsService {
     ]);
 
     const returnsTotal = roundMoney(decNum(returnsAgg[0]?.returnsTotal));
-    const grossRevenue = roundMoney(decNum(grossAgg[0]?.grossRevenue));
+    const liquidRevenue = decNum(grossAgg[0]?.liquidRevenue);
+    const discountTotal = decNum(grossAgg[0]?.discountTotal);
+    const grossRevenue = roundMoney(liquidRevenue + discountTotal);
     const topReturnedProducts = topProducts.map((row) => ({
       id: row.id,
       label: row.label,
@@ -440,7 +444,7 @@ export class DimensionsAnalyticsService {
       period: { from: period.from, to: period.to, timezone: period.timezone },
       returnsTotal,
       returnCount: Number(returnsAgg[0]?.returnCount ?? 0),
-      returnRatePercent: ratePercent(returnsTotal, grossRevenue),
+      returnRatePercent: ratePercent(returnsTotal, liquidRevenue),
       grossRevenue,
       topReturnedProducts,
     };

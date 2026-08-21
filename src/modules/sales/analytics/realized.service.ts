@@ -1,11 +1,13 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import {
+  productTypes,
   sales,
   salesDues,
   salesItems,
   salesReturns,
 } from "../../../db/schema.js";
+import { PRODUCT_TYPE_SERVICE_CODE } from "../../../shared/products/product-type-service.js";
 import {
   decNum,
   kpiWithComparison,
@@ -73,7 +75,7 @@ const fetchRealizedKpis = async (
   const [salesAgg, itemsAgg, returnsAgg] = await Promise.all([
     db
       .select({
-        grossRevenue: sql<string>`coalesce(sum(${amount}), 0)`,
+        liquidRevenue: sql<string>`coalesce(sum(${amount}), 0)`,
         salesCount: sql<string>`count(distinct ${sales.id})`,
         pieRevenue: sql<string>`coalesce(sum(${recognizedPieRevenueSql()}), 0)`,
         serviceRevenue: sql<string>`coalesce(sum(${recognizedServiceRevenueSql()}), 0)`,
@@ -85,12 +87,15 @@ const fetchRealizedKpis = async (
       .where(scope),
     db
       .select({
-        itemsSold: sql<string>`coalesce(sum(${salesItems.quantity} * ${fraction}), 0)`,
+        itemsSold: sql<string>`coalesce(sum(greatest(${salesItems.quantity} - coalesce(${salesItems.quantityReturned}, 0), 0) * ${fraction}), 0)`,
       })
       .from(salesDues)
       .innerJoin(sales, eq(salesDues.salesId, sales.id))
       .innerJoin(salesItems, eq(salesItems.salesId, sales.id))
-      .where(scope),
+      .innerJoin(productTypes, eq(salesItems.productTypeId, productTypes.id))
+      .where(
+        and(scope, ne(productTypes.type, PRODUCT_TYPE_SERVICE_CODE)),
+      ),
     db
       .select({
         returnsTotal: sql<string>`coalesce(sum(${returnLineValueSql()}), 0)`,
@@ -102,28 +107,31 @@ const fetchRealizedKpis = async (
       .where(buildReturnsScope(enterpriseId, period, filters)),
   ]);
 
-  const grossRevenue = decNum(salesAgg[0]?.grossRevenue);
+  // Parcelas = valueLiquid (já pós-desconto). Faturamento reconstrói o bruto.
+  const liquidRevenue = decNum(salesAgg[0]?.liquidRevenue);
+  const discountTotal = roundMoney(decNum(salesAgg[0]?.discountTotal));
   const returnsTotal = decNum(returnsAgg[0]?.returnsTotal);
   const salesCount = Number(salesAgg[0]?.salesCount ?? 0);
   const pieRevenue = roundMoney(decNum(salesAgg[0]?.pieRevenue));
   const serviceRevenue = roundMoney(decNum(salesAgg[0]?.serviceRevenue));
   const pieServiceBase = pieRevenue + serviceRevenue;
   const costTotal = roundMoney(decNum(salesAgg[0]?.costTotal));
-  const netRevenue = roundMoney(grossRevenue - returnsTotal);
-  const grossProfit = roundMoney(grossRevenue - costTotal);
+  const grossRevenue = roundMoney(liquidRevenue + discountTotal);
+  const netRevenue = roundMoney(liquidRevenue - returnsTotal);
+  const grossProfit = roundMoney(liquidRevenue - costTotal);
   const netProfit = roundMoney(netRevenue - costTotal);
 
   return {
-    grossRevenue: roundMoney(grossRevenue),
+    grossRevenue,
     netRevenue,
     salesCount,
     averageTicket:
-      salesCount > 0 ? roundMoney(grossRevenue / salesCount) : 0,
+      salesCount > 0 ? roundMoney(liquidRevenue / salesCount) : 0,
     itemsSold: decNum(itemsAgg[0]?.itemsSold),
-    discountTotal: roundMoney(decNum(salesAgg[0]?.discountTotal)),
+    discountTotal,
     returnsTotal: roundMoney(returnsTotal),
     returnCount: Number(returnsAgg[0]?.returnCount ?? 0),
-    returnRatePercent: ratePercent(returnsTotal, grossRevenue),
+    returnRatePercent: ratePercent(returnsTotal, liquidRevenue),
     pieRevenue,
     serviceRevenue,
     pieSharePercent: ratePercent(pieRevenue, pieServiceBase),
@@ -131,7 +139,7 @@ const fetchRealizedKpis = async (
     costTotal,
     grossProfit,
     netProfit,
-    grossMarginPercent: ratePercent(grossProfit, grossRevenue),
+    grossMarginPercent: ratePercent(grossProfit, liquidRevenue),
   };
 };
 
@@ -217,7 +225,8 @@ const fetchRealizedSeriesSparse = async (
   const rows = await db
     .select({
       bucketStart: sql<string>`to_char(${bucket}, 'YYYY-MM-DD')`,
-      grossRevenue: sql<string>`coalesce(sum(${amount}), 0)`,
+      liquidRevenue: sql<string>`coalesce(sum(${amount}), 0)`,
+      discountTotal: sql<string>`coalesce(sum(${recognizedDiscountSql()}), 0)`,
       salesCount: sql<string>`count(distinct ${sales.id})`,
       costTotal: sql<string>`coalesce(sum(${recognizedCostSql()}), 0)`,
     })
@@ -245,7 +254,8 @@ const fetchRealizedSeriesSparse = async (
     rows.map((r) => [
       r.bucketStart,
       {
-        grossRevenue: decNum(r.grossRevenue),
+        liquidRevenue: decNum(r.liquidRevenue),
+        discountTotal: decNum(r.discountTotal),
         salesCount: Number(r.salesCount),
         costTotal: decNum(r.costTotal),
       },
@@ -262,10 +272,12 @@ const fetchRealizedSeriesSparse = async (
 
   return [...bucketStarts].map((bucketStart) => {
     const sale = salesByBucket.get(bucketStart);
-    const grossRevenue = sale?.grossRevenue ?? 0;
+    const liquidRevenue = sale?.liquidRevenue ?? 0;
+    const discountTotal = sale?.discountTotal ?? 0;
     const returnsTotal = returnsByBucket.get(bucketStart) ?? 0;
     const costTotal = sale?.costTotal ?? 0;
-    const netRevenue = grossRevenue - returnsTotal;
+    const grossRevenue = liquidRevenue + discountTotal;
+    const netRevenue = liquidRevenue - returnsTotal;
     return {
       bucketStart,
       grossRevenue: roundMoney(grossRevenue),
@@ -273,7 +285,7 @@ const fetchRealizedSeriesSparse = async (
       salesCount: sale?.salesCount ?? 0,
       returnsTotal: roundMoney(returnsTotal),
       costTotal: roundMoney(costTotal),
-      grossProfit: roundMoney(grossRevenue - costTotal),
+      grossProfit: roundMoney(liquidRevenue - costTotal),
       netProfit: roundMoney(netRevenue - costTotal),
     };
   });

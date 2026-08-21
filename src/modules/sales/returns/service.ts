@@ -70,15 +70,16 @@ export class SalesReturnsService {
         "Tipo invalido",
       );
     }
-    if (sale.status !== "FINALIZADA") {
+    // FINALIZADA = sem devolucao previa; PARCIAL = ainda ha saldo devolvivel
+    if (sale.status !== "FINALIZADA" && sale.status !== "PARCIAL") {
       throw new ValidationError(
         [
           {
             path: "params.saleId",
-            message: "Devolucao exige pedido FINALIZADO",
+            message: "Devolucao exige pedido FINALIZADO ou PARCIAL",
           },
         ],
-        "Pedido nao finalizado",
+        "Pedido nao elegivel para devolucao",
       );
     }
   }
@@ -155,9 +156,21 @@ export class SalesReturnsService {
       }
     }
 
+    // Devolucao parcial → status PARCIAL; total → CANCELADA; sem devolucao → FINALIZADA
+    const status =
+      situation === "TOTAL"
+        ? ("CANCELADA" as const)
+        : situation === "PARCIAL"
+          ? ("PARCIAL" as const)
+          : ("FINALIZADA" as const);
+
     await tx
       .update(sales)
-      .set({ returnSituation: situation, updatedAt: new Date() })
+      .set({
+        returnSituation: situation,
+        status,
+        updatedAt: new Date(),
+      })
       .where(eq(sales.id, saleId));
   }
 

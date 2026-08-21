@@ -5,7 +5,10 @@ import {
   ConflictError,
   NotFoundError,
 } from "../../../shared/errors/app-error.js";
-import { isPostgresUniqueViolation } from "../../../shared/db/postgres-errors.js";
+import {
+  isPostgresForeignKeyViolation,
+  isPostgresUniqueViolation,
+} from "../../../shared/db/postgres-errors.js";
 import { resolveListPagination } from "../../../shared/pagination/pagination-params.js";
 import {
   recordCreateAudit,
@@ -135,25 +138,35 @@ export class TypeSpedService {
 
   public async delete(typeSpedId: string, audit: EntityAuditContext) {
     const existing = await this.getById(typeSpedId);
-    const [row] = await db
-      .delete(typeSped)
-      .where(eq(typeSped.id, typeSpedId))
-      .returning();
-    if (!row) {
-      throw new NotFoundError(
-        "Tipo SPED nao encontrado",
-        "TYPE_SPED_NOT_FOUND",
-      );
+    try {
+      const [row] = await db
+        .delete(typeSped)
+        .where(eq(typeSped.id, typeSpedId))
+        .returning();
+      if (!row) {
+        throw new NotFoundError(
+          "Tipo SPED nao encontrado",
+          "TYPE_SPED_NOT_FOUND",
+        );
+      }
+      await recordEntityAudit({
+        entityType: EntityTypes.TYPE_SPED,
+        entityId: typeSpedId,
+        action: "DELETE",
+        before: toAuditRecord(existing),
+        after: toAuditRecord(row),
+        ctx: audit,
+      });
+      return row;
+    } catch (err) {
+      if (isPostgresForeignKeyViolation(err)) {
+        throw new ConflictError(
+          "Tipo SPED possui vinculos ativos e nao pode ser excluido",
+          "TYPE_SPED_IN_USE",
+        );
+      }
+      throw err;
     }
-    await recordEntityAudit({
-      entityType: EntityTypes.TYPE_SPED,
-      entityId: typeSpedId,
-      action: "DELETE",
-      before: toAuditRecord(existing),
-      after: toAuditRecord(row),
-      ctx: audit,
-    });
-    return row;
   }
 }
 

@@ -222,18 +222,18 @@ export class SalesAnalyticsController {
       this.operationsQuery(req),
     );
     sendSuccessResponse(res, HttpStatus.OK, {
-      message: "Breakdown operacional recuperado com sucesso.",
+      message: "Breakdown operacional por status recuperado com sucesso.",
       data,
     });
   };
 
-  public cancellations = async (req: Request, res: Response) => {
-    const data = await salesAnalyticsService.cancellations(
+  public operationsReturns = async (req: Request, res: Response) => {
+    const data = await salesAnalyticsService.operationsReturns(
       this.enterpriseId(req),
       this.operationsQuery(req),
     );
     sendSuccessResponse(res, HttpStatus.OK, {
-      message: "Analytics de cancelamentos recuperado com sucesso.",
+      message: "Analytics de devolucoes operacionais recuperado com sucesso.",
       data,
     });
   };

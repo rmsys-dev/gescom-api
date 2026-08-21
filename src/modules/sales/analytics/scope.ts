@@ -311,23 +311,28 @@ export const buildReturnsScope = (
     ...buildSaleFilterConditions(filters),
   );
 
-/** Valor proporcional da linha de devolucao com base no item da venda. */
+/** Valor proporcional da linha de devolucao com base no liquido gravado na finalizacao. */
 export const returnLineValueSql = () =>
   sql`case
     when ${salesItems.quantity} > 0
-    then (${salesItems.valueTotal} / ${salesItems.quantity}) * ${salesReturns.quantity}
+    then (${salesItems.valueLiquidItemsHeader} / ${salesItems.quantity}) * ${salesReturns.quantity}
     else 0
   end`;
 
 /**
- * Receita liquida do item apos devolucoes acumuladas:
- * valueTotal * (quantity - quantityReturned) / quantity.
+ * Receita liquida do item apos devolucoes acumuladas.
+ * Peca usa valueLiquidItemsHeader; servico (campo 0) cai no valueTotal da linha.
  */
 export const netItemRevenueSql = () =>
   sql`case
     when ${salesItems.quantity} > 0
-    then (${salesItems.valueTotal} / ${salesItems.quantity})
-      * (${salesItems.quantity} - ${salesItems.quantityReturned})
+    then (
+      case
+        when ${salesItems.valueLiquidItemsHeader} <> 0
+        then ${salesItems.valueLiquidItemsHeader}
+        else ${salesItems.valueTotal}
+      end / ${salesItems.quantity}
+    ) * (${salesItems.quantity} - ${salesItems.quantityReturned})
     else 0
   end`;
 

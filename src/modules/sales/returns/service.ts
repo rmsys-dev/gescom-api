@@ -1,6 +1,11 @@
 import { and, asc, count, desc, eq } from "drizzle-orm";
 import { db } from "../../../db/index.js";
-import { sales, salesItems, salesReturns } from "../../../db/schema.js";
+import {
+  productTypes,
+  sales,
+  salesItems,
+  salesReturns,
+} from "../../../db/schema.js";
 import {
   NotFoundError,
   ValidationError,
@@ -11,7 +16,10 @@ import {
 } from "../../../shared/audit/entity-audit.js";
 import { toAuditRecord } from "../../../shared/audit/build-field-diff.js";
 import { EntityTypes } from "../../../shared/audit/entity-types.js";
-import { isServiceProductTypeById } from "../../../shared/products/product-type-service.js";
+import {
+  isServiceProductType,
+  isServiceProductTypeById,
+} from "../../../shared/products/product-type-service.js";
 import { applySaleReturnDocumentItemStockIn } from "../sale-stock.js";
 import { nextSaleReturnOrder } from "./sequences.js";
 import type {
@@ -106,6 +114,10 @@ export class SalesReturnsService {
       );
     }
 
+    if (await isServiceProductTypeById(item.productTypeId)) {
+      return { item, returnable: 0 };
+    }
+
     const sold = Number(item.quantity);
     const returned = Number(item.quantityReturned ?? 0);
     return { item, returnable: sold - returned };
@@ -116,17 +128,23 @@ export class SalesReturnsService {
       .select({
         quantity: salesItems.quantity,
         quantityReturned: salesItems.quantityReturned,
+        typeCode: productTypes.type,
       })
       .from(salesItems)
+      .innerJoin(productTypes, eq(salesItems.productTypeId, productTypes.id))
       .where(eq(salesItems.salesId, saleId));
+
+    const returnableItems = items.filter(
+      (i) => !isServiceProductType(i.typeCode),
+    );
 
     let situation: SaleReturnSituation = "SEM_DEVOLUCAO";
 
-    if (items.length > 0) {
-      const anyReturned = items.some(
+    if (returnableItems.length > 0) {
+      const anyReturned = returnableItems.some(
         (i) => Number(i.quantityReturned ?? 0) > 0,
       );
-      const allFullyReturned = items.every(
+      const allFullyReturned = returnableItems.every(
         (i) => Number(i.quantityReturned ?? 0) >= Number(i.quantity),
       );
 
@@ -159,6 +177,17 @@ export class SalesReturnsService {
       params.saleItemId,
       params.saleId,
     );
+    if (await isServiceProductTypeById(item.productTypeId)) {
+      throw new ValidationError(
+        [
+          {
+            path: "body.saleItemId",
+            message: "Devolucao somente para pecas",
+          },
+        ],
+        "Item de servico nao devolve",
+      );
+    }
     if (params.quantity > returnable) {
       throw new ValidationError(
         [
@@ -170,10 +199,7 @@ export class SalesReturnsService {
         "Quantidade invalida",
       );
     }
-    if (
-      !item.stockLocationId &&
-      !(await isServiceProductTypeById(item.productTypeId))
-    ) {
+    if (!item.stockLocationId) {
       throw new ValidationError(
         [{ path: "body.saleItemId", message: "Item sem locacao de estoque" }],
         "Locacao obrigatoria",

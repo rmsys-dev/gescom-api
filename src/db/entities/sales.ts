@@ -183,6 +183,13 @@ export const salesItems = pgTable(
     ).notNull(),
     valueAcresce: decimal("value_acresce", valorQuatroCasasDecimais).notNull(),
     valueTotal: decimal("value_total", valorQuatroCasasDecimais).notNull(),
+    /** Líquido para devolução (linha + rateio do financeiro de peça). 0 enquanto ABERTA. */
+    valueLiquidItemsHeader: decimal(
+      "value_liquid_items_header",
+      valorQuatroCasasDecimais,
+    )
+      .notNull()
+      .default("0"),
     /** Descrição livre do item (ex.: serviço no orçamento); null = usa cadastro do produto. */
     description: varchar("description", { length: 255 }),
     averageCost: decimal("average_cost", valorQuatroCasasDecimais), // custo médio
@@ -396,7 +403,7 @@ export const salesReturns = pgTable(
     saleItemId: uuid("sale_item_id")
       .notNull()
       .references(() => salesItems.id, { onDelete: "restrict" }), // ITEM DA VENDA
-    quantity: decimal("quantity", valorQuatroCasasDecimais).notNull(), // QUANTIDADE DA DEVOLUÇÃO
+    quantity: decimal("quantity", valorQuatroCasasDecimais).notNull(), // QUANTIDADE DA DEVOLUÇÃO    
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }), // USUÁRIO

@@ -86,6 +86,7 @@ import {
   validateSaleItemStock,
 } from "./sale-stock.js";
 import { resolveSaleClosingOrigin, type SaleOrigin } from "./sale-origin.js";
+import { allocateValueLiquidItemsHeader } from "./sale-item-liquid.js";
 import { effectiveCompletionDateSql } from "./analytics/scope.js";
 import {
   computeItemValueTotal,
@@ -1726,6 +1727,7 @@ export class SalesService {
       valueDiscount: item.valueDiscount.toString(),
       valueAcresce: item.valueAcresce.toString(),
       valueTotal: valueTotal.toString(),
+      valueLiquidItemsHeader: "0",
       averageCost: priceSnapshot?.averageCost ?? null,
       actualRealCost: priceSnapshot?.actualRealCost ?? null,
       priceCost: priceSnapshot?.priceCost ?? null,
@@ -2085,6 +2087,56 @@ export class SalesService {
       valueService,
       valueLiquid,
     };
+  }
+
+  private async applyValueLiquidItemsHeader(tx: Tx, saleId: string) {
+    const sale = (
+      await tx.select().from(sales).where(eq(sales.id, saleId)).limit(1)
+    )[0];
+    if (!sale) {
+      throw new NotFoundError("Venda nao encontrada", "SALE_NOT_FOUND");
+    }
+
+    const itemRows = await tx
+      .select({
+        id: salesItems.id,
+        quantity: salesItems.quantity,
+        valueUnit: salesItems.valueUnit,
+        valueTotal: salesItems.valueTotal,
+        typeCode: productTypes.type,
+      })
+      .from(salesItems)
+      .innerJoin(productTypes, eq(salesItems.productTypeId, productTypes.id))
+      .where(eq(salesItems.salesId, saleId));
+
+    const allocated = allocateValueLiquidItemsHeader(
+      itemRows.map((row) => ({
+        id: row.id,
+        quantity: decNum(row.quantity),
+        valueUnit: decNum(row.valueUnit),
+        valueTotal: decNum(row.valueTotal),
+        typeCode: row.typeCode,
+      })),
+      {
+        subTotal: decNum(sale.subTotal),
+        valueDiscountFinancial:
+          decNum(sale.valueDiscountFinancialPie) +
+          decNum(sale.valueDiscountFinancialService),
+        valueAcresceFinancial:
+          decNum(sale.valueAcresceFinancialPie) +
+          decNum(sale.valueAcresceFinancialService),
+      },
+    );
+
+    for (const row of allocated) {
+      await tx
+        .update(salesItems)
+        .set({
+          valueLiquidItemsHeader: row.valueLiquidItemsHeader.toString(),
+          updatedAt: new Date(),
+        })
+        .where(eq(salesItems.id, row.id));
+    }
   }
 
   private mergeSaleItemPatch(
@@ -3267,6 +3319,7 @@ export class SalesService {
         if (status === "FINALIZADA" && input.payments?.length) {
           const updatedSale = await this.getSaleRow(tx, enterpriseId, sale.id);
           if (!updatedSale) throw new Error("Falha ao recalcular venda");
+          await this.applyValueLiquidItemsHeader(tx, sale.id);
           this.assertSalePaymentsMatchSale(
             updatedSale.valueLiquid,
             updatedSale.createdAt,
@@ -3611,6 +3664,7 @@ export class SalesService {
           .where(eq(salesItems.salesId, id));
 
         if (finalize) {
+          await this.applyValueLiquidItemsHeader(tx, id);
           if (this.shouldMoveStock(existing)) {
             for (const item of items) {
               await applySaleItemStockOut(tx, {
@@ -4003,6 +4057,7 @@ export class SalesService {
             generatedSale.id,
           );
           if (!updatedSale) throw new Error("Falha ao recalcular venda gerada");
+          await this.applyValueLiquidItemsHeader(tx, generatedSale.id);
           this.assertSalePaymentsMatchSale(
             updatedSale.valueLiquid,
             updatedSale.createdAt,
@@ -4840,6 +4895,7 @@ export class SalesService {
             generatedSale.id,
           );
           if (!updatedSale) throw new Error("Falha ao recalcular venda gerada");
+          await this.applyValueLiquidItemsHeader(tx, generatedSale.id);
           this.assertSalePaymentsMatchSale(
             updatedSale.valueLiquid,
             updatedSale.createdAt,

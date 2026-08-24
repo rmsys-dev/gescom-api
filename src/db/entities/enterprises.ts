@@ -6,8 +6,9 @@ import {
   uniqueIndex,
   varchar,
   uuid,
+  integer,
 } from "drizzle-orm/pg-core";
-import { statusEnum, adressTypeEnum } from "../enums.js";
+import { statusEnum, adressTypeEnum, sequenceTypeEnum } from "../enums.js";
 import { ceps } from "../entities/addresses.js";
 import { tz } from "../functions.js";
 
@@ -66,5 +67,25 @@ export const enterprisesAddress = pgTable(
       .on(t.enterpriseId)
       .where(sql`${t.deletedAt} is null and ${t.adressType} = 'PRINCIPAL'`),
     index("enterprises_address_enterprise_active_idx").on(t.enterpriseId),
+  ],
+);
+
+export const enterprisesSequences = pgTable(
+  "enterprises_sequences",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    enterpriseId: uuid("enterprise_id")
+      .notNull()
+      .references(() => enterprises.id, { onDelete: "restrict" }),
+    type: sequenceTypeEnum("type").notNull(),
+    sequence: integer("sequence").notNull().default(0),
+    createdAt: tz("created_at").defaultNow().notNull(),
+    updatedAt: tz("updated_at"),
+    deletedAt: tz("deleted_at"),
+  },
+  (t) => [
+    uniqueIndex("enterprises_sequences_enterprise_type_uidx")
+      .on(t.enterpriseId, t.type)
+      .where(sql`${t.deletedAt} is null`),
   ],
 );

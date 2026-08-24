@@ -6,7 +6,6 @@ import * as departments from "./entities/departments.js";
 import * as enterprises from "./entities/enterprises.js";
 import * as enums from "./enums.js";
 import * as members from "./entities/members.js";
-import * as sequences from "./entities/sequences.js";
 import * as users from "./entities/users.js";
 import * as authentication from "./entities/authentication.js";
 import * as products from "./entities/products.js";
@@ -75,7 +74,6 @@ const schema = {
   ...enterprises,
   ...enums,
   ...members,
-  ...sequences,
   ...users,
   ...authentication,
   ...products,

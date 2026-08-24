@@ -2,7 +2,7 @@ import { relations } from "drizzle-orm";
 import { enterprises, enterprisesAddress } from "../entities/enterprises.js";
 import { ceps } from "../entities/addresses.js";
 import { enterprisesMembers } from "../entities/members.js";
-import { enterprisesSequences } from "../entities/sequences.js";
+import { enterprisesSequences } from "../entities/enterprises.js";
 import { departments } from "../entities/departments.js";
 import { membersDepartments } from "../entities/members.js";
 import { departmentDefaultPermissions } from "../entities/departments.js";

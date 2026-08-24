@@ -10,7 +10,7 @@ import { users } from "../entities/users.js";
 import { enterprises } from "../entities/enterprises.js";
 import { departments } from "../entities/departments.js";
 import { typeSupplierCustomers } from "../entities/members.js";
-import { typeNetworks } from "../entities/typeNetworks.js";
+import { typeNetworks } from "../entities/members.js";
 import { mechanicSalesItems } from "../entities/workOrders.js";
 
 //**RELAÇÕES DE MEMBROS DE EMPRESAS**//
@@ -84,3 +84,7 @@ export const typeSupplierCustomersRelations = relations(
     members: many(enterprisesMembers),
   }),
 );
+
+export const typeNetworksRelations = relations(typeNetworks, ({ many }) => ({
+  members: many(enterprisesMembers),
+}));

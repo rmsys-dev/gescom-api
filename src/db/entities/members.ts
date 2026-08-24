@@ -22,7 +22,6 @@ import {
 import { users } from "./users.js";
 import { enterprises } from "./enterprises.js";
 import { departments } from "./departments.js";
-import { typeNetworks } from "./typeNetworks.js";
 import { tz, percentageDecimal } from "../functions.js";
 
 //Tabela de membros de empresas
@@ -248,5 +247,20 @@ export const typeSupplierCustomers = pgTable(
     uniqueIndex("type_supplier_customers_description_active_unique").on(
       t.description,
     ),
+  ],
+);
+
+//Tabela de tipos de redes
+export const typeNetworks = pgTable(
+  "type_networks",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    description: varchar("description", { length: 255 }).notNull(), // Descrição
+    status: statusEnum("status").default("ATIVO").notNull(), // Status
+    createdAt: tz("created_at").defaultNow().notNull(),
+    updatedAt: tz("updated_at"),
+  },
+  (t) => [
+    uniqueIndex("type_networks_description_active_unique").on(t.description),
   ],
 );

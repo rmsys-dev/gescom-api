@@ -10,6 +10,7 @@ import {
   salesReturns,
   salesDues,
   salesMembers,
+  vehicles,
 } from "../entities/sales.js";
 import { users } from "../entities/users.js";
 import { enterprisesMembers } from "../entities/members.js";
@@ -25,7 +26,11 @@ import {
   stockLocations,
   stockBatches,
 } from "../entities/stock.js";
-import { mechanicSalesItems, vehiclesEnterprisesMembers } from "../entities/workOrders.js";
+import {
+  mechanicSalesItems,
+  vehiclesEnterprisesMembers,
+} from "../entities/sales.js";
+import { states } from "../entities/addresses.js";
 
 // relações da tabela de TIPOS DE PAGAMENTO.
 export const paymentTypesRelations = relations(paymentTypes, ({ many }) => ({
@@ -262,3 +267,42 @@ export const salesDuesRelations = relations(salesDues, ({ one, many }) => ({
   }),
   salesItems: many(salesItems, { relationName: "salesDuesSalesItems" }), // ITENS DA VENDA
 }));
+
+//**RELAÇÕES DE VEÍCULOS**//
+export const vehiclesRelations = relations(vehicles, ({ one, many }) => ({
+  licensingState: one(states, {
+    fields: [vehicles.licensingStateId],
+    references: [states.id],
+  }),
+  enterprisesMembers: many(vehiclesEnterprisesMembers),
+}));
+
+//**RELAÇÕES DE RELACIONAMENTO ENTRE VEÍCULOS E EMPRESAS**//
+export const vehiclesEnterprisesMembersRelations = relations(
+  vehiclesEnterprisesMembers,
+  ({ one }) => ({
+    vehicle: one(vehicles, {
+      fields: [vehiclesEnterprisesMembers.vehiclesId],
+      references: [vehicles.id],
+    }),
+    enterpriseMember: one(enterprisesMembers, {
+      fields: [vehiclesEnterprisesMembers.enterprisesMembersId],
+      references: [enterprisesMembers.id],
+    }),
+  }),
+);
+
+//**RELAÇÕES DE MECÂNICO × ITEM DE VENDA**//
+export const mechanicSalesItemsRelations = relations(
+  mechanicSalesItems,
+  ({ one }) => ({
+    mechanicMember: one(enterprisesMembers, {
+      fields: [mechanicSalesItems.mechanic],
+      references: [enterprisesMembers.id],
+    }),
+    salesItem: one(salesItems, {
+      fields: [mechanicSalesItems.salesItemsId],
+      references: [salesItems.id],
+    }),
+  }),
+);

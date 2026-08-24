@@ -22,10 +22,16 @@ import {
   saleServiceTypeEnum,
   orderServiceModelEnum,
   typeServiceEnum,
+  fuelTypeEnum,
+  ownerTypeEnum,
+  vehicleTypeEnum,
+  bodyTypeEnum,
+  axleTypeEnum,
 } from "../enums.js";
 import { users } from "./users.js";
 import { enterprisesMembers } from "./members.js";
 import { enterprises } from "./enterprises.js";
+import { states } from "./addresses.js";
 import {
   measurementUnits,
   productTypes,
@@ -39,7 +45,6 @@ import {
   valorDuasCasasDecimais,
   valorQuatroCasasDecimais,
 } from "../functions.js";
-import { vehiclesEnterprisesMembers } from "./workOrders.js";
 
 // TIPOS DE PAGAMENTO.
 export const paymentTypes = pgTable(
@@ -62,7 +67,7 @@ export const sales = pgTable(
   "sales",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    orderNumber: integer("order_number").notNull(),  // número da venda
+    orderNumber: integer("order_number").notNull(), // número da venda
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }), // usuário que criou a venda
@@ -85,7 +90,7 @@ export const sales = pgTable(
       "percentage_discount_pie",
       percentageDecimal,
     ), // percentagem de desconto financeiro em pecas
-    valueDiscountFinancialPie: decimal( 
+    valueDiscountFinancialPie: decimal(
       "value_discount_financial_pie",
       valorDuasCasasDecimais,
     ), // valor do desconto financeiro em pecas
@@ -128,9 +133,13 @@ export const sales = pgTable(
     origin: saleOriginEnum("origin").default("WEB"), // origem da venda
     completedionDate: date("completedion_date", { mode: "date" }), // data de finalização da venda
     vehicleMileage: integer("vehicle_mileage").notNull().default(0), // quilometragem do veículo
-    observations: varchar("observations", { length: 500 }).notNull().default(""), // observações
+    observations: varchar("observations", { length: 500 })
+      .notNull()
+      .default(""), // observações
     defect: varchar("defect", { length: 500 }).notNull().default(""), // defeito ( problema no equipamento/veiculo)
-    serviceType: saleServiceTypeEnum("service_type").notNull().default("SERVICO"), // tipo de serviço
+    serviceType: saleServiceTypeEnum("service_type")
+      .notNull()
+      .default("SERVICO"), // tipo de serviço
     userModificationServiceId: uuid("user_modification_service_id").references(
       () => users.id,
       { onDelete: "restrict" },
@@ -140,10 +149,9 @@ export const sales = pgTable(
       { onDelete: "restrict" },
     ), // usuário que fechou o serviço
     // Nullable para vendas legadas; obrigatório na criação via API (Zod).
-    vehiclesEnterprisesMembersId: uuid("vehicles_enterprises_members_id").references(
-      () => vehiclesEnterprisesMembers.id,
-      { onDelete: "restrict" },
-    ), // veículo da venda
+    vehiclesEnterprisesMembersId: uuid(
+      "vehicles_enterprises_members_id",
+    ).references(() => vehiclesEnterprisesMembers.id, { onDelete: "restrict" }), // veículo da venda
     enterprisesId: uuid("enterprises_id")
       .notNull()
       .references(() => enterprises.id, { onDelete: "cascade" }),
@@ -239,7 +247,7 @@ export const salesItems = pgTable(
       (): AnyPgColumn => salesItems.id,
       { onDelete: "restrict" },
     ), // item de ordem de serviço
-    typeService: typeServiceEnum("type_service").notNull().default("PROPRIO"), // tipo de serviço (PROPRIO, OUTROS)      
+    typeService: typeServiceEnum("type_service").notNull().default("PROPRIO"), // tipo de serviço (PROPRIO, OUTROS)
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
@@ -276,7 +284,6 @@ export const salesItems = pgTable(
   ],
 );
 
-
 // Membros da venda.
 export const salesMembers = pgTable(
   "sales_members",
@@ -308,12 +315,12 @@ export const salesBudgetConversions = pgTable(
     enterprisesId: uuid("enterprises_id")
       .notNull()
       .references(() => enterprises.id, { onDelete: "cascade" }),
-    budgetSaleId: uuid("budget_sale_id") 
+    budgetSaleId: uuid("budget_sale_id")
       .notNull()
-      .references(() => sales.id, { onDelete: "restrict" }), 
+      .references(() => sales.id, { onDelete: "restrict" }),
     generatedSaleId: uuid("generated_sale_id")
       .notNull()
-      .references(() => sales.id, { onDelete: "restrict" }), 
+      .references(() => sales.id, { onDelete: "restrict" }),
     closureKind: budgetConversionKindEnum("closure_kind").notNull(),
     userId: uuid("user_id")
       .notNull()
@@ -334,12 +341,12 @@ export const salesBudgetConversionItems = pgTable(
   "sales_budget_conversion_items",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    conversionId: uuid("conversion_id") 
+    conversionId: uuid("conversion_id")
       .notNull()
-      .references(() => salesBudgetConversions.id, { onDelete: "cascade" }),  
-    budgetItemId: uuid("budget_item_id") 
+      .references(() => salesBudgetConversions.id, { onDelete: "cascade" }),
+    budgetItemId: uuid("budget_item_id")
       .notNull()
-      .references(() => salesItems.id, { onDelete: "restrict" }), 
+      .references(() => salesItems.id, { onDelete: "restrict" }),
     saleItemId: uuid("sale_item_id")
       .notNull()
       .references(() => salesItems.id, { onDelete: "restrict" }),
@@ -403,7 +410,7 @@ export const salesReturns = pgTable(
     saleItemId: uuid("sale_item_id")
       .notNull()
       .references(() => salesItems.id, { onDelete: "restrict" }), // ITEM DA VENDA
-    quantity: decimal("quantity", valorQuatroCasasDecimais).notNull(), // QUANTIDADE DA DEVOLUÇÃO    
+    quantity: decimal("quantity", valorQuatroCasasDecimais).notNull(), // QUANTIDADE DA DEVOLUÇÃO
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }), // USUÁRIO
@@ -468,5 +475,79 @@ export const salesDues = pgTable(
       t.salesPaymentId,
       t.dueDate,
     ),
+  ],
+);
+
+export const vehicles = pgTable(
+  "vehicles",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    plate: varchar("plate", { length: 255 }).notNull(), // Placa do veículo
+    model: varchar("model", { length: 255 }), // Modelo do veículo
+    color: varchar("color", { length: 255 }), // Cor do veículo
+    fuelType: fuelTypeEnum("fuel_type").notNull().default("GASOLINA"), // Tipo de combustível
+    ownerType: ownerTypeEnum("owner_type").notNull().default("PROPRIETARIO"), // Tipo de proprietário
+    ipvaPaymentMonth: integer("ipva_payment_month"), // Mês de pagamento do IPVA
+    vehicleYear: integer("vehicle_year"), // Ano do veículo (ex: 2020)
+    renavam: varchar("renavam", { length: 255 }), // Renavam do veículo
+    licensingStateId: uuid("licensing_state_id").references(() => states.id), // Estado do licenciamento
+    tareWeight: decimal("tare_weight", valorQuatroCasasDecimais), // peso de tara do veiculo (ex: 1000.0000)
+    capacityM3: decimal("capacity_m3", valorQuatroCasasDecimais), // capacidade do veículo em metros cúbicos (ex: 10.0000)
+    capacityKg: decimal("capacity_kg", valorQuatroCasasDecimais), // capacidade do veículo em quilogramas (ex: 10000.0000)
+    entireCode: varchar("entire_code", { length: 255 }), // código interno do veículo (ex: 1234567890)
+    rntrcCode: varchar("rntrc_code", { length: 255 }), // código do RNTRC do veículo (ex: 1234567890)
+    vehicleType: vehicleTypeEnum("vehicle_type").notNull().default("TRUCK"), // Tipo de veículo ( Truck, Toco, Van, Carroceria, Outros)
+    bodyType: bodyTypeEnum("body_type").notNull().default("NAO_APLICAVEL"), // Tipo de carroceria ( Nao aplicavel, Aberta, Fechada, Semi-Fechada, Outros )
+    axleType: axleTypeEnum("axle_type").notNull().default("VEICULO 2 EIXOS"), // Tipo de eixo ( Simples, Duplo, Triplo, Quadruplo, Outros )
+    location: varchar("location", { length: 255 }), // Locação
+    refuelingMileage: decimal("refueling_mileage", valorQuatroCasasDecimais), // Quilometragem de abastecimento (ex: 1000.0000)
+    fleetNumber: varchar("fleet_number", { length: 255 }), // Número da frota do veículo
+    createdAt: tz("created_at").defaultNow().notNull(),
+    updatedAt: tz("updated_at"),
+  },
+  (t) => [uniqueIndex("vehicles_plate_unique").on(t.plate)],
+);
+
+// tabela de relacionamento entre veículos e membros da empresa
+export const vehiclesEnterprisesMembers = pgTable(
+  "vehicles_enterprises_members",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    status: statusEnum("status").default("ATIVO").notNull(), // status do veiculo
+    vehiclesId: uuid("vehicles_id")
+      .references(() => vehicles.id)
+      .notNull(), // veículo
+    enterprisesMembersId: uuid("enterprises_members_id")
+      .references(() => enterprisesMembers.id)
+      .notNull(), // empresa membro
+    createdAt: tz("created_at").defaultNow().notNull(),
+    updatedAt: tz("updated_at"),
+  },
+  (t) => [
+    uniqueIndex("vehicles_enterprises_members_unique")
+      .on(t.vehiclesId, t.enterprisesMembersId)
+      .where(sql`${t.status} = 'ATIVO'`),
+  ],
+);
+
+// tabela de relacionamento entre mecânico e item de venda
+export const mechanicSalesItems = pgTable(
+  "mechanic_sales_items",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    mechanic: uuid("mechanic")
+      .references(() => enterprisesMembers.id)
+      .notNull(), // mecânico da empresa membro
+    salesItemsId: uuid("sales_items_id")
+      .references(() => salesItems.id)
+      .notNull(), // item de venda
+    comissionService: decimal("comission_service", percentageDecimal) // comissão de serviço
+      .notNull()
+      .default("0.00"), // Comissão de serviço
+    createdAt: tz("created_at").defaultNow().notNull(),
+    updatedAt: tz("updated_at"),
+  },
+  (t) => [
+    uniqueIndex("mechanic_sales_items_unique").on(t.mechanic, t.salesItemsId),
   ],
 );

@@ -11,7 +11,7 @@ import { enterprises } from "../entities/enterprises.js";
 import { departments } from "../entities/departments.js";
 import { typeSupplierCustomers } from "../entities/members.js";
 import { typeNetworks } from "../entities/members.js";
-import { mechanicSalesItems } from "../entities/workOrders.js";
+import { mechanicSalesItems } from "../entities/sales.js";
 
 //**RELAÇÕES DE MEMBROS DE EMPRESAS**//
 export const enterprisesMembersRelations = relations(

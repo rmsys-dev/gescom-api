@@ -11,7 +11,6 @@ import * as authentication from "./entities/authentication.js";
 import * as products from "./entities/products.js";
 import * as sales from "./entities/sales.js";
 import * as stock from "./entities/stock.js";
-import * as workOrders from "./entities/workOrders.js";
 import * as auditoriums from "./auditoriums.js";
 
 export * from "./entities/addresses.js";
@@ -24,7 +23,6 @@ export * from "./entities/authentication.js";
 export * from "./entities/products.js";
 export * from "./entities/sales.js";
 export * from "./entities/stock.js";
-export * from "./entities/workOrders.js";
 export * from "./auditoriums.js";
 
 /**RELAÇÕES**/
@@ -37,7 +35,6 @@ import * as authRelations from "./relations/auth-relations.js";
 import * as productsRelations from "./relations/products-relations.js";
 import * as salesRelations from "./relations/sales-relations.js";
 import * as stockRelations from "./relations/stock-relations.js";
-import * as workOrdersRelations from "./relations/workOrders-relations.js";
 
 export * from "./relations/addresses-relations.js";
 export * from "./relations/enterprise-relations.js";
@@ -47,7 +44,6 @@ export * from "./relations/auth-relations.js";
 export * from "./relations/products-relations.js";
 export * from "./relations/sales-relations.js";
 export * from "./relations/stock-relations.js";
-export * from "./relations/workOrders-relations.js";
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -66,7 +62,6 @@ const schema = {
   ...products,
   ...sales,
   ...stock,
-  ...workOrders,
   ...auditoriums,
   ...addressesRelations,
   ...enterpriseRelations,
@@ -76,7 +71,6 @@ const schema = {
   ...productsRelations,
   ...salesRelations,
   ...stockRelations,
-  ...workOrdersRelations,
 };
 
 export const db = drizzle(client, { schema });

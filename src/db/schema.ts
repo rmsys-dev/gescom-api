@@ -12,7 +12,6 @@ import * as products from "./entities/products.js";
 import * as sales from "./entities/sales.js";
 import * as stock from "./entities/stock.js";
 import * as typeNetworks from "./entities/typeNetworks.js";
-import * as typeSped from "./entities/typeSped.js";
 import * as workOrders from "./entities/workOrders.js";
 import * as auditoriums from "./auditoriums.js";
 
@@ -27,7 +26,6 @@ export * from "./entities/products.js";
 export * from "./entities/sales.js";
 export * from "./entities/stock.js";
 export * from "./entities/typeNetworks.js";
-export * from "./entities/typeSped.js";
 export * from "./entities/workOrders.js";
 export * from "./auditoriums.js";
 
@@ -42,7 +40,6 @@ import * as productsRelations from "./relations/products-relations.js";
 import * as salesRelations from "./relations/sales-relations.js";
 import * as stockRelations from "./relations/stock-relations.js";
 import * as typeNetworksRelations from "./relations/type-networks-relations.js";
-import * as typeSpedRelations from "./relations/type-sped-relations.js";
 import * as workOrdersRelations from "./relations/workOrders-relations.js";
 
 export * from "./relations/addresses-relations.js";
@@ -54,7 +51,6 @@ export * from "./relations/products-relations.js";
 export * from "./relations/sales-relations.js";
 export * from "./relations/stock-relations.js";
 export * from "./relations/type-networks-relations.js";
-export * from "./relations/type-sped-relations.js";
 export * from "./relations/workOrders-relations.js";
 
 const connectionString = process.env.DATABASE_URL;
@@ -75,7 +71,6 @@ const schema = {
   ...sales,
   ...stock,
   ...typeNetworks,
-  ...typeSped,
   ...workOrders,
   ...auditoriums,
   ...addressesRelations,
@@ -87,7 +82,6 @@ const schema = {
   ...salesRelations,
   ...stockRelations,
   ...typeNetworksRelations,
-  ...typeSpedRelations,
   ...workOrdersRelations,
 };
 

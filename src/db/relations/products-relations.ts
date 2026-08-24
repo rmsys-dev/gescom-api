@@ -19,7 +19,7 @@ import {
   pisCofinsSituation,
 } from "../entities/products.js";
 import { enterprises } from "../entities/enterprises.js";
-import { typeSped } from "../entities/typeSped.js";
+import { typeSped } from "../entities/products.js";
 import { stockSectorsRental, stockBatches } from "../entities/stock.js";
 
 export const productsRelations = relations(products, ({ many }) => ({
@@ -102,13 +102,16 @@ export const measurementUnitsRelations = relations(
 );
 
 // relações da tabela de tipos de produtos.
-export const productTypesRelations = relations(productTypes, ({ one, many }) => ({
-  typeSped: one(typeSped, {
-    fields: [productTypes.typeSpedId],
-    references: [typeSped.id],
+export const productTypesRelations = relations(
+  productTypes,
+  ({ one, many }) => ({
+    typeSped: one(typeSped, {
+      fields: [productTypes.typeSpedId],
+      references: [typeSped.id],
+    }),
+    productsEnterprises: many(productsEnterprises),
   }),
-  productsEnterprises: many(productsEnterprises),
-}));
+);
 
 // relações da tabela de NCM de produtos.
 export const productsNcmRelations = relations(productsNcm, ({ many }) => ({
@@ -205,13 +208,16 @@ export const productApplicationRelations = relations(
 );
 
 // relações da tabela de GRUPO DE PRODUTOS.
-export const productGroupsRelations = relations(productGroups, ({ one, many }) => ({
-  enterprise: one(enterprises, {
-    fields: [productGroups.enterprisesId],
-    references: [enterprises.id],
+export const productGroupsRelations = relations(
+  productGroups,
+  ({ one, many }) => ({
+    enterprise: one(enterprises, {
+      fields: [productGroups.enterprisesId],
+      references: [enterprises.id],
+    }),
+    productsEnterprises: many(productsEnterprises),
   }),
-  productsEnterprises: many(productsEnterprises),
-}));
+);
 
 // relações da tabela de SUBGRUPO DE PRODUTOS.
 export const productSubgroupsRelations = relations(
@@ -226,13 +232,16 @@ export const productSubgroupsRelations = relations(
 );
 
 // relações da tabela de MARCA DE PRODUTOS.
-export const productBrandsRelations = relations(productBrands, ({ one, many }) => ({
-  enterprise: one(enterprises, {
-    fields: [productBrands.enterprisesId],
-    references: [enterprises.id],
+export const productBrandsRelations = relations(
+  productBrands,
+  ({ one, many }) => ({
+    enterprise: one(enterprises, {
+      fields: [productBrands.enterprisesId],
+      references: [enterprises.id],
+    }),
+    productsEnterprises: many(productsEnterprises),
   }),
-  productsEnterprises: many(productsEnterprises),
-}));
+);
 
 // relações da tabela de TABELA DE PRECOS.
 export const pricesRelations = relations(prices, ({ one }) => ({
@@ -252,3 +261,7 @@ export const promotionalPricesRelations = relations(
     }),
   }),
 );
+
+export const typeSpedRelations = relations(typeSped, ({ many }) => ({
+  productTypes: many(productTypes),
+}));

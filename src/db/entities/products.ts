@@ -4,7 +4,6 @@ import { integerOrFractionalEnum, statusEnum } from "../enums.js";
 import { varchar } from "drizzle-orm/pg-core";
 import { pgTable, uniqueIndex, index } from "drizzle-orm/pg-core";
 import { enterprises } from "./enterprises.js";
-import { typeSped } from "./typeSped.js";
 import { pisCofinsTypeEnum } from "../enums.js";
 import {
   tz,
@@ -44,9 +43,7 @@ export const measurementUnits = pgTable(
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
   },
-  (t) => [
-    uniqueIndex("measurement_units_unit_unique").on(t.unit),
-  ],
+  (t) => [uniqueIndex("measurement_units_unit_unique").on(t.unit)],
 );
 
 // tipos de produtos. - Global
@@ -405,17 +402,38 @@ export const prices = pgTable(
 );
 
 // TABELA DE PRECOS PROMOCIONAIS. - Fechado por tenant
-export const promotionalPrices = pgTable("promotional_prices", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  description: varchar("description", { length: 255 }), // descrição da promoção
-  price: decimal("price", valorDuasCasasDecimais).notNull(), // preço da promoção
-  startDate: tz("start_date").notNull(),  // data de inicio da promoção
-  endDate: tz("end_date").notNull(),  // data de fim da promoção
-  productsEnterprisesId: uuid("products_enterprises_id") // produto
-    .notNull()
-    .references(() => productsEnterprises.id, { onDelete: "restrict" }),
-  createdAt: tz("created_at").defaultNow().notNull(),
-  updatedAt: tz("updated_at"),  
-}, (t) => ({
-  description_idx: index("promotional_prices_description_date_idx").on(t.description,t.startDate,t.endDate),  
-}));
+export const promotionalPrices = pgTable(
+  "promotional_prices",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    description: varchar("description", { length: 255 }), // descrição da promoção
+    price: decimal("price", valorDuasCasasDecimais).notNull(), // preço da promoção
+    startDate: tz("start_date").notNull(), // data de inicio da promoção
+    endDate: tz("end_date").notNull(), // data de fim da promoção
+    productsEnterprisesId: uuid("products_enterprises_id") // produto
+      .notNull()
+      .references(() => productsEnterprises.id, { onDelete: "restrict" }),
+    createdAt: tz("created_at").defaultNow().notNull(),
+    updatedAt: tz("updated_at"),
+  },
+  (t) => ({
+    description_idx: index("promotional_prices_description_date_idx").on(
+      t.description,
+      t.startDate,
+      t.endDate,
+    ),
+  }),
+);
+
+export const typeSped = pgTable(
+  "type_sped",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    type: varchar("type", { length: 255 }).notNull(),
+    description: varchar("description", { length: 255 }).notNull(),
+    generateInventory: boolean("generate_inventory").notNull().default(true), // se gera inventário.
+    createdAt: tz("created_at").defaultNow().notNull(),
+    updatedAt: tz("updated_at"),
+  },
+  (t) => [uniqueIndex("type_sped_type_unique").on(t.type)],
+);

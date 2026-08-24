@@ -46,26 +46,26 @@ const saleServiceFieldsSchema = {
 };
 
 const saleFinancialAdjustmentsSchema = {
-  percentageDiscountPie: decimalOpt,
-  valueDiscountFinancialPie: decimalOpt,
+  percentageDiscountProduct: decimalOpt,
+  valueDiscountFinancialProduct: decimalOpt,
   percentageDiscountService: decimalOpt,
   valueDiscountFinancialService: decimalOpt,
-  percentageAcrescePie: decimalOpt,
-  valueAcresceFinancialPie: decimalOpt,
+  percentageAcresceProduct: decimalOpt,
+  valueAcresceFinancialProduct: decimalOpt,
   percentageAcresceService: decimalOpt,
   valueAcresceFinancialService: decimalOpt,
 };
 
 const patchSaleFinancialAdjustmentsSchema = {
-  /** Percentual 0–100 sobre valuePie; gera valueDiscountFinancialPie no recalculo. */
-  percentageDiscountPie: percentageOpt.nullable(),
-  valueDiscountFinancialPie: monetaryOpt,
+  /** Percentual 0–100 sobre valueProduct; gera valueDiscountFinancialProduct no recalculo. */
+  percentageDiscountProduct: percentageOpt.nullable(),
+  valueDiscountFinancialProduct: monetaryOpt,
   /** Percentual 0–100 sobre valueService; gera valueDiscountFinancialService no recalculo. */
   percentageDiscountService: percentageOpt.nullable(),
   valueDiscountFinancialService: monetaryOpt,
-  /** Percentual 0–100 sobre valuePie; gera valueAcresceFinancialPie no recalculo. */
-  percentageAcrescePie: percentageOpt.nullable(),
-  valueAcresceFinancialPie: monetaryOpt,
+  /** Percentual 0–100 sobre valueProduct; gera valueAcresceFinancialProduct no recalculo. */
+  percentageAcresceProduct: percentageOpt.nullable(),
+  valueAcresceFinancialProduct: monetaryOpt,
   /** Percentual 0–100 sobre valueService; gera valueAcresceFinancialService no recalculo. */
   percentageAcresceService: percentageOpt.nullable(),
   valueAcresceFinancialService: monetaryOpt,
@@ -93,8 +93,8 @@ const refineSaleFinancialAdjustments = (
   assertExclusivePercentageOrValue(
     data,
     ctx,
-    "percentageDiscountPie",
-    "valueDiscountFinancialPie",
+    "percentageDiscountProduct",
+    "valueDiscountFinancialProduct",
   );
   assertExclusivePercentageOrValue(
     data,
@@ -105,8 +105,8 @@ const refineSaleFinancialAdjustments = (
   assertExclusivePercentageOrValue(
     data,
     ctx,
-    "percentageAcrescePie",
-    "valueAcresceFinancialPie",
+    "percentageAcresceProduct",
+    "valueAcresceFinancialProduct",
   );
   assertExclusivePercentageOrValue(
     data,

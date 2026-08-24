@@ -85,18 +85,18 @@ export const recognizedCostSql = () =>
   sql`${saleGrossCostSql()} * ${recognizedFractionSql()}`;
 
 /** Receita de pecas rateada na parcela. */
-export const recognizedPieRevenueSql = () =>
-  sql`coalesce(${sales.valuePie}, 0) * ${recognizedFractionSql()}`;
+export const recognizedProductRevenueSql = () =>
+  sql`coalesce(${sales.valueProduct}, 0) * ${recognizedFractionSql()}`;
 
 /** Receita de servicos rateada na parcela. */
 export const recognizedServiceRevenueSql = () =>
   sql`coalesce(${sales.valueService}, 0) * ${recognizedFractionSql()}`;
 
-/** Desconto rateado na parcela (itens + financeiro pie/service). */
+/** Desconto rateado na parcela (itens + financeiro de produto/serviço). */
 export const recognizedDiscountSql = () =>
   sql`(
     coalesce(${sales.discountValuetems}, 0)
-    + coalesce(${sales.valueDiscountFinancialPie}, 0)
+    + coalesce(${sales.valueDiscountFinancialProduct}, 0)
     + coalesce(${sales.valueDiscountFinancialService}, 0)
   ) * ${recognizedFractionSql()}`;
 

@@ -86,12 +86,12 @@ export const sales = pgTable(
     subTotal: decimal("sub_total", valorDuasCasasDecimais).notNull(), // subtotal da venda
     discountValuetems: decimal("discount_value_items", valorDuasCasasDecimais), // valor do desconto nos itens
     valueAcresceItems: decimal("value_acresce_items", valorDuasCasasDecimais), // valor do acrescimo nos itens
-    percentageDiscountPie: decimal(
-      "percentage_discount_pie",
+    percentageDiscountProduct: decimal(
+      "percentage_discount_product",
       percentageDecimal,
     ), // percentagem de desconto financeiro em pecas
-    valueDiscountFinancialPie: decimal(
-      "value_discount_financial_pie",
+    valueDiscountFinancialProduct: decimal(
+      "value_discount_financial_product",
       valorDuasCasasDecimais,
     ), // valor do desconto financeiro em pecas
     percentageDiscountService: decimal(
@@ -102,9 +102,12 @@ export const sales = pgTable(
       "value_discount_financial_service",
       valorDuasCasasDecimais,
     ), // valor do desconto financeiro em servicos
-    percentageAcrescePie: decimal("percentage_acresce_pie", percentageDecimal), // percentagem de acrescimo financeiro em pecas
-    valueAcresceFinancialPie: decimal(
-      "value_acresce_financial_pie",
+    percentageAcresceProduct: decimal(
+      "percentage_acresce_product",
+      percentageDecimal,
+    ), // percentagem de acrescimo financeiro em pecas
+    valueAcresceFinancialProduct: decimal(
+      "value_acresce_financial_product",
       valorDuasCasasDecimais,
     ), // valor do acrescimo financeiro em pecas
     percentageAcresceService: decimal(
@@ -115,7 +118,7 @@ export const sales = pgTable(
       "value_acresce_financial_service",
       valorDuasCasasDecimais,
     ), // valor do acrescimo financeiro em servicos
-    valuePie: decimal("value_pie", valorDuasCasasDecimais), // valor do Peças
+    valueProduct: decimal("value_product", valorDuasCasasDecimais), // valor do produto
     valueService: decimal("value_service", valorDuasCasasDecimais), // valor do serviço
     valueLiquid: decimal("value_liquid", valorDuasCasasDecimais), // valor líquido
     status: saleStatusEnum("status").notNull(), // status

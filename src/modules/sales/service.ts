@@ -183,32 +183,32 @@ const resolveAdjustmentFinancial = (
 const resolveFinancialAdjustmentsByCategory = (
   sale: Pick<
     typeof sales.$inferSelect,
-    | "percentageDiscountPie"
+    | "percentageDiscountProduct"
     | "percentageDiscountService"
-    | "percentageAcrescePie"
+    | "percentageAcresceProduct"
     | "percentageAcresceService"
-    | "valueDiscountFinancialPie"
+    | "valueDiscountFinancialProduct"
     | "valueDiscountFinancialService"
-    | "valueAcresceFinancialPie"
+    | "valueAcresceFinancialProduct"
     | "valueAcresceFinancialService"
   >,
-  valuePie: number,
+  valueProduct: number,
   valueService: number,
 ) => {
-  const discountPie = resolveAdjustmentFinancial(
-    valuePie,
-    sale.percentageDiscountPie,
-    sale.valueDiscountFinancialPie,
+  const discountProduct = resolveAdjustmentFinancial(
+    valueProduct,
+    sale.percentageDiscountProduct,
+    sale.valueDiscountFinancialProduct,
   );
   const discountService = resolveAdjustmentFinancial(
     valueService,
     sale.percentageDiscountService,
     sale.valueDiscountFinancialService,
   );
-  const acrescePie = resolveAdjustmentFinancial(
-    valuePie,
-    sale.percentageAcrescePie,
-    sale.valueAcresceFinancialPie,
+  const acresceProduct = resolveAdjustmentFinancial(
+    valueProduct,
+    sale.percentageAcresceProduct,
+    sale.valueAcresceFinancialProduct,
   );
   const acresceService = resolveAdjustmentFinancial(
     valueService,
@@ -217,24 +217,24 @@ const resolveFinancialAdjustmentsByCategory = (
   );
 
   return {
-    valueDiscountFinancialPie: discountPie.value,
-    percentageDiscountPie: discountPie.percentage,
+    valueDiscountFinancialProduct: discountProduct.value,
+    percentageDiscountProduct: discountProduct.percentage,
     valueDiscountFinancialService: discountService.value,
     percentageDiscountService: discountService.percentage,
-    valueAcresceFinancialPie: acrescePie.value,
-    percentageAcrescePie: acrescePie.percentage,
+    valueAcresceFinancialProduct: acresceProduct.value,
+    percentageAcresceProduct: acresceProduct.percentage,
     valueAcresceFinancialService: acresceService.value,
     percentageAcresceService: acresceService.percentage,
   };
 };
 
 type SaleFinancialAdjustmentInput = {
-  percentageDiscountPie?: number | null;
-  valueDiscountFinancialPie?: number;
+  percentageDiscountProduct?: number | null;
+  valueDiscountFinancialProduct?: number;
   percentageDiscountService?: number | null;
   valueDiscountFinancialService?: number;
-  percentageAcrescePie?: number | null;
-  valueAcresceFinancialPie?: number;
+  percentageAcresceProduct?: number | null;
+  valueAcresceFinancialProduct?: number;
   percentageAcresceService?: number | null;
   valueAcresceFinancialService?: number;
 };
@@ -245,16 +245,16 @@ const buildSaleFinancialAdjustmentValues = (
   const patch: Partial<typeof sales.$inferInsert> = {};
   const pairs = [
     {
-      pct: "percentageDiscountPie" as const,
-      val: "valueDiscountFinancialPie" as const,
+      pct: "percentageDiscountProduct" as const,
+      val: "valueDiscountFinancialProduct" as const,
     },
     {
       pct: "percentageDiscountService" as const,
       val: "valueDiscountFinancialService" as const,
     },
     {
-      pct: "percentageAcrescePie" as const,
-      val: "valueAcresceFinancialPie" as const,
+      pct: "percentageAcresceProduct" as const,
+      val: "valueAcresceFinancialProduct" as const,
     },
     {
       pct: "percentageAcresceService" as const,
@@ -488,15 +488,15 @@ const saleWithMemberSelect = {
   subTotal: sales.subTotal,
   discountValuetems: sales.discountValuetems,
   valueAcresceItems: sales.valueAcresceItems,
-  percentageDiscountPie: sales.percentageDiscountPie,
-  valueDiscountFinancialPie: sales.valueDiscountFinancialPie,
+  percentageDiscountProduct: sales.percentageDiscountProduct,
+  valueDiscountFinancialProduct: sales.valueDiscountFinancialProduct,
   percentageDiscountService: sales.percentageDiscountService,
   valueDiscountFinancialService: sales.valueDiscountFinancialService,
-  percentageAcrescePie: sales.percentageAcrescePie,
-  valueAcresceFinancialPie: sales.valueAcresceFinancialPie,
+  percentageAcresceProduct: sales.percentageAcresceProduct,
+  valueAcresceFinancialProduct: sales.valueAcresceFinancialProduct,
   percentageAcresceService: sales.percentageAcresceService,
   valueAcresceFinancialService: sales.valueAcresceFinancialService,
-  valuePie: sales.valuePie,
+  valueProduct: sales.valueProduct,
   valueService: sales.valueService,
   valueLiquid: sales.valueLiquid,
   status: sales.status,
@@ -1806,7 +1806,7 @@ export class SalesService {
     totals: {
       subTotal: number;
       discountValuetems: number;
-      valueDiscountFinancialPie: number;
+      valueDiscountFinancialProduct: number;
       valueDiscountFinancialService: number;
     },
     path = "body",
@@ -1816,7 +1816,7 @@ export class SalesService {
 
     const totalDiscount = roundMoney(
       totals.discountValuetems +
-        totals.valueDiscountFinancialPie +
+        totals.valueDiscountFinancialProduct +
         totals.valueDiscountFinancialService,
     );
     const effectivePct = computePercentageFromFinancial(
@@ -1845,7 +1845,7 @@ export class SalesService {
     totals: {
       subTotal: number;
       discountValuetems: number;
-      valueDiscountFinancialPie: number;
+      valueDiscountFinancialProduct: number;
       valueDiscountFinancialService: number;
     },
     path = "body",
@@ -1954,24 +1954,24 @@ export class SalesService {
   }
 
   private computeValueLiquid(
-    valuePie: number,
+    valueProduct: number,
     valueService: number,
     sale: Pick<
       typeof sales.$inferSelect,
-      | "valueDiscountFinancialPie"
+      | "valueDiscountFinancialProduct"
       | "valueDiscountFinancialService"
-      | "valueAcresceFinancialPie"
+      | "valueAcresceFinancialProduct"
       | "valueAcresceFinancialService"
     >,
   ) {
     return roundMoney(
       Math.max(
         0,
-        valuePie +
+        valueProduct +
           valueService -
-          decNum(sale.valueDiscountFinancialPie) -
+          decNum(sale.valueDiscountFinancialProduct) -
           decNum(sale.valueDiscountFinancialService) +
-          decNum(sale.valueAcresceFinancialPie) +
+          decNum(sale.valueAcresceFinancialProduct) +
           decNum(sale.valueAcresceFinancialService),
       ),
     );
@@ -2010,7 +2010,7 @@ export class SalesService {
       0,
     );
 
-    let valuePie = 0;
+    let valueProduct = 0;
     let valueService = 0;
     for (const row of itemRows) {
       const net = computeItemValueTotal(
@@ -2022,15 +2022,15 @@ export class SalesService {
       if (row.typeCode === PRODUCT_TYPE_SERVICE_CODE) {
         valueService += net;
       } else {
-        valuePie += net;
+        valueProduct += net;
       }
     }
-    valuePie = roundMoney(valuePie);
+    valueProduct = roundMoney(valueProduct);
     valueService = roundMoney(valueService);
 
     const financial = resolveFinancialAdjustmentsByCategory(
       sale,
-      valuePie,
+      valueProduct,
       valueService,
     );
 
@@ -2038,15 +2038,15 @@ export class SalesService {
       ...sale,
       discountValuetems: discountValuetems.toString(),
       valueAcresceItems: valueAcresceItems.toString(),
-      valueDiscountFinancialPie: financial.valueDiscountFinancialPie.toString(),
+      valueDiscountFinancialProduct: financial.valueDiscountFinancialProduct.toString(),
       valueDiscountFinancialService:
         financial.valueDiscountFinancialService.toString(),
-      valueAcresceFinancialPie: financial.valueAcresceFinancialPie.toString(),
+      valueAcresceFinancialProduct: financial.valueAcresceFinancialProduct.toString(),
       valueAcresceFinancialService:
         financial.valueAcresceFinancialService.toString(),
     };
     const valueLiquid = this.computeValueLiquid(
-      valuePie,
+      valueProduct,
       valueService,
       saleWithAggregates,
     );
@@ -2057,18 +2057,18 @@ export class SalesService {
         subTotal: subTotal.toString(),
         discountValuetems: discountValuetems.toString(),
         valueAcresceItems: valueAcresceItems.toString(),
-        percentageDiscountPie: financial.percentageDiscountPie,
-        valueDiscountFinancialPie:
-          financial.valueDiscountFinancialPie.toString(),
+        percentageDiscountProduct: financial.percentageDiscountProduct,
+        valueDiscountFinancialProduct:
+          financial.valueDiscountFinancialProduct.toString(),
         percentageDiscountService: financial.percentageDiscountService,
         valueDiscountFinancialService:
           financial.valueDiscountFinancialService.toString(),
-        percentageAcrescePie: financial.percentageAcrescePie,
-        valueAcresceFinancialPie: financial.valueAcresceFinancialPie.toString(),
+        percentageAcresceProduct: financial.percentageAcresceProduct,
+        valueAcresceFinancialProduct: financial.valueAcresceFinancialProduct.toString(),
         percentageAcresceService: financial.percentageAcresceService,
         valueAcresceFinancialService:
           financial.valueAcresceFinancialService.toString(),
-        valuePie: valuePie.toString(),
+        valueProduct: valueProduct.toString(),
         valueService: valueService.toString(),
         valueLiquid: valueLiquid.toString(),
         updatedAt: new Date(),
@@ -2079,11 +2079,11 @@ export class SalesService {
       subTotal,
       discountValuetems,
       valueAcresceItems,
-      valueDiscountFinancialPie: financial.valueDiscountFinancialPie,
+      valueDiscountFinancialProduct: financial.valueDiscountFinancialProduct,
       valueDiscountFinancialService: financial.valueDiscountFinancialService,
-      valueAcresceFinancialPie: financial.valueAcresceFinancialPie,
+      valueAcresceFinancialProduct: financial.valueAcresceFinancialProduct,
       valueAcresceFinancialService: financial.valueAcresceFinancialService,
-      valuePie,
+      valueProduct,
       valueService,
       valueLiquid,
     };
@@ -2120,10 +2120,10 @@ export class SalesService {
       {
         subTotal: decNum(sale.subTotal),
         valueDiscountFinancial:
-          decNum(sale.valueDiscountFinancialPie) +
+          decNum(sale.valueDiscountFinancialProduct) +
           decNum(sale.valueDiscountFinancialService),
         valueAcresceFinancial:
-          decNum(sale.valueAcresceFinancialPie) +
+          decNum(sale.valueAcresceFinancialProduct) +
           decNum(sale.valueAcresceFinancialService),
       },
     );
@@ -3466,12 +3466,12 @@ export class SalesService {
       input.sellerId !== undefined ||
       input.discountValuetems !== undefined ||
       input.valueAcresceItems !== undefined ||
-      input.percentageDiscountPie !== undefined ||
-      input.valueDiscountFinancialPie !== undefined ||
+      input.percentageDiscountProduct !== undefined ||
+      input.valueDiscountFinancialProduct !== undefined ||
       input.percentageDiscountService !== undefined ||
       input.valueDiscountFinancialService !== undefined ||
-      input.percentageAcrescePie !== undefined ||
-      input.valueAcresceFinancialPie !== undefined ||
+      input.percentageAcresceProduct !== undefined ||
+      input.valueAcresceFinancialProduct !== undefined ||
       input.percentageAcresceService !== undefined ||
       input.valueAcresceFinancialService !== undefined ||
       input.valueLiquid !== undefined ||
@@ -3650,7 +3650,7 @@ export class SalesService {
             {
               subTotal: decNum(row.subTotal),
               discountValuetems: decNum(row.discountValuetems),
-              valueDiscountFinancialPie: decNum(row.valueDiscountFinancialPie),
+              valueDiscountFinancialProduct: decNum(row.valueDiscountFinancialProduct),
               valueDiscountFinancialService: decNum(
                 row.valueDiscountFinancialService,
               ),

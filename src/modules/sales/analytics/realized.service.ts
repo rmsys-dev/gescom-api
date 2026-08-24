@@ -32,7 +32,7 @@ import {
   recognizedCostSql,
   recognizedDiscountSql,
   recognizedFractionSql,
-  recognizedPieRevenueSql,
+  recognizedProductRevenueSql,
   recognizedServiceRevenueSql,
   returnLineValueSql,
   type AnalyticsFilters,
@@ -53,9 +53,9 @@ export type RealizedKpis = {
   returnsTotal: number;
   returnCount: number;
   returnRatePercent: number;
-  pieRevenue: number;
+  productRevenue: number;
   serviceRevenue: number;
-  pieSharePercent: number;
+  productSharePercent: number;
   serviceSharePercent: number;
   costTotal: number;
   grossProfit: number;
@@ -77,7 +77,7 @@ const fetchRealizedKpis = async (
       .select({
         liquidRevenue: sql<string>`coalesce(sum(${amount}), 0)`,
         salesCount: sql<string>`count(distinct ${sales.id})`,
-        pieRevenue: sql<string>`coalesce(sum(${recognizedPieRevenueSql()}), 0)`,
+        productRevenue: sql<string>`coalesce(sum(${recognizedProductRevenueSql()}), 0)`,
         serviceRevenue: sql<string>`coalesce(sum(${recognizedServiceRevenueSql()}), 0)`,
         discountTotal: sql<string>`coalesce(sum(${recognizedDiscountSql()}), 0)`,
         costTotal: sql<string>`coalesce(sum(${recognizedCostSql()}), 0)`,
@@ -112,9 +112,9 @@ const fetchRealizedKpis = async (
   const discountTotal = roundMoney(decNum(salesAgg[0]?.discountTotal));
   const returnsTotal = decNum(returnsAgg[0]?.returnsTotal);
   const salesCount = Number(salesAgg[0]?.salesCount ?? 0);
-  const pieRevenue = roundMoney(decNum(salesAgg[0]?.pieRevenue));
+  const productRevenue = roundMoney(decNum(salesAgg[0]?.productRevenue));
   const serviceRevenue = roundMoney(decNum(salesAgg[0]?.serviceRevenue));
-  const pieServiceBase = pieRevenue + serviceRevenue;
+  const productServiceBase = productRevenue + serviceRevenue;
   const costTotal = roundMoney(decNum(salesAgg[0]?.costTotal));
   const grossRevenue = roundMoney(liquidRevenue + discountTotal);
   const netRevenue = roundMoney(liquidRevenue - returnsTotal);
@@ -132,10 +132,10 @@ const fetchRealizedKpis = async (
     returnsTotal: roundMoney(returnsTotal),
     returnCount: Number(returnsAgg[0]?.returnCount ?? 0),
     returnRatePercent: ratePercent(returnsTotal, liquidRevenue),
-    pieRevenue,
+    productRevenue,
     serviceRevenue,
-    pieSharePercent: ratePercent(pieRevenue, pieServiceBase),
-    serviceSharePercent: ratePercent(serviceRevenue, pieServiceBase),
+    productSharePercent: ratePercent(productRevenue, productServiceBase),
+    serviceSharePercent: ratePercent(serviceRevenue, productServiceBase),
     costTotal,
     grossProfit,
     netProfit,
@@ -167,9 +167,9 @@ const buildOverviewKpis = (
     returnCount: current.returnCount,
     returnRatePercent: current.returnRatePercent,
   },
-  pieRevenue: {
-    ...kpiWithComparison(current.pieRevenue, previous?.pieRevenue),
-    sharePercent: current.pieSharePercent,
+  productRevenue: {
+    ...kpiWithComparison(current.productRevenue, previous?.productRevenue),
+    sharePercent: current.productSharePercent,
   },
   serviceRevenue: {
     ...kpiWithComparison(current.serviceRevenue, previous?.serviceRevenue),
@@ -381,7 +381,7 @@ export class RealizedAnalyticsService {
         current.returnRatePercent,
         comparison.returnRatePercent,
       ),
-      pieRevenue: kpiWithComparison(current.pieRevenue, comparison.pieRevenue),
+      productRevenue: kpiWithComparison(current.productRevenue, comparison.productRevenue),
       serviceRevenue: kpiWithComparison(
         current.serviceRevenue,
         comparison.serviceRevenue,

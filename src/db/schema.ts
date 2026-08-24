@@ -22,7 +22,6 @@ export * from "./entities/departments.js";
 export * from "./entities/enterprises.js";
 export * from "./enums.js";
 export * from "./entities/members.js";
-export * from "./entities/sequences.js";
 export * from "./entities/users.js";
 export * from "./entities/authentication.js";
 export * from "./entities/products.js";

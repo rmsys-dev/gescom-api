@@ -3,7 +3,7 @@ import { pgTable, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
 import { statusEnum } from "../enums.js";
 import { tz } from "../functions.js";
 
-//Tabela de tipos de redes sociais
+//Tabela de tipos de redes
 export const typeNetworks = pgTable(
   "type_networks",
   {

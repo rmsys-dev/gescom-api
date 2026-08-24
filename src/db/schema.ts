@@ -11,7 +11,6 @@ import * as authentication from "./entities/authentication.js";
 import * as products from "./entities/products.js";
 import * as sales from "./entities/sales.js";
 import * as stock from "./entities/stock.js";
-import * as typeOfCustomers from "./entities/typeSupplierCustomers.js";
 import * as typeNetworks from "./entities/typeNetworks.js";
 import * as typeSped from "./entities/typeSped.js";
 import * as workOrders from "./entities/workOrders.js";
@@ -27,7 +26,6 @@ export * from "./entities/authentication.js";
 export * from "./entities/products.js";
 export * from "./entities/sales.js";
 export * from "./entities/stock.js";
-export * from "./entities/typeSupplierCustomers.js";
 export * from "./entities/typeNetworks.js";
 export * from "./entities/typeSped.js";
 export * from "./entities/workOrders.js";
@@ -43,7 +41,6 @@ import * as authRelations from "./relations/auth-relations.js";
 import * as productsRelations from "./relations/products-relations.js";
 import * as salesRelations from "./relations/sales-relations.js";
 import * as stockRelations from "./relations/stock-relations.js";
-import * as typeOfCustomersRelations from "./relations/type-supplier-customers-relations.js";
 import * as typeNetworksRelations from "./relations/type-networks-relations.js";
 import * as typeSpedRelations from "./relations/type-sped-relations.js";
 import * as workOrdersRelations from "./relations/workOrders-relations.js";
@@ -56,7 +53,6 @@ export * from "./relations/auth-relations.js";
 export * from "./relations/products-relations.js";
 export * from "./relations/sales-relations.js";
 export * from "./relations/stock-relations.js";
-export * from "./relations/type-supplier-customers-relations.js";
 export * from "./relations/type-networks-relations.js";
 export * from "./relations/type-sped-relations.js";
 export * from "./relations/workOrders-relations.js";
@@ -78,7 +74,6 @@ const schema = {
   ...products,
   ...sales,
   ...stock,
-  ...typeOfCustomers,
   ...typeNetworks,
   ...typeSped,
   ...workOrders,
@@ -91,7 +86,6 @@ const schema = {
   ...productsRelations,
   ...salesRelations,
   ...stockRelations,
-  ...typeOfCustomersRelations,
   ...typeNetworksRelations,
   ...typeSpedRelations,
   ...workOrdersRelations,

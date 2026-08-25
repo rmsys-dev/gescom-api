@@ -6,7 +6,10 @@ import {
   NotFoundError,
   ValidationError,
 } from "../../../shared/errors/app-error.js";
-import { isPostgresUniqueViolation } from "../../../shared/db/postgres-errors.js";
+import {
+  isPostgresForeignKeyViolation,
+  isPostgresUniqueViolation,
+} from "../../../shared/db/postgres-errors.js";
 import { resolveListPagination } from "../../../shared/pagination/pagination-params.js";
 import {
   recordCreateAudit,
@@ -254,22 +257,32 @@ export class StockBatchesService {
     audit: EntityAuditContext,
   ) {
     const existing = await this.getPlainById(enterpriseId, id);
-    const [row] = await db
-      .delete(stockBatches)
-      .where(eq(stockBatches.id, id))
-      .returning();
-    if (!row) {
-      throw new NotFoundError("Lote nao encontrado", "STOCK_BATCH_NOT_FOUND");
+    try {
+      const [row] = await db
+        .delete(stockBatches)
+        .where(eq(stockBatches.id, id))
+        .returning();
+      if (!row) {
+        throw new NotFoundError("Lote nao encontrado", "STOCK_BATCH_NOT_FOUND");
+      }
+      await recordEntityAudit({
+        entityType: EntityTypes.STOCK_BATCHES,
+        entityId: id,
+        action: "DELETE",
+        before: toAuditRecord(existing),
+        after: toAuditRecord(row),
+        ctx: audit,
+      });
+      return row;
+    } catch (err) {
+      if (isPostgresForeignKeyViolation(err)) {
+        throw new ConflictError(
+          "Lote possui movimentações, saldos ou vinculos e não pode ser excluído",
+          "STOCK_BATCH_IN_USE",
+        );
+      }
+      throw err;
     }
-    await recordEntityAudit({
-      entityType: EntityTypes.STOCK_BATCHES,
-      entityId: id,
-      action: "DELETE",
-      before: toAuditRecord(existing),
-      after: toAuditRecord(row),
-      ctx: audit,
-    });
-    return row;
   }
 }
 

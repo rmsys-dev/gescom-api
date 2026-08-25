@@ -428,6 +428,13 @@
       "when": 1787260800000,
       "tag": "0060_sales_items_value_liquid_items_header",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1787673600000,
+      "tag": "0061_sale_conversions_audit",
+      "breakpoints": true
     }
   ]
 }

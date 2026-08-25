@@ -26,7 +26,9 @@ import type {
 } from "./schema.js";
 import { salesService, type SaleAuthContext } from "./service.js";
 
-const saleAuthFromRequest = (auth: RequestWithAuth["auth"]): SaleAuthContext => ({
+const saleAuthFromRequest = (
+  auth: RequestWithAuth["auth"],
+): SaleAuthContext => ({
   userId: auth!.userId!,
   memberId: auth!.memberId,
   memberDepartmentId: auth!.memberDepartmentId,
@@ -36,7 +38,8 @@ export class SalesController {
   public list = async (req: Request, res: Response): Promise<void> => {
     const auth = (req as RequestWithAuth).auth!;
     const enterpriseId = requireTenantEnterpriseId(auth);
-    const query = (req as RequestWithValidatedQuery<ListSalesQuery>).validatedQuery;
+    const query = (req as RequestWithValidatedQuery<ListSalesQuery>)
+      .validatedQuery;
 
     if (query.sellerId && auth.userId && query.sellerId !== auth.userId) {
       throw new ForbiddenError(
@@ -242,7 +245,7 @@ export class SalesController {
     });
   };
 
-  public listBudgetConversions = async (
+  public listSaleConversions = async (
     req: Request,
     res: Response,
   ): Promise<void> => {
@@ -250,13 +253,10 @@ export class SalesController {
       (req as RequestWithAuth).auth!,
     );
     const saleId = req.params["saleId"] as string;
-    const result = await salesService.listBudgetConversions(
-      enterpriseId,
-      saleId,
-    );
+    const result = await salesService.listSaleConversions(enterpriseId, saleId);
     sendListSuccessResponse(
       res,
-      "Conversoes de orcamento listadas com sucesso.",
+      "Conversões listadas com sucesso.",
       result.items,
     );
   };

@@ -12,7 +12,6 @@ import {
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import {
-  budgetConversionKindEnum,
   saleReturnSituationEnum,
   saleStatusEnum,
   saleOriginEnum,
@@ -27,6 +26,8 @@ import {
   vehicleTypeEnum,
   bodyTypeEnum,
   axleTypeEnum,
+  saleConversionTypeEnum,
+  saleConversionClosureKindEnum,
 } from "../enums.js";
 import { users } from "./users.js";
 import { enterprisesMembers } from "./members.js";
@@ -310,21 +311,25 @@ export const salesMembers = pgTable(
   (t) => [uniqueIndex("sales_members_sales_id_unique").on(t.salesId)],
 );
 
-// CONVERSOES ORCAMENTO -> VENDA (historico auditavel).
-export const salesBudgetConversions = pgTable(
-  "sales_budget_conversions",
+// Histórico de conversão de Orçamentos e Ordens de Serviço para Vendas (historico auditavel).
+export const saleConversions = pgTable(
+  "sale_conversions",
   {
     id: uuid("id").defaultRandom().primaryKey(),
     enterprisesId: uuid("enterprises_id")
       .notNull()
       .references(() => enterprises.id, { onDelete: "cascade" }),
-    budgetSaleId: uuid("budget_sale_id")
-      .notNull()
-      .references(() => sales.id, { onDelete: "restrict" }),
+    typeConversion: saleConversionTypeEnum("type_conversion").notNull(),
+    workOrderSaleId: uuid("work_order_sale_id").references(() => sales.id, {
+      onDelete: "restrict",
+    }),
+    budgetSaleId: uuid("budget_sale_id").references(() => sales.id, {
+      onDelete: "restrict",
+    }),
     generatedSaleId: uuid("generated_sale_id")
       .notNull()
       .references(() => sales.id, { onDelete: "restrict" }),
-    closureKind: budgetConversionKindEnum("closure_kind").notNull(),
+    closureKind: saleConversionClosureKindEnum("closure_kind").notNull(),
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
@@ -332,24 +337,37 @@ export const salesBudgetConversions = pgTable(
     createdAt: tz("created_at").defaultNow().notNull(),
   },
   (t) => [
-    index("sales_budget_conversions_budget_sale_id_idx").on(t.budgetSaleId),
-    index("sales_budget_conversions_generated_sale_id_idx").on(
-      t.generatedSaleId,
+    index("sale_conversions_budget_sale_id_idx").on(t.budgetSaleId),
+    index("sale_conversions_work_order_sale_id_idx").on(t.workOrderSaleId),
+    index("sale_conversions_generated_sale_id_idx").on(t.generatedSaleId),
+    index("sale_conversions_type_conversion_idx").on(t.typeConversion),
+    check(
+      "sale_conversions_source_by_type",
+      sql`(
+        (
+          ${t.typeConversion} IN ('ORCAMENTO-VENDA', 'ORCAMENTO-ORDEM_SERVICO')
+          AND ${t.budgetSaleId} IS NOT NULL
+          AND ${t.workOrderSaleId} IS NULL
+        )
+        OR
+        (
+          ${t.typeConversion} = 'ORDEM_SERVICO-VENDA'
+          AND ${t.workOrderSaleId} IS NOT NULL
+          AND ${t.budgetSaleId} IS NULL
+        )
+      )`,
     ),
   ],
 );
 
-// Itens da conversão de orçamento para venda (historico auditavel).
-export const salesBudgetConversionItems = pgTable(
-  "sales_budget_conversion_items",
+// Itens da conversão de Orçamentos e Ordens de Serviço para Vendas (historico auditavel).
+export const saleConversionItems = pgTable(
+  "sale_conversion_items",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    conversionId: uuid("conversion_id")
+    saleConversionId: uuid("sale_conversion_id")
       .notNull()
-      .references(() => salesBudgetConversions.id, { onDelete: "cascade" }),
-    budgetItemId: uuid("budget_item_id")
-      .notNull()
-      .references(() => salesItems.id, { onDelete: "restrict" }),
+      .references(() => saleConversions.id, { onDelete: "cascade" }),
     saleItemId: uuid("sale_item_id")
       .notNull()
       .references(() => salesItems.id, { onDelete: "restrict" }),
@@ -358,24 +376,21 @@ export const salesBudgetConversionItems = pgTable(
   },
   (t) => [
     uniqueIndex(
-      "sales_budget_conversion_items_conversion_budget_item_unique",
-    ).on(t.conversionId, t.budgetItemId),
-    check(
-      "sales_budget_conversion_items_quantity_positive",
-      sql`${t.quantity} > 0`,
-    ),
+      "sale_conversion_items_sale_conversion_id_sale_item_id_unique",
+    ).on(t.saleConversionId, t.saleItemId),
+    check("sale_conversion_items_quantity_positive", sql`${t.quantity} > 0`),
   ],
 );
 
-// Itens não convertidos em venda (historico auditavel).
-export const salesBudgetUnclosedItems = pgTable(
-  "sales_budget_unclosed_items",
+// Itens não convertidos em Vendas (historico auditavel).
+export const saleUnclosedItems = pgTable(
+  "sale_unclosed_items",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    conversionId: uuid("conversion_id")
+    saleConversionId: uuid("sale_conversion_id")
       .notNull()
-      .references(() => salesBudgetConversions.id, { onDelete: "cascade" }),
-    budgetItemId: uuid("budget_item_id")
+      .references(() => saleConversions.id, { onDelete: "cascade" }),
+    saleItemId: uuid("sale_item_id")
       .notNull()
       .references(() => salesItems.id, { onDelete: "restrict" }),
     quantityNotConverted: decimal(
@@ -390,12 +405,11 @@ export const salesBudgetUnclosedItems = pgTable(
     createdAt: tz("created_at").defaultNow().notNull(),
   },
   (t) => [
-    uniqueIndex("sales_budget_unclosed_items_conversion_budget_item_unique").on(
-      t.conversionId,
-      t.budgetItemId,
-    ),
+    uniqueIndex(
+      "sale_unclosed_items_sale_conversion_id_sale_item_id_unique",
+    ).on(t.saleConversionId, t.saleItemId),
     check(
-      "sales_budget_unclosed_items_quantity_positive",
+      "sale_unclosed_items_quantity_positive",
       sql`${t.quantityNotConverted} > 0`,
     ),
   ],

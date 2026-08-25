@@ -118,7 +118,7 @@ export const saleStatusEnum = pgEnum("sale_status", [
   "INATIVA",
   "PARCIAL",
 ]);
-export const loginTypeEnum = pgEnum("login_type", ["EMAIL", "CPF"]);  
+export const loginTypeEnum = pgEnum("login_type", ["EMAIL", "CPF"]);
 
 //Propósito de convite (primeiro acesso, aceitação de membro)
 export const invitePurposeEnum = pgEnum("invite_purpose", [
@@ -278,10 +278,10 @@ export const saleReturnKindEnum = pgEnum("sale_return_kind", [
   "PARCIAL",
   "TOTAL",
 ]);
-export const budgetConversionKindEnum = pgEnum("budget_conversion_kind", [
-  "PARCIAL",
-  "TOTAL",
-]);
+export const saleConversionClosureKindEnum = pgEnum(
+  "sale_conversion_closure_kind",
+  ["PARCIAL", "TOTAL"],
+);
 
 //Tipo de cliente (classificacao de clientes, cliente, fornecedor)
 export const typeClassificationCustomersEnum = pgEnum(
@@ -292,25 +292,65 @@ export const typeClassificationCustomersEnum = pgEnum(
 export const saleOriginEnum = pgEnum("sale_origin", ["WEB", "MOBILE"]);
 
 // tipo de combustiveis
-export const fuelTypeEnum = pgEnum("fuel_type", ["GASOLINA", "ALCOOL", "DIESEL", "ELETRICO"]);
+export const fuelTypeEnum = pgEnum("fuel_type", [
+  "GASOLINA",
+  "ALCOOL",
+  "DIESEL",
+  "ELETRICO",
+]);
 
 // tipo de proprietario (proprietario, locatario)
-export const ownerTypeEnum = pgEnum("owner_type", ["PROPRIETARIO", "LOCATARIO", "OUTROS"]); 
+export const ownerTypeEnum = pgEnum("owner_type", [
+  "PROPRIETARIO",
+  "LOCATARIO",
+  "OUTROS",
+]);
 
 // tipo de veiculos ( Truck, Toco, Van, Carroceria, Outros)
-export const vehicleTypeEnum = pgEnum("vehicle_type", ["TRUCK", "TOCO", "CAVALO MECANICO", "VAN", "UTILITARIO", "OUTROS"]);
+export const vehicleTypeEnum = pgEnum("vehicle_type", [
+  "TRUCK",
+  "TOCO",
+  "CAVALO MECANICO",
+  "VAN",
+  "UTILITARIO",
+  "OUTROS",
+]);
 
 // tipo de carroceria ( Nao aplicavel, Aberta, Fechada, Semi-Fechada, Outros )
-export const bodyTypeEnum = pgEnum("body_type", ["NAO_APLICAVEL", "ABERTA", "FECHADA/BAU", "GRANELERA", "PORTA CONTAINER", "SIDER"]);
+export const bodyTypeEnum = pgEnum("body_type", [
+  "NAO_APLICAVEL",
+  "ABERTA",
+  "FECHADA/BAU",
+  "GRANELERA",
+  "PORTA CONTAINER",
+  "SIDER",
+]);
 
 // tipo de eixo ( Simples, Duplo, Triplo, Quadruplo, Outros )
-export const axleTypeEnum = pgEnum("axle_type", ["VEICULO 2 EIXOS", "VEICULO 3 EIXOS", "VEICULO 4 EIXOS", "VEICULO 5 EIXOS", "VEICULO 6 EIXOS", "VEICULO 7 EIXOS", "VEICULO 8 EIXOS", "VEICULO 9 EIXOS", "VEICULO 10 EIXOS", "VEICULO ACIMA 10 EIXOS"]);
+export const axleTypeEnum = pgEnum("axle_type", [
+  "VEICULO 2 EIXOS",
+  "VEICULO 3 EIXOS",
+  "VEICULO 4 EIXOS",
+  "VEICULO 5 EIXOS",
+  "VEICULO 6 EIXOS",
+  "VEICULO 7 EIXOS",
+  "VEICULO 8 EIXOS",
+  "VEICULO 9 EIXOS",
+  "VEICULO 10 EIXOS",
+  "VEICULO ACIMA 10 EIXOS",
+]);
 
 // tipo de serviço ( serviço, garantia )
-export const saleServiceTypeEnum = pgEnum("sale_service_type", ["SERVICO", "GARANTIA"]);
+export const saleServiceTypeEnum = pgEnum("sale_service_type", [
+  "SERVICO",
+  "GARANTIA",
+]);
 
 // inteiro ou fracionado
-export const integerOrFractionalEnum = pgEnum("integer_or_fractional", ["INTEIRO", "FRACIONADO"]);
+export const integerOrFractionalEnum = pgEnum("integer_or_fractional", [
+  "INTEIRO",
+  "FRACIONADO",
+]);
 
 // modelo de ordem servico
 export const orderServiceModelEnum = pgEnum("order_service_model", ["VEICULO"]);
@@ -318,3 +358,11 @@ export const orderServiceModelEnum = pgEnum("order_service_model", ["VEICULO"]);
 // tipo de serviço ( PROPRIO, OUTROS )
 export const typeServiceEnum = pgEnum("type_service", ["PROPRIO", "OUTROS"]);
 
+// tipo de conversão (orçamento -> venda, orçamento -> OS, OS -> venda)
+export const saleConversionTypeEnum = pgEnum("sale_conversion_type", [
+  "ORCAMENTO-VENDA",
+  "ORCAMENTO-ORDEM_SERVICO",
+  "ORDEM_SERVICO-VENDA",
+]);
+export type SaleConversionType =
+  (typeof saleConversionTypeEnum.enumValues)[number];

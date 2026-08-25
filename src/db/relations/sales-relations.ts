@@ -4,9 +4,9 @@ import {
   salesPayments,
   sales,
   salesItems,
-  salesBudgetConversions,
-  salesBudgetConversionItems,
-  salesBudgetUnclosedItems,
+  saleConversions,
+  saleConversionItems,
+  saleUnclosedItems,
   salesReturns,
   salesDues,
   salesMembers,
@@ -76,8 +76,14 @@ export const salesRelations = relations(sales, ({ one, many }) => ({
   items: many(salesItems),
   payments: many(salesPayments),
   returns: many(salesReturns),
-  budgetConversions: many(salesBudgetConversions, {
+  budgetConversions: many(saleConversions, {
     relationName: "budgetConversions",
+  }),
+  workOrderConversions: many(saleConversions, {
+    relationName: "workOrderConversions",
+  }),
+  generatedFromConversions: many(saleConversions, {
+    relationName: "generatedFromConversions",
   }),
   saleMember: one(salesMembers, {
     fields: [sales.id],
@@ -159,64 +165,66 @@ export const salesItemsRelations = relations(salesItems, ({ one, many }) => ({
   mechanics: many(mechanicSalesItems),
 }));
 
-// relações da tabela de CONVERSOES ORCAMENTO -> VENDA (historico auditavel).
-export const salesBudgetConversionsRelations = relations(
-  salesBudgetConversions,
+// relações da tabela de CONVERSOES (orçamento/OS -> venda, historico auditavel).
+export const saleConversionsRelations = relations(
+  saleConversions,
   ({ one, many }) => ({
     budgetSale: one(sales, {
-      fields: [salesBudgetConversions.budgetSaleId],
+      fields: [saleConversions.budgetSaleId],
       references: [sales.id],
       relationName: "budgetConversions",
     }),
-    generatedSale: one(sales, {
-      fields: [salesBudgetConversions.generatedSaleId],
+    workOrderSale: one(sales, {
+      fields: [saleConversions.workOrderSaleId],
       references: [sales.id],
+      relationName: "workOrderConversions",
+    }),
+    generatedSale: one(sales, {
+      fields: [saleConversions.generatedSaleId],
+      references: [sales.id],
+      relationName: "generatedFromConversions",
     }),
     enterprises: one(enterprises, {
-      fields: [salesBudgetConversions.enterprisesId],
+      fields: [saleConversions.enterprisesId],
       references: [enterprises.id],
     }),
     user: one(users, {
-      fields: [salesBudgetConversions.userId],
+      fields: [saleConversions.userId],
       references: [users.id],
     }),
-    items: many(salesBudgetConversionItems),
-    unclosedItems: many(salesBudgetUnclosedItems),
+    items: many(saleConversionItems),
+    unclosedItems: many(saleUnclosedItems),
   }),
 );
 
-// relações da tabela de ITENS DA CONVERSAO ORCAMENTO -> VENDA (historico auditavel).
-export const salesBudgetConversionItemsRelations = relations(
-  salesBudgetConversionItems,
+// relações da tabela de ITENS DA CONVERSAO (historico auditavel).
+export const saleConversionItemsRelations = relations(
+  saleConversionItems,
   ({ one }) => ({
-    conversion: one(salesBudgetConversions, {
-      fields: [salesBudgetConversionItems.conversionId],
-      references: [salesBudgetConversions.id],
-    }),
-    budgetItem: one(salesItems, {
-      fields: [salesBudgetConversionItems.budgetItemId],
-      references: [salesItems.id],
+    conversion: one(saleConversions, {
+      fields: [saleConversionItems.saleConversionId],
+      references: [saleConversions.id],
     }),
     saleItem: one(salesItems, {
-      fields: [salesBudgetConversionItems.saleItemId],
+      fields: [saleConversionItems.saleItemId],
       references: [salesItems.id],
     }),
   }),
 );
 
-export const salesBudgetUnclosedItemsRelations = relations(
-  salesBudgetUnclosedItems,
+export const saleUnclosedItemsRelations = relations(
+  saleUnclosedItems,
   ({ one }) => ({
-    conversion: one(salesBudgetConversions, {
-      fields: [salesBudgetUnclosedItems.conversionId],
-      references: [salesBudgetConversions.id],
+    conversion: one(saleConversions, {
+      fields: [saleUnclosedItems.saleConversionId],
+      references: [saleConversions.id],
     }),
-    budgetItem: one(salesItems, {
-      fields: [salesBudgetUnclosedItems.budgetItemId],
+    saleItem: one(salesItems, {
+      fields: [saleUnclosedItems.saleItemId],
       references: [salesItems.id],
     }),
     user: one(users, {
-      fields: [salesBudgetUnclosedItems.userId],
+      fields: [saleUnclosedItems.userId],
       references: [users.id],
     }),
   }),

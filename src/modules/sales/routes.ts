@@ -1,6 +1,9 @@
 import { Router } from "express";
 import { authMiddleware } from "../../shared/middleware/auth-middleware.js";
-import { requireAnyPermission, requirePermission } from "../../shared/middleware/permission-middleware.js";
+import {
+  requireAnyPermission,
+  requirePermission,
+} from "../../shared/middleware/permission-middleware.js";
 import { tenantMiddleware } from "../../shared/middleware/tenant-middleware.js";
 import { validateSchema } from "../../shared/middleware/validate-schema.js";
 import { emptyQuerySchema } from "../../shared/validation/common-schemas.js";
@@ -109,12 +112,12 @@ salesRouter.post(
 );
 
 salesRouter.get(
-  "/:saleId/budget-conversions",
+  "/:saleId/sale-conversions",
   authMiddleware,
   tenantMiddleware,
   requirePermission("consultar_vendas"),
   validateSchema({ params: saleParamsSchema, query: emptyQuerySchema }),
-  salesController.listBudgetConversions,
+  salesController.listSaleConversions,
 );
 
 salesRouter.post(

@@ -25,9 +25,10 @@ import {
   productsEnterprises,
   promotionalPrices,
   sales,
-  salesBudgetConversionItems,
-  salesBudgetConversions,
-  salesBudgetUnclosedItems,
+  saleConversionItems,
+  saleConversions,
+  saleUnclosedItems,
+  type SaleConversionType,
   salesDues,
   salesItems,
   salesMembers,
@@ -114,7 +115,7 @@ type ConversionStockLine = {
 };
 
 type BudgetStatus = "ABERTA" | "PARCIAL" | "FINALIZADA";
-type BudgetConversionKind = "PARCIAL" | "TOTAL";
+type SaleConversionClosureKind = "PARCIAL" | "TOTAL";
 
 const POST_SALES_STATUS_TO_APPLY = [
   "INATIVO",
@@ -1040,6 +1041,64 @@ export class SalesService {
     if (allFullyConverted) return "FINALIZADA";
     if (anyConverted) return "PARCIAL";
     return "ABERTA";
+  }
+
+  private async insertSaleConversionAudit(
+    tx: Tx,
+    input: {
+      enterprisesId: string;
+      typeConversion: SaleConversionType;
+      budgetSaleId?: string | null;
+      workOrderSaleId?: string | null;
+      generatedSaleId: string;
+      closureKind: SaleConversionClosureKind;
+      userId: string;
+      userLegalName: string;
+      items: { saleItemId: string; quantity: string }[];
+      unclosedItems: {
+        saleItemId: string;
+        quantityNotConverted: number;
+        justification: string;
+      }[];
+    },
+  ) {
+    const [conversion] = await tx
+      .insert(saleConversions)
+      .values({
+        enterprisesId: input.enterprisesId,
+        typeConversion: input.typeConversion,
+        budgetSaleId: input.budgetSaleId ?? null,
+        workOrderSaleId: input.workOrderSaleId ?? null,
+        generatedSaleId: input.generatedSaleId,
+        closureKind: input.closureKind,
+        userId: input.userId,
+        userLegalName: input.userLegalName,
+      })
+      .returning({ id: saleConversions.id });
+    if (!conversion) throw new Error("Falha ao registrar conversao");
+
+    if (input.items.length > 0) {
+      await tx.insert(saleConversionItems).values(
+        input.items.map((row) => ({
+          saleConversionId: conversion.id,
+          saleItemId: row.saleItemId,
+          quantity: row.quantity,
+        })),
+      );
+    }
+
+    if (input.unclosedItems.length > 0) {
+      await tx.insert(saleUnclosedItems).values(
+        input.unclosedItems.map((row) => ({
+          saleConversionId: conversion.id,
+          saleItemId: row.saleItemId,
+          quantityNotConverted: row.quantityNotConverted.toString(),
+          justification: row.justification,
+          userId: input.userId,
+          userLegalName: input.userLegalName,
+        })),
+      );
+    }
   }
 
   private assertBudgetOpenForConversion(budget: typeof sales.$inferSelect) {
@@ -2038,10 +2097,12 @@ export class SalesService {
       ...sale,
       discountValuetems: discountValuetems.toString(),
       valueAcresceItems: valueAcresceItems.toString(),
-      valueDiscountFinancialProduct: financial.valueDiscountFinancialProduct.toString(),
+      valueDiscountFinancialProduct:
+        financial.valueDiscountFinancialProduct.toString(),
       valueDiscountFinancialService:
         financial.valueDiscountFinancialService.toString(),
-      valueAcresceFinancialProduct: financial.valueAcresceFinancialProduct.toString(),
+      valueAcresceFinancialProduct:
+        financial.valueAcresceFinancialProduct.toString(),
       valueAcresceFinancialService:
         financial.valueAcresceFinancialService.toString(),
     };
@@ -2064,7 +2125,8 @@ export class SalesService {
         valueDiscountFinancialService:
           financial.valueDiscountFinancialService.toString(),
         percentageAcresceProduct: financial.percentageAcresceProduct,
-        valueAcresceFinancialProduct: financial.valueAcresceFinancialProduct.toString(),
+        valueAcresceFinancialProduct:
+          financial.valueAcresceFinancialProduct.toString(),
         percentageAcresceService: financial.percentageAcresceService,
         valueAcresceFinancialService:
           financial.valueAcresceFinancialService.toString(),
@@ -2891,44 +2953,45 @@ export class SalesService {
   }
 
   /**
-   * Carrega conversões de orçamento vinculadas à venda (como orçamento origem
+   * Carrega conversões vinculadas à venda (como orçamento/OS origem
    * ou como venda gerada), com itens convertidos e não convertidos em cascata.
    */
-  private async loadBudgetConversionsCascade(
+  private async loadSaleConversionsCascade(
     enterpriseId: string,
     saleId: string,
-    mode: "budget" | "linked" = "linked",
+    mode: "source" | "linked" = "linked",
   ) {
     const linkFilter =
-      mode === "budget"
-        ? eq(salesBudgetConversions.budgetSaleId, saleId)
+      mode === "source"
+        ? or(
+            eq(saleConversions.budgetSaleId, saleId),
+            eq(saleConversions.workOrderSaleId, saleId),
+          )!
         : or(
-            eq(salesBudgetConversions.budgetSaleId, saleId),
-            eq(salesBudgetConversions.generatedSaleId, saleId),
+            eq(saleConversions.budgetSaleId, saleId),
+            eq(saleConversions.workOrderSaleId, saleId),
+            eq(saleConversions.generatedSaleId, saleId),
           )!;
 
     const conversions = await db
       .select({
-        id: salesBudgetConversions.id,
-        budgetSaleId: salesBudgetConversions.budgetSaleId,
-        generatedSaleId: salesBudgetConversions.generatedSaleId,
+        id: saleConversions.id,
+        typeConversion: saleConversions.typeConversion,
+        budgetSaleId: saleConversions.budgetSaleId,
+        workOrderSaleId: saleConversions.workOrderSaleId,
+        generatedSaleId: saleConversions.generatedSaleId,
         generatedOrderNumber: sales.orderNumber,
         generatedStatus: sales.status,
         generatedValueLiquid: sales.valueLiquid,
-        closureKind: salesBudgetConversions.closureKind,
-        userId: salesBudgetConversions.userId,
-        userLegalName: salesBudgetConversions.userLegalName,
-        createdAt: salesBudgetConversions.createdAt,
+        closureKind: saleConversions.closureKind,
+        userId: saleConversions.userId,
+        userLegalName: saleConversions.userLegalName,
+        createdAt: saleConversions.createdAt,
       })
-      .from(salesBudgetConversions)
-      .innerJoin(sales, eq(salesBudgetConversions.generatedSaleId, sales.id))
-      .where(
-        and(eq(salesBudgetConversions.enterprisesId, enterpriseId), linkFilter),
-      )
-      .orderBy(
-        asc(salesBudgetConversions.createdAt),
-        asc(salesBudgetConversions.id),
-      );
+      .from(saleConversions)
+      .innerJoin(sales, eq(saleConversions.generatedSaleId, sales.id))
+      .where(and(eq(saleConversions.enterprisesId, enterpriseId), linkFilter))
+      .orderBy(asc(saleConversions.createdAt), asc(saleConversions.id));
 
     if (conversions.length === 0) {
       return [];
@@ -2938,12 +3001,12 @@ export class SalesService {
     const [conversionItems, unclosedItems] = await Promise.all([
       db
         .select()
-        .from(salesBudgetConversionItems)
-        .where(inArray(salesBudgetConversionItems.conversionId, conversionIds)),
+        .from(saleConversionItems)
+        .where(inArray(saleConversionItems.saleConversionId, conversionIds)),
       db
         .select()
-        .from(salesBudgetUnclosedItems)
-        .where(inArray(salesBudgetUnclosedItems.conversionId, conversionIds)),
+        .from(saleUnclosedItems)
+        .where(inArray(saleUnclosedItems.saleConversionId, conversionIds)),
     ]);
 
     return conversions.map((conversion) => ({
@@ -2959,10 +3022,10 @@ export class SalesService {
         valueLiquid: conversion.generatedValueLiquid,
       },
       items: conversionItems.filter(
-        (item) => item.conversionId === conversion.id,
+        (item) => item.saleConversionId === conversion.id,
       ),
       unclosedItems: unclosedItems.filter(
-        (item) => item.conversionId === conversion.id,
+        (item) => item.saleConversionId === conversion.id,
       ),
     }));
   }
@@ -2994,7 +3057,7 @@ export class SalesService {
       this.loadSalePaymentsBySaleIds([id]),
       this.loadSaleMemberDetail(enterpriseId, id, sale.memberId),
       this.loadSaleReturns(id),
-      this.loadBudgetConversionsCascade(enterpriseId, id, "linked"),
+      this.loadSaleConversionsCascade(enterpriseId, id, "linked"),
       this.loadSaleVehicleLink(enterpriseId, sale.vehiclesEnterprisesMembersId),
       this.loadUsersByIds([
         sale.userId,
@@ -3068,28 +3131,29 @@ export class SalesService {
     };
   }
 
-  public async listBudgetConversions(
-    enterpriseId: string,
-    budgetSaleId: string,
-  ) {
-    // Lista as conversões de orcamentos
-    const budget = await this.getSaleRow(db, enterpriseId, budgetSaleId);
-    if (budget.type !== "ORCAMENTO") {
+  public async listSaleConversions(enterpriseId: string, saleId: string) {
+    const sale = await this.getSaleRow(db, enterpriseId, saleId);
+    if (
+      sale.type !== "ORCAMENTO" &&
+      sale.type !== "ORDEM DE SERVICO" &&
+      sale.type !== "VENDA"
+    ) {
       throw new ValidationError(
         [
           {
             path: "params.saleId",
-            message: "Historico de conversao disponivel apenas para orcamentos",
+            message:
+              "Histórico de conversão disponível para Orçamento, Ordem de Serviço ou Venda",
           },
         ],
         "Tipo invalido",
       );
     }
 
-    const items = await this.loadBudgetConversionsCascade(
+    const items = await this.loadSaleConversionsCascade(
       enterpriseId,
-      budgetSaleId,
-      "budget",
+      saleId,
+      sale.type === "VENDA" ? "linked" : "source",
     );
     return { items };
   }
@@ -3650,7 +3714,9 @@ export class SalesService {
             {
               subTotal: decNum(row.subTotal),
               discountValuetems: decNum(row.discountValuetems),
-              valueDiscountFinancialProduct: decNum(row.valueDiscountFinancialProduct),
+              valueDiscountFinancialProduct: decNum(
+                row.valueDiscountFinancialProduct,
+              ),
               valueDiscountFinancialService: decNum(
                 row.valueDiscountFinancialService,
               ),
@@ -4086,7 +4152,7 @@ export class SalesService {
 
         const computedBudgetStatus =
           this.computeBudgetStatus(updatedBudgetItems);
-        const closureKind: BudgetConversionKind =
+        const closureKind: SaleConversionClosureKind =
           computedBudgetStatus === "FINALIZADA" ? "TOTAL" : "PARCIAL";
 
         await tx
@@ -4099,40 +4165,24 @@ export class SalesService {
           })
           .where(eq(sales.id, budgetSaleId));
 
-        const [conversion] = await tx
-          .insert(salesBudgetConversions)
-          .values({
-            enterprisesId: enterpriseId,
-            budgetSaleId,
-            generatedSaleId: generatedSale.id,
-            closureKind,
-            userId: operator.userId,
-            userLegalName: operator.userLegalName,
-          })
-          .returning();
-        if (!conversion) throw new Error("Falha ao registrar conversao");
-
-        await tx.insert(salesBudgetConversionItems).values(
-          conversionItemRows.map((row) => ({
-            conversionId: conversion.id,
-            budgetItemId: row.budgetItemId,
+        await this.insertSaleConversionAudit(tx, {
+          enterprisesId: enterpriseId,
+          typeConversion: "ORCAMENTO-VENDA",
+          budgetSaleId,
+          generatedSaleId: generatedSale.id,
+          closureKind,
+          userId: operator.userId,
+          userLegalName: operator.userLegalName,
+          items: conversionItemRows.map((row) => ({
             saleItemId: row.saleItemId,
             quantity: row.quantity,
           })),
-        );
-
-        if (unclosedRows.length > 0) {
-          await tx.insert(salesBudgetUnclosedItems).values(
-            unclosedRows.map((row) => ({
-              conversionId: conversion.id,
-              budgetItemId: row.budgetItemId,
-              quantityNotConverted: row.quantityNotConverted.toString(),
-              justification: row.justification,
-              userId: operator.userId,
-              userLegalName: operator.userLegalName,
-            })),
-          );
-        }
+          unclosedItems: unclosedRows.map((row) => ({
+            saleItemId: row.budgetItemId,
+            quantityNotConverted: row.quantityNotConverted,
+            justification: row.justification,
+          })),
+        });
 
         return generatedSale.id;
       });
@@ -4499,7 +4549,7 @@ export class SalesService {
 
         const computedBudgetStatus =
           this.computeBudgetStatus(updatedBudgetItems);
-        const closureKind: BudgetConversionKind =
+        const closureKind: SaleConversionClosureKind =
           computedBudgetStatus === "FINALIZADA" ? "TOTAL" : "PARCIAL";
 
         await tx
@@ -4512,40 +4562,24 @@ export class SalesService {
           })
           .where(eq(sales.id, budgetSaleId));
 
-        const [conversion] = await tx
-          .insert(salesBudgetConversions)
-          .values({
-            enterprisesId: enterpriseId,
-            budgetSaleId,
-            generatedSaleId: generatedSale.id,
-            closureKind,
-            userId: operator.userId,
-            userLegalName: operator.userLegalName,
-          })
-          .returning();
-        if (!conversion) throw new Error("Falha ao registrar conversao");
-
-        await tx.insert(salesBudgetConversionItems).values(
-          conversionItemRows.map((row) => ({
-            conversionId: conversion.id,
-            budgetItemId: row.budgetItemId,
+        await this.insertSaleConversionAudit(tx, {
+          enterprisesId: enterpriseId,
+          typeConversion: "ORCAMENTO-ORDEM_SERVICO",
+          budgetSaleId,
+          generatedSaleId: generatedSale.id,
+          closureKind,
+          userId: operator.userId,
+          userLegalName: operator.userLegalName,
+          items: conversionItemRows.map((row) => ({
             saleItemId: row.saleItemId,
             quantity: row.quantity,
           })),
-        );
-
-        if (unclosedRows.length > 0) {
-          await tx.insert(salesBudgetUnclosedItems).values(
-            unclosedRows.map((row) => ({
-              conversionId: conversion.id,
-              budgetItemId: row.budgetItemId,
-              quantityNotConverted: row.quantityNotConverted.toString(),
-              justification: row.justification,
-              userId: operator.userId,
-              userLegalName: operator.userLegalName,
-            })),
-          );
-        }
+          unclosedItems: unclosedRows.map((row) => ({
+            saleItemId: row.budgetItemId,
+            quantityNotConverted: row.quantityNotConverted,
+            justification: row.justification,
+          })),
+        });
 
         return generatedSale.id;
       });
@@ -4801,6 +4835,11 @@ export class SalesService {
 
         await this.upsertSaleMember(tx, generatedSale.id, memberSnapshot);
 
+        const conversionItemRows: {
+          saleItemId: string;
+          quantity: string;
+        }[] = [];
+
         for (let i = 0; i < conversionLines.length; i++) {
           const { workOrderItem, convertQuantity, line, itemIndex } =
             conversionLines[i];
@@ -4873,6 +4912,11 @@ export class SalesService {
           }
 
           workOrderItem.quantityConverted = formatQuantity(nextConverted);
+
+          conversionItemRows.push({
+            saleItemId: inserted.id,
+            quantity: formatQuantity(convertQuantity),
+          });
         }
 
         const totals = await this.recalculateSaleTotalsFromItems(
@@ -4936,8 +4980,24 @@ export class SalesService {
           })
           .where(eq(sales.id, workOrderSaleId));
 
-        // Justificativas de saldo nao convertido sao validadas acima (sem tabela de auditoria OS).
-        void unclosedRows;
+        const closureKind: SaleConversionClosureKind =
+          computedOsStatus === "FINALIZADA" ? "TOTAL" : "PARCIAL";
+
+        await this.insertSaleConversionAudit(tx, {
+          enterprisesId: enterpriseId,
+          typeConversion: "ORDEM_SERVICO-VENDA",
+          workOrderSaleId,
+          generatedSaleId: generatedSale.id,
+          closureKind,
+          userId: operator.userId,
+          userLegalName: operator.userLegalName,
+          items: conversionItemRows,
+          unclosedItems: unclosedRows.map((row) => ({
+            saleItemId: row.workOrderItemId,
+            quantityNotConverted: row.quantityNotConverted,
+            justification: row.justification,
+          })),
+        });
 
         return generatedSale.id;
       });

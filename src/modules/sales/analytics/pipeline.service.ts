@@ -1,9 +1,9 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "../../../db/index.js";
 import {
   sales,
-  salesBudgetConversions,
+  saleConversions,
 } from "../../../db/schema.js";
 import { decNum, kpiWithComparison, ratePercent, roundMoney } from "./metrics.js";
 import {
@@ -47,8 +47,8 @@ export type PipelineKpis = {
 const conversionDateCondition = (period: ResolvedPeriod) => {
   const tz = timezoneSqlLiteral(period.timezone);
   return and(
-    sql`DATE(timezone(${tz}, ${salesBudgetConversions.createdAt})) >= ${period.from}::date`,
-    sql`DATE(timezone(${tz}, ${salesBudgetConversions.createdAt})) <= ${period.to}::date`,
+    sql`DATE(timezone(${tz}, ${saleConversions.createdAt})) >= ${period.from}::date`,
+    sql`DATE(timezone(${tz}, ${saleConversions.createdAt})) <= ${period.to}::date`,
   );
 };
 
@@ -144,14 +144,14 @@ const fetchPipelineKpis = async (
         .select({
           count: sql<string>`count(*)`,
         })
-        .from(salesBudgetConversions)
+        .from(saleConversions)
         .innerJoin(
           budgetSale,
-          eq(salesBudgetConversions.budgetSaleId, budgetSale.id),
+          eq(saleConversions.budgetSaleId, budgetSale.id),
         )
         .where(
           and(
-            eq(salesBudgetConversions.enterprisesId, enterpriseId),
+            eq(saleConversions.enterprisesId, enterpriseId),
             conversionDateCondition(period),
             eq(budgetSale.enterprisesId, enterpriseId),
             ...buildBudgetAliasFilterConditions(budgetSale, filters),
@@ -377,7 +377,7 @@ export class PipelineAnalyticsService {
     );
 
     const conversionDateFilter = and(
-      eq(salesBudgetConversions.enterprisesId, enterpriseId),
+      eq(saleConversions.enterprisesId, enterpriseId),
       conversionDateCondition(period),
     );
 
@@ -395,20 +395,22 @@ export class PipelineAnalyticsService {
           convertedValue: sql<string>`coalesce(sum(${sales.valueLiquid}), 0)`,
           convertedCount: sql<string>`count(*)`,
         })
-        .from(salesBudgetConversions)
-        .innerJoin(sales, eq(salesBudgetConversions.generatedSaleId, sales.id))
-        .where(conversionDateFilter),
+        .from(saleConversions)
+        .innerJoin(sales, eq(saleConversions.generatedSaleId, sales.id))
+        .where(
+          and(conversionDateFilter, isNotNull(saleConversions.budgetSaleId)),
+        ),
       db
         .select({
           avgDays: sql<string>`coalesce(avg(
             EXTRACT(EPOCH FROM (${sales.createdAt} - ${budgetSales.createdAt})) / 86400
           ), 0)`,
         })
-        .from(salesBudgetConversions)
-        .innerJoin(sales, eq(salesBudgetConversions.generatedSaleId, sales.id))
+        .from(saleConversions)
+        .innerJoin(sales, eq(saleConversions.generatedSaleId, sales.id))
         .innerJoin(
           budgetSales,
-          eq(salesBudgetConversions.budgetSaleId, budgetSales.id),
+          eq(saleConversions.budgetSaleId, budgetSales.id),
         )
         .where(conversionDateFilter),
     ]);

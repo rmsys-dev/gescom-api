@@ -76,7 +76,7 @@ salesRouter.post(
   "/:saleId/convert-to-sale",
   authMiddleware,
   tenantMiddleware,
-  requireAnyPermission(["gerar_vendas", "alterar_vendas"]),
+  requireAnyPermission(["incluir_vendas", "alterar_vendas"]),
   validateSchema({
     params: saleParamsSchema,
     body: convertBudgetToSaleSchema,
@@ -89,7 +89,7 @@ salesRouter.post(
   "/:saleId/convert-to-os",
   authMiddleware,
   tenantMiddleware,
-  requireAnyPermission(["gerar_vendas", "alterar_vendas"]),
+  requireAnyPermission(["incluir_vendas", "alterar_vendas"]),
   validateSchema({
     params: saleParamsSchema,
     body: convertBudgetToOsSchema,
@@ -102,7 +102,7 @@ salesRouter.post(
   "/:saleId/convert-os-to-sale",
   authMiddleware,
   tenantMiddleware,
-  requireAnyPermission(["gerar_vendas", "alterar_vendas"]),
+  requireAnyPermission(["incluir_vendas", "alterar_vendas"]),
   validateSchema({
     params: saleParamsSchema,
     body: convertOsToSaleSchema,

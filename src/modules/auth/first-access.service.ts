@@ -432,7 +432,6 @@ export const firstAccessVerify = async (
         userId: user.id,
         enterpriseId: memberCtx.enterpriseId,
         memberId: memberCtx.memberId,
-        memberDepartmentId: memberCtx.memberDepartmentId,
         userAgent: input.userAgent,
         ipAddress: input.ipAddress,
       },

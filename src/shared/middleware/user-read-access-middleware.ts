@@ -1,7 +1,6 @@
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { PERM } from "../../modules/auth/default-permissions.js";
 import { isAllowed, resolvePermissions } from "../../modules/auth/permissions.js";
-import { findPrimaryMemberDepartmentIdByMemberId } from "../../modules/auth/repository.js";
 import { NotFoundError } from "../errors/app-error.js";
 import type { RequestWithAuth } from "./auth-middleware.js";
 
@@ -11,10 +10,6 @@ export type RequestWithUserReadAccess = RequestWithAuth & {
   userReadAccess: { targetUserId: string; readMode: UserGetByIdReadMode };
 };
 
-/**
- * GET /enterprises/:enterpriseId/users/:userId — define o modo de leitura permitido (alinhado ao planejamento de escopo).
- * Pré-requisito: authMiddleware + tenantMiddleware.
- */
 export const resolveUserReadAccess: RequestHandler = async (
   req: Request,
   _res: Response,
@@ -34,21 +29,12 @@ export const resolveUserReadAccess: RequestHandler = async (
     }
 
     const memberId = reqWithAuth.auth.memberId;
-    let memberDepartmentId = reqWithAuth.auth.memberDepartmentId;
     const enterpriseId = reqWithAuth.auth.enterpriseId;
     if (!memberId || !enterpriseId) {
       throw new NotFoundError("Usuario nao encontrado", "USER_NOT_FOUND");
     }
-    if (!memberDepartmentId) {
-      memberDepartmentId =
-        (await findPrimaryMemberDepartmentIdByMemberId(memberId)) ??
-        undefined;
-    }
-    if (!memberDepartmentId) {
-      throw new NotFoundError("Usuario nao encontrado", "USER_NOT_FOUND");
-    }
 
-    const resolved = await resolvePermissions(memberDepartmentId);
+    const resolved = await resolvePermissions(memberId);
 
     if (isAllowed(resolved, PERM.consultar_usuarios)) {
       (req as RequestWithUserReadAccess).userReadAccess = {

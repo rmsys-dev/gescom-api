@@ -1,10 +1,6 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "../../db/schema.js";
-import {
-  enterprisesMembers,
-  membersDepartments,
-  users,
-} from "../../db/schema.js";
+import { memberModules, modulePermissions, users } from "../../db/schema.js";
 import {
   activeMembershipForEnterprise,
   isActiveEnterprise,
@@ -17,7 +13,6 @@ import { writeAudit } from "./audit.js";
 import { verifyLoginCredentials } from "./credentials.js";
 import { mapAuthUser, mapEnterprises } from "./enterprise-map.js";
 import { findPendingMembershipAcceptInvitesForUser } from "./invitations-repository.js";
-import { listAllowed, resolvePermissionsBatch } from "./permissions.js";
 import {
   findActiveSessionByJti,
   findAnySessionByJti,
@@ -81,11 +76,12 @@ type SwitchEnterpriseInput = {
   enterpriseId: string;
 } & AuthMeta;
 
-type MeResponseDepartment = {
-  memberDepartmentId: string;
-  departmentId: string;
+type MeResponseModule = {
+  memberModuleId: string;
+  moduleId: string;
+  reference: string;
   name: string;
-  mainDepartment: boolean;
+  accessLevel: string;
   permissions: string[];
 };
 
@@ -103,10 +99,8 @@ type MeResponse = {
     tradeName: string;
     legalName: string;
     memberId: string;
-    memberDepartmentId: string | null;
   } | null;
-  /** Departamentos activos do membro na empresa; permissões efectivas (ALLOW) por vínculo. */
-  departments: MeResponseDepartment[];
+  modules: MeResponseModule[];
 };
 
 export class AuthService {
@@ -165,7 +159,6 @@ export class AuthService {
       userId: user.id,
       enterpriseId: selectedMembership.enterpriseId,
       memberId: selectedMembership.memberId,
-      memberDepartmentId: selectedMembership.memberDepartmentId,
       userAgent: input.userAgent,
       ipAddress: input.ipAddress,
     });
@@ -249,7 +242,6 @@ export class AuthService {
       );
     }
 
-    let memberDepartmentId: string | null = null;
     let memberId: string | null = null;
     let enterpriseId: string | null = claims.ent ?? null;
 
@@ -266,7 +258,6 @@ export class AuthService {
         );
       }
       memberId = ctx.memberId;
-      memberDepartmentId = ctx.memberDepartmentId;
     } else if (sessionByJti.memberId) {
       const ctx = await findMembershipContextByMemberIdForUser(
         sessionByJti.memberId,
@@ -281,7 +272,6 @@ export class AuthService {
       }
       enterpriseId = ctx.enterpriseId;
       memberId = ctx.memberId;
-      memberDepartmentId = ctx.memberDepartmentId;
     } else {
       await revokeSession(sessionByJti.id, "INVALID_SESSION");
       throw new UnauthorizedError("Sessao invalida", "INVALID_SESSION");
@@ -291,7 +281,6 @@ export class AuthService {
       userId: sessionByJti.userId,
       enterpriseId,
       memberId,
-      memberDepartmentId,
       userAgent: input.userAgent,
       ipAddress: input.ipAddress,
     });
@@ -356,7 +345,6 @@ export class AuthService {
       userId: input.userId,
       enterpriseId: input.enterpriseId,
       memberId: ctx.memberId,
-      memberDepartmentId: ctx.memberDepartmentId,
       userAgent: input.userAgent,
       ipAddress: input.ipAddress,
     });
@@ -379,7 +367,6 @@ export class AuthService {
       enterprise: {
         id: input.enterpriseId,
         memberId: ctx.memberId,
-        memberDepartmentId: ctx.memberDepartmentId,
       },
     };
   }
@@ -387,7 +374,6 @@ export class AuthService {
   public async me(input: {
     userId: string;
     enterpriseId?: string;
-    memberDepartmentId?: string;
   }): Promise<MeResponse> {
     if (!input.enterpriseId) {
       const user = await db.query.users.findFirst({
@@ -407,7 +393,7 @@ export class AuthService {
           onboardingCompleted: user.onboardingCompleted,
         },
         enterprise: null,
-        departments: [],
+        modules: [],
       };
     }
 
@@ -418,13 +404,16 @@ export class AuthService {
           where: activeMembershipForEnterprise(input.enterpriseId),
           with: {
             enterprise: true,
-            departments: {
+            modules: {
               where: and(
-                eq(membersDepartments.status, "ATIVO"),
-                isNull(membersDepartments.deletedAt),
+                eq(memberModules.status, "ATIVO"),
+                isNull(memberModules.deletedAt),
               ),
               with: {
-                department: true,
+                module: true,
+                permissions: {
+                  where: eq(modulePermissions.status, "ATIVO"),
+                },
               },
             },
           },
@@ -441,50 +430,31 @@ export class AuthService {
     );
 
     let enterpriseInfo: MeResponse["enterprise"] = null;
-    let departments: MeResponse["departments"] = [];
+    let modules: MeResponse["modules"] = [];
 
     if (membership?.enterprise) {
-      const mainDepartment =
-        membership.departments.find((item) => item.mainDepartment) ??
-        membership.departments[0];
-
       enterpriseInfo = {
         id: membership.enterprise.id,
         tradeName: membership.enterprise.tradeName,
         legalName: membership.enterprise.legalName,
         memberId: membership.id,
-        memberDepartmentId: mainDepartment?.id ?? null,
       };
 
-      const memberDeptRows = membership.departments
+      modules = membership.modules
         .filter(
-          (item) =>
-            item.department != null && item.department.deletedAt == null,
+          (item) => item.module != null && item.module.deletedAt == null,
         )
-        .sort((left, right) => {
-          if (left.mainDepartment !== right.mainDepartment) {
-            return left.mainDepartment ? -1 : 1;
-          }
-          return (left.department?.name ?? "").localeCompare(
-            right.department?.name ?? "",
-          );
-        });
-
-      if (memberDeptRows.length > 0) {
-        const permissionsByMemberDepartment = await resolvePermissionsBatch(
-          memberDeptRows.map((item) => item.id),
-        );
-
-        departments = memberDeptRows.map((item) => ({
-          memberDepartmentId: item.id,
-          departmentId: item.departmentId,
-          name: item.department!.name,
-          mainDepartment: item.mainDepartment,
-          permissions: listAllowed(
-            permissionsByMemberDepartment.get(item.id) ?? new Map(),
-          ),
+        .sort((left, right) =>
+          (left.module?.name ?? "").localeCompare(right.module?.name ?? ""),
+        )
+        .map((item) => ({
+          memberModuleId: item.id,
+          moduleId: item.moduleId,
+          reference: item.module!.reference,
+          name: item.module!.name,
+          accessLevel: item.accessLevel,
+          permissions: item.permissions.map((perm) => perm.permission),
         }));
-      }
     }
 
     return {
@@ -497,7 +467,7 @@ export class AuthService {
         onboardingCompleted: row.onboardingCompleted,
       },
       enterprise: enterpriseInfo,
-      departments,
+      modules,
     };
   }
 }

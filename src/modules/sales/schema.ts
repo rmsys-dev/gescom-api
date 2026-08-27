@@ -240,7 +240,6 @@ export const saleMemberOverrideSchema = z
   .object({
     memberLegalName: optionalTrimmedStringSchema("memberLegalName", 255),
     memberAddress: optionalTrimmedStringSchema("memberAddress", 255),
-    memberSector: optionalTrimmedStringSchema("memberSector", 255),
     memberCep: saleMemberCepSchema,
     memberCity: optionalTrimmedStringSchema("memberCity", 255),
     memberState: saleMemberStateSchema,

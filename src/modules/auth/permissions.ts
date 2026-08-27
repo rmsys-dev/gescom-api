@@ -1,62 +1,47 @@
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "../../db/schema.js";
-import {
-  memberExtraPermissions,
-  memberPermissionsDefault,
-} from "../../db/schema.js";
+import { memberModules, modulePermissions } from "../../db/schema.js";
 
 export type PermissionStatus = "ALLOW" | "DENIED";
 
 export type ResolvedPermissions = Map<string, PermissionStatus>;
 
-export const resolvePermissions = async (
-  memberDepartmentId: string,
-): Promise<ResolvedPermissions> => {
-  const [defaults, extras] = await Promise.all([
-    db
-      .select({
-        permission: memberPermissionsDefault.permission,
-        status: memberPermissionsDefault.status,
-      })
-      .from(memberPermissionsDefault)
-      .where(
-        and(
-          eq(memberPermissionsDefault.memberDepartmentId, memberDepartmentId),
-          isNull(memberPermissionsDefault.deletedAt),
-        ),
-      ),
-    db
-      .select({
-        permission: memberExtraPermissions.permission,
-        status: memberExtraPermissions.status,
-      })
-      .from(memberExtraPermissions)
-      .where(
-        and(
-          eq(memberExtraPermissions.memberDepartmentId, memberDepartmentId),
-          isNull(memberExtraPermissions.deletedAt),
-        ),
-      ),
-  ]);
-
+const toResolved = (
+  rows: Array<{ permission: string }>,
+): ResolvedPermissions => {
   const resolved: ResolvedPermissions = new Map();
-
-  for (const row of defaults) {
-    resolved.set(row.permission, row.status);
+  for (const row of rows) {
+    resolved.set(row.permission, "ALLOW");
   }
-
-  // extras sobrescrevem defaults
-  for (const row of extras) {
-    resolved.set(row.permission, row.status);
-  }
-
   return resolved;
 };
 
+export const resolvePermissions = async (
+  memberId: string,
+): Promise<ResolvedPermissions> => {
+  const rows = await db
+    .select({ permission: modulePermissions.permission })
+    .from(modulePermissions)
+    .innerJoin(
+      memberModules,
+      eq(modulePermissions.memberModuleId, memberModules.id),
+    )
+    .where(
+      and(
+        eq(memberModules.memberId, memberId),
+        eq(memberModules.status, "ATIVO"),
+        isNull(memberModules.deletedAt),
+        eq(modulePermissions.status, "ATIVO"),
+      ),
+    );
+
+  return toResolved(rows);
+};
+
 export const resolvePermissionsBatch = async (
-  memberDepartmentIds: string[],
+  memberIds: string[],
 ): Promise<Map<string, ResolvedPermissions>> => {
-  const uniqueIds = [...new Set(memberDepartmentIds)];
+  const uniqueIds = [...new Set(memberIds)];
   const result = new Map<string, ResolvedPermissions>();
 
   for (const id of uniqueIds) {
@@ -67,41 +52,27 @@ export const resolvePermissionsBatch = async (
     return result;
   }
 
-  const [defaults, extras] = await Promise.all([
-    db
-      .select({
-        memberDepartmentId: memberPermissionsDefault.memberDepartmentId,
-        permission: memberPermissionsDefault.permission,
-        status: memberPermissionsDefault.status,
-      })
-      .from(memberPermissionsDefault)
-      .where(
-        and(
-          inArray(memberPermissionsDefault.memberDepartmentId, uniqueIds),
-          isNull(memberPermissionsDefault.deletedAt),
-        ),
+  const rows = await db
+    .select({
+      memberId: memberModules.memberId,
+      permission: modulePermissions.permission,
+    })
+    .from(modulePermissions)
+    .innerJoin(
+      memberModules,
+      eq(modulePermissions.memberModuleId, memberModules.id),
+    )
+    .where(
+      and(
+        inArray(memberModules.memberId, uniqueIds),
+        eq(memberModules.status, "ATIVO"),
+        isNull(memberModules.deletedAt),
+        eq(modulePermissions.status, "ATIVO"),
       ),
-    db
-      .select({
-        memberDepartmentId: memberExtraPermissions.memberDepartmentId,
-        permission: memberExtraPermissions.permission,
-        status: memberExtraPermissions.status,
-      })
-      .from(memberExtraPermissions)
-      .where(
-        and(
-          inArray(memberExtraPermissions.memberDepartmentId, uniqueIds),
-          isNull(memberExtraPermissions.deletedAt),
-        ),
-      ),
-  ]);
+    );
 
-  for (const row of defaults) {
-    result.get(row.memberDepartmentId)?.set(row.permission, row.status);
-  }
-
-  for (const row of extras) {
-    result.get(row.memberDepartmentId)?.set(row.permission, row.status);
+  for (const row of rows) {
+    result.get(row.memberId)?.set(row.permission, "ALLOW");
   }
 
   return result;

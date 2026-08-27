@@ -8,12 +8,12 @@ import {
   sendSuccessResponse,
 } from "../../shared/responses/send-success-response.js";
 import type {
-  AddMemberDepartmentInput,
+  AddMemberModuleInput,
   CreateMembershipInput,
   CreateOnboardMembershipInput,
   ListMembersQuery,
-  PatchMemberDepartmentInput,
-  PatchMemberDepartmentPermissionInput,
+  PatchMemberModuleInput,
+  PatchMemberModulePermissionInput,
   PatchMembershipInput,
 } from "./schema.js";
 import {
@@ -162,102 +162,75 @@ export class MembershipsController {
     });
   };
 
-  public patchMemberDepartmentPermissionDefault = async (
+  public patchModulePermission = async (
     req: Request,
     res: Response,
   ): Promise<void> => {
+    const reqAuth = req as RequestWithAuth;
     const enterpriseId = req.params["enterpriseId"] as string;
     const memberId = req.params["memberId"] as string;
-    const departmentId = req.params["departmentId"] as string;
-    const body = req.body as PatchMemberDepartmentPermissionInput;
+    const memberModuleId = req.params["memberModuleId"] as string;
+    const permission = req.params["permission"] as string;
+    const body = req.body as PatchMemberModulePermissionInput;
 
-    const row = await membershipsService.patchMemberDepartmentPermissionDefault(
+    const row = await membershipsService.patchMemberModulePermission(
       enterpriseId,
       memberId,
-      departmentId,
-      body,
+      memberModuleId,
+      permission,
+      body.status,
+      reqAuth.auth.memberId ?? null,
       membershipPatchAudit(
         req,
         enterpriseId,
-        "memberships.service.patchMemberDepartmentPermissionDefault",
+        "memberships.service.patchMemberModulePermission",
       ),
     );
 
     sendSuccessResponse(res, HttpStatus.OK, {
-      message: "Permissão padrão do departamento atualizada com sucesso.",
+      message: "Permissao do membro atualizada com sucesso.",
       data: row,
     });
   };
 
-  public patchMemberDepartmentPermissionExtra = async (
-    req: Request,
-    res: Response,
-  ): Promise<void> => {
+  public addModule = async (req: Request, res: Response): Promise<void> => {
+    const reqAuth = req as RequestWithAuth;
     const enterpriseId = req.params["enterpriseId"] as string;
     const memberId = req.params["memberId"] as string;
-    const departmentId = req.params["departmentId"] as string;
-    const body = req.body as PatchMemberDepartmentPermissionInput;
+    const body = req.body as AddMemberModuleInput;
 
-    const row = await membershipsService.patchMemberDepartmentPermissionExtra(
-      enterpriseId,
-      memberId,
-      departmentId,
-      body,
-      membershipPatchAudit(
-        req,
-        enterpriseId,
-        "memberships.service.patchMemberDepartmentPermissionExtra",
-      ),
-    );
-
-    sendSuccessResponse(res, HttpStatus.OK, {
-      message: "Permissão extra do departamento atualizada com sucesso.",
-      data: row,
-    });
-  };
-
-  //Vincula um membro existente a um novo departamento
-  public addDepartment = async (
-    req: Request,
-    res: Response,
-  ): Promise<void> => {
-    const enterpriseId = req.params["enterpriseId"] as string;
-    const memberId = req.params["memberId"] as string;
-    const body = req.body as AddMemberDepartmentInput;
-
-    const row = await membershipsService.addDepartmentToMember(
+    const row = await membershipsService.addModuleToMember(
       enterpriseId,
       memberId,
       body,
-      membershipPostAudit(req, enterpriseId, "memberships.service.addDepartmentToMember"),
+      reqAuth.auth.memberId ?? null,
+      membershipPostAudit(req, enterpriseId, "memberships.service.addModuleToMember"),
     );
 
     sendSuccessResponse(res, HttpStatus.CREATED, {
-      message: "Departamento vinculado ao membro com sucesso.",
+      message: "Modulo vinculado ao membro com sucesso.",
       data: row,
     });
   };
 
-  //Altera um vínculo membro-departamento (soft delete quando `softDelete` é true)
-  public patchDepartment = async (
-    req: Request,
-    res: Response,
-  ): Promise<void> => {
+  public patchModule = async (req: Request, res: Response): Promise<void> => {
+    const reqAuth = req as RequestWithAuth;
     const enterpriseId = req.params["enterpriseId"] as string;
     const memberId = req.params["memberId"] as string;
-    const memberDepartmentId = req.params["memberDepartmentId"] as string;
-    const body = req.body as PatchMemberDepartmentInput;
+    const memberModuleId = req.params["memberModuleId"] as string;
+    const body = req.body as PatchMemberModuleInput;
 
-    const row = await membershipsService.patchMemberDepartment(
+    const row = await membershipsService.patchMemberModule(
       enterpriseId,
       memberId,
-      memberDepartmentId,
+      memberModuleId,
       body,
-      membershipPatchAudit(req, enterpriseId, "memberships.service.patchMemberDepartment"),
+      reqAuth.auth.memberId ?? null,
+      membershipPatchAudit(req, enterpriseId, "memberships.service.patchMemberModule"),
     );
 
     sendSuccessResponse(res, HttpStatus.OK, {
-      message: "Vínculo membro-departamento atualizado com sucesso.",
+      message: "Vinculo membro-modulo atualizado com sucesso.",
       data: row,
     });
   };

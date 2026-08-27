@@ -8,7 +8,6 @@ import {
   enterprisesAddress,
   enterprisesMembers,
   enterprisesSequences,
-  membersDepartments,
   states,
 } from "../../db/schema.js";
 import { ConflictError, NotFoundError } from "../../shared/errors/app-error.js";
@@ -119,13 +118,6 @@ export class EnterprisesService {
       where: activeUserMembershipWhere(userId),
       with: {
         enterprise: true,
-        departments: {
-          where: and(
-            eq(membersDepartments.mainDepartment, true),
-            eq(membersDepartments.status, "ATIVO"),
-            isNull(membersDepartments.deletedAt),
-          ),
-        },
       },
     });
 

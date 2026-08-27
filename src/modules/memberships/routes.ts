@@ -1,24 +1,29 @@
-import { Router } from "express";
+import { Router, type NextFunction, type Request, type Response } from "express";
 import { authMiddleware } from "../../shared/middleware/auth-middleware.js";
-import { requirePermission } from "../../shared/middleware/permission-middleware.js";
+import {
+  requireAnyPermission,
+  requirePermission,
+} from "../../shared/middleware/permission-middleware.js";
 import { tenantMiddleware } from "../../shared/middleware/tenant-middleware.js";
 import { validateSchema } from "../../shared/middleware/validate-schema.js";
 import { membershipsController } from "./controller.js";
+import type { PatchMemberModuleInput } from "./schema.js";
 import {
-  addMemberDepartmentSchema,
+  addMemberModuleSchema,
   createMembershipSchema,
   createOnboardMembershipSchema,
   listMembersQuerySchema,
-  memberDepartmentBaseParamsSchema,
-  memberDepartmentParamsSchema,
+  memberModuleBaseParamsSchema,
+  memberModuleParamsSchema,
+  memberModulePermissionParamsSchema,
   membershipCodeParamsSchema,
   membershipEnterpriseParamsSchema,
-  membershipMemberDepartmentParamsSchema,
   membershipPatchParamsSchema,
-  patchMemberDepartmentPermissionBodySchema,
-  patchMemberDepartmentSchema,
+  patchMemberModulePermissionSchema,
+  patchMemberModuleSchema,
   patchMembershipSchema,
 } from "./schema.js";
+import { PERM } from "../auth/default-permissions.js";
 import {
   emptyBodySchema,
   emptyQuerySchema,
@@ -26,7 +31,6 @@ import {
 
 const membershipsRouter = Router({ mergeParams: true });
 
-// Criação com utilizador: cria user+membro ou, se contactos já existirem, só o vínculo (PENDENTE)
 membershipsRouter.post(
   "/create-with-user",
   authMiddleware,
@@ -40,7 +44,6 @@ membershipsRouter.post(
   membershipsController.createOnboard,
 );
 
-// Vínculo de membro a utilizador já existente (PENDENTE; e-mail na aprovação, excepto CLIENTE)
 membershipsRouter.post(
   "/",
   authMiddleware,
@@ -53,7 +56,6 @@ membershipsRouter.post(
   membershipsController.create,
 );
 
-//Listagem de membros
 membershipsRouter.get(
   "/",
   authMiddleware,
@@ -66,7 +68,6 @@ membershipsRouter.get(
   membershipsController.list,
 );
 
-//Detalhe de membro por código
 membershipsRouter.get(
   "/code/:code",
   authMiddleware,
@@ -76,7 +77,6 @@ membershipsRouter.get(
   membershipsController.getByCode,
 );
 
-//Aprovação de cadastro (PENDENTE → ATIVO; FIRST_ACCESS / MEMBERSHIP_ACCEPT excepto CLIENTE)
 membershipsRouter.post(
   "/:memberId/approve",
   authMiddleware,
@@ -90,7 +90,6 @@ membershipsRouter.post(
   membershipsController.approve,
 );
 
-//Detalhe de membro por ID
 membershipsRouter.get(
   "/:memberId",
   authMiddleware,
@@ -100,59 +99,59 @@ membershipsRouter.get(
   membershipsController.getById,
 );
 
-//Vincula um membro existente a um novo departamento (snapshot em member_extra_permissions)
 membershipsRouter.post(
-  "/:memberId/departments",
+  "/:memberId/modules",
   authMiddleware,
   tenantMiddleware,
-  requirePermission("alterar_membros"),
+  requirePermission(PERM.incluir_membros_modulos),
   validateSchema({
-    params: memberDepartmentBaseParamsSchema,
-    body: addMemberDepartmentSchema,
+    params: memberModuleBaseParamsSchema,
+    body: addMemberModuleSchema,
   }),
-  membershipsController.addDepartment,
+  membershipsController.addModule,
 );
 
-//Alteração de vínculo membro-departamento (soft delete quando `softDelete: true` no body)
+const requireMemberModulePatchPermission = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void => {
+  const body = req.body as PatchMemberModuleInput;
+  const slug =
+    body.softDelete === true
+      ? PERM.excluir_membros_modulos
+      : PERM.alterar_membros_modulos;
+  void requirePermission(slug)(req, res, next);
+};
+
 membershipsRouter.patch(
-  "/:memberId/departments/:memberDepartmentId",
+  "/:memberId/modules/:memberModuleId",
   authMiddleware,
   tenantMiddleware,
-  requirePermission("alterar_membros"),
+  requireAnyPermission([
+    PERM.alterar_membros_modulos,
+    PERM.excluir_membros_modulos,
+  ]),
   validateSchema({
-    params: memberDepartmentParamsSchema,
-    body: patchMemberDepartmentSchema,
+    params: memberModuleParamsSchema,
+    body: patchMemberModuleSchema,
   }),
-  membershipsController.patchDepartment,
+  requireMemberModulePatchPermission,
+  membershipsController.patchModule,
 );
 
-//Alteração de permissões padrão do membro (snapshot por departamento)
 membershipsRouter.patch(
-  "/:memberId/departments/:departmentId/permissions-default",
+  "/:memberId/modules/:memberModuleId/permissions/:permission",
   authMiddleware,
   tenantMiddleware,
-  requirePermission("alterar_permissoes"),
+  requirePermission(PERM.alterar_permissoes),
   validateSchema({
-    params: membershipMemberDepartmentParamsSchema,
-    body: patchMemberDepartmentPermissionBodySchema,
+    params: memberModulePermissionParamsSchema,
+    body: patchMemberModulePermissionSchema,
   }),
-  membershipsController.patchMemberDepartmentPermissionDefault,
+  membershipsController.patchModulePermission,
 );
 
-//Alteração de permissões extras do membro (por departamento)
-membershipsRouter.patch(
-  "/:memberId/departments/:departmentId/extra-permissions",
-  authMiddleware,
-  tenantMiddleware,
-  requirePermission("alterar_permissoes"),
-  validateSchema({
-    params: membershipMemberDepartmentParamsSchema,
-    body: patchMemberDepartmentPermissionBodySchema,
-  }),
-  membershipsController.patchMemberDepartmentPermissionExtra,
-);
-
-//Alteração de membro (soft delete quando `softDelete: true` no body)
 membershipsRouter.patch(
   "/:memberId",
   authMiddleware,

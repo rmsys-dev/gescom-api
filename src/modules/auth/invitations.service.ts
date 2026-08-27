@@ -1,16 +1,12 @@
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { db } from "../../db/schema.js";
 import {
-  departmentDefaultPermissions,
   enterprises,
   enterprisesMembers,
-  memberPermissionsDefault,
-  membersDepartments,
   users,
 } from "../../db/schema.js";
 import {
   ForbiddenError,
-  InternalServerError,
   NotFoundError,
   UnauthorizedError,
 } from "../../shared/errors/app-error.js";
@@ -227,77 +223,6 @@ export const acceptMembershipInvitationCore = async (
   await db.transaction(async (tx) => {
     await consumeInvite(invite.id, tx);
 
-    const pendingDeptRows = await tx
-      .select({
-        id: membersDepartments.id,
-        departmentId: membersDepartments.departmentId,
-      })
-      .from(membersDepartments)
-      .where(
-        and(
-          eq(membersDepartments.memberId, member.id),
-          eq(membersDepartments.status, "PENDENTE"),
-          isNull(membersDepartments.deletedAt),
-        ),
-      );
-
-    const memberDepartmentIdByDepartmentId = new Map(
-      pendingDeptRows.map((r) => [r.departmentId, r.id]),
-    );
-    const departmentIds = pendingDeptRows.map((r) => r.departmentId);
-
-    if (pendingDeptRows.length > 0) {
-      await tx
-        .update(membersDepartments)
-        .set({ status: "ATIVO", ...touchUpdatedAt(now) })
-        .where(
-          and(
-            inArray(
-              membersDepartments.id,
-              pendingDeptRows.map((row) => row.id),
-            ),
-            isNull(membersDepartments.deletedAt),
-          ),
-        );
-    }
-
-    if (departmentIds.length > 0) {
-      const snapshotPermissions = await tx
-        .select({
-          departmentId: departmentDefaultPermissions.departmentId,
-          permission: departmentDefaultPermissions.permission,
-          status: departmentDefaultPermissions.status,
-        })
-        .from(departmentDefaultPermissions)
-        .where(
-          and(
-            inArray(departmentDefaultPermissions.departmentId, departmentIds),
-            isNull(departmentDefaultPermissions.deletedAt),
-          ),
-        );
-
-      const memberPermissions = snapshotPermissions.map((perm) => {
-        const memberDepartmentId = memberDepartmentIdByDepartmentId.get(
-          perm.departmentId,
-        );
-        if (!memberDepartmentId) {
-          throw new InternalServerError(
-            "Falha ao associar permissoes do departamento",
-            "INTERNAL_ERROR",
-          );
-        }
-        return {
-          memberDepartmentId,
-          permission: perm.permission,
-          status: perm.status,
-        };
-      });
-
-      if (memberPermissions.length > 0) {
-        await tx.insert(memberPermissionsDefault).values(memberPermissions);
-      }
-    }
-
     const [activatedMember] = await tx
       .update(enterprisesMembers)
       .set({
@@ -376,7 +301,6 @@ export const acceptMembershipInvitationPublic = async (
     userId: user.id,
     enterpriseId: memberCtx.enterpriseId,
     memberId: memberCtx.memberId,
-    memberDepartmentId: memberCtx.memberDepartmentId,
     userAgent: input.userAgent,
     ipAddress: input.ipAddress,
   });
@@ -487,7 +411,7 @@ export const resendMembershipInvitation = async (
     memberId: string;
     actorUserId: string;
     sessionEnterpriseId: string;
-    actorMemberDepartmentId?: string | null;
+    actorMemberId?: string | null;
   } & AuthMeta,
 ): Promise<{ ok: true }> => {
   const ctx = await loadInviteMembershipOrThrow(input.memberId);
@@ -529,7 +453,7 @@ export const resendMembershipInvitation = async (
   }
 
   if (isInviter && !isInvitee) {
-    if (!input.actorMemberDepartmentId) {
+    if (!input.actorMemberId) {
       await writeAudit({
         event: "PERMISSION_DENIED",
         userId: input.actorUserId,
@@ -537,14 +461,14 @@ export const resendMembershipInvitation = async (
         ipAddress: input.ipAddress,
         userAgent: input.userAgent,
         requestId: input.requestId,
-        reason: "Reenvio de convite sem departamento principal na sessao",
+        reason: "Reenvio de convite sem membro na sessao",
       });
       throw new ForbiddenError(
-        "Departamento principal do usuario nao definido",
-        "MEMBER_DEPARTMENT_MISSING",
+        "Contexto de membro ausente para esta operacao",
+        "MEMBER_CONTEXT_MISSING",
       );
     }
-    const resolved = await resolvePermissions(input.actorMemberDepartmentId);
+    const resolved = await resolvePermissions(input.actorMemberId);
     if (!isAllowed(resolved, PERM.incluir_membros)) {
       await writeAudit({
         event: "PERMISSION_DENIED",

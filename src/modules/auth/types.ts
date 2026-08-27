@@ -4,7 +4,6 @@ export type AccessTokenClaims = {
   ent?: string;
   enterpriseId?: string;
   mem?: string;
-  mdep?: string;
 };
 
 export type RefreshTokenClaims = {
@@ -20,5 +19,4 @@ export type AuthContext = {
   sessionId: string;
   enterpriseId?: string;
   memberId?: string;
-  memberDepartmentId?: string;
 };

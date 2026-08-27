@@ -2,13 +2,9 @@ import type { NextFunction, Request, RequestHandler, Response } from "express";
 import type { PermissionSlug } from "../../modules/auth/default-permissions.js";
 import { writeAudit } from "../../modules/auth/audit.js";
 import { isAllowed, resolvePermissions } from "../../modules/auth/permissions.js";
-import { findPrimaryMemberDepartmentIdByMemberId } from "../../modules/auth/repository.js";
 import { ForbiddenError } from "../errors/app-error.js";
 import type { RequestWithAuth } from "./auth-middleware.js";
 import type { RequestWithId } from "./request-id.js";
-
-// Verifica se o usuario tem a permissao nomeada.
-// Se nao tiver, registra auditoria e lanca ForbiddenError; se tiver, chama next().
 
 export const requirePermission = (permission: PermissionSlug): RequestHandler => {
   return requireAnyPermission([permission]);
@@ -43,32 +39,7 @@ export const requireAnyPermission = (
         );
       }
 
-      let memberDepartmentId = reqWithAuth.auth.memberDepartmentId;
-      if (!memberDepartmentId) {
-        memberDepartmentId =
-          (await findPrimaryMemberDepartmentIdByMemberId(
-            reqWithAuth.auth.memberId,
-          )) ?? undefined;
-      }
-
-      if (!memberDepartmentId) {
-        await writeAudit({
-          event: "PERMISSION_DENIED",
-          userId: reqWithAuth.auth.userId,
-          sessionId: reqWithAuth.auth.sessionId,
-          enterpriseId: reqWithAuth.auth.enterpriseId ?? null,
-          ipAddress: req.ip ?? null,
-          userAgent: req.header("user-agent") ?? null,
-          requestId: reqWithId.requestId ?? null,
-          reason: "Verificacao de permissao: departamento principal ausente",
-        });
-        throw new ForbiddenError(
-          "Departamento principal do usuario nao definido",
-          "MEMBER_DEPARTMENT_MISSING",
-        );
-      }
-
-      const resolved = await resolvePermissions(memberDepartmentId);
+      const resolved = await resolvePermissions(reqWithAuth.auth.memberId);
       const allowed = permissions.some((permission) =>
         isAllowed(resolved, permission),
       );
@@ -97,10 +68,6 @@ export const requireAnyPermission = (
   };
 };
 
-/**
- * Permite a operação se o utilizador autenticado for o alvo (`params[userId]` por defeito);
- * caso contrário exige a permissão nomeada (com auditoria em caso de negação).
- */
 export const requireSelfOrPermission = (
   permission: PermissionSlug,
   userIdParamName = "userId",

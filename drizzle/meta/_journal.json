@@ -435,6 +435,27 @@
       "when": 1787673600000,
       "tag": "0061_sale_conversions_audit",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1787750000000,
+      "tag": "0062_modules_replace_departments",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1787754000000,
+      "tag": "0063_module_permissions_status",
+      "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1787830000000,
+      "tag": "0064_access_levels_n0_n6",
+      "breakpoints": true
     }
   ]
 }

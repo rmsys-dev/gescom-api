@@ -77,7 +77,6 @@ export class AuthController {
     const response = await this.service.me({
       userId: reqAuth.auth.userId,
       enterpriseId: reqAuth.auth.enterpriseId,
-      memberDepartmentId: reqAuth.auth.memberDepartmentId,
     });
     sendSuccessResponse(res, HttpStatus.OK, {
       message: "Perfil da sessão recuperado com sucesso.",

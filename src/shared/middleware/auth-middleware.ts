@@ -97,7 +97,6 @@ export const authMiddleware = async (
       sessionId: claims.sid,
       enterpriseId: memberContext.enterpriseId,
       memberId: memberContext.memberId,
-      memberDepartmentId: memberContext.memberDepartmentId ?? claims.mdep,
     };
 
     next();

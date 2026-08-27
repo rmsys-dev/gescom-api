@@ -1,9 +1,9 @@
 import { Router } from "express";
 import { addressesRouter } from "../../modules/addresses/routes.js";
 import { authRouter } from "../../modules/auth/routes.js";
-import { departmentsRouter } from "../../modules/departments/routes.js";
+import { modulesRouter } from "../../modules/modules/routes.js";
 import { enterprisesRouter } from "../../modules/enterprises/routes.js";
-import { maintainerDepartmentsRouter } from "../../modules/maintainer/departments/routes.js";
+import { maintainerModulesRouter } from "../../modules/maintainer/modules/routes.js";
 import { maintainerEnterprisesRouter } from "../../modules/maintainer/enterprises/routes.js";
 import { unitsRouter } from "../../modules/products/units/routes.js";
 import { typesProductsRouter } from "../../modules/products/products-types/routes.js";
@@ -43,9 +43,9 @@ const v1Router = Router();
 v1Router.use("/auth", authRouter);
 v1Router.use("/addresses", addressesRouter);
 v1Router.use("/enterprises", enterprisesRouter);
-v1Router.use("/departments", departmentsRouter);
+v1Router.use("/modules", modulesRouter);
 v1Router.use("/maintainer/enterprises", maintainerEnterprisesRouter);
-v1Router.use("/maintainer/departments", maintainerDepartmentsRouter);
+v1Router.use("/maintainer/modules", maintainerModulesRouter);
 //NOVAS ROTAS 01/06/2026
 v1Router.use("/units", unitsRouter);
 v1Router.use("/types-products", typesProductsRouter);

@@ -4,6 +4,7 @@ import { requirePermission } from "../../../shared/middleware/permission-middlew
 import { tenantMiddleware } from "../../../shared/middleware/tenant-middleware.js";
 import { validateSchema } from "../../../shared/middleware/validate-schema.js";
 import { salesAnalyticsController } from "./controller.js";
+import { PERM } from "../../auth/default-permissions.js";
 import {
   analyticsOperationsQuerySchema,
   analyticsPeriodQuerySchema,
@@ -18,7 +19,7 @@ const salesAnalyticsRouter = Router();
 const readAnalytics = [
   authMiddleware,
   tenantMiddleware,
-  requirePermission("consultar_vendas"),
+  requirePermission(PERM.gerenciais_vendas),
 ] as const;
 
 salesAnalyticsRouter.get(

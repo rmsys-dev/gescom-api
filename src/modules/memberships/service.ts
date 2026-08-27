@@ -2,24 +2,20 @@ import {
   and,
   asc,
   count,
-  desc,
   eq,
   ilike,
   inArray,
   isNull,
-  ne,
 } from "drizzle-orm";
 import { db, typeNetworks, typeSupplierCustomers } from "../../db/schema.js";
 import {
   ceps,
   cities,
-  departments,
-  departmentDefaultPermissions,
   enterprises,
   enterprisesMembers,
-  memberExtraPermissions,
-  memberPermissionsDefault,
-  membersDepartments,
+  memberModules,
+  modulePermissions,
+  modules,
   users,
   usersAddress,
 } from "../../db/schema.js";
@@ -47,11 +43,11 @@ import {
 import { toAuditRecord } from "../../shared/audit/build-field-diff.js";
 import { EntityTypes } from "../../shared/audit/entity-types.js";
 import {
-  memberDepartmentSoftDeleteValues,
+  memberModuleSoftDeleteValues,
   membershipSoftDeleteValues,
-  softDeleteValues,
   touchUpdatedAt,
 } from "../../shared/db/record-lifecycle.js";
+import { isPostgresUniqueViolation } from "../../shared/db/postgres-errors.js";
 import {
   createUser,
   findUserByEmail,
@@ -68,14 +64,23 @@ import {
 } from "../auth/invitations-repository.js";
 import { hashPassword } from "../auth/password.js";
 import type {
-  AddMemberDepartmentInput,
+  AddMemberModuleInput,
   CreateMembershipInput,
   CreateOnboardMembershipInput,
   ListMembersQuery,
-  PatchMemberDepartmentInput,
-  PatchMemberDepartmentPermissionInput,
+  PatchMemberModuleInput,
   PatchMembershipInput,
 } from "./schema.js";
+import type { AccessLevel } from "../auth/default-permissions.js";
+import {
+  isAccessLevel,
+  isModuleReference,
+} from "../auth/default-permissions.js";
+import {
+  applyAccessLevelChange,
+  assertNotSelfPermissionMutation,
+  insertMemberModuleWithPermissions,
+} from "./member-module-ops.js";
 import type { AuthContext } from "../auth/types.js";
 import { mapUserToApiSummary } from "../../shared/responses/user-public-profile.js";
 import { normalizeMemberListFilters } from "./repository.js";
@@ -384,7 +389,7 @@ export class MembershipsService {
     };
   }
 
-  /** Detalhe do vínculo membro-empresa com utilizador e departamentos ativos. */
+  /** Detalhe do vínculo membro-empresa com utilizador e módulos ativos. */
   public async getById(enterpriseId: string, memberId: string) {
     await this.assertEnterpriseExists(enterpriseId);
 
@@ -398,23 +403,15 @@ export class MembershipsService {
         user: true,
         typeSupplierCustomer: true,
         typeNetwork: true,
-        departments: {
+        modules: {
           where: and(
-            eq(membersDepartments.status, "ATIVO"),
-            isNull(membersDepartments.deletedAt),
+            eq(memberModules.status, "ATIVO"),
+            isNull(memberModules.deletedAt),
           ),
-          orderBy: [
-            desc(membersDepartments.mainDepartment),
-            asc(membersDepartments.id),
-          ],
+          orderBy: [asc(memberModules.id)],
           with: {
-            department: true,
-            permissionsDefault: {
-              where: isNull(memberPermissionsDefault.deletedAt),
-            },
-            extraPermissions: {
-              where: isNull(memberExtraPermissions.deletedAt),
-            },
+            module: true,
+            permissions: true,
           },
         },
       },
@@ -424,35 +421,22 @@ export class MembershipsService {
       throw new NotFoundError("Membro nao encontrado", "MEMBERSHIP_NOT_FOUND");
     }
 
-    const permissionsByMemberDepartment = await resolvePermissionsBatch(
-      row.departments.map((department) => department.id),
-    );
+    const permissionsByMember = await resolvePermissionsBatch([row.id]);
 
-    const departments = row.departments.map((department) => ({
-      id: department.id,
-      departmentId: department.departmentId,
-      name: department.department?.name ?? null,
-      mainDepartment: department.mainDepartment,
-      status: department.status,
-      createdAt: department.createdAt,
-      updatedAt: department.updatedAt,
-      permissionsDefault: department.permissionsDefault.map(
-        ({ id, permission, status }) => ({
-          id,
-          permission,
-          status,
-        }),
-      ),
-      extraPermissions: department.extraPermissions.map(
-        ({ id, permission, status }) => ({
-          id,
-          permission,
-          status,
-        }),
-      ),
-      permissions: listAllowed(
-        permissionsByMemberDepartment.get(department.id) ?? new Map(),
-      ),
+    const modulesPayload = row.modules.map((link) => ({
+      id: link.id,
+      moduleId: link.moduleId,
+      name: link.module?.name ?? null,
+      reference: link.module?.reference ?? null,
+      accessLevel: link.accessLevel,
+      status: link.status,
+      createdAt: link.createdAt,
+      updatedAt: link.updatedAt,
+      permissions: link.permissions.map(({ id, permission, status }) => ({
+        id,
+        permission,
+        status,
+      })),
     }));
 
     return {
@@ -468,7 +452,8 @@ export class MembershipsService {
         typeSupplierCustomer: row.typeSupplierCustomer ?? null,
         typeNetwork: row.typeNetwork ?? null,
       }),
-      departments,
+      modules: modulesPayload,
+      permissions: listAllowed(permissionsByMember.get(row.id) ?? new Map()),
     };
   }
 
@@ -544,53 +529,49 @@ export class MembershipsService {
     }
   }
 
-  //Verifica se os departamentos existem no catálogo global e estão ativos
-  private async assertDepartmentsExistAndActive(
-    departmentsInput: { departmentId: string; mainDepartment: boolean }[],
+  private async assertModulesExistAndActive(
+    modulesInput: { moduleId: string; accessLevel: AccessLevel }[],
   ): Promise<void> {
-    if (departmentsInput.length === 0) {
+    if (modulesInput.length === 0) {
       return;
     }
 
-    const departmentIds = departmentsInput.map((d) => d.departmentId);
-    const seenDepartmentIds = new Set<string>();
-    const duplicatedDepartmentId = departmentIds.find((departmentId) => {
-      if (seenDepartmentIds.has(departmentId)) {
+    const moduleIds = modulesInput.map((item) => item.moduleId);
+    const seen = new Set<string>();
+    const duplicated = moduleIds.find((moduleId) => {
+      if (seen.has(moduleId)) {
         return true;
       }
-
-      seenDepartmentIds.add(departmentId);
+      seen.add(moduleId);
       return false;
     });
 
-    if (duplicatedDepartmentId) {
+    if (duplicated) {
       throw new ConflictError(
-        `Departamento duplicado: ${duplicatedDepartmentId}`,
-        "DEPARTMENT_DUPLICATED",
+        `Modulo duplicado: ${duplicated}`,
+        "MODULE_DUPLICATED",
       );
     }
 
-    const uniqueDepartmentIds = [...seenDepartmentIds];
-    const deptRows = await db
-      .select({ id: departments.id })
-      .from(departments)
+    const uniqueIds = [...seen];
+    const rows = await db
+      .select({ id: modules.id })
+      .from(modules)
       .where(
         and(
-          inArray(departments.id, uniqueDepartmentIds),
-          eq(departments.status, "ATIVO"),
-          isNull(departments.deletedAt),
+          inArray(modules.id, uniqueIds),
+          eq(modules.status, "ATIVO"),
+          isNull(modules.deletedAt),
         ),
       );
 
-    const validDepartmentIds = new Set(deptRows.map((dept) => dept.id));
-    const invalidDepartmentId = uniqueDepartmentIds.find(
-      (departmentId) => !validDepartmentIds.has(departmentId),
-    );
+    const validIds = new Set(rows.map((row) => row.id));
+    const invalidId = uniqueIds.find((moduleId) => !validIds.has(moduleId));
 
-    if (invalidDepartmentId) {
+    if (invalidId) {
       throw new NotFoundError(
-        `Departamento invalido: ${invalidDepartmentId}`,
-        "DEPARTMENT_NOT_FOUND",
+        `Modulo invalido: ${invalidId}`,
+        "MODULE_NOT_FOUND",
       );
     }
   }
@@ -622,7 +603,7 @@ export class MembershipsService {
     }
   }
 
-  //Cria a estrutura de membro (vínculo + departamentos; permissões opcionais conforme fluxo)
+  //Cria a estrutura de membro (vínculo + módulos com snapshot de permissões no save)
   private async createMembershipStructure(
     input: {
       enterpriseId: string;
@@ -631,11 +612,9 @@ export class MembershipsService {
       code?: number;
       class: typeof enterprisesMembers.$inferInsert.class;
       status: "ATIVO" | "PENDENTE";
-      departments: CreateMembershipInput["departments"];
+      modules: CreateMembershipInput["modules"];
       approvedAt: Date | null;
       approvedBy?: string | null;
-      memberDepartmentStatus: "ATIVO" | "PENDENTE";
-      skipPermissionSnapshot: boolean;
       salesFields?: Pick<
         CreateMembershipInput,
         | "saleLimit"
@@ -673,72 +652,12 @@ export class MembershipsService {
       );
     }
 
-    if (input.departments.length > 0) {
-      const memberDepartmentsRows = await tx
-        .insert(membersDepartments)
-        .values(
-          input.departments.map((d) => ({
-            memberId: member.id,
-            departmentId: d.departmentId,
-            mainDepartment: d.mainDepartment,
-            status: input.memberDepartmentStatus,
-          })),
-        )
-        .returning({
-          id: membersDepartments.id,
-          departmentId: membersDepartments.departmentId,
-        });
-
-      if (memberDepartmentsRows.length !== input.departments.length) {
-        throw new InternalServerError(
-          "Falha ao criar departamento do membro",
-          "INTERNAL_ERROR",
-        );
-      }
-
-      if (!input.skipPermissionSnapshot) {
-        const memberDepartmentIdByDepartmentId = new Map(
-          memberDepartmentsRows.map((md) => [md.departmentId, md.id]),
-        );
-
-        const departmentIds = input.departments.map((d) => d.departmentId);
-        const snapshotPermissions = await tx
-          .select({
-            departmentId: departmentDefaultPermissions.departmentId,
-            permission: departmentDefaultPermissions.permission,
-            status: departmentDefaultPermissions.status,
-          })
-          .from(departmentDefaultPermissions)
-          .where(
-            and(
-              inArray(departmentDefaultPermissions.departmentId, departmentIds),
-              isNull(departmentDefaultPermissions.deletedAt),
-            ),
-          );
-
-        const memberPermissions = snapshotPermissions.map((perm) => {
-          const memberDepartmentId = memberDepartmentIdByDepartmentId.get(
-            perm.departmentId,
-          );
-
-          if (!memberDepartmentId) {
-            throw new InternalServerError(
-              "Falha ao associar permissoes do departamento",
-              "INTERNAL_ERROR",
-            );
-          }
-
-          return {
-            memberDepartmentId,
-            permission: perm.permission,
-            status: perm.status,
-          };
-        });
-
-        if (memberPermissions.length > 0) {
-          await tx.insert(memberPermissionsDefault).values(memberPermissions);
-        }
-      }
+    for (const item of input.modules) {
+      await insertMemberModuleWithPermissions(tx, {
+        memberId: member.id,
+        moduleId: item.moduleId,
+        accessLevel: item.accessLevel,
+      });
     }
 
     return member;
@@ -746,8 +665,8 @@ export class MembershipsService {
 
   /**
    * Vínculo a utilizador já existente (POST /members).
-   * Membro e departamentos ficam PENDENTE; snapshot de permissões e e-mails
-   * (FIRST_ACCESS / MEMBERSHIP_ACCEPT) só na aprovação — excepto classe CLIENTE.
+   * Membro fica PENDENTE; permissões dos módulos já são gravadas no save.
+   * E-mails (FIRST_ACCESS / MEMBERSHIP_ACCEPT) só na aprovação — excepto classe CLIENTE.
    */
   public async createMembership(
     enterpriseId: string,
@@ -756,7 +675,7 @@ export class MembershipsService {
     audit: EntityAuditContext,
   ) {
     await this.assertEnterpriseExists(enterpriseId);
-    await this.assertDepartmentsExistAndActive(input.departments);
+    await this.assertModulesExistAndActive(input.modules);
     await this.assertMembershipTypeReferences(input);
 
     const targetUser = await findUserById(input.userId);
@@ -787,11 +706,9 @@ export class MembershipsService {
           code: input.code,
           class: input.class,
           status: "PENDENTE",
-          departments: input.departments,
+          modules: input.modules,
           approvedAt: null,
           approvedBy: null,
-          memberDepartmentStatus: "PENDENTE",
-          skipPermissionSnapshot: true,
           salesFields: input,
         },
         tx,
@@ -1015,7 +932,7 @@ export class MembershipsService {
     audit: EntityAuditContext,
   ) {
     await this.assertEnterpriseExists(enterpriseId);
-    await this.assertDepartmentsExistAndActive(input.member.departments);
+    await this.assertModulesExistAndActive(input.member.modules);
     await this.assertMembershipTypeReferences(input.member);
 
     const {
@@ -1107,11 +1024,9 @@ export class MembershipsService {
           code: input.member.code,
           class: input.member.class,
           status: "PENDENTE",
-          departments: input.member.departments,
+          modules: input.member.modules,
           approvedAt: null,
           approvedBy: null,
-          memberDepartmentStatus: "PENDENTE",
-          skipPermissionSnapshot: true,
           salesFields: input.member,
         },
         tx,
@@ -1223,77 +1138,6 @@ export class MembershipsService {
     const now = new Date();
 
     const approved = await db.transaction(async (tx) => {
-      const pendingDeptRows = await tx
-        .select({
-          id: membersDepartments.id,
-          departmentId: membersDepartments.departmentId,
-        })
-        .from(membersDepartments)
-        .where(
-          and(
-            eq(membersDepartments.memberId, memberId),
-            eq(membersDepartments.status, "PENDENTE"),
-            isNull(membersDepartments.deletedAt),
-          ),
-        );
-
-      const memberDepartmentIdByDepartmentId = new Map(
-        pendingDeptRows.map((r) => [r.departmentId, r.id]),
-      );
-      const departmentIds = pendingDeptRows.map((r) => r.departmentId);
-
-      if (pendingDeptRows.length > 0) {
-        await tx
-          .update(membersDepartments)
-          .set({ status: "ATIVO", ...touchUpdatedAt(now) })
-          .where(
-            and(
-              inArray(
-                membersDepartments.id,
-                pendingDeptRows.map((row) => row.id),
-              ),
-              isNull(membersDepartments.deletedAt),
-            ),
-          );
-      }
-
-      if (departmentIds.length > 0) {
-        const snapshotPermissions = await tx
-          .select({
-            departmentId: departmentDefaultPermissions.departmentId,
-            permission: departmentDefaultPermissions.permission,
-            status: departmentDefaultPermissions.status,
-          })
-          .from(departmentDefaultPermissions)
-          .where(
-            and(
-              inArray(departmentDefaultPermissions.departmentId, departmentIds),
-              isNull(departmentDefaultPermissions.deletedAt),
-            ),
-          );
-
-        const memberPermissions = snapshotPermissions.map((perm) => {
-          const memberDepartmentId = memberDepartmentIdByDepartmentId.get(
-            perm.departmentId,
-          );
-          if (!memberDepartmentId) {
-            throw new InternalServerError(
-              "Falha ao associar permissoes do departamento",
-              "INTERNAL_ERROR",
-            );
-          }
-          return {
-            memberDepartmentId,
-            permission: perm.permission,
-            status: perm.status,
-          };
-        });
-
-        if (memberPermissions.length > 0) {
-          await tx.insert(memberPermissionsDefault).values(memberPermissions);
-        }
-      }
-
       await invalidatePendingInvites(
         {
           userId: existingMember.userId,
@@ -1372,8 +1216,8 @@ export class MembershipsService {
     return { member: approved, emailSent };
   }
 
-  //Altera um membro vinculado à empresa; com `softDelete` true, inativa vínculos a departamentos
-  //e permissões associadas na mesma transação do soft delete do membro-empresa.
+  //Altera um membro vinculado à empresa; com `softDelete` true, inativa vínculos a módulos
+  //e remove as permissões associadas na mesma transação do soft delete do membro-empresa.
   public async patch(
     enterpriseId: string,
     memberId: string,
@@ -1440,46 +1284,30 @@ export class MembershipsService {
 
     if (isDeleteOperation) {
       const row = await db.transaction(async (tx) => {
-        const activeDeptLinks = await tx
-          .select({ id: membersDepartments.id })
-          .from(membersDepartments)
+        const activeModuleLinks = await tx
+          .select({ id: memberModules.id })
+          .from(memberModules)
           .where(
             and(
-              eq(membersDepartments.memberId, memberId),
-              isNull(membersDepartments.deletedAt),
+              eq(memberModules.memberId, memberId),
+              isNull(memberModules.deletedAt),
             ),
           );
 
-        const mdIds = activeDeptLinks.map((r) => r.id);
+        const mmIds = activeModuleLinks.map((r) => r.id);
 
-        if (mdIds.length > 0) {
+        if (mmIds.length > 0) {
           await tx
-            .update(memberExtraPermissions)
-            .set(softDeleteValues(now))
-            .where(
-              and(
-                inArray(memberExtraPermissions.memberDepartmentId, mdIds),
-                isNull(memberExtraPermissions.deletedAt),
-              ),
-            );
+            .delete(modulePermissions)
+            .where(inArray(modulePermissions.memberModuleId, mmIds));
 
           await tx
-            .update(memberPermissionsDefault)
-            .set(softDeleteValues(now))
+            .update(memberModules)
+            .set(memberModuleSoftDeleteValues(now))
             .where(
               and(
-                inArray(memberPermissionsDefault.memberDepartmentId, mdIds),
-                isNull(memberPermissionsDefault.deletedAt),
-              ),
-            );
-
-          await tx
-            .update(membersDepartments)
-            .set(memberDepartmentSoftDeleteValues(now))
-            .where(
-              and(
-                inArray(membersDepartments.id, mdIds),
-                isNull(membersDepartments.deletedAt),
+                inArray(memberModules.id, mmIds),
+                isNull(memberModules.deletedAt),
               ),
             );
         }
@@ -1546,259 +1374,12 @@ export class MembershipsService {
     return row;
   }
 
-  private async assertMemberDepartmentInEnterprise(
-    enterpriseId: string,
-    memberId: string,
-    departmentId: string,
-  ): Promise<{ memberDepartmentId: string }> {
-    const [row] = await db
-      .select({
-        mdId: membersDepartments.id,
-        emId: enterprisesMembers.id,
-        deptId: departments.id,
-      })
-      .from(enterprises)
-      .leftJoin(
-        enterprisesMembers,
-        and(
-          eq(enterprisesMembers.enterpriseId, enterprises.id),
-          eq(enterprisesMembers.id, memberId),
-          isNull(enterprisesMembers.deletedAt),
-        ),
-      )
-      .leftJoin(
-        membersDepartments,
-        and(
-          eq(membersDepartments.memberId, enterprisesMembers.id),
-          eq(membersDepartments.departmentId, departmentId),
-          isNull(membersDepartments.deletedAt),
-        ),
-      )
-      .leftJoin(
-        departments,
-        and(
-          eq(departments.id, departmentId),
-          eq(departments.status, "ATIVO"),
-          isNull(departments.deletedAt),
-        ),
-      )
-      .where(
-        and(eq(enterprises.id, enterpriseId), isNull(enterprises.deletedAt)),
-      )
-      .limit(1);
-
-    if (!row) {
-      throw new NotFoundError("Empresa nao encontrada", "ENTERPRISE_NOT_FOUND");
-    }
-    if (!row.emId) {
-      throw new NotFoundError("Membro nao encontrado", "MEMBERSHIP_NOT_FOUND");
-    }
-    if (!row.mdId || !row.deptId) {
-      throw new NotFoundError(
-        "Vinculo membro-departamento nao encontrado",
-        "MEMBER_DEPARTMENT_NOT_FOUND",
-      );
-    }
-
-    return { memberDepartmentId: row.mdId };
-  }
-
-  private async patchMemberDepartmentPermissionByVariant(
-    variant: "default" | "extra",
-    enterpriseId: string,
-    memberId: string,
-    departmentId: string,
-    input: PatchMemberDepartmentPermissionInput,
-    audit: EntityAuditContext,
-  ) {
-    const { memberDepartmentId } =
-      await this.assertMemberDepartmentInEnterprise(
-        enterpriseId,
-        memberId,
-        departmentId,
-      );
-
-    const isSoftDelete = input.softDelete === true;
-    const now = new Date();
-    const auditCtx: EntityAuditContext = {
-      ...audit,
-      enterpriseId: audit.enterpriseId ?? enterpriseId,
-    };
-
-    if (variant === "default") {
-      const [existing] = await db
-        .select()
-        .from(memberPermissionsDefault)
-        .where(
-          and(
-            eq(memberPermissionsDefault.memberDepartmentId, memberDepartmentId),
-            eq(memberPermissionsDefault.permission, input.permission),
-            isNull(memberPermissionsDefault.deletedAt),
-          ),
-        )
-        .limit(1);
-
-      if (!existing) {
-        throw new NotFoundError(
-          "Permissao padrao do membro nao encontrada",
-          "MEMBER_PERMISSION_NOT_FOUND",
-        );
-      }
-
-      const [updated] = await db
-        .update(memberPermissionsDefault)
-        .set(
-          isSoftDelete
-            ? softDeleteValues(now)
-            : {
-                status: input.status as NonNullable<typeof input.status>,
-                updatedAt: now,
-              },
-        )
-        .where(
-          and(
-            eq(memberPermissionsDefault.id, existing.id),
-            isNull(memberPermissionsDefault.deletedAt),
-          ),
-        )
-        .returning();
-
-      if (!updated) {
-        throw new NotFoundError(
-          "Permissao padrao do membro nao encontrada",
-          "MEMBER_PERMISSION_NOT_FOUND",
-        );
-      }
-
-      if (isSoftDelete) {
-        await recordSoftDeleteAudit({
-          entityType: EntityTypes.MEMBER_PERMISSIONS_DEFAULT,
-          entityId: existing.id,
-          before: existing,
-          after: updated,
-          ctx: auditCtx,
-        });
-      } else {
-        await recordEntityAudit({
-          entityType: EntityTypes.MEMBER_PERMISSIONS_DEFAULT,
-          entityId: existing.id,
-          action: "UPDATE",
-          before: toAuditRecord(existing),
-          after: toAuditRecord(updated),
-          ctx: auditCtx,
-        });
-      }
-
-      return updated;
-    }
-
-    const [existing] = await db
-      .select()
-      .from(memberExtraPermissions)
-      .where(
-        and(
-          eq(memberExtraPermissions.memberDepartmentId, memberDepartmentId),
-          eq(memberExtraPermissions.permission, input.permission),
-          isNull(memberExtraPermissions.deletedAt),
-        ),
-      )
-      .limit(1);
-
-    if (!existing) {
-      throw new NotFoundError(
-        "Permissao extra do membro nao encontrada",
-        "MEMBER_EXTRA_PERMISSION_NOT_FOUND",
-      );
-    }
-
-    const [updated] = await db
-      .update(memberExtraPermissions)
-      .set(
-        isSoftDelete
-          ? softDeleteValues(now)
-          : {
-              status: input.status as NonNullable<typeof input.status>,
-              updatedAt: now,
-            },
-      )
-      .where(
-        and(
-          eq(memberExtraPermissions.id, existing.id),
-          isNull(memberExtraPermissions.deletedAt),
-        ),
-      )
-      .returning();
-
-    if (!updated) {
-      throw new NotFoundError(
-        "Permissao extra do membro nao encontrada",
-        "MEMBER_EXTRA_PERMISSION_NOT_FOUND",
-      );
-    }
-
-    if (isSoftDelete) {
-      await recordSoftDeleteAudit({
-        entityType: EntityTypes.MEMBER_EXTRA_PERMISSIONS,
-        entityId: existing.id,
-        before: existing,
-        after: updated,
-        ctx: auditCtx,
-      });
-    } else {
-      await recordEntityAudit({
-        entityType: EntityTypes.MEMBER_EXTRA_PERMISSIONS,
-        entityId: existing.id,
-        action: "UPDATE",
-        before: toAuditRecord(existing),
-        after: toAuditRecord(updated),
-        ctx: auditCtx,
-      });
-    }
-
-    return updated;
-  }
-
-  public async patchMemberDepartmentPermissionDefault(
-    enterpriseId: string,
-    memberId: string,
-    departmentId: string,
-    input: PatchMemberDepartmentPermissionInput,
-    audit: EntityAuditContext,
-  ) {
-    return this.patchMemberDepartmentPermissionByVariant(
-      "default",
-      enterpriseId,
-      memberId,
-      departmentId,
-      input,
-      audit,
-    );
-  }
-
-  public async patchMemberDepartmentPermissionExtra(
-    enterpriseId: string,
-    memberId: string,
-    departmentId: string,
-    input: PatchMemberDepartmentPermissionInput,
-    audit: EntityAuditContext,
-  ) {
-    return this.patchMemberDepartmentPermissionByVariant(
-      "extra",
-      enterpriseId,
-      memberId,
-      departmentId,
-      input,
-      audit,
-    );
-  }
-
-  //Verifica se o membro existe e pertence à empresa (ativo)
   private async assertMemberInEnterprise(
     enterpriseId: string,
     memberId: string,
   ): Promise<void> {
     const [member] = await db
-      .select({ id: enterprisesMembers.id })
+      .select({ id: enterprisesMembers.id, class: enterprisesMembers.class })
       .from(enterprisesMembers)
       .where(
         and(
@@ -1814,249 +1395,150 @@ export class MembershipsService {
     }
   }
 
-  //Verifica se o departamento existe no catálogo global e está ativo
-  private async assertDepartmentExistsAndActive(
-    departmentId: string,
-  ): Promise<void> {
-    const [dept] = await db
-      .select({ id: departments.id })
-      .from(departments)
+  private async assertMemberClassAllowsModules(memberId: string): Promise<void> {
+    const [member] = await db
+      .select({ class: enterprisesMembers.class })
+      .from(enterprisesMembers)
       .where(
         and(
-          eq(departments.id, departmentId),
-          eq(departments.status, "ATIVO"),
-          isNull(departments.deletedAt),
+          eq(enterprisesMembers.id, memberId),
+          isNull(enterprisesMembers.deletedAt),
         ),
       )
       .limit(1);
 
-    if (!dept) {
-      throw new NotFoundError(
-        `Departamento invalido: ${departmentId}`,
-        "DEPARTMENT_NOT_FOUND",
+    if (member?.class === "CLIENTE") {
+      throw new ValidationError(
+        [
+          {
+            path: "modules",
+            message: "Membros da classe CLIENTE nao devem ter vinculo com modulos",
+          },
+        ],
+        "Membros da classe CLIENTE nao devem ter vinculo com modulos",
       );
     }
   }
 
-  //Vincula um membro existente a um novo departamento.
-  //O snapshot de permissões é gravado em `member_extra_permissions` (diferente do fluxo inicial em
-  //`createMembershipStructure`, que usa `member_permissions_default`).
-  public async addDepartmentToMember(
-    enterpriseId: string,
+  private async loadMemberModuleOrThrow(
     memberId: string,
-    input: AddMemberDepartmentInput,
-    audit: EntityAuditContext,
+    memberModuleId: string,
   ) {
-    await this.assertEnterpriseExists(enterpriseId);
-    await this.assertMemberInEnterprise(enterpriseId, memberId);
-    await this.assertDepartmentExistsAndActive(input.departmentId);
-
-    const [duplicated] = await db
-      .select({ id: membersDepartments.id })
-      .from(membersDepartments)
+    const [row] = await db
+      .select()
+      .from(memberModules)
       .where(
         and(
-          eq(membersDepartments.memberId, memberId),
-          eq(membersDepartments.departmentId, input.departmentId),
-          isNull(membersDepartments.deletedAt) &&
-            eq(membersDepartments.status, "ATIVO"),
+          eq(memberModules.id, memberModuleId),
+          eq(memberModules.memberId, memberId),
+          isNull(memberModules.deletedAt),
         ),
       )
       .limit(1);
 
-    if (duplicated) {
-      throw new ConflictError(
-        "Membro ja vinculado a este departamento",
-        "MEMBER_DEPARTMENT_EXISTS",
+    if (!row) {
+      throw new NotFoundError(
+        "Vinculo membro-modulo nao encontrado",
+        "MEMBER_MODULE_NOT_FOUND",
       );
     }
 
-    const now = new Date();
+    return row;
+  }
 
-    const created = await db.transaction(async (tx) => {
-      if (input.mainDepartment) {
-        await tx
-          .update(membersDepartments)
-          .set({ mainDepartment: false, updatedAt: now })
-          .where(
-            and(
-              eq(membersDepartments.memberId, memberId),
-              eq(membersDepartments.mainDepartment, true),
-              isNull(membersDepartments.deletedAt) &&
-                eq(membersDepartments.status, "ATIVO"),
-            ),
-          );
-      }
+  public async addModuleToMember(
+    enterpriseId: string,
+    memberId: string,
+    input: AddMemberModuleInput,
+    actorMemberId: string | null,
+    audit: EntityAuditContext,
+  ) {
+    assertNotSelfPermissionMutation(actorMemberId, memberId);
+    await this.assertEnterpriseExists(enterpriseId);
+    await this.assertMemberInEnterprise(enterpriseId, memberId);
+    await this.assertMemberClassAllowsModules(memberId);
 
-      const [memberDepartment] = await tx
-        .insert(membersDepartments)
-        .values({
+    const auditCtx = withEnterpriseAuditContext(audit, enterpriseId);
+
+    try {
+      const created = await db.transaction(async (tx) => {
+        const link = await insertMemberModuleWithPermissions(tx, {
           memberId,
-          departmentId: input.departmentId,
-          mainDepartment: input.mainDepartment,
-        })
-        .returning();
+          moduleId: input.moduleId,
+          accessLevel: input.accessLevel,
+        });
 
-      if (!memberDepartment) {
-        throw new InternalServerError(
-          "Falha ao criar vinculo membro-departamento",
-          "INTERNAL_ERROR",
-        );
-      }
+        await recordCreateAudit({
+          entityType: EntityTypes.MEMBER_MODULES,
+          entityId: link.id,
+          after: link,
+          ctx: auditCtx,
+          tx,
+        });
 
-      const snapshotPermissions = await tx
-        .select({
-          permission: departmentDefaultPermissions.permission,
-          status: departmentDefaultPermissions.status,
-        })
-        .from(departmentDefaultPermissions)
-        .where(
-          and(
-            eq(departmentDefaultPermissions.departmentId, input.departmentId),
-            isNull(departmentDefaultPermissions.deletedAt),
-          ),
-        );
-
-      if (snapshotPermissions.length > 0) {
-        await tx.insert(memberExtraPermissions).values(
-          snapshotPermissions.map((perm) => ({
-            memberDepartmentId: memberDepartment.id,
-            permission: perm.permission,
-            status: perm.status,
-          })),
-        );
-      }
-
-      await recordCreateAudit({
-        entityType: EntityTypes.MEMBERS_DEPARTMENTS,
-        entityId: memberDepartment.id,
-        after: memberDepartment,
-        ctx: withEnterpriseAuditContext(audit, enterpriseId),
-        tx,
+        return link;
       });
 
-      return memberDepartment;
-    });
-
-    return created;
+      return created;
+    } catch (error) {
+      if (isPostgresUniqueViolation(error)) {
+        throw new ConflictError(
+          "Membro ja vinculado a este modulo",
+          "MEMBER_MODULE_EXISTS",
+        );
+      }
+      throw error;
+    }
   }
 
-  //Altera um vínculo membro-departamento (ou realiza soft delete quando `softDelete` é true).
-  //Ao trocar o departamento, o snapshot de permissões em `member_extra_permissions` é regerado
-  //com base em `department_default_permissions` do novo departamento; as `member_permissions_default`
-  //do vínculo original permanecem intactas para fins de auditoria.
-  public async patchMemberDepartment(
+  public async patchMemberModule(
     enterpriseId: string,
     memberId: string,
-    memberDepartmentId: string,
-    input: PatchMemberDepartmentInput,
+    memberModuleId: string,
+    input: PatchMemberModuleInput,
+    actorMemberId: string | null,
     audit: EntityAuditContext,
   ) {
+    assertNotSelfPermissionMutation(actorMemberId, memberId);
     await this.assertEnterpriseExists(enterpriseId);
     await this.assertMemberInEnterprise(enterpriseId, memberId);
 
+    const existing = await this.loadMemberModuleOrThrow(memberId, memberModuleId);
     const auditCtx: EntityAuditContext = {
       ...audit,
       enterpriseId: audit.enterpriseId ?? enterpriseId,
     };
-
-    const [memberDepartment] = await db
-      .select()
-      .from(membersDepartments)
-      .where(
-        and(
-          eq(membersDepartments.id, memberDepartmentId),
-          eq(membersDepartments.memberId, memberId),
-          isNull(membersDepartments.deletedAt),
-        ),
-      )
-      .limit(1);
-
-    if (!memberDepartment) {
-      throw new NotFoundError(
-        "Vinculo membro-departamento nao encontrado",
-        "MEMBER_DEPARTMENT_NOT_FOUND",
-      );
-    }
-
-    const isDeleteOperation = input.softDelete === true;
     const now = new Date();
-
-    if (
-      !isDeleteOperation &&
-      input.departmentId !== undefined &&
-      input.departmentId !== memberDepartment.departmentId
-    ) {
-      await this.assertDepartmentExistsAndActive(input.departmentId);
-
-      const [duplicated] = await db
-        .select({ id: membersDepartments.id })
-        .from(membersDepartments)
-        .where(
-          and(
-            eq(membersDepartments.memberId, memberId),
-            eq(membersDepartments.departmentId, input.departmentId),
-            ne(membersDepartments.id, memberDepartmentId),
-            isNull(membersDepartments.deletedAt),
-          ),
-        )
-        .limit(1);
-
-      if (duplicated) {
-        throw new ConflictError(
-          "Membro ja vinculado a este departamento",
-          "MEMBER_DEPARTMENT_EXISTS",
-        );
-      }
-    }
+    const isDeleteOperation = input.softDelete === true;
 
     const updated = await db.transaction(async (tx) => {
       if (isDeleteOperation) {
         await tx
-          .update(memberExtraPermissions)
-          .set(softDeleteValues(now))
-          .where(
-            and(
-              eq(memberExtraPermissions.memberDepartmentId, memberDepartmentId),
-              isNull(memberExtraPermissions.deletedAt),
-            ),
-          );
-
-        await tx
-          .update(memberPermissionsDefault)
-          .set(softDeleteValues(now))
-          .where(
-            and(
-              eq(
-                memberPermissionsDefault.memberDepartmentId,
-                memberDepartmentId,
-              ),
-              isNull(memberPermissionsDefault.deletedAt),
-            ),
-          );
+          .delete(modulePermissions)
+          .where(eq(modulePermissions.memberModuleId, memberModuleId));
 
         const [row] = await tx
-          .update(membersDepartments)
-          .set(memberDepartmentSoftDeleteValues(now))
+          .update(memberModules)
+          .set(memberModuleSoftDeleteValues(now))
           .where(
             and(
-              eq(membersDepartments.id, memberDepartmentId),
-              isNull(membersDepartments.deletedAt),
+              eq(memberModules.id, memberModuleId),
+              isNull(memberModules.deletedAt),
             ),
           )
           .returning();
 
         if (!row) {
           throw new NotFoundError(
-            "Vinculo membro-departamento nao encontrado",
-            "MEMBER_DEPARTMENT_NOT_FOUND",
+            "Vinculo membro-modulo nao encontrado",
+            "MEMBER_MODULE_NOT_FOUND",
           );
         }
 
         await recordSoftDeleteAudit({
-          entityType: EntityTypes.MEMBERS_DEPARTMENTS,
-          entityId: memberDepartmentId,
-          before: memberDepartment,
+          entityType: EntityTypes.MEMBER_MODULES,
+          entityId: memberModuleId,
+          before: existing,
           after: row,
           ctx: auditCtx,
           tx,
@@ -2065,65 +1547,36 @@ export class MembershipsService {
         return row;
       }
 
-      const setValues: Partial<typeof membersDepartments.$inferInsert> = {
+      const setValues: Partial<typeof memberModules.$inferInsert> = {
         updatedAt: now,
       };
 
-      if (
-        input.departmentId !== undefined &&
-        input.departmentId !== memberDepartment.departmentId
-      ) {
-        setValues.departmentId = input.departmentId;
-
-        await tx
-          .update(memberExtraPermissions)
-          .set(softDeleteValues(now))
-          .where(
-            and(
-              eq(memberExtraPermissions.memberDepartmentId, memberDepartmentId),
-              isNull(memberExtraPermissions.deletedAt),
-            ),
-          );
-
-        const snapshotPermissions = await tx
-          .select({
-            permission: departmentDefaultPermissions.permission,
-            status: departmentDefaultPermissions.status,
-          })
-          .from(departmentDefaultPermissions)
-          .where(
-            and(
-              eq(departmentDefaultPermissions.departmentId, input.departmentId),
-              isNull(departmentDefaultPermissions.deletedAt),
-            ),
-          );
-
-        if (snapshotPermissions.length > 0) {
-          await tx.insert(memberExtraPermissions).values(
-            snapshotPermissions.map((perm) => ({
-              memberDepartmentId,
-              permission: perm.permission,
-              status: perm.status,
-            })),
+      if (input.accessLevel !== undefined && input.accessLevel !== existing.accessLevel) {
+        if (!isAccessLevel(existing.accessLevel)) {
+          throw new ConflictError(
+            "Nivel de acesso atual invalido",
+            "ACCESS_LEVEL_INVALID",
           );
         }
-      }
 
-      if (input.mainDepartment === true) {
-        await tx
-          .update(membersDepartments)
-          .set({ mainDepartment: false, updatedAt: now })
-          .where(
-            and(
-              eq(membersDepartments.memberId, memberId),
-              ne(membersDepartments.id, memberDepartmentId),
-              eq(membersDepartments.mainDepartment, true),
-              isNull(membersDepartments.deletedAt),
-            ),
-          );
-        setValues.mainDepartment = true;
-      } else if (input.mainDepartment === false) {
-        setValues.mainDepartment = false;
+        const catalog = await tx
+          .select({ reference: modules.reference })
+          .from(modules)
+          .where(eq(modules.id, existing.moduleId))
+          .limit(1)
+          .then((rows) => rows[0]);
+
+        if (!catalog || !isModuleReference(catalog.reference)) {
+          throw new NotFoundError("Modulo invalido", "MODULE_NOT_FOUND");
+        }
+
+        await applyAccessLevelChange(tx, {
+          memberModuleId,
+          reference: catalog.reference,
+          from: existing.accessLevel,
+          to: input.accessLevel,
+        });
+        setValues.accessLevel = input.accessLevel;
       }
 
       if (input.status !== undefined) {
@@ -2131,28 +1584,28 @@ export class MembershipsService {
       }
 
       const [row] = await tx
-        .update(membersDepartments)
+        .update(memberModules)
         .set(setValues)
         .where(
           and(
-            eq(membersDepartments.id, memberDepartmentId),
-            isNull(membersDepartments.deletedAt),
+            eq(memberModules.id, memberModuleId),
+            isNull(memberModules.deletedAt),
           ),
         )
         .returning();
 
       if (!row) {
         throw new NotFoundError(
-          "Vinculo membro-departamento nao encontrado",
-          "MEMBER_DEPARTMENT_NOT_FOUND",
+          "Vinculo membro-modulo nao encontrado",
+          "MEMBER_MODULE_NOT_FOUND",
         );
       }
 
       await recordEntityAudit({
-        entityType: EntityTypes.MEMBERS_DEPARTMENTS,
-        entityId: memberDepartmentId,
+        entityType: EntityTypes.MEMBER_MODULES,
+        entityId: memberModuleId,
         action: "UPDATE",
-        before: toAuditRecord(memberDepartment),
+        before: toAuditRecord(existing),
         after: toAuditRecord(row),
         ctx: auditCtx,
         tx,
@@ -2163,6 +1616,67 @@ export class MembershipsService {
 
     return updated;
   }
+
+  public async patchMemberModulePermission(
+    enterpriseId: string,
+    memberId: string,
+    memberModuleId: string,
+    permission: string,
+    status: "ATIVO" | "INATIVO",
+    actorMemberId: string | null,
+    audit: EntityAuditContext,
+  ) {
+    assertNotSelfPermissionMutation(actorMemberId, memberId);
+    await this.assertEnterpriseExists(enterpriseId);
+    await this.assertMemberInEnterprise(enterpriseId, memberId);
+    await this.loadMemberModuleOrThrow(memberId, memberModuleId);
+
+    const [existing] = await db
+      .select()
+      .from(modulePermissions)
+      .where(
+        and(
+          eq(modulePermissions.memberModuleId, memberModuleId),
+          eq(modulePermissions.permission, permission),
+        ),
+      )
+      .limit(1);
+
+    if (!existing) {
+      throw new NotFoundError(
+        "Permissao do membro nao encontrada",
+        "MEMBER_PERMISSION_NOT_FOUND",
+      );
+    }
+
+    const [updated] = await db
+      .update(modulePermissions)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(modulePermissions.id, existing.id))
+      .returning();
+
+    if (!updated) {
+      throw new NotFoundError(
+        "Permissao do membro nao encontrada",
+        "MEMBER_PERMISSION_NOT_FOUND",
+      );
+    }
+
+    await recordEntityAudit({
+      entityType: EntityTypes.MODULE_PERMISSIONS,
+      entityId: existing.id,
+      action: "UPDATE",
+      before: toAuditRecord(existing),
+      after: toAuditRecord(updated),
+      ctx: {
+        ...audit,
+        enterpriseId: audit.enterpriseId ?? enterpriseId,
+      },
+    });
+
+    return updated;
+  }
+
 }
 
 export const membershipsService = new MembershipsService();

@@ -3,7 +3,6 @@ import { db } from "../../db/schema.js";
 import {
   enterprises,
   enterprisesMembers,
-  membersDepartments,
   userSessions,
   users,
   usersCredentials,
@@ -56,7 +55,6 @@ export type UserEnterpriseMembership = {
   enterpriseLegalName: string;
   enterpriseStatus: typeof enterprises.$inferSelect.status;
   class: typeof enterprisesMembers.$inferSelect.class;
-  memberDepartmentId: string | null;
 };
 
 export const listActiveEnterprisesForUser = async (
@@ -67,13 +65,6 @@ export const listActiveEnterprisesForUser = async (
     where: activeUserMembershipWhere(userId),
     with: {
       enterprise: true,
-      departments: {
-        where: and(
-          eq(membersDepartments.mainDepartment, true),
-          eq(membersDepartments.status, "ATIVO"),
-          isNull(membersDepartments.deletedAt),
-        ),
-      },
     },
   });
 
@@ -101,14 +92,12 @@ export const listActiveEnterprisesForUser = async (
     enterpriseLegalName: row.enterprise!.legalName,
     enterpriseStatus: row.enterprise!.status,
     class: row.class,
-    memberDepartmentId: row.departments[0]?.id ?? null,
   }));
 };
 
 export type MembershipContext = {
   memberId: string;
   enterpriseId: string;
-  memberDepartmentId: string | null;
 };
 
 export const findMembershipContext = async (
@@ -118,19 +107,9 @@ export const findMembershipContext = async (
   const memberRow = await db
     .select({
       memberId: enterprisesMembers.id,
-      memberDepartmentId: membersDepartments.id,
     })
     .from(enterprisesMembers)
     .innerJoin(enterprises, eq(enterprises.id, enterprisesMembers.enterpriseId))
-    .leftJoin(
-      membersDepartments,
-      and(
-        eq(membersDepartments.memberId, enterprisesMembers.id),
-        eq(membersDepartments.mainDepartment, true),
-        eq(membersDepartments.status, "ATIVO"),
-        isNull(membersDepartments.deletedAt),
-      ),
-    )
     .where(
       and(
         eq(enterprisesMembers.userId, userId),
@@ -151,7 +130,6 @@ export const findMembershipContext = async (
   return {
     memberId: member.memberId,
     enterpriseId,
-    memberDepartmentId: member.memberDepartmentId ?? null,
   };
 };
 
@@ -166,25 +144,6 @@ export const assertActiveMemberEnterpriseLink = async (input: {
 }): Promise<boolean> => {
   const ctx = await findMembershipContext(input.userId, input.enterpriseId);
   return ctx !== null && ctx.memberId === input.memberId;
-};
-
-/** Departamento principal (`mainDepartment`) do membro, se existir. */
-export const findPrimaryMemberDepartmentIdByMemberId = async (
-  memberId: string,
-): Promise<string | null> => {
-  const rows = await db
-    .select({ id: membersDepartments.id })
-    .from(membersDepartments)
-    .where(
-      and(
-        eq(membersDepartments.memberId, memberId),
-        eq(membersDepartments.mainDepartment, true),
-        eq(membersDepartments.status, "ATIVO"),
-        isNull(membersDepartments.deletedAt),
-      ),
-    )
-    .limit(1);
-  return rows[0]?.id ?? null;
 };
 
 export type SessionRow = typeof userSessions.$inferSelect;
@@ -223,19 +182,9 @@ export const findMembershipContextByMemberId = async (
     .select({
       memberId: enterprisesMembers.id,
       enterpriseId: enterprisesMembers.enterpriseId,
-      memberDepartmentId: membersDepartments.id,
     })
     .from(enterprisesMembers)
     .innerJoin(enterprises, eq(enterprises.id, enterprisesMembers.enterpriseId))
-    .leftJoin(
-      membersDepartments,
-      and(
-        eq(membersDepartments.memberId, enterprisesMembers.id),
-        eq(membersDepartments.mainDepartment, true),
-        eq(membersDepartments.status, "ATIVO"),
-        isNull(membersDepartments.deletedAt),
-      ),
-    )
     .where(
       and(
         eq(enterprisesMembers.id, memberId),
@@ -255,7 +204,6 @@ export const findMembershipContextByMemberId = async (
   return {
     memberId: member.memberId,
     enterpriseId: member.enterpriseId,
-    memberDepartmentId: member.memberDepartmentId ?? null,
   };
 };
 
@@ -267,19 +215,9 @@ export const findMembershipContextByMemberIdForUser = async (
     .select({
       memberId: enterprisesMembers.id,
       enterpriseId: enterprisesMembers.enterpriseId,
-      memberDepartmentId: membersDepartments.id,
     })
     .from(enterprisesMembers)
     .innerJoin(enterprises, eq(enterprises.id, enterprisesMembers.enterpriseId))
-    .leftJoin(
-      membersDepartments,
-      and(
-        eq(membersDepartments.memberId, enterprisesMembers.id),
-        eq(membersDepartments.mainDepartment, true),
-        eq(membersDepartments.status, "ATIVO"),
-        isNull(membersDepartments.deletedAt),
-      ),
-    )
     .where(
       and(
         eq(enterprisesMembers.id, memberId),
@@ -300,7 +238,6 @@ export const findMembershipContextByMemberIdForUser = async (
   return {
     memberId: member.memberId,
     enterpriseId: member.enterpriseId,
-    memberDepartmentId: member.memberDepartmentId ?? null,
   };
 };
 

@@ -1,10 +1,7 @@
 import { z } from "zod";
 import { createUserBodySchema } from "../users/schema.js";
-import {
-  memberClassEnum,
-  statusEnum,
-  statusPermissionEnum,
-} from "../../db/schema.js";
+import { memberClassEnum, statusEnum } from "../../db/schema.js";
+import { ACCESS_LEVELS, isPermissionSlug } from "../auth/default-permissions.js";
 import {
   createPaginationQuerySchema,
   cpfCnpjSchema,
@@ -77,78 +74,79 @@ export type MembershipEnterpriseParams = z.infer<
   typeof membershipEnterpriseParamsSchema
 >;
 
-//Esquema de departamento de membro
-export const membershipDepartmentSchema = z
+//Esquema de módulo de membro
+export const membershipModuleSchema = z
   .object({
-    departmentId: uuidSchema("departmentId"),
-    mainDepartment: z.boolean(),
+    moduleId: uuidSchema("moduleId"),
+    accessLevel: z.enum(ACCESS_LEVELS),
   })
   .strict();
 
-/** Regras: CLIENTE sem departamentos; demais classes exigem ao menos um e exatamente um principal. */
-export const refineMembershipDepartmentsByClass = <
+/** Regras: CLIENTE sem módulos; demais classes exigem ao menos um módulo. */
+export const refineMembershipModulesByClass = <
   T extends {
     class: (typeof memberClassEnum.enumValues)[number];
-    departments: { mainDepartment: boolean }[];
+    modules: { moduleId: string; accessLevel: string }[];
   },
 >(
   data: T,
   ctx: z.RefinementCtx,
 ) => {
   if (data.class === "CLIENTE") {
-    if (data.departments.length > 0) {
+    if (data.modules.length > 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message:
-          "Membros da classe CLIENTE nao devem ter vinculo com departamentos",
-        path: ["departments"],
+        message: "Membros da classe CLIENTE nao devem ter vinculo com modulos",
+        path: ["modules"],
       });
     }
     return;
   }
 
-  if (data.departments.length < 1) {
+  if (data.modules.length < 1) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: "Informe ao menos um departamento para esta classe de membro",
-      path: ["departments"],
+      message: "Informe ao menos um modulo para esta classe de membro",
+      path: ["modules"],
     });
     return;
   }
 
-  const mainCount = data.departments.filter(
-    (d) => d.mainDepartment === true,
-  ).length;
-  if (mainCount !== 1) {
+  const seen = new Set<string>();
+  const duplicated = data.modules.find((item) => {
+    if (seen.has(item.moduleId)) {
+      return true;
+    }
+    seen.add(item.moduleId);
+    return false;
+  });
+  if (duplicated) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: "Deve haver exatamente um departamento principal",
-      path: ["departments"],
+      message: "Modulo duplicado no vinculo",
+      path: ["modules"],
     });
   }
 };
 
-// Objeto base sem refinamento — Zod 4 não permite .omit() após .superRefine()
 const createMembershipInnerSchema = z
   .object({
     userId: uuidSchema("userId"),
     code: z.coerce.number().int().optional(),
     class: z.enum(memberClassEnum.enumValues),
-    departments: z.array(membershipDepartmentSchema).default([]),
+    modules: z.array(membershipModuleSchema).default([]),
   })
   .merge(membershipSalesFieldsSchema);
 
-/** Vínculo de membro a utilizador já existente (POST /members). Status inicial: PENDENTE. */
 export const createMembershipSchema = createMembershipInnerSchema.superRefine(
-  refineMembershipDepartmentsByClass,
+  refineMembershipModulesByClass,
 );
 
 export type CreateMembershipInput = z.infer<typeof createMembershipSchema>;
 
-/** Parte `member` do create-with-user (sem userId — resolvido por contactos ou criação). */
 export const createOnboardMemberPartSchema = createMembershipInnerSchema
   .omit({ userId: true })
-  .superRefine(refineMembershipDepartmentsByClass);
+  .superRefine(refineMembershipModulesByClass);
 
 export const createOnboardMembershipSchema = z
   .object({
@@ -204,95 +202,77 @@ export const patchMembershipSchema = z
 
 export type PatchMembershipInput = z.infer<typeof patchMembershipSchema>;
 
-//Esquema de parâmetros base para vínculo membro-departamento (sem memberDepartmentId)
-export const memberDepartmentBaseParamsSchema = z
+export const memberModuleBaseParamsSchema = z
   .object({
     enterpriseId: uuidSchema("enterpriseId"),
     memberId: uuidSchema("memberId"),
   })
   .strict();
 
-export type MemberDepartmentBaseParams = z.infer<
-  typeof memberDepartmentBaseParamsSchema
+export type MemberModuleBaseParams = z.infer<
+  typeof memberModuleBaseParamsSchema
 >;
 
-//Esquema de parâmetros completos para alteração de vínculo membro-departamento
-export const memberDepartmentParamsSchema = z
+export const memberModuleParamsSchema = z
   .object({
     enterpriseId: uuidSchema("enterpriseId"),
     memberId: uuidSchema("memberId"),
-    memberDepartmentId: uuidSchema("memberDepartmentId"),
+    memberModuleId: uuidSchema("memberModuleId"),
   })
   .strict();
 
-export type MemberDepartmentParams = z.infer<
-  typeof memberDepartmentParamsSchema
->;
+export type MemberModuleParams = z.infer<typeof memberModuleParamsSchema>;
 
-//Esquema de inclusão de vínculo membro-departamento
-export const addMemberDepartmentSchema = z
+export const addMemberModuleSchema = z
   .object({
-    departmentId: uuidSchema("departmentId"),
-    mainDepartment: z.boolean(),
+    moduleId: uuidSchema("moduleId"),
+    accessLevel: z.enum(ACCESS_LEVELS),
   })
   .strict();
 
-export type AddMemberDepartmentInput = z.infer<
-  typeof addMemberDepartmentSchema
->;
+export type AddMemberModuleInput = z.infer<typeof addMemberModuleSchema>;
 
-//Esquema de alteração (patch) de vínculo membro-departamento
-export const patchMemberDepartmentSchema = z
+export const patchMemberModuleSchema = z
   .object({
-    departmentId: uuidSchema("departmentId").optional(),
-    mainDepartment: z.boolean().optional(),
+    accessLevel: z.enum(ACCESS_LEVELS).optional(),
     status: z.enum(statusEnum.enumValues).optional(),
-    // Se `true`, o back define `deleted_at` com a data/hora do servidor (soft delete)
     softDelete: z.boolean().optional(),
   })
   .strict()
   .refine(
     (data) =>
-      data.departmentId !== undefined ||
-      data.mainDepartment !== undefined ||
+      data.accessLevel !== undefined ||
       data.status !== undefined ||
       data.softDelete === true,
     "Deve haver ao menos um campo para atualizar",
   );
 
-export type PatchMemberDepartmentInput = z.infer<
-  typeof patchMemberDepartmentSchema
->;
+export type PatchMemberModuleInput = z.infer<typeof patchMemberModuleSchema>;
 
-// Parâmetros: empresa, membro e departamento do vínculo
-export const membershipMemberDepartmentParamsSchema = z
+export const memberModulePermissionParamsSchema = z
   .object({
     enterpriseId: uuidSchema("enterpriseId"),
     memberId: uuidSchema("memberId"),
-    departmentId: uuidSchema("departmentId"),
-  })
-  .strict();
-
-export type MembershipMemberDepartmentParams = z.infer<
-  typeof membershipMemberDepartmentParamsSchema
->;
-
-// PATCH em member_permissions_default ou member_extra_permissions
-export const patchMemberDepartmentPermissionBodySchema = z
-  .object({
+    memberModuleId: uuidSchema("memberModuleId"),
     permission: z
       .string()
       .min(1, "Campo 'permission' e obrigatorio")
-      .max(255, "Campo 'permission' deve ter no maximo 255 caracteres"),
-    status: z.enum(statusPermissionEnum.enumValues).optional(),
-    softDelete: z.boolean().optional(),
+      .max(255)
+      .refine(isPermissionSlug, { message: "permission invalida" }),
   })
-  .strict()
-  .refine(
-    (data) => data.status !== undefined || data.softDelete === true,
-    "Informe 'status' ou softDelete: true",
-  );
+  .strict();
 
-export type PatchMemberDepartmentPermissionInput = z.infer<
-  typeof patchMemberDepartmentPermissionBodySchema
+export type MemberModulePermissionParams = z.infer<
+  typeof memberModulePermissionParamsSchema
 >;
+
+export const patchMemberModulePermissionSchema = z
+  .object({
+    status: z.enum(["ATIVO", "INATIVO"]),
+  })
+  .strict();
+
+export type PatchMemberModulePermissionInput = z.infer<
+  typeof patchMemberModulePermissionSchema
+>;
+

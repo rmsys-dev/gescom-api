@@ -5,30 +5,30 @@ import {
   sendPageFromService,
   sendSuccessResponse,
 } from "../../shared/responses/send-success-response.js";
-import type { ListDepartmentsQuery } from "./schema.js";
-import { departmentsService } from "./service.js";
+import type { ListModulesQuery } from "./schema.js";
+import { modulesService } from "./service.js";
 
-export class DepartmentsController {
+export class ModulesController {
   public list = async (req: Request, res: Response): Promise<void> => {
-    const query = (req as RequestWithValidatedQuery<ListDepartmentsQuery>)
+    const query = (req as RequestWithValidatedQuery<ListModulesQuery>)
       .validatedQuery;
-    const page = await departmentsService.list(query);
+    const page = await modulesService.list(query);
     sendPageFromService(
       res,
       HttpStatus.OK,
-      "Departamentos listados com sucesso.",
+      "Modulos listados com sucesso.",
       page,
     );
   };
 
   public getById = async (req: Request, res: Response): Promise<void> => {
-    const departmentId = req.params["departmentId"] as string;
-    const row = await departmentsService.getById(departmentId);
+    const moduleId = req.params["moduleId"] as string;
+    const row = await modulesService.getById(moduleId);
     sendSuccessResponse(res, HttpStatus.OK, {
-      message: "Departamento recuperado com sucesso.",
+      message: "Modulo recuperado com sucesso.",
       data: row,
     });
   };
 }
 
-export const departmentsController = new DepartmentsController();
+export const modulesController = new ModulesController();

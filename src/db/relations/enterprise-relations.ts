@@ -3,9 +3,6 @@ import { enterprises, enterprisesAddress } from "../entities/enterprises.js";
 import { ceps } from "../entities/addresses.js";
 import { enterprisesMembers } from "../entities/members.js";
 import { enterprisesSequences } from "../entities/enterprises.js";
-import { departments } from "../entities/departments.js";
-import { membersDepartments } from "../entities/members.js";
-import { departmentDefaultPermissions } from "../entities/departments.js";
 import { stockSectors } from "../entities/stock.js";
 import {
   productBrands,
@@ -38,23 +35,6 @@ export const enterprisesRelations = relations(enterprises, ({ many }) => ({
   productSubgroups: many(productSubgroups),
   productBrands: many(productBrands),
 }));
-
-//**RELAÇÕES DE DEPARTAMENTOS**//
-export const departmentsRelations = relations(departments, ({ many }) => ({
-  membersDepartments: many(membersDepartments),
-  defaultPermissions: many(departmentDefaultPermissions),
-}));
-
-//**RELAÇÕES DE PERMISSÕES PADRÃO DE DEPARTAMENTOS**//
-export const departmentDefaultPermissionsRelations = relations(
-  departmentDefaultPermissions,
-  ({ one }) => ({
-    department: one(departments, {
-      fields: [departmentDefaultPermissions.departmentId],
-      references: [departments.id],
-    }),
-  }),
-);
 
 //**RELAÇÕES DE SEQUÊNCIAS**//
 export const enterprisesSequencesRelations = relations(

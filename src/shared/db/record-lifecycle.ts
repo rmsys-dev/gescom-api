@@ -45,9 +45,7 @@ export const membershipSoftDeleteValues = (now: Date) => ({
   approvedBy: null,
 });
 
-/** Soft delete de vínculo membro-departamento (members_departments). */
-export const memberDepartmentSoftDeleteValues = (now: Date) => ({
-  ...softDeleteValues(now, { status: "INATIVO" as const }),
-  mainDepartment: false,
-});
+/** Soft delete de vínculo membro-módulo (member_modules). */
+export const memberModuleSoftDeleteValues = (now: Date) =>
+  softDeleteValues(now, { status: "INATIVO" as const });
 

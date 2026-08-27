@@ -206,6 +206,9 @@ export const entityTypeEnum = pgEnum("entity_type", [
   "MEMBER_PERMISSIONS_DEFAULT",
   "MEMBER_EXTRA_PERMISSIONS",
   "DEPARTMENTS",
+  "MODULES",
+  "MEMBER_MODULES",
+  "MODULE_PERMISSIONS",
   "COUNTRIES",
   "STATES",
   "CITIES",
@@ -366,3 +369,14 @@ export const saleConversionTypeEnum = pgEnum("sale_conversion_type", [
 ]);
 export type SaleConversionType =
   (typeof saleConversionTypeEnum.enumValues)[number];
+
+// nivel de acesso (N0 sem permissão … N6 gerenciais)
+export const accessLevelEnum = pgEnum("access_level", [
+  "N0",
+  "N1",
+  "N2",
+  "N3",
+  "N4",
+  "N5",
+  "N6",
+]);

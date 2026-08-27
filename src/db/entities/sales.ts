@@ -298,7 +298,6 @@ export const salesMembers = pgTable(
       .references(() => sales.id, { onDelete: "cascade" }),
     memberLegalName: varchar("member_legal_name", { length: 255 }), // nome legal do membro
     memberAddress: varchar("member_address", { length: 255 }), // endereço do membro
-    memberSector: varchar("member_sector", { length: 255 }), // setor do membro
     memberCep: varchar("member_cep", { length: 8 }), // cep do membro
     memberCity: varchar("member_city", { length: 255 }), // cidade do membro
     memberState: varchar("member_state", { length: 2 }), // estado do membro'

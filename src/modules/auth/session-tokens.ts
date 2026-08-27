@@ -28,7 +28,6 @@ export const issueSessionTokens = async (
     userId: string;
     enterpriseId: string | null;
     memberId?: string | null;
-    memberDepartmentId?: string | null;
     userAgent: string | null;
     ipAddress: string | null;
   },
@@ -72,7 +71,6 @@ export const issueSessionTokens = async (
     ent: input.enterpriseId ?? undefined,
     enterpriseId: input.enterpriseId ?? undefined,
     mem: input.memberId ?? undefined,
-    mdep: input.memberDepartmentId ?? undefined,
   });
 
   return { sessionId: session.id, accessToken, refreshToken };

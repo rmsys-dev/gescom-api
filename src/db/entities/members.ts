@@ -13,7 +13,6 @@ import {
 } from "drizzle-orm/pg-core";
 import {
   statusEnum,
-  statusPermissionEnum,
   memberClassEnum,
   invitePurposeEnum,
   inviteChannelEnum,
@@ -21,7 +20,6 @@ import {
 } from "../enums.js";
 import { users } from "./users.js";
 import { enterprises } from "./enterprises.js";
-import { departments } from "./departments.js";
 import { tz, percentageDecimal } from "../functions.js";
 
 //Tabela de membros de empresas
@@ -148,79 +146,6 @@ export const userInvitations = pgTable(
       t.memberId,
       t.purpose,
     ),
-  ],
-);
-
-//Tabela de departamentos de membros de empresas
-export const membersDepartments = pgTable(
-  "members_departments",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    status: statusEnum("status").default("ATIVO").notNull(), // Status
-    memberId: uuid("member_id")
-      .notNull()
-      .references(() => enterprisesMembers.id, { onDelete: "restrict" }), // Vínculo membro-empresa
-    departmentId: uuid("department_id")
-      .notNull()
-      .references(() => departments.id, { onDelete: "restrict" }), // Departamento
-    mainDepartment: boolean("main_department").notNull(), // Departamento principal
-    createdAt: tz("created_at").defaultNow().notNull(),
-    updatedAt: tz("updated_at"),
-    deletedAt: tz("deleted_at"),
-  },
-  (t) => [
-    uniqueIndex("members_departments_member_department_active_unique")
-      .on(t.memberId, t.departmentId)
-      .where(sql`${t.deletedAt} is null`),
-    uniqueIndex("members_departments_main_unique")
-      .on(t.memberId)
-      .where(sql`${t.mainDepartment} = true and ${t.deletedAt} is null`),
-    index("members_departments_member_department_idx").on(
-      t.memberId,
-      t.departmentId,
-    ),
-  ],
-);
-
-//Permissões padrão (snapshot do arquivo estático no momento do vínculo)
-export const memberPermissionsDefault = pgTable(
-  "member_permissions_default",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    permission: varchar("permission", { length: 255 }).notNull(), // Permissão
-    status: statusPermissionEnum("status").default("ALLOW").notNull(), // Status
-    memberDepartmentId: uuid("member_department_id")
-      .notNull()
-      .references(() => membersDepartments.id, { onDelete: "cascade" }),
-    createdAt: tz("created_at").defaultNow().notNull(),
-    updatedAt: tz("updated_at"),
-    deletedAt: tz("deleted_at"),
-  },
-  (t) => [
-    uniqueIndex("member_permissions_default_member_dept_perm_active_unique")
-      .on(t.memberDepartmentId, t.permission)
-      .where(sql`${t.deletedAt} is null`),
-  ],
-);
-
-//Permissões extras concedidas por demanda
-export const memberExtraPermissions = pgTable(
-  "member_extra_permissions",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    permission: varchar("permission", { length: 255 }).notNull(), // Permissão
-    status: statusPermissionEnum("status").default("ALLOW").notNull(), // Status
-    memberDepartmentId: uuid("member_department_id")
-      .notNull()
-      .references(() => membersDepartments.id, { onDelete: "cascade" }),
-    createdAt: tz("created_at").defaultNow().notNull(),
-    updatedAt: tz("updated_at"),
-    deletedAt: tz("deleted_at"),
-  },
-  (t) => [
-    uniqueIndex("member_extra_permissions_member_dept_perm_active_unique")
-      .on(t.memberDepartmentId, t.permission)
-      .where(sql`${t.deletedAt} is null`),
   ],
 );
 

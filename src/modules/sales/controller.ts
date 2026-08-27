@@ -31,7 +31,6 @@ const saleAuthFromRequest = (
 ): SaleAuthContext => ({
   userId: auth!.userId!,
   memberId: auth!.memberId,
-  memberDepartmentId: auth!.memberDepartmentId,
 });
 
 export class SalesController {

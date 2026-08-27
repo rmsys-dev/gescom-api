@@ -19,7 +19,6 @@ import {
   enterprisesMembers,
   measurementUnits,
   mechanicSalesItems,
-  membersDepartments,
   paymentTypes,
   productTypes,
   productsEnterprises,
@@ -44,7 +43,6 @@ import {
   vehiclesEnterprisesMembers,
 } from "../../db/schema.js";
 import { ceps, cities, states } from "../../db/entities/addresses.js";
-import { departments } from "../../db/entities/departments.js";
 import {
   ConflictError,
   ForbiddenError,
@@ -71,7 +69,6 @@ import {
 } from "../../shared/products/resolve-sale-price.js";
 import { PERM } from "../auth/default-permissions.js";
 import { isAllowed, resolvePermissions } from "../auth/permissions.js";
-import { findPrimaryMemberDepartmentIdByMemberId } from "../auth/repository.js";
 import { resolveDefaultSaleItemStockRefs } from "../stock/balance.js";
 import {
   assertSaleOrderNumberAvailable,
@@ -318,7 +315,6 @@ const buildSaleServiceFieldValues = (
 type SaleMemberSnapshot = {
   memberLegalName: string | null;
   memberAddress: string | null;
-  memberSector: string | null;
   memberCep: string | null;
   memberCity: string | null;
   memberState: string | null;
@@ -330,7 +326,6 @@ type SaleMemberSnapshot = {
 const SALE_MEMBER_SNAPSHOT_KEYS = [
   "memberLegalName",
   "memberAddress",
-  "memberSector",
   "memberCep",
   "memberCity",
   "memberState",
@@ -353,9 +348,6 @@ const normalizeSaleMemberOverrides = (
   }
   if (input.memberAddress !== undefined) {
     result.memberAddress = input.memberAddress.trim();
-  }
-  if (input.memberSector !== undefined) {
-    result.memberSector = input.memberSector.trim();
   }
   if (input.memberCep !== undefined) {
     result.memberCep = input.memberCep.trim();
@@ -471,7 +463,6 @@ type PriceSnapshot = {
 export type SaleAuthContext = {
   userId: string;
   memberId?: string;
-  memberDepartmentId?: string;
 };
 
 const SELLER_INELIGIBLE_MEMBER_CLASSES = ["CLIENTE", "FORNECEDOR"] as const;
@@ -2352,19 +2343,13 @@ export class SalesService {
   ) {
     if (sellerUserId === auth.userId) return;
 
-    let memberDepartmentId = auth.memberDepartmentId;
-    if (!memberDepartmentId && auth.memberId) {
-      memberDepartmentId =
-        (await findPrimaryMemberDepartmentIdByMemberId(auth.memberId)) ??
-        undefined;
-    }
-    if (!memberDepartmentId) {
+    if (!auth.memberId) {
       throw new ForbiddenError(
         "Sem permissao para atribuir outro vendedor",
         "PERMISSION_DENIED",
       );
     }
-    const resolved = await resolvePermissions(memberDepartmentId);
+    const resolved = await resolvePermissions(auth.memberId);
     if (!isAllowed(resolved, PERM.alterar_vendas)) {
       throw new ForbiddenError(
         "Sem permissao para atribuir outro vendedor",
@@ -2595,7 +2580,7 @@ export class SalesService {
       );
     }
 
-    const [addressRow, contactRow, departmentRow] = await Promise.all([
+    const [addressRow, contactRow] = await Promise.all([
       tx
         .select({
           street: ceps.address,
@@ -2635,23 +2620,6 @@ export class SalesService {
         )
         .limit(1)
         .then((rows) => rows[0]),
-      tx
-        .select({ departmentName: departments.name })
-        .from(membersDepartments)
-        .innerJoin(
-          departments,
-          eq(membersDepartments.departmentId, departments.id),
-        )
-        .where(
-          and(
-            eq(membersDepartments.memberId, memberId),
-            eq(membersDepartments.mainDepartment, true),
-            isNull(membersDepartments.deletedAt),
-            isNull(departments.deletedAt),
-          ),
-        )
-        .limit(1)
-        .then((rows) => rows[0]),
     ]);
 
     const addressLine = addressRow
@@ -2665,7 +2633,6 @@ export class SalesService {
       memberCep: addressRow?.cepNumber?.trim() || null,
       memberCity: addressRow?.cityName?.trim() || null,
       memberState: addressRow?.stateAcronym?.trim() || null,
-      memberSector: departmentRow?.departmentName?.trim() || null,
       memberPhone: contactRow?.phone?.trim() || null,
       memberMobile:
         contactRow?.whatsapp?.trim() || contactRow?.phone?.trim() || null,
@@ -2714,7 +2681,6 @@ export class SalesService {
           .select({
             memberLegalName: salesMembers.memberLegalName,
             memberAddress: salesMembers.memberAddress,
-            memberSector: salesMembers.memberSector,
             memberCep: salesMembers.memberCep,
             memberCity: salesMembers.memberCity,
             memberState: salesMembers.memberState,
@@ -2760,7 +2726,6 @@ export class SalesService {
             salesId: salesMembers.salesId,
             memberLegalName: salesMembers.memberLegalName,
             memberAddress: salesMembers.memberAddress,
-            memberSector: salesMembers.memberSector,
             memberCep: salesMembers.memberCep,
             memberCity: salesMembers.memberCity,
             memberState: salesMembers.memberState,

@@ -76,7 +76,7 @@ export class MembershipInvitationsController {
       memberId,
       actorUserId: reqAuth.auth.userId,
       sessionEnterpriseId,
-      actorMemberDepartmentId: reqAuth.auth.memberDepartmentId ?? null,
+      actorMemberId: reqAuth.auth.memberId ?? null,
       ...meta(req),
     });
     sendSuccessResponse(res, HttpStatus.OK, {

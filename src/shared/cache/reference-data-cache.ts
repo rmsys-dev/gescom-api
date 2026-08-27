@@ -8,7 +8,7 @@ export const REFERENCE_DATA_TTL_MS =
 export const referenceCacheKeys = {
   countries: "reference:countries",
   states: (countryId?: string) => `reference:states:${countryId ?? "all"}`,
-  departments: "reference:departments",
+  modules: "reference:modules",
 } as const;
 
 export const invalidateReferenceCountries = (): void => {
@@ -19,6 +19,6 @@ export const invalidateReferenceStates = (): void => {
   memoryCache.deleteByPrefix("reference:states:");
 };
 
-export const invalidateReferenceDepartments = (): void => {
-  memoryCache.delete(referenceCacheKeys.departments);
+export const invalidateReferenceModules = (): void => {
+  memoryCache.delete(referenceCacheKeys.modules);
 };

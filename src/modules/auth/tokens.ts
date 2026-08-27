@@ -57,7 +57,6 @@ export const verifyAccessToken = (token: string): AccessTokenClaims => {
       ent: decoded.ent ?? decoded.enterpriseId,
       enterpriseId: decoded.enterpriseId ?? decoded.ent,
       mem: decoded.mem,
-      mdep: decoded.mdep,
     };
   } catch (error) {
     if (error instanceof UnauthorizedError) {

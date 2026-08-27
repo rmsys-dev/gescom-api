@@ -1,8 +1,12 @@
 import { relations } from "drizzle-orm";
-import { enterprises, enterprisesAddress } from "../entities/enterprises.js";
+import {
+  enterprises,
+  enterprisesAddress,
+  enterpriseParameters,
+  enterprisesSequences,
+} from "../entities/enterprises.js";
 import { ceps } from "../entities/addresses.js";
 import { enterprisesMembers } from "../entities/members.js";
-import { enterprisesSequences } from "../entities/enterprises.js";
 import { stockSectors } from "../entities/stock.js";
 import {
   productBrands,
@@ -30,6 +34,7 @@ export const enterprisesRelations = relations(enterprises, ({ many }) => ({
   members: many(enterprisesMembers),
   addresses: many(enterprisesAddress),
   sequences: many(enterprisesSequences),
+  parameters: many(enterpriseParameters),
   stockSectors: many(stockSectors),
   productGroups: many(productGroups),
   productSubgroups: many(productSubgroups),
@@ -42,6 +47,17 @@ export const enterprisesSequencesRelations = relations(
   ({ one }) => ({
     enterprise: one(enterprises, {
       fields: [enterprisesSequences.enterpriseId],
+      references: [enterprises.id],
+    }),
+  }),
+);
+
+//**RELAÇÕES DE PARÂMETROS DE EMPRESAS**//
+export const enterpriseParametersRelations = relations(
+  enterpriseParameters,
+  ({ one }) => ({
+    enterprise: one(enterprises, {
+      fields: [enterpriseParameters.enterpriseId],
       references: [enterprises.id],
     }),
   }),

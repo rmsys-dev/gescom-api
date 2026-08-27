@@ -31,7 +31,7 @@ export const resolvePermissions = async (
         eq(memberModules.memberId, memberId),
         eq(memberModules.status, "ATIVO"),
         isNull(memberModules.deletedAt),
-        eq(modulePermissions.status, "ATIVO"),
+        eq(modulePermissions.status, "ALLOW"),
       ),
     );
 
@@ -67,7 +67,7 @@ export const resolvePermissionsBatch = async (
         inArray(memberModules.memberId, uniqueIds),
         eq(memberModules.status, "ATIVO"),
         isNull(memberModules.deletedAt),
-        eq(modulePermissions.status, "ATIVO"),
+        eq(modulePermissions.status, "ALLOW"),
       ),
     );
 

@@ -100,7 +100,9 @@ const fetchPipelineKpis = async (
   enterpriseId: string,
   period: ResolvedPeriod,
   filters: AnalyticsFilters,
+  options?: { includeWorkOrders?: boolean },
 ): Promise<PipelineKpis> => {
+  const includeWorkOrders = options?.includeWorkOrders !== false;
   const scope = buildPipelineScope(enterpriseId, period, filters);
   const budgetSale = alias(sales, "budget_for_conversion");
 
@@ -120,13 +122,15 @@ const fetchPipelineKpis = async (
         })
         .from(sales)
         .where(and(scope, eq(sales.type, "ORCAMENTO"))),
-      db
-        .select({
-          count: sql<string>`count(*)`,
-          value: sql<string>`coalesce(sum(${sales.valueLiquid}), 0)`,
-        })
-        .from(sales)
-        .where(and(scope, eq(sales.type, "ORDEM DE SERVICO"))),
+      includeWorkOrders
+        ? db
+            .select({
+              count: sql<string>`count(*)`,
+              value: sql<string>`coalesce(sum(${sales.valueLiquid}), 0)`,
+            })
+            .from(sales)
+            .where(and(scope, eq(sales.type, "ORDEM DE SERVICO")))
+        : Promise.resolve([{ count: "0", value: "0" }]),
       db
         .select({
           count: sql<string>`count(*)`,
@@ -168,8 +172,12 @@ const fetchPipelineKpis = async (
     openSalesValue: roundMoney(decNum(openSales[0]?.value)),
     openBudgetsCount,
     openBudgetsValue: roundMoney(decNum(openBudgets[0]?.value)),
-    openWorkOrdersCount: Number(openWorkOrders[0]?.count ?? 0),
-    openWorkOrdersValue: roundMoney(decNum(openWorkOrders[0]?.value)),
+    openWorkOrdersCount: includeWorkOrders
+      ? Number(openWorkOrders[0]?.count ?? 0)
+      : 0,
+    openWorkOrdersValue: includeWorkOrders
+      ? roundMoney(decNum(openWorkOrders[0]?.value))
+      : 0,
     budgetsTotalCount,
     conversionCountInPeriod: conversionCount,
     conversionRatePercent:

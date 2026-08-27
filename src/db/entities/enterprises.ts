@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   date,
   index,
   pgTable,
@@ -87,5 +88,27 @@ export const enterprisesSequences = pgTable(
     uniqueIndex("enterprises_sequences_enterprise_type_uidx")
       .on(t.enterpriseId, t.type)
       .where(sql`${t.deletedAt} is null`),
+  ],
+);
+
+/** Parâmetros / feature flags por empresa (EAV). */
+export const enterpriseParameters = pgTable(
+  "enterprise_parameters",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    enterpriseId: uuid("enterprise_id")
+      .notNull()
+      .references(() => enterprises.id, { onDelete: "restrict" }),
+    parameter: varchar("parameter", { length: 255 }).notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    createdAt: tz("created_at").defaultNow().notNull(),
+    updatedAt: tz("updated_at"),
+    deletedAt: tz("deleted_at"),
+  },
+  (t) => [
+    uniqueIndex("enterprise_parameters_enterprise_parameter_active_unique")
+      .on(t.enterpriseId, t.parameter)
+      .where(sql`${t.deletedAt} is null`),
+    index("enterprise_parameters_enterprise_active_idx").on(t.enterpriseId),
   ],
 );

@@ -267,7 +267,7 @@ export const acceptMembershipInvitationPublic = async (
   accessToken: string;
   refreshToken: string;
   user: ReturnType<typeof mapAuthUser>;
-  enterprises: ReturnType<typeof mapEnterprises>;
+  enterprises: Awaited<ReturnType<typeof mapEnterprises>>;
 }> => {
   const { user } = await verifyLoginCredentials({
     loginType: input.loginType,
@@ -311,7 +311,7 @@ export const acceptMembershipInvitationPublic = async (
     accessToken: tokens.accessToken,
     refreshToken: tokens.refreshToken,
     user: mapAuthUser(user),
-    enterprises: mapEnterprises(memberships),
+    enterprises: await mapEnterprises(memberships),
   };
 };
 

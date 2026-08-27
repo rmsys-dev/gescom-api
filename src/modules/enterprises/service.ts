@@ -15,6 +15,11 @@ import { isActiveEnterprise, activeUserMembershipWhere } from "../../shared/db/t
 import { resolveListPagination } from "../../shared/pagination/pagination-params.js";
 import type { ListEnterprisesQuery } from "./schema.js";
 import {
+  resolveEnterpriseParameters,
+  resolveEnterpriseParametersMany,
+} from "./parameters/resolve.js";
+import { serializeEnterpriseParameters } from "./parameters/catalog.js";
+import {
   normalizeCpfCnpj,
   normalizeEmail,
   normalizePhone,
@@ -34,6 +39,7 @@ const mapMembershipsToListItem = (
     memberId: string;
     class: (typeof enterprisesMembers.$inferSelect)["class"];
     enterprise: (typeof enterprises.$inferSelect) | null;
+    parameters: Awaited<ReturnType<typeof resolveEnterpriseParameters>>;
   }>,
 ) =>
   rows.map((row) => ({
@@ -42,6 +48,7 @@ const mapMembershipsToListItem = (
     legalName: row.enterprise!.legalName,
     memberId: row.memberId,
     class: row.class,
+    parameters: row.parameters,
   }));
 
 type EnterpriseAddressWithDetails = typeof enterprisesAddress.$inferSelect & {
@@ -137,6 +144,9 @@ export class EnterprisesService {
 
     const total = activeRows.length;
     const page = activeRows.slice(offset, offset + limit);
+    const parametersByEnterprise = await resolveEnterpriseParametersMany(
+      page.map((row) => row.enterprise!.id),
+    );
 
     return {
       items: mapMembershipsToListItem(
@@ -145,6 +155,9 @@ export class EnterprisesService {
           memberId: row.id,
           class: row.class,
           enterprise: row.enterprise,
+          parameters:
+            parametersByEnterprise.get(row.enterprise!.id) ??
+            serializeEnterpriseParameters({}),
         })),
       ),
       total,
@@ -191,12 +204,14 @@ export class EnterprisesService {
     }
 
     const { addresses, sequences, ...enterprise } = row;
+    const parameters = await resolveEnterpriseParameters(id);
     return {
       ...enterprise,
       addresses: (addresses as EnterpriseAddressWithDetails[]).map(
         mapEnterpriseAddressDetails,
       ),
       sequences,
+      parameters,
     };
   }
 

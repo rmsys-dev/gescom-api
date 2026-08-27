@@ -69,6 +69,10 @@ import {
 } from "../../shared/products/resolve-sale-price.js";
 import { PERM } from "../auth/default-permissions.js";
 import { isAllowed, resolvePermissions } from "../auth/permissions.js";
+import {
+  assertEnterpriseParameter,
+  resolveEnterpriseParameters,
+} from "../enterprises/parameters/resolve.js";
 import { resolveDefaultSaleItemStockRefs } from "../stock/balance.js";
 import {
   assertSaleOrderNumberAvailable,
@@ -539,6 +543,20 @@ export class SalesService {
       after: toAuditRecord(after),
       ctx: { ...ctx, enterpriseId },
     });
+  }
+
+  private async assertTrabalhaOsEnabled(enterpriseId: string): Promise<void> {
+    const parameters = await resolveEnterpriseParameters(enterpriseId);
+    assertEnterpriseParameter({ parameters }, "trabalha_os");
+  }
+
+  private async assertSaleTypeAllowed(
+    enterpriseId: string,
+    saleType: string,
+  ): Promise<void> {
+    if (saleType === "ORDEM DE SERVICO") {
+      await this.assertTrabalhaOsEnabled(enterpriseId);
+    }
   }
 
   private scope(enterpriseId: string, id?: string) {
@@ -2255,6 +2273,7 @@ export class SalesService {
     await db.transaction(async (tx) => {
       beforeRow = await this.getSaleRow(tx, enterpriseId, saleId);
       const sale = beforeRow;
+      await this.assertSaleTypeAllowed(enterpriseId, sale.type);
       if (sale.status !== "ABERTA") {
         throw new ValidationError(
           [
@@ -3136,6 +3155,7 @@ export class SalesService {
         "Nao autenticado",
       );
     }
+    await this.assertSaleTypeAllowed(enterpriseId, input.type);
     const operator = await this.resolveSeller(auth.userId);
     const seller = await this.resolveSaleSeller(
       auth,
@@ -3398,6 +3418,7 @@ export class SalesService {
     gescomClient?: string | string[],
   ) {
     const existing = await this.getById(enterpriseId, id);
+    await this.assertSaleTypeAllowed(enterpriseId, existing.type);
     if (existing.type === "ORCAMENTO" && existing.status === "FINALIZADA") {
       throw new ValidationError(
         [
@@ -4189,6 +4210,7 @@ export class SalesService {
     audit: EntityAuditContext,
     gescomClient?: string | string[],
   ) {
+    await this.assertTrabalhaOsEnabled(enterpriseId);
     if (!auth?.userId) {
       throw new ValidationError(
         [{ path: "auth", message: "Usuario autenticado obrigatorio" }],
@@ -4586,6 +4608,7 @@ export class SalesService {
     audit: EntityAuditContext,
     gescomClient?: string | string[],
   ) {
+    await this.assertTrabalhaOsEnabled(enterpriseId);
     if (!auth?.userId) {
       throw new ValidationError(
         [{ path: "auth", message: "Usuario autenticado obrigatorio" }],
@@ -5019,6 +5042,7 @@ export class SalesService {
     await db.transaction(async (tx) => {
       beforeRow = await this.getSaleRow(tx, enterpriseId, saleId);
       const sale = beforeRow;
+      await this.assertSaleTypeAllowed(enterpriseId, sale.type);
       this.assertBudgetEditableForItems(sale);
 
       if (this.shouldMoveStock(sale)) {
@@ -5134,6 +5158,7 @@ export class SalesService {
     await db.transaction(async (tx) => {
       beforeRow = await this.getSaleRow(tx, enterpriseId, saleId);
       const sale = beforeRow;
+      await this.assertSaleTypeAllowed(enterpriseId, sale.type);
       this.assertBudgetEditableForItems(sale);
 
       const item = (
@@ -5204,6 +5229,7 @@ export class SalesService {
     await db.transaction(async (tx) => {
       beforeRow = await this.getSaleRow(tx, enterpriseId, saleId);
       const sale = beforeRow;
+      await this.assertSaleTypeAllowed(enterpriseId, sale.type);
       this.assertBudgetEditableForItems(sale);
 
       const existing = (

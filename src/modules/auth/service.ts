@@ -30,6 +30,10 @@ import {
 import { verifyRefreshToken, hashRefreshToken } from "./tokens.js";
 import { issueSessionTokens } from "./session-tokens.js";
 import type { AuthLoginType } from "./password.js";
+import {
+  filterPermissionsByParameters,
+} from "../enterprises/parameters/catalog.js";
+import { resolveEnterpriseParameters } from "../enterprises/parameters/resolve.js";
 
 type AuthMeta = {
   ipAddress: string | null;
@@ -60,6 +64,7 @@ type LoginResponse = {
     legalName: string;
     memberId: string;
     class: UserEnterpriseMembership["class"];
+    parameters: Record<string, boolean>;
   }>;
 };
 
@@ -99,6 +104,7 @@ type MeResponse = {
     tradeName: string;
     legalName: string;
     memberId: string;
+    parameters: Record<string, boolean>;
   } | null;
   modules: MeResponseModule[];
 };
@@ -178,7 +184,7 @@ export class AuthService {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       user: mapAuthUser(user),
-      enterprises: mapEnterprises(memberships),
+      enterprises: await mapEnterprises(memberships),
     };
   }
 
@@ -367,6 +373,7 @@ export class AuthService {
       enterprise: {
         id: input.enterpriseId,
         memberId: ctx.memberId,
+        parameters: await resolveEnterpriseParameters(input.enterpriseId),
       },
     };
   }
@@ -412,7 +419,7 @@ export class AuthService {
               with: {
                 module: true,
                 permissions: {
-                  where: eq(modulePermissions.status, "ATIVO"),
+                  where: eq(modulePermissions.status, "ALLOW"),
                 },
               },
             },
@@ -433,11 +440,16 @@ export class AuthService {
     let modules: MeResponse["modules"] = [];
 
     if (membership?.enterprise) {
+      const parameters = await resolveEnterpriseParameters(
+        membership.enterprise.id,
+      );
+
       enterpriseInfo = {
         id: membership.enterprise.id,
         tradeName: membership.enterprise.tradeName,
         legalName: membership.enterprise.legalName,
         memberId: membership.id,
+        parameters,
       };
 
       modules = membership.modules
@@ -453,7 +465,10 @@ export class AuthService {
           reference: item.module!.reference,
           name: item.module!.name,
           accessLevel: item.accessLevel,
-          permissions: item.permissions.map((perm) => perm.permission),
+          permissions: filterPermissionsByParameters(
+            item.permissions.map((perm) => perm.permission),
+            parameters,
+          ),
         }));
     }
 

@@ -96,7 +96,7 @@ export const insertMemberModuleWithPermissions = async (
       perms.map((permission) => ({
         memberModuleId: link.id,
         permission,
-        status: "ATIVO" as const,
+        status: "ALLOW" as const,
       })),
     );
   }
@@ -159,7 +159,7 @@ export const applyAccessLevelChange = async (
         fresh.push(slug);
         continue;
       }
-      if (row.status !== "ATIVO") {
+      if (row.status !== "ALLOW") {
         reactivateIds.push(row.id);
       }
     }
@@ -167,7 +167,7 @@ export const applyAccessLevelChange = async (
     if (reactivateIds.length > 0) {
       await tx
         .update(modulePermissions)
-        .set({ status: "ATIVO", updatedAt: new Date() })
+        .set({ status: "ALLOW", updatedAt: new Date() })
         .where(inArray(modulePermissions.id, reactivateIds));
     }
 
@@ -176,7 +176,7 @@ export const applyAccessLevelChange = async (
         fresh.map((permission) => ({
           memberModuleId: input.memberModuleId,
           permission,
-          status: "ATIVO" as const,
+          status: "ALLOW" as const,
         })),
       );
     }

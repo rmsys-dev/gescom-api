@@ -2,6 +2,7 @@ import { and, eq, inArray, isNull } from "drizzle-orm";
 import {
   enterprises,
   enterprisesAddress,
+  enterpriseParameters,
   enterprisesMembers,
   enterprisesSequences,
   memberModules,
@@ -101,6 +102,16 @@ export const cascadeSoftDeleteEnterprise = async (
       and(
         eq(enterprisesSequences.enterpriseId, enterpriseId),
         isNull(enterprisesSequences.deletedAt),
+      ),
+    );
+
+  await tx
+    .update(enterpriseParameters)
+    .set(softDeleteValues(now))
+    .where(
+      and(
+        eq(enterpriseParameters.enterpriseId, enterpriseId),
+        isNull(enterpriseParameters.deletedAt),
       ),
     );
 

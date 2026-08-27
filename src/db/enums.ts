@@ -94,6 +94,7 @@ export const statusPermissionEnum = pgEnum("status_permission", [
   "ALLOW",
   "DENIED",
 ]);
+export type StatusPermission = (typeof statusPermissionEnum.enumValues)[number];
 
 //Tipo de endereço (residencial, comercial, entrega, cobrança, faturamento, secundário, principal, outro)
 export const adressTypeEnum = pgEnum("adress_type", [
@@ -201,6 +202,7 @@ export const entityTypeEnum = pgEnum("entity_type", [
   "MEMBERS_FINANCIAL_INFO",
   "ENTERPRISES",
   "ENTERPRISES_ADDRESS",
+  "ENTERPRISE_PARAMETERS",
   "ENTERPRISES_MEMBERS",
   "MEMBERS_DEPARTMENTS",
   "MEMBER_PERMISSIONS_DEFAULT",

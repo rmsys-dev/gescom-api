@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { authMiddleware } from "../../shared/middleware/auth-middleware.js";
+import { requireParameter } from "../../shared/middleware/parameter-middleware.js";
 import {
   requireAnyPermission,
   requirePermission,
@@ -24,6 +25,7 @@ import {
 } from "./schema.js";
 
 const salesRouter = Router();
+const requireOs = requireParameter("trabalha_os");
 
 salesRouter.get(
   "/",
@@ -89,6 +91,7 @@ salesRouter.post(
   "/:saleId/convert-to-os",
   authMiddleware,
   tenantMiddleware,
+  requireOs,
   requireAnyPermission(["incluir_vendas", "alterar_vendas"]),
   validateSchema({
     params: saleParamsSchema,
@@ -102,6 +105,7 @@ salesRouter.post(
   "/:saleId/convert-os-to-sale",
   authMiddleware,
   tenantMiddleware,
+  requireOs,
   requireAnyPermission(["incluir_vendas", "alterar_vendas"]),
   validateSchema({
     params: saleParamsSchema,

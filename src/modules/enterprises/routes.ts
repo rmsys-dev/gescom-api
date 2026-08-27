@@ -51,6 +51,17 @@ enterprisesRouter.patch(
   enterprisesController.patch,
 );
 
+//*** PARÂMETROS DA EMPRESA (somente leitura; alteração via maintainer) ***
+
+enterprisesRouter.get(
+  "/:enterpriseId/parameters",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("consultar_empresas"),
+  validateSchema({ params: enterpriseParamsSchema, query: emptyQuerySchema }),
+  enterprisesController.getParameters,
+);
+
 //***ROTA DO MÓDULO DE ENDEREÇOS DA EMPRESA ***
 
 enterprisesRouter.use("/:enterpriseId/addresses", enterpriseAddressesRouter);

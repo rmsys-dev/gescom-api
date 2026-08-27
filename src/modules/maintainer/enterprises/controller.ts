@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { HttpStatus } from "../../../shared/http/http-status.js";
 import { sendSuccessResponse } from "../../../shared/responses/send-success-response.js";
 import type { CreateEnterpriseInput } from "./schema.js";
+import type { PatchEnterpriseParametersInput } from "../../enterprises/parameters/schema.js";
 import {
   auditContextFromPostRequest,
   auditContextFromRequest,
@@ -18,6 +19,27 @@ export class MaintainerEnterprisesController {
     sendSuccessResponse(res, HttpStatus.CREATED, {
       message: "Empresa criada com sucesso.",
       data: row,
+    });
+  };
+
+  public patchParameters = async (
+    req: Request,
+    res: Response,
+  ): Promise<void> => {
+    const id = req.params["enterpriseId"] as string;
+    const body = req.body as PatchEnterpriseParametersInput;
+    const data = await maintainerEnterprisesService.patchParameters(
+      id,
+      body,
+      auditContextFromRequest(
+        req,
+        "maintainer.enterprises.service.patchParameters",
+        { enterpriseId: id },
+      ),
+    );
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Parametros da empresa atualizados com sucesso.",
+      data,
     });
   };
 

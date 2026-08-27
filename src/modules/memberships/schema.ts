@@ -268,7 +268,7 @@ export type MemberModulePermissionParams = z.infer<
 
 export const patchMemberModulePermissionSchema = z
   .object({
-    status: z.enum(["ATIVO", "INATIVO"]),
+    status: z.enum(["ALLOW", "DENIED"]),
   })
   .strict();
 

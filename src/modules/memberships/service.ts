@@ -1622,7 +1622,7 @@ export class MembershipsService {
     memberId: string,
     memberModuleId: string,
     permission: string,
-    status: "ATIVO" | "INATIVO",
+    status: "ALLOW" | "DENIED",
     actorMemberId: string | null,
     audit: EntityAuditContext,
   ) {

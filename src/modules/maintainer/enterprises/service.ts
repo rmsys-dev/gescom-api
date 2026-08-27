@@ -1,6 +1,6 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "../../../db/schema.js";
-import { enterprises } from "../../../db/schema.js";
+import { enterpriseParameters, enterprises } from "../../../db/schema.js";
 import { cascadeSoftDeleteEnterprise } from "../../../shared/db/cascade-enterprise-soft-delete.js";
 import {
   normalizeCpfCnpj,
@@ -17,41 +17,68 @@ import {
   type EntityAuditContext,
 } from "../../../shared/audit/entity-audit.js";
 import { EntityTypes } from "../../../shared/audit/entity-types.js";
+import { enterpriseParameterCatalog } from "../../enterprises/parameters/catalog.js";
+import { enterpriseParametersService } from "../../enterprises/parameters/service.js";
 import type { CreateEnterpriseInput } from "./schema.js";
+import type { PatchEnterpriseParametersInput } from "../../enterprises/parameters/schema.js";
 
 export class MaintainerEnterprisesService {
-  public async create(
-    input: CreateEnterpriseInput,
-    audit: EntityAuditContext,
-  ) {
+  public async create(input: CreateEnterpriseInput, audit: EntityAuditContext) {
     const registration = normalizeCpfCnpj(input.registration);
     try {
-      const [row] = await db
-        .insert(enterprises)
-        .values({
-          registration,
-          legalName: input.legalName.trim(),
-          tradeName: input.tradeName.trim(),
-          phone: input.phone ? normalizePhone(input.phone) : null,
-          email: input.email ? normalizeEmail(input.email) : null,
-          whatsapp: input.whatsapp ? normalizePhone(input.whatsapp) : null,
-        })
-        .returning();
-      if (row) {
+      const row = await db.transaction(async (tx) => {
+        const [created] = await tx
+          .insert(enterprises)
+          .values({
+            registration,
+            legalName: input.legalName.trim(),
+            tradeName: input.tradeName.trim(),
+            phone: input.phone ? normalizePhone(input.phone) : null,
+            email: input.email ? normalizeEmail(input.email) : null,
+            whatsapp: input.whatsapp ? normalizePhone(input.whatsapp) : null,
+          })
+          .returning();
+
+        if (!created) {
+          return null;
+        }
+
+        // Novas empresas sobem com todos os parâmetros do catálogo desativados
+        // (opt-in via suporte / PATCH maintainer).
+        await tx.insert(enterpriseParameters).values(
+          enterpriseParameterCatalog.map((parameter) => ({
+            enterpriseId: created.id,
+            parameter,
+            enabled: false,
+          })),
+        );
+
         await recordCreateAudit({
           entityType: EntityTypes.ENTERPRISES,
-          entityId: row.id,
-          after: row,
-          ctx: { ...audit, enterpriseId: audit.enterpriseId ?? row.id },
+          entityId: created.id,
+          after: created,
+          ctx: { ...audit, enterpriseId: audit.enterpriseId ?? created.id },
+          tx,
         });
-      }
+
+        return created;
+      });
+
       return row;
     } catch {
       throw new ConflictError(
-        "Dados da empresa em conflito com cadastro existente",
+        "Dados da empresa em conflito com cadastro existente.",
         "ENTERPRISE_CONFLICT",
       );
     }
+  }
+
+  public async patchParameters(
+    enterpriseId: string,
+    input: PatchEnterpriseParametersInput,
+    audit: EntityAuditContext,
+  ) {
+    return enterpriseParametersService.patch(enterpriseId, input, audit);
   }
 
   public async softDelete(id: string, audit: EntityAuditContext) {
@@ -62,10 +89,7 @@ export class MaintainerEnterprisesService {
       .limit(1);
     const existing = existingRows[0];
     if (!existing) {
-      throw new NotFoundError(
-        "Empresa nao encontrada",
-        "ENTERPRISE_NOT_FOUND",
-      );
+      throw new NotFoundError("Empresa não encontrada", "ENTERPRISE_NOT_FOUND");
     }
 
     return db.transaction(async (tx) => {
@@ -78,7 +102,7 @@ export class MaintainerEnterprisesService {
         .limit(1);
       if (!updated?.deletedAt) {
         throw new NotFoundError(
-          "Empresa nao encontrada",
+          "Empresa não encontrada",
           "ENTERPRISE_NOT_FOUND",
         );
       }

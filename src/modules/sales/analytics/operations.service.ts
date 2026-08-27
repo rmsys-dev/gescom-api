@@ -82,6 +82,7 @@ export class OperationsAnalyticsService {
     const period = resolveAnalyticsPeriod(query);
     const filters = extractFilters(query);
     const localDate = localCreatedDateSql(period.timezone);
+    const operationTypes = ["ORCAMENTO", "ORDEM DE SERVICO"] as const;
 
     const filterConditions = [];
     if (filters.sellerId) filterConditions.push(eq(sales.sellerId, filters.sellerId));
@@ -119,7 +120,7 @@ export class OperationsAnalyticsService {
         .where(
           and(
             ...periodConditions,
-            inArray(sales.type, ["ORCAMENTO", "ORDEM DE SERVICO"]),
+            inArray(sales.type, [...operationTypes]),
           ),
         )
         .groupBy(sales.type, sales.status)

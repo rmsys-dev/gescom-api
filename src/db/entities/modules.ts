@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { pgTable, uniqueIndex, varchar, uuid } from "drizzle-orm/pg-core";
-import { accessLevelEnum, statusEnum } from "../enums.js";
+import { accessLevelEnum, statusPermissionEnum, statusEnum } from "../enums.js";
 import { tz } from "../functions.js";
 import { enterprisesMembers } from "./members.js";
 
@@ -57,7 +57,7 @@ export const modulePermissions = pgTable(
       .notNull()
       .references(() => memberModules.id, { onDelete: "cascade" }),
     permission: varchar("permission", { length: 255 }).notNull(),
-    status: statusEnum("status").default("ATIVO").notNull(),
+    status: statusPermissionEnum("status").default("ALLOW").notNull(),
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
   },

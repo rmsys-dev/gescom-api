@@ -6,9 +6,13 @@ import {
   sendPageFromService,
   sendSuccessResponse,
 } from "../../shared/responses/send-success-response.js";
-import type { ListEnterprisesQuery, PatchEnterpriseInput } from "./schema.js";
+import type {
+  ListEnterprisesQuery,
+  PatchEnterpriseInput,
+} from "./schema.js";
 import { auditContextFromRequest } from "../../shared/audit/request-meta.js";
 import { enterprisesService } from "./service.js";
+import { enterpriseParametersService } from "./parameters/service.js";
 
 export class EnterprisesController {
   //Listagem de empresas
@@ -47,6 +51,18 @@ export class EnterprisesController {
     sendSuccessResponse(res, HttpStatus.OK, {
       message: "Empresa atualizada com sucesso.",
       data: row,
+    });
+  };
+
+  public getParameters = async (
+    req: Request,
+    res: Response,
+  ): Promise<void> => {
+    const id = req.params["enterpriseId"] as string;
+    const data = await enterpriseParametersService.getForEnterprise(id);
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Parametros da empresa recuperados com sucesso.",
+      data,
     });
   };
 }

@@ -456,6 +456,27 @@
       "when": 1787830000000,
       "tag": "0064_access_levels_n0_n6",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1787916400000,
+      "tag": "0065_enterprise_parameters",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1788002800000,
+      "tag": "0066_module_permissions_status_permission",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1788089200000,
+      "tag": "0067_rename_trabalha_of_to_trabalha_os",
+      "breakpoints": true
     }
   ]
 }

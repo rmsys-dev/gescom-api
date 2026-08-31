@@ -1,8 +1,18 @@
 import { z } from "zod";
 import { statusEnum } from "../../../db/schema.js";
-import { createPaginationQuerySchema } from "../../../shared/validation/common-schemas.js";
+import {
+  createPaginationQuerySchema,
+  optionalTrimmedStringSchema,
+} from "../../../shared/validation/common-schemas.js";
 
-export const listStockLocationsQuerySchema = createPaginationQuerySchema(100);
+export const listStockLocationsQuerySchema = createPaginationQuerySchema(100)
+  .extend({
+    box: optionalTrimmedStringSchema("box", 64).optional(),
+    description: optionalTrimmedStringSchema("description", 255).optional(),
+    stockSectorId: z.string().uuid().optional(),
+    status: z.enum(statusEnum.enumValues).optional(),
+  })
+  .strict();
 
 const statusSchema = z.enum(statusEnum.enumValues);
 

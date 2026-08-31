@@ -1,4 +1,4 @@
-import { and, asc, count, eq, inArray } from "drizzle-orm";
+import { and, asc, count, eq, ilike, inArray } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import { stockLocations, stockSectors } from "../../../db/schema.js";
 import {
@@ -34,7 +34,14 @@ export class StockLocationsService {
       .where(eq(stockSectors.enterprisesId, enterpriseId));
   }
 
-  private scopeWhere(enterpriseId: string, id?: string) {
+  private scopeWhere(
+    enterpriseId: string,
+    id?: string,
+    filters: Pick<
+      ListStockLocationsQuery,
+      "box" | "description" | "stockSectorId" | "status"
+    > = {},
+  ) {
     const conditions = [
       inArray(
         stockLocations.stockSectorId,
@@ -42,6 +49,20 @@ export class StockLocationsService {
       ),
     ];
     if (id) conditions.push(eq(stockLocations.id, id));
+    if (filters.box) {
+      conditions.push(ilike(stockLocations.box, `%${filters.box}%`));
+    }
+    if (filters.description) {
+      conditions.push(
+        ilike(stockLocations.description, `%${filters.description}%`),
+      );
+    }
+    if (filters.stockSectorId) {
+      conditions.push(eq(stockLocations.stockSectorId, filters.stockSectorId));
+    }
+    if (filters.status) {
+      conditions.push(eq(stockLocations.status, filters.status));
+    }
     return and(...conditions);
   }
 
@@ -81,7 +102,12 @@ export class StockLocationsService {
 
   public async list(enterpriseId: string, query: ListStockLocationsQuery = {}) {
     const { limit, offset } = resolveListPagination(query);
-    const where = this.scopeWhere(enterpriseId);
+    const where = this.scopeWhere(enterpriseId, undefined, {
+      box: query.box,
+      description: query.description,
+      stockSectorId: query.stockSectorId,
+      status: query.status,
+    });
     const [items, totalRows] = await Promise.all([
       db.query.stockLocations.findMany({
         where,

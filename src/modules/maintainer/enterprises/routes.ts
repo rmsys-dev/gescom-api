@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { authMiddleware } from "../../../shared/middleware/auth-middleware.js";
 import { validateSchema } from "../../../shared/middleware/validate-schema.js";
 import {
   emptyBodySchema,
@@ -14,6 +15,7 @@ const maintainerEnterprisesRouter = Router();
 maintainerEnterprisesRouter.post(
   "/",
   requireMaintainerApiKey,
+  authMiddleware,
   validateSchema({ body: createEnterpriseSchema }),
   maintainerEnterprisesController.create,
 );

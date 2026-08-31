@@ -1,10 +1,11 @@
 import type { Request, Response } from "express";
 import { HttpStatus } from "../../../shared/http/http-status.js";
+import type { RequestWithAuth } from "../../../shared/middleware/auth-middleware.js";
 import { sendSuccessResponse } from "../../../shared/responses/send-success-response.js";
 import type { CreateEnterpriseInput } from "./schema.js";
 import type { PatchEnterpriseParametersInput } from "../../enterprises/parameters/schema.js";
 import {
-  auditContextFromPostRequest,
+  auditContextFromPostAuth,
   auditContextFromRequest,
 } from "../../../shared/audit/request-meta.js";
 import { maintainerEnterprisesService } from "./service.js";
@@ -12,9 +13,15 @@ import { maintainerEnterprisesService } from "./service.js";
 export class MaintainerEnterprisesController {
   public create = async (req: Request, res: Response): Promise<void> => {
     const body = req.body as CreateEnterpriseInput;
+    const auth = (req as RequestWithAuth).auth;
     const row = await maintainerEnterprisesService.create(
       body,
-      auditContextFromPostRequest(req, "maintainer.enterprises.service.create"),
+      auth.userId,
+      auditContextFromPostAuth(
+        auth,
+        req,
+        "maintainer.enterprises.service.create",
+      ),
     );
     sendSuccessResponse(res, HttpStatus.CREATED, {
       message: "Empresa criada com sucesso.",

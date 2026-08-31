@@ -56,6 +56,27 @@ const saleFinancialAdjustmentsSchema = {
   valueAcresceFinancialService: decimalOpt,
 };
 
+/** Clientes legados ainda enviam `*Pie` (peças); API usa `*Product`. */
+const LEGACY_PIE_TO_PRODUCT_KEYS: Readonly<Record<string, string>> = {
+  percentageDiscountPie: "percentageDiscountProduct",
+  valueDiscountFinancialPie: "valueDiscountFinancialProduct",
+  percentageAcrescePie: "percentageAcresceProduct",
+  valueAcresceFinancialPie: "valueAcresceFinancialProduct",
+  valuePie: "valueProduct",
+};
+
+const mapLegacyPieFields = (raw: unknown): unknown => {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
+  const data = { ...(raw as Record<string, unknown>) };
+  for (const [from, to] of Object.entries(LEGACY_PIE_TO_PRODUCT_KEYS)) {
+    if (data[from] !== undefined) {
+      if (data[to] === undefined) data[to] = data[from];
+      delete data[from];
+    }
+  }
+  return data;
+};
+
 const patchSaleFinancialAdjustmentsSchema = {
   /** Percentual 0–100 sobre valueProduct; gera valueDiscountFinancialProduct no recalculo. */
   percentageDiscountProduct: percentageOpt.nullable(),
@@ -249,7 +270,7 @@ export const saleMemberOverrideSchema = z
   })
   .strict();
 
-export const createSaleSchema = z
+const createSaleObjectSchema = z
   .object({
     orderNumber: z.number().int().positive().optional(),
     memberId: z.string().uuid(),
@@ -263,7 +284,10 @@ export const createSaleSchema = z
     vehiclesEnterprisesMembersId: z.string().uuid().optional(),
     /** Opcional; default ABERTA. Informe FINALIZADA apenas ao criar venda ja fechada (com payments). */
     status: saleStatusSchema.default("ABERTA"),
-    /** Canal de fechamento; somente ao criar ja FINALIZADA. */
+    /**
+     * Canal de fechamento. Persistido somente com status FINALIZADA;
+     * em ABERTA e aceito e ignorado (clientes enviam WEB por padrao).
+     */
     origin: saleOriginSchema.optional(),
     items: z.array(saleItemInputSchema).min(1),
     /** Pagamentos e parcelas somente ao criar ja FINALIZADA. */
@@ -327,17 +351,14 @@ export const createSaleSchema = z
           "Pagamentos e parcelas so podem ser informados ao fechar a venda (status FINALIZADA)",
       });
     }
-    if (data.origin !== undefined) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["origin"],
-        message:
-          "origin so pode ser informado ao fechar a venda (status FINALIZADA)",
-      });
-    }
   });
 
-export const patchSaleSchema = z
+export const createSaleSchema = z.preprocess(
+  mapLegacyPieFields,
+  createSaleObjectSchema,
+);
+
+const patchSaleObjectSchema = z
   .object({
     memberId: z.string().uuid().optional(),
     sellerId: z.string().uuid().optional(),
@@ -353,7 +374,10 @@ export const patchSaleSchema = z
     recalculateTotals: z.boolean().optional(),
     /** Pagamentos e parcelas — somente junto com status FINALIZADA. */
     payments: z.array(salePaymentInputSchema).min(1).optional(),
-    /** Canal onde a venda foi fechada; somente com status FINALIZADA. */
+    /**
+     * Canal de fechamento. Persistido somente com status FINALIZADA;
+     * caso contrario e aceito e ignorado.
+     */
     origin: saleOriginSchema.optional(),
     /** Overrides opcionais do snapshot do cliente (sales_members). */
     member: saleMemberOverrideSchema.optional(),
@@ -370,15 +394,6 @@ export const patchSaleSchema = z
     }
 
     refineSaleFinancialAdjustments(data, ctx);
-
-    if (data.origin !== undefined && data.status !== "FINALIZADA") {
-      ctx.addIssue({
-        code: "custom",
-        path: ["origin"],
-        message:
-          "origin so pode ser informado ao fechar a venda (status FINALIZADA)",
-      });
-    }
   })
   .refine(
     (data) =>
@@ -387,6 +402,11 @@ export const patchSaleSchema = z
       ),
     "Deve haver ao menos um campo para atualizar",
   );
+
+export const patchSaleSchema = z.preprocess(
+  mapLegacyPieFields,
+  patchSaleObjectSchema,
+);
 
 export const saleParamsSchema = z
   .object({
@@ -475,102 +495,103 @@ export const convertBudgetItemInputSchema = z
   })
   .strict();
 
-export const convertBudgetToSaleSchema = z
-  .object({
-    status: saleStatusSchema,
-    sellerId: z.string().uuid().optional(),
-    memberId: z.string().uuid().optional(),
-    items: z.array(convertBudgetItemInputSchema).min(1),
-    discountValuetems: decimalOpt,
-    valueAcresceItems: decimalOpt,
-    ...saleFinancialAdjustmentsSchema,
-    ...saleServiceFieldsSchema,
-    payments: z.array(salePaymentInputSchema).optional(),
-    /** Canal de fechamento; somente com status FINALIZADA. */
-    origin: saleOriginSchema.optional(),
-    /** Overrides opcionais do snapshot do cliente (sales_members). */
-    member: saleMemberOverrideSchema.optional(),
-  })
-  .strict()
-  .superRefine((data, ctx) => {
-    if (data.serviceType !== undefined) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["serviceType"],
-        message: "serviceType nao se aplica a venda; omita o campo",
-      });
-    }
+export const convertBudgetToSaleSchema = z.preprocess(
+  mapLegacyPieFields,
+  z
+    .object({
+      status: saleStatusSchema,
+      sellerId: z.string().uuid().optional(),
+      memberId: z.string().uuid().optional(),
+      items: z.array(convertBudgetItemInputSchema).min(1),
+      discountValuetems: decimalOpt,
+      valueAcresceItems: decimalOpt,
+      ...saleFinancialAdjustmentsSchema,
+      ...saleServiceFieldsSchema,
+      payments: z.array(salePaymentInputSchema).optional(),
+      /**
+       * Canal de fechamento. Persistido somente com status FINALIZADA;
+       * caso contrario e aceito e ignorado.
+       */
+      origin: saleOriginSchema.optional(),
+      /** Overrides opcionais do snapshot do cliente (sales_members). */
+      member: saleMemberOverrideSchema.optional(),
+    })
+    .strict()
+    .superRefine((data, ctx) => {
+      if (data.serviceType !== undefined) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["serviceType"],
+          message: "serviceType nao se aplica a venda; omita o campo",
+        });
+      }
 
-    const hasConvertQty = data.items.some((item) => item.quantity > 0);
-    if (!hasConvertQty) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["items"],
-        message: "Informe ao menos um item com quantidade maior que zero",
-      });
-    }
+      const hasConvertQty = data.items.some((item) => item.quantity > 0);
+      if (!hasConvertQty) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["items"],
+          message: "Informe ao menos um item com quantidade maior que zero",
+        });
+      }
 
-    const hasPayments = (data.payments?.length ?? 0) > 0;
-    if (data.status === "FINALIZADA") {
-      if (!hasPayments) {
+      const hasPayments = (data.payments?.length ?? 0) > 0;
+      if (data.status === "FINALIZADA") {
+        if (!hasPayments) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["payments"],
+            message:
+              "Pagamentos e parcelas sao obrigatorios ao finalizar a venda",
+          });
+        }
+        return;
+      }
+      if (data.status === "CANCELADA") {
+        ctx.addIssue({
+          code: "custom",
+          path: ["status"],
+          message: "Conversao nao pode gerar venda cancelada",
+        });
+        return;
+      }
+      if (hasPayments) {
         ctx.addIssue({
           code: "custom",
           path: ["payments"],
           message:
-            "Pagamentos e parcelas sao obrigatorios ao finalizar a venda",
+            "Pagamentos e parcelas so podem ser informados ao fechar a venda (status FINALIZADA)",
         });
       }
-      return;
-    }
-    if (data.status === "CANCELADA") {
-      ctx.addIssue({
-        code: "custom",
-        path: ["status"],
-        message: "Conversao nao pode gerar venda cancelada",
-      });
-      return;
-    }
-    if (hasPayments) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["payments"],
-        message:
-          "Pagamentos e parcelas so podem ser informados ao fechar a venda (status FINALIZADA)",
-      });
-    }
-    if (data.origin !== undefined) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["origin"],
-        message:
-          "origin so pode ser informado ao fechar a venda (status FINALIZADA)",
-      });
-    }
-  });
+    }),
+);
 
 /** Converte orçamento com serviço em OS aberta (sem pagamento neste passo). */
-export const convertBudgetToOsSchema = z
-  .object({
-    sellerId: z.string().uuid().optional(),
-    memberId: z.string().uuid().optional(),
-    items: z.array(convertBudgetItemInputSchema).min(1),
-    discountValuetems: decimalOpt,
-    valueAcresceItems: decimalOpt,
-    ...saleFinancialAdjustmentsSchema,
-    ...saleServiceFieldsSchema,
-    member: saleMemberOverrideSchema.optional(),
-  })
-  .strict()
-  .superRefine((data, ctx) => {
-    const hasConvertQty = data.items.some((item) => item.quantity > 0);
-    if (!hasConvertQty) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["items"],
-        message: "Informe ao menos um item com quantidade maior que zero",
-      });
-    }
-  });
+export const convertBudgetToOsSchema = z.preprocess(
+  mapLegacyPieFields,
+  z
+    .object({
+      sellerId: z.string().uuid().optional(),
+      memberId: z.string().uuid().optional(),
+      items: z.array(convertBudgetItemInputSchema).min(1),
+      discountValuetems: decimalOpt,
+      valueAcresceItems: decimalOpt,
+      ...saleFinancialAdjustmentsSchema,
+      ...saleServiceFieldsSchema,
+      member: saleMemberOverrideSchema.optional(),
+    })
+    .strict()
+    .superRefine((data, ctx) => {
+      const hasConvertQty = data.items.some((item) => item.quantity > 0);
+      if (!hasConvertQty) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["items"],
+          message: "Informe ao menos um item com quantidade maior que zero",
+        });
+      }
+    }),
+);
 
 export const convertOsItemInputSchema = z
   .object({
@@ -584,87 +605,82 @@ export const convertOsItemInputSchema = z
   .strict();
 
 /** Converte OS em venda (documento novo; sem nova baixa de estoque). */
-export const convertOsToSaleSchema = z
-  .object({
-    status: saleStatusSchema,
-    sellerId: z.string().uuid().optional(),
-    memberId: z.string().uuid().optional(),
-    items: z.array(convertOsItemInputSchema).min(1),
-    discountValuetems: decimalOpt,
-    valueAcresceItems: decimalOpt,
-    ...saleFinancialAdjustmentsSchema,
-    ...saleServiceFieldsSchema,
-    payments: z.array(salePaymentInputSchema).optional(),
-    origin: saleOriginSchema.optional(),
-    member: saleMemberOverrideSchema.optional(),
-  })
-  .strict()
-  .superRefine((data, ctx) => {
-    if (data.serviceType !== undefined) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["serviceType"],
-        message:
-          "serviceType nao se aplica a venda; omita o campo (permanece na OS de origem)",
-      });
-    }
+export const convertOsToSaleSchema = z.preprocess(
+  mapLegacyPieFields,
+  z
+    .object({
+      status: saleStatusSchema,
+      sellerId: z.string().uuid().optional(),
+      memberId: z.string().uuid().optional(),
+      items: z.array(convertOsItemInputSchema).min(1),
+      discountValuetems: decimalOpt,
+      valueAcresceItems: decimalOpt,
+      ...saleFinancialAdjustmentsSchema,
+      ...saleServiceFieldsSchema,
+      payments: z.array(salePaymentInputSchema).optional(),
+      origin: saleOriginSchema.optional(),
+      member: saleMemberOverrideSchema.optional(),
+    })
+    .strict()
+    .superRefine((data, ctx) => {
+      if (data.serviceType !== undefined) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["serviceType"],
+          message:
+            "serviceType nao se aplica a venda; omita o campo (permanece na OS de origem)",
+        });
+      }
 
-    const hasConvertQty = data.items.some((item) => item.quantity > 0);
-    if (!hasConvertQty) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["items"],
-        message: "Informe ao menos um item com quantidade maior que zero",
-      });
-    }
+      const hasConvertQty = data.items.some((item) => item.quantity > 0);
+      if (!hasConvertQty) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["items"],
+          message: "Informe ao menos um item com quantidade maior que zero",
+        });
+      }
 
-    const hasPayments = (data.payments?.length ?? 0) > 0;
-    if (data.status === "FINALIZADA") {
-      if (!hasPayments) {
+      const hasPayments = (data.payments?.length ?? 0) > 0;
+      if (data.status === "FINALIZADA") {
+        if (!hasPayments) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["payments"],
+            message:
+              "Pagamentos e parcelas sao obrigatorios ao finalizar a venda",
+          });
+        }
+        return;
+      }
+      if (data.status === "CANCELADA") {
+        ctx.addIssue({
+          code: "custom",
+          path: ["status"],
+          message: "Conversao nao pode gerar venda cancelada",
+        });
+        return;
+      }
+      if (hasPayments) {
         ctx.addIssue({
           code: "custom",
           path: ["payments"],
           message:
-            "Pagamentos e parcelas sao obrigatorios ao finalizar a venda",
+            "Pagamentos e parcelas so podem ser informados ao fechar a venda (status FINALIZADA)",
         });
       }
-      return;
-    }
-    if (data.status === "CANCELADA") {
-      ctx.addIssue({
-        code: "custom",
-        path: ["status"],
-        message: "Conversao nao pode gerar venda cancelada",
-      });
-      return;
-    }
-    if (hasPayments) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["payments"],
-        message:
-          "Pagamentos e parcelas so podem ser informados ao fechar a venda (status FINALIZADA)",
-      });
-    }
-    if (data.origin !== undefined) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["origin"],
-        message:
-          "origin so pode ser informado ao fechar a venda (status FINALIZADA)",
-      });
-    }
-  });
+    }),
+);
 
 export type SalePaymentInput = z.infer<typeof salePaymentInputSchema>;
 export type SaleMemberOverrideInput = z.infer<typeof saleMemberOverrideSchema>;
-export type CreateSaleInput = z.infer<typeof createSaleSchema>;
-export type PatchSaleInput = z.infer<typeof patchSaleSchema>;
+export type CreateSaleInput = z.infer<typeof createSaleObjectSchema>;
+export type PatchSaleInput = z.infer<typeof patchSaleObjectSchema>;
 export type CreateSaleItemInput = z.infer<typeof createSaleItemSchema>;
 export type PatchSaleItemInput = z.infer<typeof patchSaleItemSchema>;
 export type ListSalesQuery = z.infer<typeof listSalesQuerySchema>;
-export type ConvertBudgetToSaleInput = z.infer<
+export type ConvertBudgetToSaleInput = z.output<
   typeof convertBudgetToSaleSchema
 >;
-export type ConvertBudgetToOsInput = z.infer<typeof convertBudgetToOsSchema>;
-export type ConvertOsToSaleInput = z.infer<typeof convertOsToSaleSchema>;
+export type ConvertBudgetToOsInput = z.output<typeof convertBudgetToOsSchema>;
+export type ConvertOsToSaleInput = z.output<typeof convertOsToSaleSchema>;

@@ -1,14 +1,22 @@
 import { and, eq, isNull } from "drizzle-orm";
-import { db } from "../../../db/schema.js";
-import { enterpriseParameters, enterprises } from "../../../db/schema.js";
+import {
+  db,
+  enterpriseParameters,
+  enterprises,
+  enterprisesMembers,
+  modules,
+} from "../../../db/schema.js";
 import { cascadeSoftDeleteEnterprise } from "../../../shared/db/cascade-enterprise-soft-delete.js";
+import { isPostgresUniqueViolation } from "../../../shared/db/postgres-errors.js";
 import {
   normalizeCpfCnpj,
   normalizeEmail,
   normalizePhone,
 } from "../../../shared/validation/data-normalizers.js";
 import {
+  AppError,
   ConflictError,
+  InternalServerError,
   NotFoundError,
 } from "../../../shared/errors/app-error.js";
 import {
@@ -17,16 +25,24 @@ import {
   type EntityAuditContext,
 } from "../../../shared/audit/entity-audit.js";
 import { EntityTypes } from "../../../shared/audit/entity-types.js";
+import { ADMIN_MODULE_REFERENCE } from "../../auth/default-permissions.js";
+import { insertMemberModuleWithPermissions } from "../../memberships/member-module-ops.js";
 import { enterpriseParameterCatalog } from "../../enterprises/parameters/catalog.js";
 import { enterpriseParametersService } from "../../enterprises/parameters/service.js";
 import type { CreateEnterpriseInput } from "./schema.js";
 import type { PatchEnterpriseParametersInput } from "../../enterprises/parameters/schema.js";
 
+const ADMIN_ACCESS_LEVEL = "N6" as const;
+
 export class MaintainerEnterprisesService {
-  public async create(input: CreateEnterpriseInput, audit: EntityAuditContext) {
+  public async create(
+    input: CreateEnterpriseInput,
+    actorUserId: string,
+    audit: EntityAuditContext,
+  ) {
     const registration = normalizeCpfCnpj(input.registration);
     try {
-      const row = await db.transaction(async (tx) => {
+      return await db.transaction(async (tx) => {
         const [created] = await tx
           .insert(enterprises)
           .values({
@@ -40,7 +56,7 @@ export class MaintainerEnterprisesService {
           .returning();
 
         if (!created) {
-          return null;
+          throw new InternalServerError("Falha ao criar empresa");
         }
 
         // Novas empresas sobem com todos os parâmetros do catálogo desativados
@@ -53,23 +69,100 @@ export class MaintainerEnterprisesService {
           })),
         );
 
+        const [adminModule] = await tx
+          .select({ id: modules.id })
+          .from(modules)
+          .where(
+            and(
+              eq(modules.reference, ADMIN_MODULE_REFERENCE),
+              eq(modules.status, "ATIVO"),
+              isNull(modules.deletedAt),
+            ),
+          )
+          .limit(1);
+
+        if (!adminModule) {
+          throw new NotFoundError(
+            "Modulo administrador nao encontrado no catalogo",
+            "ADMIN_MODULE_NOT_FOUND",
+          );
+        }
+
+        const now = new Date();
+        const [member] = await tx
+          .insert(enterprisesMembers)
+          .values({
+            userId: actorUserId,
+            enterpriseId: created.id,
+            class: "ADMINISTRADOR",
+            status: "ATIVO",
+            includedBy: actorUserId,
+            approvedAt: now,
+            approvedBy: actorUserId,
+          })
+          .returning();
+
+        if (!member) {
+          throw new InternalServerError(
+            "Falha ao criar vinculo membro-empresa",
+            "INTERNAL_ERROR",
+          );
+        }
+
+        await insertMemberModuleWithPermissions(tx, {
+          memberId: member.id,
+          moduleId: adminModule.id,
+          accessLevel: ADMIN_ACCESS_LEVEL,
+        });
+
+        const auditCtx = {
+          ...audit,
+          actorUserId,
+          enterpriseId: created.id,
+        };
+
         await recordCreateAudit({
           entityType: EntityTypes.ENTERPRISES,
           entityId: created.id,
           after: created,
-          ctx: { ...audit, enterpriseId: audit.enterpriseId ?? created.id },
+          ctx: auditCtx,
           tx,
         });
 
-        return created;
-      });
+        await recordCreateAudit({
+          entityType: EntityTypes.ENTERPRISES_MEMBERS,
+          entityId: member.id,
+          after: member,
+          ctx: auditCtx,
+          tx,
+        });
 
-      return row;
-    } catch {
-      throw new ConflictError(
-        "Dados da empresa em conflito com cadastro existente.",
-        "ENTERPRISE_CONFLICT",
-      );
+        return {
+          ...created,
+          member: {
+            id: member.id,
+            userId: member.userId,
+            class: member.class,
+            status: member.status,
+            module: {
+              moduleId: adminModule.id,
+              reference: ADMIN_MODULE_REFERENCE,
+              accessLevel: ADMIN_ACCESS_LEVEL,
+            },
+          },
+        };
+      });
+    } catch (err) {
+      if (err instanceof AppError) {
+        throw err;
+      }
+      if (isPostgresUniqueViolation(err)) {
+        throw new ConflictError(
+          "Dados da empresa em conflito com cadastro existente.",
+          "ENTERPRISE_CONFLICT",
+        );
+      }
+      throw err;
     }
   }
 

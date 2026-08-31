@@ -46,9 +46,16 @@ const mapMembershipsToListItem = (
     id: row.enterprise!.id,
     tradeName: row.enterprise!.tradeName,
     legalName: row.enterprise!.legalName,
+    registration: row.enterprise!.registration,
+    registeredOn: row.enterprise!.registeredOn,
+    phone: row.enterprise!.phone,
+    email: row.enterprise!.email,
+    whatsapp: row.enterprise!.whatsapp,
     memberId: row.memberId,
     class: row.class,
     parameters: row.parameters,
+    createdAt: row.enterprise!.createdAt,
+    updatedAt: row.enterprise!.updatedAt,
   }));
 
 type EnterpriseAddressWithDetails = typeof enterprisesAddress.$inferSelect & {

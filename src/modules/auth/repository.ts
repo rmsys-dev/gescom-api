@@ -11,6 +11,10 @@ import {
   activeUserMembershipWhere,
   isActiveEnterprise,
 } from "../../shared/db/tenant-predicates.js";
+import {
+  invalidateAuthSession,
+  invalidateAuthSessions,
+} from "../../shared/cache/auth-cache-invalidation.js";
 import { type AuthLoginType, toDbLoginType } from "./password.js";
 
 export type DbExecutor =
@@ -295,6 +299,7 @@ export const revokeSession = async (
       updatedAt: now,
     })
     .where(eq(userSessions.id, sessionId));
+  invalidateAuthSession(sessionId);
 };
 
 export const revokeAllSessionsForUser = async (
@@ -302,6 +307,13 @@ export const revokeAllSessionsForUser = async (
   reason: string,
   executor: DbExecutor = db,
 ): Promise<void> => {
+  const activeSessions = await executor
+    .select({ id: userSessions.id })
+    .from(userSessions)
+    .where(
+      and(eq(userSessions.userId, userId), isNull(userSessions.revokedAt)),
+    );
+
   const now = new Date();
   await executor
     .update(userSessions)
@@ -313,6 +325,7 @@ export const revokeAllSessionsForUser = async (
     .where(
       and(eq(userSessions.userId, userId), isNull(userSessions.revokedAt)),
     );
+  invalidateAuthSessions(activeSessions.map((session) => session.id));
 };
 
 /**
@@ -330,6 +343,18 @@ export const revokeMatchingClientSessionsForUser = async (
     return;
   }
 
+  const matchingSessions = await executor
+    .select({ id: userSessions.id })
+    .from(userSessions)
+    .where(
+      and(
+        eq(userSessions.userId, userId),
+        isNull(userSessions.revokedAt),
+        eq(userSessions.ipAddress, ipAddress),
+        eq(userSessions.userAgent, userAgent),
+      ),
+    );
+
   const now = new Date();
   await executor
     .update(userSessions)
@@ -346,6 +371,7 @@ export const revokeMatchingClientSessionsForUser = async (
         eq(userSessions.userAgent, userAgent),
       ),
     );
+  invalidateAuthSessions(matchingSessions.map((session) => session.id));
 };
 
 export const findUserById = async (

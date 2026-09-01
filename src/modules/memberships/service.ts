@@ -46,6 +46,10 @@ import {
 } from "../../shared/db/record-lifecycle.js";
 import { isPostgresUniqueViolation } from "../../shared/db/postgres-errors.js";
 import {
+  invalidateMemberPermissions,
+} from "../../shared/cache/auth-cache-invalidation.js";
+import { invalidateMembershipContextForMember } from "../../shared/cache/auth-context-cache.js";
+import {
   createUser,
   findUserByEmail,
   findUserById,
@@ -1219,6 +1223,8 @@ export class MembershipsService {
         return memberRow;
       });
 
+      invalidateMemberPermissions(memberId);
+      await invalidateMembershipContextForMember(memberId);
       return row;
     }
 
@@ -1246,6 +1252,11 @@ export class MembershipsService {
       after: toAuditRecord(row),
       ctx: auditCtx,
     });
+
+    invalidateMemberPermissions(memberId);
+    if (input.status !== undefined && input.status !== existingMember.status) {
+      await invalidateMembershipContextForMember(memberId);
+    }
 
     return row;
   }
@@ -1355,6 +1366,7 @@ export class MembershipsService {
         return link;
       });
 
+      invalidateMemberPermissions(memberId);
       return created;
     } catch (error) {
       if (isPostgresUniqueViolation(error)) {
@@ -1490,6 +1502,7 @@ export class MembershipsService {
       return row;
     });
 
+    invalidateMemberPermissions(memberId);
     return updated;
   }
 
@@ -1550,6 +1563,7 @@ export class MembershipsService {
       },
     });
 
+    invalidateMemberPermissions(memberId);
     return updated;
   }
 

@@ -1,8 +1,8 @@
 import type { NextFunction, Request, Response } from "express";
 import {
-  findMembershipContextByMemberIdForUser,
-  findSessionById,
-} from "../../modules/auth/repository.js";
+  getCachedMembershipContext,
+  getCachedSession,
+} from "../cache/auth-context-cache.js";
 import { verifyAccessToken } from "../../modules/auth/tokens.js";
 import type { AuthContext } from "../../modules/auth/types.js";
 import { UnauthorizedError } from "../errors/app-error.js";
@@ -37,7 +37,7 @@ export const authMiddleware = async (
 
     const claims = verifyAccessToken(token);
 
-    const session = await findSessionById(claims.sid);
+    const session = await getCachedSession(claims.sid);
     if (!session) {
       throw new UnauthorizedError("Sessao invalida", "INVALID_SESSION");
     }
@@ -75,7 +75,7 @@ export const authMiddleware = async (
       );
     }
 
-    const memberContext = await findMembershipContextByMemberIdForUser(
+    const memberContext = await getCachedMembershipContext(
       session.memberId,
       session.userId,
     );

@@ -9,7 +9,7 @@ import type { RequestWithAuth } from "./auth-middleware.js";
 
 /**
  * Gate de parâmetro de empresa, análogo a `requirePermission`.
- * Lê a BD em cada pedido (`enterpriseId` da sessão), não um snapshot em cache.
+ * Usa cache em memória de `resolveEnterpriseParameters` (invalidado em mutações).
  */
 export const requireParameter = (
   parameter: EnterpriseParameterSlug,

@@ -1,6 +1,11 @@
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "../../db/schema.js";
 import { memberModules, modulePermissions } from "../../db/schema.js";
+import {
+  AUTH_PERMISSIONS_TTL_MS,
+  authCacheKeys,
+} from "../../shared/cache/auth-cache-invalidation.js";
+import { memoryCache } from "../../shared/cache/memory-cache.js";
 
 export type PermissionStatus = "ALLOW" | "DENIED";
 
@@ -16,7 +21,7 @@ const toResolved = (
   return resolved;
 };
 
-export const resolvePermissions = async (
+const loadPermissionsFromDatabase = async (
   memberId: string,
 ): Promise<ResolvedPermissions> => {
   const rows = await db
@@ -38,17 +43,34 @@ export const resolvePermissions = async (
   return toResolved(rows);
 };
 
+export const resolvePermissions = async (
+  memberId: string,
+): Promise<ResolvedPermissions> =>
+  memoryCache.getOrSet(
+    authCacheKeys.permissions(memberId),
+    AUTH_PERMISSIONS_TTL_MS,
+    () => loadPermissionsFromDatabase(memberId),
+  );
+
 export const resolvePermissionsBatch = async (
   memberIds: string[],
 ): Promise<Map<string, ResolvedPermissions>> => {
   const uniqueIds = [...new Set(memberIds)];
   const result = new Map<string, ResolvedPermissions>();
+  const missingIds: string[] = [];
 
   for (const id of uniqueIds) {
-    result.set(id, new Map());
+    const cached = memoryCache.get<ResolvedPermissions>(
+      authCacheKeys.permissions(id),
+    );
+    if (cached) {
+      result.set(id, cached);
+    } else {
+      missingIds.push(id);
+    }
   }
 
-  if (uniqueIds.length === 0) {
+  if (missingIds.length === 0) {
     return result;
   }
 
@@ -64,15 +86,28 @@ export const resolvePermissionsBatch = async (
     )
     .where(
       and(
-        inArray(memberModules.memberId, uniqueIds),
+        inArray(memberModules.memberId, missingIds),
         eq(memberModules.status, "ATIVO"),
         isNull(memberModules.deletedAt),
         eq(modulePermissions.status, "ALLOW"),
       ),
     );
 
+  const loaded = new Map<string, ResolvedPermissions>();
+  for (const id of missingIds) {
+    loaded.set(id, new Map());
+  }
   for (const row of rows) {
-    result.get(row.memberId)?.set(row.permission, "ALLOW");
+    loaded.get(row.memberId)?.set(row.permission, "ALLOW");
+  }
+
+  for (const [id, permissions] of loaded) {
+    memoryCache.set(
+      authCacheKeys.permissions(id),
+      permissions,
+      AUTH_PERMISSIONS_TTL_MS,
+    );
+    result.set(id, permissions);
   }
 
   return result;

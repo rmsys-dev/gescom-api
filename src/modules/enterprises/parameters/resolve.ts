@@ -1,5 +1,10 @@
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { db, enterpriseParameters } from "../../../db/schema.js";
+import {
+  AUTH_PARAMETERS_TTL_MS,
+  authCacheKeys,
+} from "../../../shared/cache/auth-cache-invalidation.js";
+import { memoryCache } from "../../../shared/cache/memory-cache.js";
 import { ForbiddenError } from "../../../shared/errors/app-error.js";
 import {
   enterpriseParameterDefaults,
@@ -14,11 +19,10 @@ export type ResolvedEnterpriseParameters = Record<
 >;
 
 /**
- * Resolve parâmetros da empresa a partir da BD (sem cache), no mesmo padrão
- * de `resolvePermissions(memberId)`: cada pedido vê o estado actual.
+ * Resolve parâmetros da empresa a partir da BD com cache em memória (TTL curto).
  * Escopo: empresa inteira, não um membro.
  */
-export const resolveEnterpriseParameters = async (
+const loadEnterpriseParametersFromDatabase = async (
   enterpriseId: string,
 ): Promise<ResolvedEnterpriseParameters> => {
   const rows = await db
@@ -37,17 +41,34 @@ export const resolveEnterpriseParameters = async (
   return serializeEnterpriseParameters(mergeEnterpriseParameters(rows));
 };
 
+export const resolveEnterpriseParameters = async (
+  enterpriseId: string,
+): Promise<ResolvedEnterpriseParameters> =>
+  memoryCache.getOrSet(
+    authCacheKeys.enterpriseParameters(enterpriseId),
+    AUTH_PARAMETERS_TTL_MS,
+    () => loadEnterpriseParametersFromDatabase(enterpriseId),
+  );
+
 export const resolveEnterpriseParametersMany = async (
   enterpriseIds: readonly string[],
 ): Promise<Map<string, ResolvedEnterpriseParameters>> => {
   const uniqueIds = [...new Set(enterpriseIds.filter(Boolean))];
   const result = new Map<string, ResolvedEnterpriseParameters>();
+  const missingIds: string[] = [];
 
   for (const id of uniqueIds) {
-    result.set(id, serializeEnterpriseParameters({}));
+    const cached = memoryCache.get<ResolvedEnterpriseParameters>(
+      authCacheKeys.enterpriseParameters(id),
+    );
+    if (cached) {
+      result.set(id, cached);
+    } else {
+      missingIds.push(id);
+    }
   }
 
-  if (uniqueIds.length === 0) {
+  if (missingIds.length === 0) {
     return result;
   }
 
@@ -60,13 +81,13 @@ export const resolveEnterpriseParametersMany = async (
     .from(enterpriseParameters)
     .where(
       and(
-        inArray(enterpriseParameters.enterpriseId, uniqueIds),
+        inArray(enterpriseParameters.enterpriseId, missingIds),
         isNull(enterpriseParameters.deletedAt),
       ),
     );
 
   const grouped = new Map<string, Array<{ parameter: string; enabled: boolean }>>();
-  for (const id of uniqueIds) {
+  for (const id of missingIds) {
     grouped.set(id, []);
   }
   for (const row of rows) {
@@ -77,10 +98,15 @@ export const resolveEnterpriseParametersMany = async (
   }
 
   for (const [enterpriseId, enterpriseRows] of grouped) {
-    result.set(
-      enterpriseId,
-      serializeEnterpriseParameters(mergeEnterpriseParameters(enterpriseRows)),
+    const resolved = serializeEnterpriseParameters(
+      mergeEnterpriseParameters(enterpriseRows),
     );
+    memoryCache.set(
+      authCacheKeys.enterpriseParameters(enterpriseId),
+      resolved,
+      AUTH_PARAMETERS_TTL_MS,
+    );
+    result.set(enterpriseId, resolved);
   }
 
   return result;

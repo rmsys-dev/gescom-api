@@ -95,7 +95,7 @@ export const enterprisesMembers = pgTable(
   ],
 );
 
-//Convites de primeiro acesso / aceite de vínculo (código de 6 dígitos, TTL limitado)
+//Códigos de primeiro acesso (código de 6 dígitos, TTL limitado)
 export const userInvitations = pgTable(
   "user_invitations",
   {

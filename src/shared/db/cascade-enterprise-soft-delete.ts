@@ -78,7 +78,6 @@ export const cascadeSoftDeleteEnterprise = async (
       .where(
         and(
           inArray(userInvitations.memberId, memberIds),
-          eq(userInvitations.purpose, "MEMBERSHIP_ACCEPT"),
           isNull(userInvitations.consumedAt),
           isNull(userInvitations.deletedAt),
         ),

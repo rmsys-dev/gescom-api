@@ -88,40 +88,6 @@ export const sendFirstAccessCode = async (input: {
   });
 };
 
-export const sendMembershipInviteCode = async (input: {
-  to: string;
-  code: string;
-  userName: string;
-  enterpriseTradeName: string;
-}): Promise<void> => {
-  const ttlMinutes = env.INVITATION_CODE_TTL_MINUTES;
-  const subject = `Convite para ${input.enterpriseTradeName} — código ${ttlMinutes} min`;
-  const text = [
-    `Olá, ${input.userName}.`,
-    "",
-    `A empresa ${input.enterpriseTradeName} convidou você para integrar o time.`,
-    `Seu código de aceite é: ${input.code}`,
-    "",
-    `Este código expira em ${ttlMinutes} minutos.`,
-  ].join("\n");
-
-  const html = `
-    <p>Olá, <strong>${escapeHtml(input.userName)}</strong>.</p>
-    <p>A empresa <strong>${escapeHtml(input.enterpriseTradeName)}</strong> convidou você para integrar o time.</p>
-    <p>Seu código de aceite é:</p>
-    <p style="font-size:24px;font-weight:bold;letter-spacing:4px;">${escapeHtml(input.code)}</p>
-    <p>Este código expira em <strong>${ttlMinutes} minutos</strong>.</p>
-  `;
-
-  await sendEmail({
-    to: input.to,
-    subject,
-    html,
-    text,
-    fallbackErrorMessage: "Falha ao enviar e-mail de convite",
-  });
-};
-
 export const sendPasswordResetCode = async (input: {
   to: string;
   code: string;

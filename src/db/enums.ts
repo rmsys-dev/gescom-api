@@ -121,7 +121,7 @@ export const saleStatusEnum = pgEnum("sale_status", [
 ]);
 export const loginTypeEnum = pgEnum("login_type", ["EMAIL", "CPF"]);
 
-//Propósito de convite (primeiro acesso, aceitação de membro)
+//Propósito do código enviado por e-mail (primeiro acesso)
 export const invitePurposeEnum = pgEnum("invite_purpose", [
   "FIRST_ACCESS",
   "MEMBERSHIP_ACCEPT",

@@ -24,6 +24,7 @@
     "db:repair-pending-migration-sql": "tsx scripts/db/repair-pending-migration-sql.ts",
     "db:sync-pending-migration-hashes": "tsx scripts/db/repair-pending-migration-sql.ts --sync-hashes-only",
     "db:seed:admin": "tsx scripts/db/seed-base-admin.ts",
+    "db:seed:test-user": "tsx scripts/db/seed-test-user.ts",
     "postman:generate": "node postman-collections/generate-complete-collection.mjs"
   },
   "dependencies": {

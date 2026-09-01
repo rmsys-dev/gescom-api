@@ -2,7 +2,6 @@ import { z } from "zod";
 import {
   cpfCnpjSchema,
   emailSchema,
-  optionalTrimmedStringSchema,
   uuidSchema,
 } from "../../shared/validation/common-schemas.js";
 
@@ -100,27 +99,6 @@ export const passwordResetVerifySchema = z
 
 export const passwordResetResendSchema = passwordResetRequestSchema;
 
-export const invitationAcceptPublicSchema = z
-  .object({
-    loginType: loginTypeSchema,
-    login: z.string().trim().min(1).max(255),
-    password: z.string().min(1).max(255),
-    code: codeSchema,
-  })
-  .strict();
-
-export const invitationDeclineSchema = z
-  .object({
-    reason: optionalTrimmedStringSchema("reason", 500),
-  })
-  .strict();
-
-export const memberIdParamsSchema = z
-  .object({
-    memberId: uuidSchema("memberId"),
-  })
-  .strict();
-
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RefreshInput = z.infer<typeof refreshSchema>;
 export type SwitchEnterpriseInput = z.infer<typeof switchEnterpriseSchema>;
@@ -136,8 +114,3 @@ export type PasswordResetVerifyInput = z.infer<
 export type PasswordResetResendInput = z.infer<
   typeof passwordResetResendSchema
 >;
-export type InvitationAcceptPublicInput = z.infer<
-  typeof invitationAcceptPublicSchema
->;
-export type InvitationDeclineInput = z.infer<typeof invitationDeclineSchema>;
-export type MemberIdParams = z.infer<typeof memberIdParamsSchema>;

@@ -477,6 +477,13 @@
       "when": 1788089200000,
       "tag": "0067_rename_trabalha_of_to_trabalha_os",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1788175600000,
+      "tag": "0068_invalidate_membership_accept_invites",
+      "breakpoints": true
     }
   ]
 }

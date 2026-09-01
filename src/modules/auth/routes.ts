@@ -3,7 +3,6 @@ import { authMiddleware } from "../../shared/middleware/auth-middleware.js";
 import { authRateLimit } from "../../shared/middleware/auth-rate-limit.js";
 import { firstAccessRateLimit } from "../../shared/middleware/first-access-rate-limit.js";
 import { passwordResetRateLimit } from "../../shared/middleware/password-reset-rate-limit.js";
-import { tenantMiddleware } from "../../shared/middleware/tenant-middleware.js";
 import { validateSchema } from "../../shared/middleware/validate-schema.js";
 import {
   emptyBodySchema,
@@ -11,16 +10,12 @@ import {
 } from "../../shared/validation/common-schemas.js";
 import { AuthController } from "./controller.js";
 import { FirstAccessController } from "./first-access.controller.js";
-import { MembershipInvitationsController } from "./invitations.controller.js";
 import { PasswordResetController } from "./password-reset.controller.js";
 import {
   firstAccessLookupSchema,
   firstAccessResendSchema,
   firstAccessVerifySchema,
-  invitationAcceptPublicSchema,
-  invitationDeclineSchema,
   loginSchema,
-  memberIdParamsSchema,
   passwordResetRequestSchema,
   passwordResetResendSchema,
   passwordResetVerifySchema,
@@ -32,7 +27,6 @@ import { authService } from "./service.js";
 const authRouter = Router();
 const authController = new AuthController(authService);
 const firstAccessController = new FirstAccessController();
-const membershipInvitationsController = new MembershipInvitationsController();
 const passwordResetController = new PasswordResetController();
 
 authRouter.post(
@@ -110,39 +104,6 @@ authRouter.post(
   passwordResetRateLimit,
   validateSchema({ body: passwordResetResendSchema }),
   passwordResetController.resend,
-);
-
-authRouter.post(
-  "/invitations/:memberId/accept",
-  authRateLimit,
-  validateSchema({
-    params: memberIdParamsSchema,
-    body: invitationAcceptPublicSchema,
-  }),
-  membershipInvitationsController.accept,
-);
-
-authRouter.post(
-  "/invitations/:memberId/decline",
-  authMiddleware,
-  tenantMiddleware,
-  validateSchema({
-    params: memberIdParamsSchema,
-    body: invitationDeclineSchema,
-  }),
-  membershipInvitationsController.decline,
-);
-
-authRouter.post(
-  "/invitations/:memberId/resend",
-  authMiddleware,
-  tenantMiddleware,
-  validateSchema({
-    params: memberIdParamsSchema,
-    body: emptyBodySchema,
-    query: emptyQuerySchema,
-  }),
-  membershipInvitationsController.resend,
 );
 
 export { authRouter };

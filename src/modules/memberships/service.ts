@@ -28,10 +28,7 @@ import {
 } from "../../shared/errors/app-error.js";
 import { addMinutesFromNow } from "../../shared/time/duration.js";
 import { resolveListPagination } from "../../shared/pagination/pagination-params.js";
-import {
-  sendFirstAccessCode,
-  sendMembershipInviteCode,
-} from "../../shared/notifications/email-sender.js";
+import { sendFirstAccessCode } from "../../shared/notifications/email-sender.js";
 import { writeAudit } from "../auth/audit.js";
 import {
   recordCreateAudit,
@@ -666,7 +663,7 @@ export class MembershipsService {
   /**
    * Vínculo a utilizador já existente (POST /members).
    * Membro fica PENDENTE; permissões dos módulos já são gravadas no save.
-   * E-mails (FIRST_ACCESS / MEMBERSHIP_ACCEPT) só na aprovação — excepto classe CLIENTE.
+   * E-mail de FIRST_ACCESS só na aprovação — excepto classe CLIENTE.
    */
   public async createMembership(
     enterpriseId: string,
@@ -729,16 +726,15 @@ export class MembershipsService {
   }
 
   /**
-   * Convite FIRST_ACCESS + e-mail após aprovação de cadastro.
+   * FIRST_ACCESS + e-mail após aprovação de cadastro (utilizador sem credenciais).
    * Membros da classe CLIENTE não passam por este fluxo.
    */
-  private async queueFirstAccessInviteAfterApprove(params: {
+  private async queueFirstAccessAfterApprove(params: {
     userId: string;
     userEmail: string;
     userName: string;
     memberId: string;
     enterpriseId: string;
-    actorUserId: string;
     meta: AuthMeta;
   }): Promise<void> {
     const {
@@ -747,7 +743,6 @@ export class MembershipsService {
       userName,
       memberId,
       enterpriseId,
-      actorUserId,
       meta,
     } = params;
 
@@ -761,7 +756,6 @@ export class MembershipsService {
           {
             userId,
             purpose: "FIRST_ACCESS",
-            memberId,
           },
           tx,
         );
@@ -802,7 +796,9 @@ export class MembershipsService {
       });
     } catch (error) {
       const reason =
-        error instanceof Error ? error.message : "Falha ao criar convite";
+        error instanceof Error
+          ? error.message
+          : "Falha ao criar codigo de primeiro acesso";
 
       await writeAudit({
         event: "FIRST_ACCESS_FAILED",
@@ -822,108 +818,13 @@ export class MembershipsService {
         [{ path: "email", message: reason }],
       );
     }
-
-    await writeAudit({
-      event: "INVITE_CREATED",
-      userId: actorUserId,
-      enterpriseId,
-      ipAddress: meta.ipAddress,
-      userAgent: meta.userAgent,
-      requestId: meta.requestId,
-      reason: `Aprovacao ${memberId} com first-access para ${userId}`,
-    });
-  }
-
-  /**
-   * Convite MEMBERSHIP_ACCEPT + e-mail após aprovação (utilizador com credenciais).
-   * Membros da classe CLIENTE não passam por este fluxo.
-   */
-  private async queueMembershipInviteAfterApprove(params: {
-    userId: string;
-    userEmail: string;
-    userName: string;
-    memberId: string;
-    enterpriseId: string;
-    enterpriseTradeName: string;
-    actorUserId: string;
-    meta: AuthMeta;
-  }): Promise<void> {
-    const {
-      userId,
-      userEmail,
-      userName,
-      memberId,
-      enterpriseId,
-      enterpriseTradeName,
-      actorUserId,
-      meta,
-    } = params;
-
-    try {
-      const plainCode = generateNumericInviteCode();
-      const codeHash = await hashPassword(plainCode);
-      const expiresAt = addMinutesFromNow(env.INVITATION_CODE_TTL_MINUTES);
-
-      await db.transaction(async (tx) => {
-        await invalidatePendingInvites(
-          {
-            userId,
-            purpose: "MEMBERSHIP_ACCEPT",
-            memberId,
-          },
-          tx,
-        );
-
-        await createInvitationRow(
-          {
-            userId,
-            purpose: "MEMBERSHIP_ACCEPT",
-            memberId,
-            codeHash,
-            channel: "EMAIL",
-            sentTo: userEmail,
-            maxAttempts: env.INVITATION_MAX_ATTEMPTS,
-            expiresAt,
-            ipAddress: meta.ipAddress,
-            userAgent: meta.userAgent,
-          },
-          tx,
-        );
-      });
-
-      await sendMembershipInviteCode({
-        to: userEmail,
-        code: plainCode,
-        userName,
-        enterpriseTradeName,
-      });
-
-      await writeAudit({
-        event: "INVITE_CREATED",
-        userId: actorUserId,
-        enterpriseId,
-        ipAddress: meta.ipAddress,
-        userAgent: meta.userAgent,
-        requestId: meta.requestId,
-        reason: `Convite membro ${memberId} disparado via aprovacao`,
-      });
-    } catch (error) {
-      const reason =
-        error instanceof Error ? error.message : "Falha ao criar convite";
-
-      throw new InternalServerError(
-        "Nao foi possivel enviar o e-mail de convite",
-        "EMAIL_DELIVERY_FAILED",
-        [{ path: "email", message: reason }],
-      );
-    }
   }
 
   /**
    * create-with-user: cria utilizador + vínculo PENDENTE.
    * Se CPF/e-mail/telefone já existirem no mesmo utilizador, apenas cria o
    * vínculo (equivalente a POST /members) com linkedExistingUser=true.
-   * E-mails de primeiro acesso / convite só na aprovação (excepto CLIENTE).
+   * E-mail de primeiro acesso só na aprovação (excepto CLIENTE).
    */
   public async createWithNewUser(
     enterpriseId: string,
@@ -1052,9 +953,8 @@ export class MembershipsService {
 
   /**
    * Aprovação de cadastro (qualquer classe): status ATIVO, approvedAt e approvedBy.
-   * Se houver departamentos PENDENTE (ex.: create-with-user / POST members), activa-os e faz snapshot de permissões.
-   * Após activar, envia FIRST_ACCESS (sem credenciais) ou MEMBERSHIP_ACCEPT (com credenciais),
-   * excepto classe CLIENTE.
+   * Após activar, envia FIRST_ACCESS se o utilizador ainda não tiver credenciais,
+   * excepto classe CLIENTE. Utilizadores com credenciais passam a entrar pelo login.
    */
   public async approveMembership(
     enterpriseId: string,
@@ -1063,7 +963,7 @@ export class MembershipsService {
     meta: AuthMeta,
     audit: EntityAuditContext,
   ) {
-    const enterprise = await this.assertEnterpriseExists(enterpriseId);
+    await this.assertEnterpriseExists(enterpriseId);
 
     const [existingMember] = await db
       .select()
@@ -1114,16 +1014,16 @@ export class MembershipsService {
     const isCliente = existingMember.class === "CLIENTE";
     const hasCredentials = await userHasAnyActiveCredential(memberUser.id);
 
-    if (!isCliente && !memberUser.userEmail) {
+    if (!isCliente && !hasCredentials && !memberUser.userEmail) {
       throw new ValidationError(
         [
           {
             path: "userEmail",
             message:
-              "E-mail do usuario e obrigatorio para envio apos aprovacao",
+              "E-mail do usuario e obrigatorio para envio de primeiro acesso",
           },
         ],
-        "E-mail do usuario e obrigatorio para envio apos aprovacao",
+        "E-mail do usuario e obrigatorio para envio de primeiro acesso",
       );
     }
 
@@ -1138,15 +1038,6 @@ export class MembershipsService {
     const now = new Date();
 
     const approved = await db.transaction(async (tx) => {
-      await invalidatePendingInvites(
-        {
-          userId: existingMember.userId,
-          purpose: "MEMBERSHIP_ACCEPT",
-          memberId,
-        },
-        tx,
-      );
-
       const [memberRow] = await tx
         .update(enterprisesMembers)
         .set({
@@ -1184,33 +1075,18 @@ export class MembershipsService {
       return memberRow;
     });
 
-    let emailSent: "FIRST_ACCESS" | "MEMBERSHIP_ACCEPT" | null = null;
+    let emailSent: "FIRST_ACCESS" | null = null;
 
-    if (!isCliente && memberUser.userEmail) {
-      if (!hasCredentials) {
-        await this.queueFirstAccessInviteAfterApprove({
-          userId: memberUser.id,
-          userEmail: memberUser.userEmail,
-          userName: memberUser.userName,
-          memberId,
-          enterpriseId,
-          actorUserId,
-          meta,
-        });
-        emailSent = "FIRST_ACCESS";
-      } else {
-        await this.queueMembershipInviteAfterApprove({
-          userId: memberUser.id,
-          userEmail: memberUser.userEmail,
-          userName: memberUser.userName,
-          memberId,
-          enterpriseId,
-          enterpriseTradeName: enterprise.tradeName,
-          actorUserId,
-          meta,
-        });
-        emailSent = "MEMBERSHIP_ACCEPT";
-      }
+    if (!isCliente && !hasCredentials && memberUser.userEmail) {
+      await this.queueFirstAccessAfterApprove({
+        userId: memberUser.id,
+        userEmail: memberUser.userEmail,
+        userName: memberUser.userName,
+        memberId,
+        enterpriseId,
+        meta,
+      });
+      emailSent = "FIRST_ACCESS";
     }
 
     return { member: approved, emailSent };

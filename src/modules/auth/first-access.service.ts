@@ -217,7 +217,9 @@ export const firstAccessLookup = async (
     });
   } catch (error) {
     const reason =
-      error instanceof Error ? error.message : "Falha ao criar convite";
+      error instanceof Error
+        ? error.message
+        : "Falha ao criar codigo de primeiro acesso";
 
     await writeAudit({
       event: "FIRST_ACCESS_FAILED",
@@ -286,18 +288,18 @@ export const firstAccessVerify = async (
 
   if (!invite || isInviteExpired(invite)) {
     await writeAudit({
-      event: "INVITE_EXPIRED",
+      event: "FIRST_ACCESS_FAILED",
       userId: user.id,
       loginAttempt: input.login,
       loginType: input.loginType,
       ipAddress: input.ipAddress,
       userAgent: input.userAgent,
       requestId: input.requestId,
-      reason: "Convite ausente ou expirado",
+      reason: "Codigo ausente ou expirado",
     });
     throw new UnauthorizedError(
       "Codigo invalido ou expirado",
-      "INVITE_INVALID",
+      "FIRST_ACCESS_INVALID",
     );
   }
 
@@ -310,7 +312,7 @@ export const firstAccessVerify = async (
     if (nextAttempts >= invite.maxAttempts) {
       await softDeleteInvite(invite.id);
       await writeAudit({
-        event: "INVITE_EXPIRED",
+        event: "FIRST_ACCESS_FAILED",
         userId: user.id,
         loginAttempt: input.login,
         loginType: input.loginType,
@@ -333,7 +335,7 @@ export const firstAccessVerify = async (
     }
     throw new UnauthorizedError(
       "Codigo invalido ou expirado",
-      "INVITE_INVALID",
+      "FIRST_ACCESS_INVALID",
     );
   }
 
@@ -414,7 +416,7 @@ export const firstAccessVerify = async (
 
     if (!invite.memberId) {
       throw new ForbiddenError(
-        "Convite de primeiro acesso sem vinculo de membro",
+        "Codigo de primeiro acesso sem vinculo de membro",
         "FIRST_ACCESS_INVALID",
       );
     }

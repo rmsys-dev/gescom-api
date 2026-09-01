@@ -97,7 +97,7 @@ export class MembershipsController {
 
   /**
    * create-with-user: cria utilizador+membro ou, se CPF/e-mail/telefone já existirem,
-   * apenas o vínculo PENDENTE (linkedExistingUser).
+   * apenas o vínculo PENDENTE (linkedExistingUser). Após aprovação, first-access.
    */
   public createOnboard = async (req: Request, res: Response): Promise<void> => {
     const reqAuth = req as RequestWithAuth;
@@ -117,7 +117,7 @@ export class MembershipsController {
     });
   };
 
-  //Aprova cadastro de membro (PENDENTE → ATIVO; e-mails após aprovação excepto CLIENTE)
+  //Aprova cadastro de membro (PENDENTE → ATIVO; first-access após aprovação excepto CLIENTE)
   public approve = async (req: Request, res: Response): Promise<void> => {
     const reqAuth = req as RequestWithAuth;
     const enterpriseId = req.params["enterpriseId"] as string;
@@ -132,9 +132,7 @@ export class MembershipsController {
     const emailSuffix =
       result.emailSent === "FIRST_ACCESS"
         ? " E-mail de primeiro acesso enviado."
-        : result.emailSent === "MEMBERSHIP_ACCEPT"
-          ? " E-mail de convite enviado."
-          : "";
+        : "";
     sendSuccessResponse(res, HttpStatus.OK, {
       message: `Membro aprovado com sucesso.${emailSuffix}`,
       data: result.member,

@@ -1,5 +1,5 @@
 import { randomInt } from "crypto";
-import { and, count, desc, eq, gt, gte, isNull, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, isNull } from "drizzle-orm";
 import { db } from "../../db/schema.js";
 import {
   enterprises,
@@ -14,7 +14,7 @@ import {
 } from "../../shared/db/record-lifecycle.js";
 import type { DbExecutor } from "./repository.js";
 
-export type InvitePurpose = "FIRST_ACCESS" | "MEMBERSHIP_ACCEPT";
+export type InvitePurpose = "FIRST_ACCESS";
 
 export const generateNumericInviteCode = (): string => {
   const len = env.INVITATION_CODE_LENGTH;
@@ -27,15 +27,10 @@ export const invalidatePendingInvites = async (
   input: {
     userId: string;
     purpose: InvitePurpose;
-    memberId?: string | null;
   },
   executor: DbExecutor = db,
 ): Promise<void> => {
   const now = new Date();
-  const memberClause =
-    input.purpose === "MEMBERSHIP_ACCEPT" && input.memberId
-      ? eq(userInvitations.memberId, input.memberId)
-      : sql`true`;
 
   await executor
     .update(userInvitations)
@@ -46,7 +41,6 @@ export const invalidatePendingInvites = async (
         eq(userInvitations.purpose, input.purpose),
         isNull(userInvitations.consumedAt),
         isNull(userInvitations.deletedAt),
-        memberClause,
       ),
     );
 };
@@ -85,24 +79,6 @@ export const createInvitationRow = async (
   return row;
 };
 
-export const findPendingInviteForMembership = async (
-  memberId: string,
-): Promise<typeof userInvitations.$inferSelect | null> => {
-  const rows = await db
-    .select()
-    .from(userInvitations)
-    .where(
-      and(
-        eq(userInvitations.memberId, memberId),
-        eq(userInvitations.purpose, "MEMBERSHIP_ACCEPT"),
-        isNull(userInvitations.consumedAt),
-        isNull(userInvitations.deletedAt),
-      ),
-    )
-    .limit(1);
-  return rows[0] ?? null;
-};
-
 export const findPendingInviteFirstAccessForUser = async (
   userId: string,
 ): Promise<typeof userInvitations.$inferSelect | null> => {
@@ -119,54 +95,6 @@ export const findPendingInviteFirstAccessForUser = async (
     )
     .limit(1);
   return rows[0] ?? null;
-};
-
-export type PendingMembershipAcceptInvite = {
-  inviteId: string;
-  memberId: string;
-  enterpriseId: string;
-  enterpriseTradeName: string;
-  expiresAt: Date;
-};
-
-/** Convites MEMBERSHIP_ACCEPT válidos (não expirados) com vínculo ainda PENDENTE. */
-export const findPendingMembershipAcceptInvitesForUser = async (
-  userId: string,
-): Promise<PendingMembershipAcceptInvite[]> => {
-  const now = new Date();
-  const rows = await db
-    .select({
-      inviteId: userInvitations.id,
-      memberId: enterprisesMembers.id,
-      enterpriseId: enterprises.id,
-      enterpriseTradeName: enterprises.tradeName,
-      expiresAt: userInvitations.expiresAt,
-    })
-    .from(userInvitations)
-    .innerJoin(
-      enterprisesMembers,
-      eq(enterprisesMembers.id, userInvitations.memberId),
-    )
-    .innerJoin(
-      enterprises,
-      eq(enterprises.id, enterprisesMembers.enterpriseId),
-    )
-    .where(
-      and(
-        eq(userInvitations.userId, userId),
-        eq(userInvitations.purpose, "MEMBERSHIP_ACCEPT"),
-        isNull(userInvitations.consumedAt),
-        isNull(userInvitations.deletedAt),
-        gt(userInvitations.expiresAt, now),
-        eq(enterprisesMembers.status, "PENDENTE"),
-        isNull(enterprisesMembers.deletedAt),
-        eq(enterprises.status, "ATIVO"),
-        isNull(enterprises.deletedAt),
-      ),
-    )
-    .orderBy(desc(userInvitations.createdAt));
-
-  return rows;
 };
 
 export const countInvitationsByUserSince = async (input: {

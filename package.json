@@ -28,7 +28,6 @@
     "postman:generate": "node postman-collections/generate-complete-collection.mjs"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.105.1",
     "axios": "^1.15.1",
     "bcrypt": "^6.0.0",
     "bullmq": "^5.75.2",

@@ -1,11 +1,7 @@
 import type { Request, Response } from "express";
 import type { RequestWithAuth } from "../../shared/middleware/auth-middleware.js";
 import { requireTenantEnterpriseId } from "../../shared/controllers/tenant-context.js";
-import {
-  auditContextFromDeleteAuth,
-  auditContextFromPatchAuth,
-  auditContextFromPostAuth,
-} from "../../shared/audit/request-meta.js";
+import { auditContextFromPostAuth } from "../../shared/audit/request-meta.js";
 import { HttpStatus } from "../../shared/http/http-status.js";
 import type { RequestWithValidatedQuery } from "../../shared/middleware/validate-schema.js";
 import {
@@ -15,7 +11,6 @@ import {
 import type {
   CreateProductWithEnterpriseInput,
   ListProductsQuery,
-  PatchProductInput,
 } from "./schema.js";
 import { productsService } from "./service.js";
 
@@ -42,8 +37,9 @@ export class ProductsController {
   };
 
   /**
-   * POST /products: cria produto+vínculo ou, se description+barCode já existirem,
-   * apenas o vínculo (linkedExistingProduct) — espelha create-with-user.
+   * POST /products: cria produto+vínculo ou, se o barCode (ou a descrição sem
+   * barCode) já existir, apenas o snapshot em products-enterprises
+   * (`linkedExistingProduct`) — espelha create-with-user de membros.
    */
   public create = async (req: Request, res: Response): Promise<void> => {
     const body = req.body as CreateProductWithEnterpriseInput;
@@ -61,34 +57,6 @@ export class ProductsController {
       message: row.linkedExistingProduct
         ? "Produto encontrado. Vinculo com a empresa criado com sucesso."
         : "Produto e vinculo com a empresa criados com sucesso.",
-      data: row,
-    });
-  };
-
-  public patch = async (req: Request, res: Response): Promise<void> => {
-    const productId = req.params["productId"] as string;
-    const body = req.body as PatchProductInput;
-    const auth = (req as RequestWithAuth).auth!;
-    const row = await productsService.patch(
-      productId,
-      body,
-      auditContextFromPatchAuth(auth, req, "products.service.patch"),
-    );
-    sendSuccessResponse(res, HttpStatus.OK, {
-      message: "Produto atualizado com sucesso.",
-      data: row,
-    });
-  };
-
-  public delete = async (req: Request, res: Response): Promise<void> => {
-    const productId = req.params["productId"] as string;
-    const auth = (req as RequestWithAuth).auth!;
-    const row = await productsService.delete(
-      productId,
-      auditContextFromDeleteAuth(auth, req, "products.service.delete"),
-    );
-    sendSuccessResponse(res, HttpStatus.OK, {
-      message: "Produto excluído com sucesso.",
       data: row,
     });
   };

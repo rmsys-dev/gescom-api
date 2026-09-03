@@ -1,49 +1,63 @@
 import { and, asc, count, eq, ilike, isNull, or } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { products } from "../../db/schema.js";
+import { products, productsEnterprises } from "../../db/schema.js";
 import { ConflictError, NotFoundError } from "../../shared/errors/app-error.js";
 import { isPostgresUniqueViolation } from "../../shared/db/postgres-errors.js";
 import { resolveListPagination } from "../../shared/pagination/pagination-params.js";
 import {
   recordCreateAudit,
-  recordEntityAudit,
   withEnterpriseAuditContext,
   type EntityAuditContext,
 } from "../../shared/audit/entity-audit.js";
-import { toAuditRecord } from "../../shared/audit/build-field-diff.js";
 import { EntityTypes } from "../../shared/audit/entity-types.js";
 import { productsEnterprisesService } from "./products-enterprises/service.js";
 import type {
   CreateProductWithEnterpriseInput,
   ListProductsQuery,
-  PatchProductInput,
 } from "./schema.js";
 
 type ProductRow = typeof products.$inferSelect;
 
 export class ProductsService {
   /**
-   * Resolve produto raiz pela chave única (description + barCode).
-   * Sem barCode no input → procura descrição com barCode NULL.
+   * Resolve produto raiz para snapshot:
+   * - com barCode → unicidade global do código de barras (ignora descrição);
+   * - sem barCode → mesma descrição com barCode NULL.
    */
   private async findExistingProduct(
     description: string,
     barCode?: string,
   ): Promise<ProductRow | null> {
-    const conditions = [eq(products.description, description)];
-    if (barCode !== undefined) {
-      conditions.push(eq(products.barCode, barCode));
-    } else {
-      conditions.push(isNull(products.barCode));
-    }
+    const where =
+      barCode !== undefined
+        ? eq(products.barCode, barCode)
+        : and(eq(products.description, description), isNull(products.barCode));
     const row = (
-      await db
-        .select()
-        .from(products)
-        .where(and(...conditions))
-        .limit(1)
+      await db.select().from(products).where(where).limit(1)
     )[0];
     return row ?? null;
+  }
+
+  private async assertProductNotLinkedToEnterprise(
+    enterpriseId: string,
+    productId: string,
+  ): Promise<void> {
+    const [linked] = await db
+      .select({ id: productsEnterprises.id })
+      .from(productsEnterprises)
+      .where(
+        and(
+          eq(productsEnterprises.productId, productId),
+          eq(productsEnterprises.enterprisesId, enterpriseId),
+        ),
+      )
+      .limit(1);
+    if (linked) {
+      throw new ConflictError(
+        "Produto ja vinculado a esta empresa",
+        "PRODUCT_ENTERPRISE_CONFLICT",
+      );
+    }
   }
 
   public async list(query: ListProductsQuery = {}) {
@@ -85,9 +99,9 @@ export class ProductsService {
 
   /**
    * POST /products — espelha create-with-user de membros:
-   * cria produto raiz + vínculo, ou, se a chave (description + barCode) já
-   * existir, apenas o vínculo (`linkedExistingProduct: true`).
-   * Não actualiza campos da raiz quando reutiliza produto existente.
+   * cria produto raiz + snapshot em products-enterprises, ou, se o barCode
+   * (ou a descrição sem barCode) já existir, apenas o snapshot
+   * (`linkedExistingProduct: true`). Não actualiza a raiz ao reutilizar.
    */
   public async create(
     enterpriseId: string,
@@ -107,6 +121,7 @@ export class ProductsService {
         : undefined;
 
     const linkExisting = async (product: ProductRow) => {
+      await this.assertProductNotLinkedToEnterprise(enterpriseId, product.id);
       const enterprise = await productsEnterprisesService.createForProduct(
         enterpriseId,
         product.id,
@@ -165,82 +180,18 @@ export class ProductsService {
         throw err;
       }
       if (isPostgresUniqueViolation(err)) {
-        // Corrida: outro request criou a mesma chave — reutiliza e vincula.
+        // Corrida: outro request criou a mesma chave — reutiliza e faz snapshot.
         const raced = await this.findExistingProduct(description, barCode);
         if (raced) {
           return linkExisting(raced);
         }
         throw new ConflictError(
-          "Produto em conflito (descricao ou codigo de barras duplicado)",
+          "Produto em conflito (codigo de barras ou descricao duplicados)",
           "PRODUCT_CONFLICT",
         );
       }
       throw err;
     }
-  }
-
-  public async patch(
-    id: string,
-    input: PatchProductInput,
-    audit: EntityAuditContext,
-  ) {
-    const existing = await this.getById(id);
-    try {
-      const [row] = await db
-        .update(products)
-        .set({
-          ...(input.status !== undefined ? { status: input.status } : {}),
-          ...(input.description !== undefined
-            ? { description: input.description.trim() }
-            : {}),
-          ...(input.barCode !== undefined
-            ? { barCode: input.barCode.trim() }
-            : {}),
-          updatedAt: new Date(),
-        })
-        .where(eq(products.id, id))
-        .returning();
-      if (!row) {
-        throw new NotFoundError("Produto nao encontrado", "PRODUCT_NOT_FOUND");
-      }
-      await recordEntityAudit({
-        entityType: EntityTypes.PRODUCTS,
-        entityId: id,
-        action: "UPDATE",
-        before: toAuditRecord(existing),
-        after: toAuditRecord(row),
-        ctx: audit,
-      });
-      return row;
-    } catch (err) {
-      if (isPostgresUniqueViolation(err)) {
-        throw new ConflictError(
-          "Produto em conflito (descricao ou codigo de barras duplicado)",
-          "PRODUCT_CONFLICT",
-        );
-      }
-      throw err;
-    }
-  }
-
-  public async delete(id: string, audit: EntityAuditContext) {
-    const existing = await this.getById(id);
-    const [row] = await db
-      .delete(products)
-      .where(eq(products.id, id))
-      .returning();
-    if (!row) {
-      throw new NotFoundError("Produto nao encontrado", "PRODUCT_NOT_FOUND");
-    }
-    await recordEntityAudit({
-      entityType: EntityTypes.PRODUCTS,
-      entityId: id,
-      action: "DELETE",
-      before: toAuditRecord(existing),
-      after: toAuditRecord(row),
-      ctx: audit,
-    });
-    return row;
   }
 }
 

@@ -54,6 +54,7 @@ productsEnterprisesRouter.post(
   productsEnterprisesController.create,
 );
 
+// Snapshot do tenant: PATCH/DELETE nunca tocam a raiz products.
 productsEnterprisesRouter.patch(
   "/:productEnterpriseId",
   authMiddleware,

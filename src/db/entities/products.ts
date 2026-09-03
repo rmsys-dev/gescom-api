@@ -12,7 +12,7 @@ import {
   valorDuasCasasDecimais,
 } from "../functions.js";
 
-//tabela de produtos. - Global
+//tabela de produtos. - Global (POST + snapshot; mutações só em products_enterprises)
 export const products = pgTable(
   "products",
   {
@@ -28,6 +28,9 @@ export const products = pgTable(
       t.description,
       t.barCode,
     ),
+    uniqueIndex("products_bar_code_unique")
+      .on(t.barCode)
+      .where(sql`${t.barCode} is not null`),
   ],
 );
 

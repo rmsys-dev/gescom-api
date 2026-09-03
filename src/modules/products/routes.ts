@@ -8,12 +8,12 @@ import { productsController } from "./controller.js";
 import {
   createProductWithEnterpriseSchema,
   listProductsQuerySchema,
-  patchProductSchema,
   productParamsSchema,
 } from "./schema.js";
 
 const productsRouter = Router();
 
+// Catálogo global: GET permanece sem tenant (listagem compartilhada).
 productsRouter.get(
   "/",
   authMiddleware,
@@ -30,6 +30,8 @@ productsRouter.get(
   productsController.getById,
 );
 
+// Cria produto+vínculo ou, se barCode (ou description sem barCode) já existir, só o snapshot em products-enterprises.
+// Mutações posteriores são só em /products-enterprises — a raiz products é imutável após o POST.
 productsRouter.post(
   "/",
   authMiddleware,
@@ -37,22 +39,6 @@ productsRouter.post(
   requirePermission("incluir_produtos"),
   validateSchema({ body: createProductWithEnterpriseSchema }),
   productsController.create,
-); // Cria produto+vínculo ou, se description+barCode já existirem, só o vínculo
-
-productsRouter.patch(
-  "/:productId",
-  authMiddleware,
-  requirePermission("alterar_produtos"),
-  validateSchema({ params: productParamsSchema, body: patchProductSchema }),
-  productsController.patch,
-);
-
-productsRouter.delete(
-  "/:productId",
-  authMiddleware,
-  requirePermission("excluir_produtos"),
-  validateSchema({ params: productParamsSchema, query: emptyQuerySchema }),
-  productsController.delete,
 );
 
 export { productsRouter };

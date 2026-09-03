@@ -27,7 +27,7 @@ app.get("/health", (_req, res) => {
   sendSuccessResponse(res, HttpStatus.OK, {
     message: "Servidor operacional.",
     data: {
-      status: "Servidor rodando! 🟢",
+      status: "Servidor rodando!",
       timestamp: new Date().toISOString(),
       version: appInfo.version,
     },

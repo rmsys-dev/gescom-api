@@ -18,18 +18,6 @@ export const createProductSchema = z
   })
   .strict();
 
-export const patchProductSchema = z
-  .object({
-    status: statusSchema.optional(),
-    description: z.string().trim().min(1).max(255).optional(),
-    barCode: z.string().trim().min(1).max(255).optional(),
-  })
-  .strict()
-  .refine(
-    (data) => Object.values(data).some((v) => v !== undefined),
-    "Deve haver ao menos um campo para atualizar",
-  );
-
 export const createProductWithEnterpriseSchema = z
   .object({
     product: createProductSchema,
@@ -47,5 +35,4 @@ export type CreateProductInput = z.infer<typeof createProductSchema>;
 export type CreateProductWithEnterpriseInput = z.infer<
   typeof createProductWithEnterpriseSchema
 >;
-export type PatchProductInput = z.infer<typeof patchProductSchema>;
 export type ListProductsQuery = z.infer<typeof listProductsQuerySchema>;

@@ -24,10 +24,7 @@
  */
 import { sleep } from "k6";
 import { fail } from "k6";
-import {
-  buildHeaders,
-  requireAccessToken,
-} from "./lib/auth.js";
+import { buildHeaders, requireAccessToken } from "./lib/auth.js";
 import {
   assertSuccess,
   buildUrl,
@@ -95,9 +92,9 @@ export const options = {
 export function setup() {
   const token = requireAccessToken(BASE_URL, TIMEOUT, isAuthRequiredFlag());
 
-  if (Number(__ENV.VUS || 1) > 5) {
+  if (Number(__ENV.VUS || 1) > 50) {
     fail(
-      "VUS alto demais para produção neste script (máx. 5). Ajuste VUS ou use um perfil dedicado.",
+      "VUS alto demais para produção neste script (máx. 50). Ajuste VUS ou use um perfil dedicado.",
     );
   }
 

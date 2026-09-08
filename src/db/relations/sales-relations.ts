@@ -21,11 +21,8 @@ import {
   productsEnterprises,
   promotionalPrices,
 } from "../entities/products.js";
-import {
-  stockSectors,
-  stockLocations,
-  stockBatches,
-} from "../entities/stock.js";
+import { stockBatches } from "../entities/stock.js";
+import { locations, sectors } from "../entities/sector.js";
 import {
   mechanicSalesItems,
   vehiclesEnterprisesMembers,
@@ -133,13 +130,13 @@ export const salesItemsRelations = relations(salesItems, ({ one, many }) => ({
     fields: [salesItems.productTypeId],
     references: [productTypes.id],
   }),
-  stockSector: one(stockSectors, {
-    fields: [salesItems.stockSectorId],
-    references: [stockSectors.id],
+  sector: one(sectors, {
+    fields: [salesItems.sectorId],
+    references: [sectors.id],
   }),
-  stockLocation: one(stockLocations, {
-    fields: [salesItems.stockLocationId],
-    references: [stockLocations.id],
+  location: one(locations, {
+    fields: [salesItems.locationsId],
+    references: [locations.id],
   }),
   stockBatch: one(stockBatches, {
     fields: [salesItems.stockBatchId],

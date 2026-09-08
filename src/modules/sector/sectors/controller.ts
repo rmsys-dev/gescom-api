@@ -13,20 +13,20 @@ import {
   sendSuccessResponse,
 } from "../../../shared/responses/send-success-response.js";
 import type {
-  CreateStockSectorInput,
-  ListStockSectorsQuery,
-  PatchStockSectorInput,
+  CreateSectorInput,
+  ListSectorsQuery,
+  PatchSectorInput,
 } from "./schema.js";
-import { stockSectorsService } from "./service.js";
+import { sectorsService } from "./service.js";
 
-export class StockSectorsController {
+export class SectorsController {
   public list = async (req: Request, res: Response): Promise<void> => {
-    const query = (req as RequestWithValidatedQuery<ListStockSectorsQuery>)
+    const query = (req as RequestWithValidatedQuery<ListSectorsQuery>)
       .validatedQuery;
     const enterpriseId = requireTenantEnterpriseId(
       (req as RequestWithAuth).auth!,
     );
-    const page = await stockSectorsService.list(enterpriseId, query);
+    const page = await sectorsService.list(enterpriseId, query);
     sendPageFromService(
       res,
       HttpStatus.OK,
@@ -39,8 +39,8 @@ export class StockSectorsController {
     const enterpriseId = requireTenantEnterpriseId(
       (req as RequestWithAuth).auth!,
     );
-    const stockSectorId = req.params["stockSectorId"] as string;
-    const row = await stockSectorsService.getById(enterpriseId, stockSectorId);
+    const sectorId = req.params["sectorId"] as string;
+    const row = await sectorsService.getById(enterpriseId, sectorId);
     sendSuccessResponse(res, HttpStatus.OK, {
       message: "Setor de estoque recuperado com sucesso.",
       data: row,
@@ -48,13 +48,13 @@ export class StockSectorsController {
   };
 
   public create = async (req: Request, res: Response): Promise<void> => {
-    const body = req.body as CreateStockSectorInput;
+    const body = req.body as CreateSectorInput;
     const auth = (req as RequestWithAuth).auth!;
     const enterpriseId = requireTenantEnterpriseId(auth);
-    const row = await stockSectorsService.create(
+    const row = await sectorsService.create(
       enterpriseId,
       body,
-      auditContextFromPostAuth(auth, req, "stock.stock-sectors.service.create"),
+      auditContextFromPostAuth(auth, req, "sector.sectors.service.create"),
     );
     sendSuccessResponse(res, HttpStatus.CREATED, {
       message: "Setor de estoque criado com sucesso.",
@@ -63,15 +63,15 @@ export class StockSectorsController {
   };
 
   public patch = async (req: Request, res: Response): Promise<void> => {
-    const stockSectorId = req.params["stockSectorId"] as string;
-    const body = req.body as PatchStockSectorInput;
+    const sectorId = req.params["sectorId"] as string;
+    const body = req.body as PatchSectorInput;
     const auth = (req as RequestWithAuth).auth!;
     const enterpriseId = requireTenantEnterpriseId(auth);
-    const row = await stockSectorsService.patch(
+    const row = await sectorsService.patch(
       enterpriseId,
-      stockSectorId,
+      sectorId,
       body,
-      auditContextFromPatchAuth(auth, req, "stock.stock-sectors.service.patch"),
+      auditContextFromPatchAuth(auth, req, "sector.sectors.service.patch"),
     );
     sendSuccessResponse(res, HttpStatus.OK, {
       message: "Setor de estoque atualizado com sucesso.",
@@ -80,13 +80,13 @@ export class StockSectorsController {
   };
 
   public delete = async (req: Request, res: Response): Promise<void> => {
-    const stockSectorId = req.params["stockSectorId"] as string;
+    const sectorId = req.params["sectorId"] as string;
     const auth = (req as RequestWithAuth).auth!;
     const enterpriseId = requireTenantEnterpriseId(auth);
-    const row = await stockSectorsService.delete(
+    const row = await sectorsService.delete(
       enterpriseId,
-      stockSectorId,
-      auditContextFromDeleteAuth(auth, req, "stock.stock-sectors.service.delete"),
+      sectorId,
+      auditContextFromDeleteAuth(auth, req, "sector.sectors.service.delete"),
     );
     sendSuccessResponse(res, HttpStatus.OK, {
       message: "Setor de estoque excluido com sucesso.",
@@ -95,4 +95,4 @@ export class StockSectorsController {
   };
 }
 
-export const stockSectorsController = new StockSectorsController();
+export const sectorsController = new SectorsController();

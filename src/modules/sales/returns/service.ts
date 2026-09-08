@@ -212,7 +212,7 @@ export class SalesReturnsService {
         "Quantidade invalida",
       );
     }
-    if (!item.stockLocationId) {
+    if (!item.locationsId) {
       throw new ValidationError(
         [{ path: "body.saleItemId", message: "Item sem locacao de estoque" }],
         "Locacao obrigatoria",

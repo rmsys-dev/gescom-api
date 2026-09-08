@@ -3,7 +3,7 @@ import { db } from "../../../db/index.js";
 import {
   productsEnterprises,
   stockMovements,
-  stockSectors,
+  sectors,
   users,
 } from "../../../db/schema.js";
 import { NotFoundError } from "../../../shared/errors/app-error.js";
@@ -13,15 +13,15 @@ import {
   type EntityAuditContext,
 } from "../../../shared/audit/entity-audit.js";
 import { EntityTypes } from "../../../shared/audit/entity-types.js";
-import { assertStockLocationBelongsToEnterprise } from "../balance.js";
+import { assertLocationBelongsToEnterprise } from "../balance.js";
 import { createStockMovementInTx } from "../movement.js";
 import {
   stockBatchDetailWith,
-  stockLocationDetailWith,
+  locationDetailWith,
   toStockBatchResponse,
-  toStockLocationResponse,
+  toLocationResponse,
   type StockBatchWithProductEnterprise,
-  type StockLocationWithSector,
+  type LocationWithSector,
 } from "../nested-response.js";
 import type {
   CreateStockMovementInput,
@@ -30,10 +30,10 @@ import type {
 
 type StockMovementWithRelations = typeof stockMovements.$inferSelect & {
   productsEnterprises: typeof productsEnterprises.$inferSelect;
-  fromStockSector: typeof stockSectors.$inferSelect | null;
-  toStockSector: typeof stockSectors.$inferSelect | null;
-  fromStockLocation: StockLocationWithSector | null;
-  toStockLocation: StockLocationWithSector | null;
+  fromSector: typeof sectors.$inferSelect | null;
+  toSector: typeof sectors.$inferSelect | null;
+  fromLocation: LocationWithSector | null;
+  toLocation: LocationWithSector | null;
   fromStockBatch: StockBatchWithProductEnterprise | null;
   toStockBatch: StockBatchWithProductEnterprise | null;
   user: typeof users.$inferSelect | null;
@@ -41,13 +41,13 @@ type StockMovementWithRelations = typeof stockMovements.$inferSelect & {
 
 const movementDetailWith = {
   productsEnterprises: true,
-  fromStockSector: true,
-  toStockSector: true,
-  fromStockLocation: {
-    with: stockLocationDetailWith,
+  fromSector: true,
+  toSector: true,
+  fromLocation: {
+    with: locationDetailWith,
   },
-  toStockLocation: {
-    with: stockLocationDetailWith,
+  toLocation: {
+    with: locationDetailWith,
   },
   fromStockBatch: {
     with: stockBatchDetailWith,
@@ -62,18 +62,18 @@ export class StockMovementsService {
   private toResponse(row: StockMovementWithRelations) {
     const {
       productsEnterprisesId: _productsEnterprisesId,
-      fromStockSectorId: _fromStockSectorId,
-      fromStockLocationId: _fromStockLocationId,
+      fromSectorId: _fromSectorId,
+      fromLocationsId: _fromLocationsId,
       fromStockBatchId: _fromStockBatchId,
-      toStockSectorId: _toStockSectorId,
-      toStockLocationId: _toStockLocationId,
+      toSectorId: _toSectorId,
+      toLocationsId: _toLocationsId,
       toStockBatchId: _toStockBatchId,
       userId: _userId,
       productsEnterprises: productsEnterprisesRow,
-      fromStockSector,
-      toStockSector,
-      fromStockLocation,
-      toStockLocation,
+      fromSector,
+      toSector,
+      fromLocation,
+      toLocation,
       fromStockBatch,
       toStockBatch,
       user,
@@ -82,13 +82,13 @@ export class StockMovementsService {
     return {
       ...rest,
       productsEnterprises: productsEnterprisesRow,
-      fromStockSector: fromStockSector ?? null,
-      toStockSector: toStockSector ?? null,
-      fromStockLocation: fromStockLocation
-        ? toStockLocationResponse(fromStockLocation)
+      fromSector: fromSector ?? null,
+      toSector: toSector ?? null,
+      fromLocation: fromLocation
+        ? toLocationResponse(fromLocation)
         : null,
-      toStockLocation: toStockLocation
-        ? toStockLocationResponse(toStockLocation)
+      toLocation: toLocation
+        ? toLocationResponse(toLocation)
         : null,
       fromStockBatch: fromStockBatch
         ? toStockBatchResponse(fromStockBatch)
@@ -181,16 +181,16 @@ export class StockMovementsService {
     input: CreateStockMovementInput,
     audit: EntityAuditContext,
   ) {
-    if (input.fromStockLocationId) {
-      await assertStockLocationBelongsToEnterprise(
+    if (input.fromLocationsId) {
+      await assertLocationBelongsToEnterprise(
         enterpriseId,
-        input.fromStockLocationId,
+        input.fromLocationsId,
       );
     }
-    if (input.toStockLocationId) {
-      await assertStockLocationBelongsToEnterprise(
+    if (input.toLocationsId) {
+      await assertLocationBelongsToEnterprise(
         enterpriseId,
-        input.toStockLocationId,
+        input.toLocationsId,
       );
     }
 
@@ -202,9 +202,9 @@ export class StockMovementsService {
           type: input.type,
           productsEnterprisesId: input.productsEnterprisesId,
           quantity: input.quantity,
-          fromStockLocationId: input.fromStockLocationId,
+          fromLocationsId: input.fromLocationsId,
           fromStockBatchId: input.fromStockBatchId,
-          toStockLocationId: input.toStockLocationId,
+          toLocationsId: input.toLocationsId,
           toStockBatchId: input.toStockBatchId,
           notes: input.notes,
           documentRef: input.documentRef,

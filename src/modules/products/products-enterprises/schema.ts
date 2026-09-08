@@ -51,6 +51,7 @@ export const createProductEnterpriseSchema = z
     productPisCofinsSituationId: z.string().uuid(),
     productTaxationId: z.string().uuid(),
     controlsBatch: z.boolean().optional(),
+    controlsRental: z.boolean().optional(),
   })
   .strict();
 
@@ -72,6 +73,7 @@ export const patchProductEnterpriseSchema = z
     productPisCofinsSituationId: z.string().uuid().optional(),
     productTaxationId: z.string().uuid().optional(),
     controlsBatch: z.boolean().optional(),
+    controlsRental: z.boolean().optional(),
   })
   .strict()
   .refine(

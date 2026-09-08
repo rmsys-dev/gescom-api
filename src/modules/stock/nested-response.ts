@@ -1,12 +1,12 @@
 import type {
   productsEnterprises,
   stockBatches,
-  stockLocations,
-  stockSectors,
+  locations,
+  sectors,
 } from "../../db/schema.js";
 
-export type StockLocationWithSector = typeof stockLocations.$inferSelect & {
-  stockSector: typeof stockSectors.$inferSelect;
+export type LocationWithSector = typeof locations.$inferSelect & {
+  sector: typeof sectors.$inferSelect;
 };
 
 export type StockBatchWithProductEnterprise =
@@ -14,19 +14,19 @@ export type StockBatchWithProductEnterprise =
     productsEnterprises: typeof productsEnterprises.$inferSelect;
   };
 
-export const stockLocationDetailWith = {
-  stockSector: true,
+export const locationDetailWith = {
+  sector: true,
 } as const;
 
 export const stockBatchDetailWith = {
   productsEnterprises: true,
 } as const;
 
-export function toStockLocationResponse(row: StockLocationWithSector) {
-  const { stockSectorId: _stockSectorId, stockSector, ...rest } = row;
+export function toLocationResponse(row: LocationWithSector) {
+  const { sectorId: _sectorId, sector, ...rest } = row;
   return {
     ...rest,
-    stockSector,
+    sector,
   };
 }
 

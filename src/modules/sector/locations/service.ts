@@ -1,6 +1,6 @@
 import { and, asc, count, eq, ilike, inArray } from "drizzle-orm";
 import { db } from "../../../db/index.js";
-import { stockLocations, stockSectors } from "../../../db/schema.js";
+import { locations, sectors } from "../../../db/schema.js";
 import {
   ConflictError,
   NotFoundError,
@@ -14,54 +14,49 @@ import {
 } from "../../../shared/audit/entity-audit.js";
 import { toAuditRecord } from "../../../shared/audit/build-field-diff.js";
 import { EntityTypes } from "../../../shared/audit/entity-types.js";
-import { assertStockSectorBelongsToEnterprise } from "../balance.js";
+import { assertSectorBelongsToEnterprise } from "../../stock/balance.js";
 import {
-  stockLocationDetailWith,
-  toStockLocationResponse,
-  type StockLocationWithSector,
-} from "../nested-response.js";
+  locationDetailWith,
+  toLocationResponse,
+  type LocationWithSector,
+} from "../../stock/nested-response.js";
 import type {
-  CreateStockLocationInput,
-  ListStockLocationsQuery,
-  PatchStockLocationInput,
+  CreateLocationInput,
+  ListLocationsQuery,
+  PatchLocationInput,
 } from "./schema.js";
 
-export class StockLocationsService {
-  private enterpriseStockSectorIds(enterpriseId: string) {
+export class LocationsService {
+  private enterpriseSectorIds(enterpriseId: string) {
     return db
-      .select({ id: stockSectors.id })
-      .from(stockSectors)
-      .where(eq(stockSectors.enterprisesId, enterpriseId));
+      .select({ id: sectors.id })
+      .from(sectors)
+      .where(eq(sectors.enterprisesId, enterpriseId));
   }
 
   private scopeWhere(
     enterpriseId: string,
     id?: string,
     filters: Pick<
-      ListStockLocationsQuery,
-      "box" | "description" | "stockSectorId" | "status"
+      ListLocationsQuery,
+      "box" | "description" | "sectorId" | "status"
     > = {},
   ) {
     const conditions = [
-      inArray(
-        stockLocations.stockSectorId,
-        this.enterpriseStockSectorIds(enterpriseId),
-      ),
+      inArray(locations.sectorId, this.enterpriseSectorIds(enterpriseId)),
     ];
-    if (id) conditions.push(eq(stockLocations.id, id));
+    if (id) conditions.push(eq(locations.id, id));
     if (filters.box) {
-      conditions.push(ilike(stockLocations.box, `%${filters.box}%`));
+      conditions.push(ilike(locations.box, `%${filters.box}%`));
     }
     if (filters.description) {
-      conditions.push(
-        ilike(stockLocations.description, `%${filters.description}%`),
-      );
+      conditions.push(ilike(locations.description, `%${filters.description}%`));
     }
-    if (filters.stockSectorId) {
-      conditions.push(eq(stockLocations.stockSectorId, filters.stockSectorId));
+    if (filters.sectorId) {
+      conditions.push(eq(locations.sectorId, filters.sectorId));
     }
     if (filters.status) {
-      conditions.push(eq(stockLocations.status, filters.status));
+      conditions.push(eq(locations.status, filters.status));
     }
     return and(...conditions);
   }
@@ -70,58 +65,52 @@ export class StockLocationsService {
     const row = (
       await db
         .select({
-          id: stockLocations.id,
-          box: stockLocations.box,
-          description: stockLocations.description,
-          stockSectorId: stockLocations.stockSectorId,
-          status: stockLocations.status,
-          createdAt: stockLocations.createdAt,
-          updatedAt: stockLocations.updatedAt,
+          id: locations.id,
+          box: locations.box,
+          description: locations.description,
+          sectorId: locations.sectorId,
+          status: locations.status,
+          createdAt: locations.createdAt,
+          updatedAt: locations.updatedAt,
         })
-        .from(stockLocations)
-        .innerJoin(
-          stockSectors,
-          eq(stockLocations.stockSectorId, stockSectors.id),
-        )
+        .from(locations)
+        .innerJoin(sectors, eq(locations.sectorId, sectors.id))
         .where(
-          and(
-            eq(stockSectors.enterprisesId, enterpriseId),
-            eq(stockLocations.id, id),
-          ),
+          and(eq(sectors.enterprisesId, enterpriseId), eq(locations.id, id)),
         )
         .limit(1)
     )[0];
     if (!row) {
       throw new NotFoundError(
         "Locacao fisica de estoque nao encontrada",
-        "STOCK_LOCATION_NOT_FOUND",
+        "LOCATION_NOT_FOUND",
       );
     }
     return row;
   }
 
-  public async list(enterpriseId: string, query: ListStockLocationsQuery = {}) {
+  public async list(enterpriseId: string, query: ListLocationsQuery = {}) {
     const { limit, offset } = resolveListPagination(query);
     const where = this.scopeWhere(enterpriseId, undefined, {
       box: query.box,
       description: query.description,
-      stockSectorId: query.stockSectorId,
+      sectorId: query.sectorId,
       status: query.status,
     });
     const [items, totalRows] = await Promise.all([
-      db.query.stockLocations.findMany({
+      db.query.locations.findMany({
         where,
-        with: stockLocationDetailWith,
-        orderBy: [asc(stockLocations.box), asc(stockLocations.id)],
+        with: locationDetailWith,
+        orderBy: [asc(locations.box), asc(locations.id)],
         limit,
         offset,
       }),
-      db.select({ c: count() }).from(stockLocations).where(where),
+      db.select({ c: count() }).from(locations).where(where),
     ]);
     const total = Number(totalRows[0]?.c ?? 0);
     return {
       items: items.map((row) =>
-        toStockLocationResponse(row as StockLocationWithSector),
+        toLocationResponse(row as LocationWithSector),
       ),
       total,
       limit,
@@ -130,41 +119,38 @@ export class StockLocationsService {
   }
 
   public async getById(enterpriseId: string, id: string) {
-    const row = await db.query.stockLocations.findFirst({
+    const row = await db.query.locations.findFirst({
       where: this.scopeWhere(enterpriseId, id),
-      with: stockLocationDetailWith,
+      with: locationDetailWith,
     });
     if (!row) {
       throw new NotFoundError(
         "Locacao fisica de estoque nao encontrada",
-        "STOCK_LOCATION_NOT_FOUND",
+        "LOCATION_NOT_FOUND",
       );
     }
-    return toStockLocationResponse(row as StockLocationWithSector);
+    return toLocationResponse(row as LocationWithSector);
   }
 
   public async create(
     enterpriseId: string,
-    input: CreateStockLocationInput,
+    input: CreateLocationInput,
     audit: EntityAuditContext,
   ) {
-    await assertStockSectorBelongsToEnterprise(
-      enterpriseId,
-      input.stockSectorId,
-    );
+    await assertSectorBelongsToEnterprise(enterpriseId, input.sectorId);
     try {
       const [row] = await db
-        .insert(stockLocations)
+        .insert(locations)
         .values({
           box: input.box?.trim() ?? null,
           description: input.description?.trim() ?? null,
-          stockSectorId: input.stockSectorId,
+          sectorId: input.sectorId,
           status: input.status ?? "ATIVO",
         })
         .returning();
       if (!row) throw new Error("Falha ao criar locacao fisica de estoque");
       await recordCreateAudit({
-        entityType: EntityTypes.STOCK_LOCATIONS,
+        entityType: EntityTypes.LOCATIONS,
         entityId: row.id,
         after: row,
         ctx: audit,
@@ -174,7 +160,7 @@ export class StockLocationsService {
       if (isPostgresUniqueViolation(err)) {
         throw new ConflictError(
           "Codigo de locacao ja existe no setor",
-          "STOCK_LOCATION_CONFLICT",
+          "LOCATION_CONFLICT",
         );
       }
       throw err;
@@ -184,40 +170,35 @@ export class StockLocationsService {
   public async patch(
     enterpriseId: string,
     id: string,
-    input: PatchStockLocationInput,
+    input: PatchLocationInput,
     audit: EntityAuditContext,
   ) {
     const existing = await this.getPlainById(enterpriseId, id);
-    if (input.stockSectorId) {
-      await assertStockSectorBelongsToEnterprise(
-        enterpriseId,
-        input.stockSectorId,
-      );
+    if (input.sectorId) {
+      await assertSectorBelongsToEnterprise(enterpriseId, input.sectorId);
     }
     try {
       const [row] = await db
-        .update(stockLocations)
+        .update(locations)
         .set({
           ...(input.box !== undefined ? { box: input.box.trim() } : {}),
           ...(input.description !== undefined
             ? { description: input.description?.trim() ?? null }
             : {}),
-          ...(input.stockSectorId !== undefined
-            ? { stockSectorId: input.stockSectorId }
-            : {}),
+          ...(input.sectorId !== undefined ? { sectorId: input.sectorId } : {}),
           ...(input.status !== undefined ? { status: input.status } : {}),
           updatedAt: new Date(),
         })
-        .where(eq(stockLocations.id, id))
+        .where(eq(locations.id, id))
         .returning();
       if (!row) {
         throw new NotFoundError(
           "Locacao fisica de estoque nao encontrada",
-          "STOCK_LOCATION_NOT_FOUND",
+          "LOCATION_NOT_FOUND",
         );
       }
       await recordEntityAudit({
-        entityType: EntityTypes.STOCK_LOCATIONS,
+        entityType: EntityTypes.LOCATIONS,
         entityId: id,
         action: "UPDATE",
         before: toAuditRecord(existing),
@@ -229,7 +210,7 @@ export class StockLocationsService {
       if (isPostgresUniqueViolation(err)) {
         throw new ConflictError(
           "Codigo de locacao ja existe no setor",
-          "STOCK_LOCATION_CONFLICT",
+          "LOCATION_CONFLICT",
         );
       }
       throw err;
@@ -243,17 +224,17 @@ export class StockLocationsService {
   ) {
     const existing = await this.getPlainById(enterpriseId, id);
     const [row] = await db
-      .delete(stockLocations)
-      .where(eq(stockLocations.id, id))
+      .delete(locations)
+      .where(eq(locations.id, id))
       .returning();
     if (!row) {
       throw new NotFoundError(
         "Locacao fisica de estoque nao encontrada",
-        "STOCK_LOCATION_NOT_FOUND",
+        "LOCATION_NOT_FOUND",
       );
     }
     await recordEntityAudit({
-      entityType: EntityTypes.STOCK_LOCATIONS,
+      entityType: EntityTypes.LOCATIONS,
       entityId: id,
       action: "DELETE",
       before: toAuditRecord(existing),
@@ -264,4 +245,4 @@ export class StockLocationsService {
   }
 }
 
-export const stockLocationsService = new StockLocationsService();
+export const locationsService = new LocationsService();

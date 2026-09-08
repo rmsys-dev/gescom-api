@@ -6,7 +6,7 @@
  *
  * - Só os módulos **pai** têm referência cadastrável.
  * - Filhos existem só neste arquivo: o pai agrega as permissões próprias + das crianças.
- * - Ex.: lotes entram em `estoque`; a ref continua `"estoque"`.
+ * - Ex.: lotes entram em `estoque` (ref `"estoque"`); setores e locações entram em `produtos` (ref `"produtos"`).
  * - `administrador` é especial: N6 = união de 100% dos slugs dos módulos de domínio.
  *
  * Níveis (cumulativos na API: Nx inclui N1..Nx):
@@ -149,7 +149,7 @@ export const defaultModules = {
   produtos: {
     name: "Gerenciamento de Produtos",
     description:
-      "Cadastro de produtos, classificações, códigos fiscais/tributários e preços",
+      "Cadastro de produtos, classificações, códigos fiscais/tributários, preços, setores e locações",
     permissions: {
       N1: ["consultar_produtos"],
       N2: [],
@@ -256,6 +256,28 @@ export const defaultModules = {
           N6: [],
         },
       },
+      setores: {
+        name: "Gerenciamento de setores",
+        permissions: {
+          N1: ["consultar_setores"],
+          N2: [],
+          N3: ["incluir_setores"],
+          N4: ["alterar_setores"],
+          N5: ["excluir_setores"],
+          N6: [],
+        },
+      },
+      locacoes: {
+        name: "Gerenciamento de locações",
+        permissions: {
+          N1: ["consultar_locacoes"],
+          N2: [],
+          N3: ["incluir_locacoes"],
+          N4: ["alterar_locacoes"],
+          N5: ["excluir_locacoes"],
+          N6: [],
+        },
+      },
     },
   },
 
@@ -339,7 +361,7 @@ export const defaultModules = {
 
   estoque: {
     name: "Gerenciamento de estoque",
-    description: "Setores, locações, lotes, saldos, mínimo/máximo e movimentos",
+    description: "Lotes, saldos, mínimo/máximo e movimentos",
     permissions: {
       N1: ["consultar_saldos_estoque"],
       N2: [],
@@ -349,28 +371,6 @@ export const defaultModules = {
       N6: [],
     },
     children: {
-      setores: {
-        name: "Gerenciamento de setores",
-        permissions: {
-          N1: ["consultar_setores_estoque"],
-          N2: [],
-          N3: ["incluir_setores_estoque"],
-          N4: ["alterar_setores_estoque"],
-          N5: ["excluir_setores_estoque"],
-          N6: [],
-        },
-      },
-      locacoes: {
-        name: "Gerenciamento de locações",
-        permissions: {
-          N1: ["consultar_locacoes_estoque"],
-          N2: [],
-          N3: ["incluir_locacoes_estoque"],
-          N4: ["alterar_locacoes_estoque"],
-          N5: ["excluir_locacoes_estoque"],
-          N6: [],
-        },
-      },
       lotes: {
         name: "Gerenciamento de lotes",
         permissions: {

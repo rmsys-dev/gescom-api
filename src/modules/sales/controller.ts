@@ -23,6 +23,7 @@ import type {
   ListSalesQuery,
   PatchSaleInput,
   PatchSaleItemInput,
+  PrintSaleQuery,
 } from "./schema.js";
 import { salesService, type SaleAuthContext } from "./service.js";
 
@@ -65,6 +66,46 @@ export class SalesController {
       message: "Venda recuperada com sucesso.",
       data,
     });
+  };
+
+  public printWorkOrder = async (
+    req: Request,
+    res: Response,
+  ): Promise<void> => {
+    const enterpriseId = requireTenantEnterpriseId(
+      (req as RequestWithAuth).auth!,
+    );
+    const saleId = req.params["saleId"] as string;
+    const query = (req as RequestWithValidatedQuery<PrintSaleQuery>)
+      .validatedQuery;
+    const format = query.format ?? "pdf";
+
+    if (format === "html") {
+      const document = await salesService.getPrintHtml(enterpriseId, saleId);
+      res
+        .status(HttpStatus.OK)
+        .set(
+          "Content-Security-Policy",
+          "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data: https:; base-uri 'none'; form-action 'none'",
+        )
+        .type("html")
+        .send(document.html);
+      return;
+    }
+
+    const { pdf, filename } = await salesService.getPrintPdf(
+      enterpriseId,
+      saleId,
+    );
+    res
+      .status(HttpStatus.OK)
+      .set({
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Length": String(pdf.length),
+        "Cache-Control": "no-store",
+      })
+      .send(pdf);
   };
 
   public create = async (req: Request, res: Response): Promise<void> => {

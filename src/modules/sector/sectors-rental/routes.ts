@@ -4,68 +4,68 @@ import { requirePermission } from "../../../shared/middleware/permission-middlew
 import { tenantMiddleware } from "../../../shared/middleware/tenant-middleware.js";
 import { validateSchema } from "../../../shared/middleware/validate-schema.js";
 import { emptyQuerySchema } from "../../../shared/validation/common-schemas.js";
-import { stockSectorsRentalController } from "./controller.js";
+import { sectorsRentalController } from "./controller.js";
 import {
-  createStockSectorRentalSchema,
-  listStockSectorsRentalQuerySchema,
-  patchStockSectorRentalSchema,
-  stockSectorRentalParamsSchema,
+  createSectorRentalSchema,
+  listSectorsRentalQuerySchema,
+  patchSectorRentalSchema,
+  sectorRentalParamsSchema,
 } from "./schema.js";
 
-const stockSectorsRentalRouter = Router();
+const sectorsRentalRouter = Router();
 
-stockSectorsRentalRouter.get(
+sectorsRentalRouter.get(
   "/",
   authMiddleware,
   tenantMiddleware,
   requirePermission("consultar_saldos_estoque"),
-  validateSchema({ query: listStockSectorsRentalQuerySchema }),
-  stockSectorsRentalController.list,
+  validateSchema({ query: listSectorsRentalQuerySchema }),
+  sectorsRentalController.list,
 );
 
-stockSectorsRentalRouter.get(
-  "/:stockSectorRentalId",
+sectorsRentalRouter.get(
+  "/:sectorRentalId",
   authMiddleware,
   tenantMiddleware,
   requirePermission("consultar_saldos_estoque"),
   validateSchema({
-    params: stockSectorRentalParamsSchema,
+    params: sectorRentalParamsSchema,
     query: emptyQuerySchema,
   }),
-  stockSectorsRentalController.getById,
+  sectorsRentalController.getById,
 );
 
-stockSectorsRentalRouter.post(
+sectorsRentalRouter.post(
   "/",
   authMiddleware,
   tenantMiddleware,
   requirePermission("incluir_saldos_estoque"),
-  validateSchema({ body: createStockSectorRentalSchema }),
-  stockSectorsRentalController.create,
+  validateSchema({ body: createSectorRentalSchema }),
+  sectorsRentalController.create,
 );
 
-stockSectorsRentalRouter.patch(
-  "/:stockSectorRentalId",
+sectorsRentalRouter.patch(
+  "/:sectorRentalId",
   authMiddleware,
   tenantMiddleware,
   requirePermission("alterar_saldos_estoque"),
   validateSchema({
-    params: stockSectorRentalParamsSchema,
-    body: patchStockSectorRentalSchema,
+    params: sectorRentalParamsSchema,
+    body: patchSectorRentalSchema,
   }),
-  stockSectorsRentalController.patch,
+  sectorsRentalController.patch,
 );
 
-stockSectorsRentalRouter.delete(
-  "/:stockSectorRentalId",
+sectorsRentalRouter.delete(
+  "/:sectorRentalId",
   authMiddleware,
   tenantMiddleware,
   requirePermission("excluir_saldos_estoque"),
   validateSchema({
-    params: stockSectorRentalParamsSchema,
+    params: sectorRentalParamsSchema,
     query: emptyQuerySchema,
   }),
-  stockSectorsRentalController.delete,
+  sectorsRentalController.delete,
 );
 
-export { stockSectorsRentalRouter };
+export { sectorsRentalRouter };

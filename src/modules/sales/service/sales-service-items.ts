@@ -313,8 +313,8 @@ export class SalesService extends SalesServiceConversions {
           productsEnterprisesId: pricedItem.productsEnterprisesId,
           unitid: pricedItem.unitId,
           productTypeId: pricedItem.productTypeId,
-          stockSectorId: pricedItem.stockSectorId ?? null,
-          stockLocationId: pricedItem.stockLocationId ?? null,
+          sectorId: pricedItem.sectorId ?? null,
+          locationsId: pricedItem.locationsId ?? null,
           stockBatchId: pricedItem.stockBatchId ?? null,
           description: pricedItem.description ?? null,
           ...(pricedItem.typeService !== undefined

@@ -1,6 +1,6 @@
 import { and, asc, count, eq, inArray } from "drizzle-orm";
 import { db } from "../../../db/index.js";
-import { productsEnterprises, stockSectorsRental } from "../../../db/schema.js";
+import { productsEnterprises, sectorsRental } from "../../../db/schema.js";
 import {
   ConflictError,
   NotFoundError,
@@ -17,37 +17,37 @@ import { toAuditRecord } from "../../../shared/audit/build-field-diff.js";
 import { EntityTypes } from "../../../shared/audit/entity-types.js";
 import {
   getProductEnterpriseForStock,
-  assertStockLocationBelongsToEnterprise,
-} from "../balance.js";
+  assertLocationBelongsToEnterprise,
+} from "../../stock/balance.js";
 import {
-  stockLocationDetailWith,
-  toStockLocationResponse,
-  type StockLocationWithSector,
-} from "../nested-response.js";
+  locationDetailWith,
+  toLocationResponse,
+  type LocationWithSector,
+} from "../../stock/nested-response.js";
 import type {
-  CreateStockSectorRentalInput,
-  ListStockSectorsRentalQuery,
-  PatchStockSectorRentalInput,
+  CreateSectorRentalInput,
+  ListSectorsRentalQuery,
+  PatchSectorRentalInput,
 } from "./schema.js";
 
-type StockSectorRentalWithRelations = typeof stockSectorsRental.$inferSelect & {
+type SectorRentalWithRelations = typeof sectorsRental.$inferSelect & {
   productsEnterprises: typeof productsEnterprises.$inferSelect;
-  stockLocation: StockLocationWithSector;
+  location: LocationWithSector;
 };
 
-export class StockSectorsRentalService {
-  private toResponse(row: StockSectorRentalWithRelations) {
+export class SectorsRentalService {
+  private toResponse(row: SectorRentalWithRelations) {
     const {
       productsEnterprisesId: _productsEnterprisesId,
-      stockLocationId: _stockLocationId,
+      locationsId: _locationsId,
       productsEnterprises: productsEnterprisesRow,
-      stockLocation: stockLocationRow,
+      location: locationRow,
       ...rest
     } = row;
     return {
       ...rest,
       productsEnterprises: productsEnterprisesRow,
-      stockLocation: toStockLocationResponse(stockLocationRow),
+      location: toLocationResponse(locationRow),
     };
   }
 
@@ -61,17 +61,17 @@ export class StockSectorsRentalService {
   private scopeWhere(enterpriseId: string, id?: string) {
     const conditions = [
       inArray(
-        stockSectorsRental.productsEnterprisesId,
+        sectorsRental.productsEnterprisesId,
         this.enterpriseProductsEnterprisesIds(enterpriseId),
       ),
     ];
-    if (id) conditions.push(eq(stockSectorsRental.id, id));
+    if (id) conditions.push(eq(sectorsRental.id, id));
     return and(...conditions);
   }
 
   private async assertRefs(
     enterpriseId: string,
-    input: { productsEnterprisesId: string; stockLocationId: string },
+    input: { productsEnterprisesId: string; locationsId: string },
   ) {
     const pe = await getProductEnterpriseForStock(
       enterpriseId,
@@ -83,77 +83,68 @@ export class StockSectorsRentalService {
           {
             path: "body.productsEnterprisesId",
             message:
-              "Produto com lote deve usar saldos em /stock-batch-balances",
+              "Produto com lote deve usar locacao em /stock-batch-balances",
           },
         ],
-        "Use saldo por lote",
+        "Use locacao por lote",
       );
     }
-    await assertStockLocationBelongsToEnterprise(
-      enterpriseId,
-      input.stockLocationId,
-    );
+    await assertLocationBelongsToEnterprise(enterpriseId, input.locationsId);
   }
 
   private async getPlainById(enterpriseId: string, id: string) {
     const row = (
       await db
         .select({
-          id: stockSectorsRental.id,
-          productsEnterprisesId: stockSectorsRental.productsEnterprisesId,
-          stockLocationId: stockSectorsRental.stockLocationId,
-          quantity: stockSectorsRental.quantity,
-          createdAt: stockSectorsRental.createdAt,
-          updatedAt: stockSectorsRental.updatedAt,
+          id: sectorsRental.id,
+          productsEnterprisesId: sectorsRental.productsEnterprisesId,
+          locationsId: sectorsRental.locationsId,
+          createdAt: sectorsRental.createdAt,
+          updatedAt: sectorsRental.updatedAt,
         })
-        .from(stockSectorsRental)
+        .from(sectorsRental)
         .innerJoin(
           productsEnterprises,
-          eq(stockSectorsRental.productsEnterprisesId, productsEnterprises.id),
+          eq(sectorsRental.productsEnterprisesId, productsEnterprises.id),
         )
         .where(
           and(
             eq(productsEnterprises.enterprisesId, enterpriseId),
-            eq(stockSectorsRental.id, id),
+            eq(sectorsRental.id, id),
           ),
         )
         .limit(1)
     )[0];
     if (!row) {
       throw new NotFoundError(
-        "Saldo de estoque nao encontrado",
-        "STOCK_SECTOR_RENTAL_NOT_FOUND",
+        "Locacao de estoque nao encontrada",
+        "SECTOR_RENTAL_NOT_FOUND",
       );
     }
     return row;
   }
 
-  public async list(
-    enterpriseId: string,
-    query: ListStockSectorsRentalQuery = {},
-  ) {
+  public async list(enterpriseId: string, query: ListSectorsRentalQuery = {}) {
     const { limit, offset } = resolveListPagination(query);
     const where = this.scopeWhere(enterpriseId);
     const [items, totalRows] = await Promise.all([
-      db.query.stockSectorsRental.findMany({
+      db.query.sectorsRental.findMany({
         where,
         with: {
           productsEnterprises: true,
-          stockLocation: {
-            with: stockLocationDetailWith,
+          location: {
+            with: locationDetailWith,
           },
         },
-        orderBy: [asc(stockSectorsRental.id)],
+        orderBy: [asc(sectorsRental.id)],
         limit,
         offset,
       }),
-      db.select({ c: count() }).from(stockSectorsRental).where(where),
+      db.select({ c: count() }).from(sectorsRental).where(where),
     ]);
     const total = Number(totalRows[0]?.c ?? 0);
     return {
-      items: items.map((row) =>
-        this.toResponse(row as StockSectorRentalWithRelations),
-      ),
+      items: items.map((row) => this.toResponse(row as SectorRentalWithRelations)),
       total,
       limit,
       offset,
@@ -161,42 +152,41 @@ export class StockSectorsRentalService {
   }
 
   public async getById(enterpriseId: string, id: string) {
-    const row = await db.query.stockSectorsRental.findFirst({
+    const row = await db.query.sectorsRental.findFirst({
       where: this.scopeWhere(enterpriseId, id),
       with: {
         productsEnterprises: true,
-        stockLocation: {
-          with: stockLocationDetailWith,
+        location: {
+          with: locationDetailWith,
         },
       },
     });
     if (!row) {
       throw new NotFoundError(
-        "Saldo de estoque nao encontrado",
-        "STOCK_SECTOR_RENTAL_NOT_FOUND",
+        "Locacao de estoque nao encontrada",
+        "SECTOR_RENTAL_NOT_FOUND",
       );
     }
-    return this.toResponse(row as StockSectorRentalWithRelations);
+    return this.toResponse(row as SectorRentalWithRelations);
   }
 
   public async create(
     enterpriseId: string,
-    input: CreateStockSectorRentalInput,
+    input: CreateSectorRentalInput,
     audit: EntityAuditContext,
   ) {
     await this.assertRefs(enterpriseId, input);
     try {
       const [row] = await db
-        .insert(stockSectorsRental)
+        .insert(sectorsRental)
         .values({
           productsEnterprisesId: input.productsEnterprisesId,
-          stockLocationId: input.stockLocationId,
-          quantity: input.quantity.toString(),
+          locationsId: input.locationsId,
         })
         .returning();
-      if (!row) throw new Error("Falha ao criar saldo de estoque");
+      if (!row) throw new Error("Falha ao criar locacao de estoque");
       await recordCreateAudit({
-        entityType: EntityTypes.STOCK_SECTORS_RENTAL,
+        entityType: EntityTypes.SECTORS_RENTAL,
         entityId: row.id,
         after: row,
         ctx: audit,
@@ -205,8 +195,8 @@ export class StockSectorsRentalService {
     } catch (err) {
       if (isPostgresUniqueViolation(err)) {
         throw new ConflictError(
-          "Saldo ja existe para produto e locacao",
-          "STOCK_SECTOR_RENTAL_CONFLICT",
+          "Locacao ja existe para produto e local",
+          "SECTOR_RENTAL_CONFLICT",
         );
       }
       throw err;
@@ -216,40 +206,37 @@ export class StockSectorsRentalService {
   public async patch(
     enterpriseId: string,
     id: string,
-    input: PatchStockSectorRentalInput,
+    input: PatchSectorRentalInput,
     audit: EntityAuditContext,
   ) {
     const existing = await this.getPlainById(enterpriseId, id);
     await this.assertRefs(enterpriseId, {
       productsEnterprisesId:
         input.productsEnterprisesId ?? existing.productsEnterprisesId,
-      stockLocationId: input.stockLocationId ?? existing.stockLocationId,
+      locationsId: input.locationsId ?? existing.locationsId,
     });
     try {
       const [row] = await db
-        .update(stockSectorsRental)
+        .update(sectorsRental)
         .set({
           ...(input.productsEnterprisesId !== undefined
             ? { productsEnterprisesId: input.productsEnterprisesId }
             : {}),
-          ...(input.stockLocationId !== undefined
-            ? { stockLocationId: input.stockLocationId }
-            : {}),
-          ...(input.quantity !== undefined
-            ? { quantity: input.quantity.toString() }
+          ...(input.locationsId !== undefined
+            ? { locationsId: input.locationsId }
             : {}),
           updatedAt: new Date(),
         })
-        .where(eq(stockSectorsRental.id, id))
+        .where(eq(sectorsRental.id, id))
         .returning();
       if (!row) {
         throw new NotFoundError(
-          "Saldo de estoque nao encontrado",
-          "STOCK_SECTOR_RENTAL_NOT_FOUND",
+          "Locacao de estoque nao encontrada",
+          "SECTOR_RENTAL_NOT_FOUND",
         );
       }
       await recordEntityAudit({
-        entityType: EntityTypes.STOCK_SECTORS_RENTAL,
+        entityType: EntityTypes.SECTORS_RENTAL,
         entityId: id,
         action: "UPDATE",
         before: toAuditRecord(existing),
@@ -260,8 +247,8 @@ export class StockSectorsRentalService {
     } catch (err) {
       if (isPostgresUniqueViolation(err)) {
         throw new ConflictError(
-          "Saldo ja existe para produto e locacao",
-          "STOCK_SECTOR_RENTAL_CONFLICT",
+          "Locacao ja existe para produto e local",
+          "SECTOR_RENTAL_CONFLICT",
         );
       }
       throw err;
@@ -275,17 +262,17 @@ export class StockSectorsRentalService {
   ) {
     const existing = await this.getPlainById(enterpriseId, id);
     const [row] = await db
-      .delete(stockSectorsRental)
-      .where(eq(stockSectorsRental.id, id))
+      .delete(sectorsRental)
+      .where(eq(sectorsRental.id, id))
       .returning();
     if (!row) {
       throw new NotFoundError(
-        "Saldo de estoque nao encontrado",
-        "STOCK_SECTOR_RENTAL_NOT_FOUND",
+        "Locacao de estoque nao encontrada",
+        "SECTOR_RENTAL_NOT_FOUND",
       );
     }
     await recordEntityAudit({
-      entityType: EntityTypes.STOCK_SECTORS_RENTAL,
+      entityType: EntityTypes.SECTORS_RENTAL,
       entityId: id,
       action: "DELETE",
       before: toAuditRecord(existing),
@@ -296,4 +283,4 @@ export class StockSectorsRentalService {
   }
 }
 
-export const stockSectorsRentalService = new StockSectorsRentalService();
+export const sectorsRentalService = new SectorsRentalService();

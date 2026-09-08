@@ -5,31 +5,31 @@ import {
   optionalTrimmedStringSchema,
 } from "../../../shared/validation/common-schemas.js";
 
-export const listStockLocationsQuerySchema = createPaginationQuerySchema(100)
+export const listLocationsQuerySchema = createPaginationQuerySchema(100)
   .extend({
     box: optionalTrimmedStringSchema("box", 64).optional(),
     description: optionalTrimmedStringSchema("description", 255).optional(),
-    stockSectorId: z.string().uuid().optional(),
+    sectorId: z.string().uuid().optional(),
     status: z.enum(statusEnum.enumValues).optional(),
   })
   .strict();
 
 const statusSchema = z.enum(statusEnum.enumValues);
 
-export const createStockLocationSchema = z
+export const createLocationSchema = z
   .object({
     box: z.string().trim().min(1).max(64).optional(),
     description: z.string().trim().max(255).optional(),
-    stockSectorId: z.string().uuid(),
+    sectorId: z.string().uuid(),
     status: statusSchema.optional(),
   })
   .strict();
 
-export const patchStockLocationSchema = z
+export const patchLocationSchema = z
   .object({
     box: z.string().trim().min(1).max(64).optional(),
     description: z.string().trim().max(255).nullable().optional(),
-    stockSectorId: z.string().uuid().optional(),
+    sectorId: z.string().uuid().optional(),
     status: statusSchema.optional(),
   })
   .strict()
@@ -38,18 +38,12 @@ export const patchStockLocationSchema = z
     "Deve haver ao menos um campo para atualizar",
   );
 
-export const stockLocationParamsSchema = z
+export const locationParamsSchema = z
   .object({
-    stockLocationId: z
-      .string()
-      .uuid("Campo 'stockLocationId' deve ser um UUID valido"),
+    locationId: z.string().uuid("Campo 'locationId' deve ser um UUID valido"),
   })
   .strict();
 
-export type ListStockLocationsQuery = z.infer<
-  typeof listStockLocationsQuerySchema
->;
-export type CreateStockLocationInput = z.infer<
-  typeof createStockLocationSchema
->;
-export type PatchStockLocationInput = z.infer<typeof patchStockLocationSchema>;
+export type ListLocationsQuery = z.infer<typeof listLocationsQuerySchema>;
+export type CreateLocationInput = z.infer<typeof createLocationSchema>;
+export type PatchLocationInput = z.infer<typeof patchLocationSchema>;

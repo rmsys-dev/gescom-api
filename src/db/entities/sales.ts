@@ -39,7 +39,8 @@ import {
   productsEnterprises,
   promotionalPrices,
 } from "./products.js";
-import { stockSectors, stockLocations, stockBatches } from "./stock.js";
+import { stockBatches } from "./stock.js";
+import { locations, sectors } from "./sector.js";
 import {
   tz,
   percentageDecimal,
@@ -225,15 +226,12 @@ export const salesItems = pgTable(
     productTypeId: uuid("product_type_id")
       .notNull()
       .references(() => productTypes.id, { onDelete: "restrict" }), // TIPO DE PRODUTO
-    stockSectorId: uuid("stock_sector_id").references(() => stockSectors.id, {
+    sectorId: uuid("sector_id").references(() => sectors.id, {
       onDelete: "restrict",
-    }), // SETOR DE ESTOQUE
-    stockLocationId: uuid("stock_location_id").references(
-      () => stockLocations.id,
-      {
-        onDelete: "restrict",
-      },
-    ),
+    }), // SETOR
+    locationsId: uuid("locations_id").references(() => locations.id, {
+      onDelete: "restrict",
+    }),
     stockBatchId: uuid("stock_batch_id").references(() => stockBatches.id, {
       onDelete: "restrict",
     }),

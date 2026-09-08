@@ -1,4 +1,9 @@
 DO $$ BEGIN
+  CREATE TYPE "public"."access_level" AS ENUM ('N0', 'N1', 'N2', 'N3', 'N4', 'N5', 'N6');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
+DO $$ BEGIN
   ALTER TYPE "public"."entity_type" ADD VALUE IF NOT EXISTS 'MODULES';
 EXCEPTION
   WHEN duplicate_object THEN null;

@@ -164,8 +164,8 @@ export const saleItemInputSchema = z
     productsEnterprisesId: z.string().uuid(),
     unitId: z.string().uuid(),
     productTypeId: z.string().uuid(),
-    stockSectorId: z.string().uuid().optional(),
-    stockLocationId: z.string().uuid().optional(),
+    sectorId: z.string().uuid().optional(),
+    locationsId: z.string().uuid().optional(),
     stockBatchId: z.string().uuid().optional(),
     /** Vendedor do item; default = vendedor do documento. */
     sellerId: z.string().uuid().optional(),
@@ -414,6 +414,14 @@ export const saleParamsSchema = z
   })
   .strict();
 
+export const printSaleQuerySchema = z
+  .object({
+    format: z.enum(["pdf", "html"]).optional(),
+    autoPrint: z.enum(["0", "1"]).optional(),
+  })
+  .strict();
+export type PrintSaleQuery = z.infer<typeof printSaleQuerySchema>;
+
 export const saleItemParamsSchema = z
   .object({
     saleId: z.string().uuid("Campo 'saleId' deve ser um UUID valido"),
@@ -470,8 +478,8 @@ export const patchSaleItemSchema = z
     productsEnterprisesId: z.string().uuid().optional(),
     unitId: z.string().uuid().optional(),
     productTypeId: z.string().uuid().optional(),
-    stockSectorId: z.string().uuid().optional(),
-    stockLocationId: z.string().uuid().optional(),
+    sectorId: z.string().uuid().optional(),
+    locationsId: z.string().uuid().optional(),
     stockBatchId: z.string().uuid().nullable().optional(),
     /** Descrição livre (serviço); null limpa e volta ao cadastro do produto. */
     description: z.string().trim().min(1).max(255).nullable().optional(),
@@ -489,8 +497,8 @@ export const convertBudgetItemInputSchema = z
     budgetItemId: z.string().uuid(),
     quantity: z.number().min(0),
     unclosedJustification: z.string().trim().min(1).max(500).optional(),
-    stockSectorId: z.string().uuid().optional(),
-    stockLocationId: z.string().uuid().optional(),
+    sectorId: z.string().uuid().optional(),
+    locationsId: z.string().uuid().optional(),
     stockBatchId: z.string().uuid().nullable().optional(),
   })
   .strict();
@@ -598,8 +606,8 @@ export const convertOsItemInputSchema = z
     workOrderItemId: z.string().uuid(),
     quantity: z.number().min(0),
     unclosedJustification: z.string().trim().min(1).max(500).optional(),
-    stockSectorId: z.string().uuid().optional(),
-    stockLocationId: z.string().uuid().optional(),
+    sectorId: z.string().uuid().optional(),
+    locationsId: z.string().uuid().optional(),
     stockBatchId: z.string().uuid().nullable().optional(),
   })
   .strict();

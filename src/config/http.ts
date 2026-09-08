@@ -27,6 +27,7 @@ const corsOptions: CorsOptions = {
 
     callback(null, corsOrigins.includes(origin));
   },
+  exposedHeaders: ["Content-Disposition", "Content-Length"],
 };
 
 const JSON_BODY_LIMIT = "100kb";

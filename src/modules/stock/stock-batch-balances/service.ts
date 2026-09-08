@@ -20,17 +20,18 @@ import {
 import { toAuditRecord } from "../../../shared/audit/build-field-diff.js";
 import { EntityTypes } from "../../../shared/audit/entity-types.js";
 import {
+  applyProductStockBalanceDelta,
   assertBatchBelongsToProduct,
-  assertStockLocationBelongsToEnterprise,
+  assertLocationBelongsToEnterprise,
   getProductEnterpriseForStock,
 } from "../balance.js";
 import {
   stockBatchDetailWith,
-  stockLocationDetailWith,
+  locationDetailWith,
   toStockBatchResponse,
-  toStockLocationResponse,
+  toLocationResponse,
   type StockBatchWithProductEnterprise,
-  type StockLocationWithSector,
+  type LocationWithSector,
 } from "../nested-response.js";
 import type {
   CreateStockBatchBalanceInput,
@@ -40,22 +41,22 @@ import type {
 
 type StockBatchBalanceWithRelations = typeof stockBatchBalances.$inferSelect & {
   stockBatch: StockBatchWithProductEnterprise;
-  stockLocation: StockLocationWithSector;
+  location: LocationWithSector;
 };
 
 export class StockBatchBalancesService {
   private toResponse(row: StockBatchBalanceWithRelations) {
     const {
       stockBatchId: _stockBatchId,
-      stockLocationId: _stockLocationId,
+      locationsId: _locationsId,
       stockBatch: stockBatchRow,
-      stockLocation: stockLocationRow,
+      location: locationRow,
       ...rest
     } = row;
     return {
       ...rest,
       stockBatch: toStockBatchResponse(stockBatchRow),
-      stockLocation: toStockLocationResponse(stockLocationRow),
+      location: toLocationResponse(locationRow),
     };
   }
 
@@ -83,8 +84,8 @@ export class StockBatchBalancesService {
 
   private async assertRefs(
     enterpriseId: string,
-    input: { stockBatchId: string; stockLocationId: string },
-  ) {
+    input: { stockBatchId: string; locationsId: string },
+  ): Promise<{ productsEnterprisesId: string }> {
     const batch = (
       await db
         .select({
@@ -117,10 +118,11 @@ export class StockBatchBalancesService {
       batch.productsEnterprisesId,
       input.stockBatchId,
     );
-    await assertStockLocationBelongsToEnterprise(
+    await assertLocationBelongsToEnterprise(
       enterpriseId,
-      input.stockLocationId,
+      input.locationsId,
     );
+    return { productsEnterprisesId: batch.productsEnterprisesId };
   }
 
   private async getPlainById(enterpriseId: string, id: string) {
@@ -129,8 +131,9 @@ export class StockBatchBalancesService {
         .select({
           id: stockBatchBalances.id,
           stockBatchId: stockBatchBalances.stockBatchId,
-          stockLocationId: stockBatchBalances.stockLocationId,
+          locationsId: stockBatchBalances.locationsId,
           quantity: stockBatchBalances.quantity,
+          productsEnterprisesId: stockBatches.productsEnterprisesId,
           createdAt: stockBatchBalances.createdAt,
           updatedAt: stockBatchBalances.updatedAt,
         })
@@ -173,8 +176,8 @@ export class StockBatchBalancesService {
           stockBatch: {
             with: stockBatchDetailWith,
           },
-          stockLocation: {
-            with: stockLocationDetailWith,
+          location: {
+            with: locationDetailWith,
           },
         },
         orderBy: [asc(stockBatchBalances.id)],
@@ -201,8 +204,8 @@ export class StockBatchBalancesService {
         stockBatch: {
           with: stockBatchDetailWith,
         },
-        stockLocation: {
-          with: stockLocationDetailWith,
+        location: {
+          with: locationDetailWith,
         },
       },
     });
@@ -220,17 +223,28 @@ export class StockBatchBalancesService {
     input: CreateStockBatchBalanceInput,
     audit: EntityAuditContext,
   ) {
-    await this.assertRefs(enterpriseId, input);
+    const { productsEnterprisesId } = await this.assertRefs(
+      enterpriseId,
+      input,
+    );
     try {
-      const [row] = await db
-        .insert(stockBatchBalances)
-        .values({
-          stockBatchId: input.stockBatchId,
-          stockLocationId: input.stockLocationId,
-          quantity: input.quantity.toString(),
-        })
-        .returning();
-      if (!row) throw new Error("Falha ao criar saldo de lote");
+      const row = await db.transaction(async (tx) => {
+        const [inserted] = await tx
+          .insert(stockBatchBalances)
+          .values({
+            stockBatchId: input.stockBatchId,
+            locationsId: input.locationsId,
+            quantity: input.quantity.toString(),
+          })
+          .returning();
+        if (!inserted) throw new Error("Falha ao criar saldo de lote");
+        await applyProductStockBalanceDelta(
+          tx,
+          productsEnterprisesId,
+          input.quantity,
+        );
+        return inserted;
+      });
       await recordCreateAudit({
         entityType: EntityTypes.STOCK_BATCH_BALANCES,
         entityId: row.id,
@@ -256,38 +270,66 @@ export class StockBatchBalancesService {
     audit: EntityAuditContext,
   ) {
     const existing = await this.getPlainById(enterpriseId, id);
-    await this.assertRefs(enterpriseId, {
+    const { productsEnterprisesId: oldPeId, ...existingRow } = existing;
+    const { productsEnterprisesId } = await this.assertRefs(enterpriseId, {
       stockBatchId: input.stockBatchId ?? existing.stockBatchId,
-      stockLocationId: input.stockLocationId ?? existing.stockLocationId,
+      locationsId: input.locationsId ?? existing.locationsId,
     });
+    const oldQty = Number(existing.quantity);
+    const newQty =
+      input.quantity !== undefined ? input.quantity : oldQty;
     try {
-      const [row] = await db
-        .update(stockBatchBalances)
-        .set({
-          ...(input.stockBatchId !== undefined
-            ? { stockBatchId: input.stockBatchId }
-            : {}),
-          ...(input.stockLocationId !== undefined
-            ? { stockLocationId: input.stockLocationId }
-            : {}),
-          ...(input.quantity !== undefined
-            ? { quantity: input.quantity.toString() }
-            : {}),
-          updatedAt: new Date(),
-        })
-        .where(eq(stockBatchBalances.id, id))
-        .returning();
-      if (!row) {
-        throw new NotFoundError(
-          "Saldo de lote nao encontrado",
-          "STOCK_BATCH_BALANCE_NOT_FOUND",
-        );
-      }
+      const row = await db.transaction(async (tx) => {
+        const [updated] = await tx
+          .update(stockBatchBalances)
+          .set({
+            ...(input.stockBatchId !== undefined
+              ? { stockBatchId: input.stockBatchId }
+              : {}),
+            ...(input.locationsId !== undefined
+              ? { locationsId: input.locationsId }
+              : {}),
+            ...(input.quantity !== undefined
+              ? { quantity: input.quantity.toString() }
+              : {}),
+            updatedAt: new Date(),
+          })
+          .where(eq(stockBatchBalances.id, id))
+          .returning();
+        if (!updated) {
+          throw new NotFoundError(
+            "Saldo de lote nao encontrado",
+            "STOCK_BATCH_BALANCE_NOT_FOUND",
+          );
+        }
+        if (oldPeId === productsEnterprisesId) {
+          const delta = newQty - oldQty;
+          if (delta !== 0) {
+            await applyProductStockBalanceDelta(
+              tx,
+              productsEnterprisesId,
+              delta,
+            );
+          }
+        } else {
+          if (oldQty !== 0) {
+            await applyProductStockBalanceDelta(tx, oldPeId, -oldQty);
+          }
+          if (newQty !== 0) {
+            await applyProductStockBalanceDelta(
+              tx,
+              productsEnterprisesId,
+              newQty,
+            );
+          }
+        }
+        return updated;
+      });
       await recordEntityAudit({
         entityType: EntityTypes.STOCK_BATCH_BALANCES,
         entityId: id,
         action: "UPDATE",
-        before: toAuditRecord(existing),
+        before: toAuditRecord(existingRow),
         after: toAuditRecord(row),
         ctx: audit,
       });
@@ -309,16 +351,27 @@ export class StockBatchBalancesService {
     audit: EntityAuditContext,
   ) {
     const existing = await this.getPlainById(enterpriseId, id);
-    const [row] = await db
-      .delete(stockBatchBalances)
-      .where(eq(stockBatchBalances.id, id))
-      .returning();
-    if (!row) {
-      throw new NotFoundError(
-        "Saldo de lote nao encontrado",
-        "STOCK_BATCH_BALANCE_NOT_FOUND",
-      );
-    }
+    const row = await db.transaction(async (tx) => {
+      const [deleted] = await tx
+        .delete(stockBatchBalances)
+        .where(eq(stockBatchBalances.id, id))
+        .returning();
+      if (!deleted) {
+        throw new NotFoundError(
+          "Saldo de lote nao encontrado",
+          "STOCK_BATCH_BALANCE_NOT_FOUND",
+        );
+      }
+      const qty = Number(existing.quantity);
+      if (qty !== 0) {
+        await applyProductStockBalanceDelta(
+          tx,
+          existing.productsEnterprisesId,
+          -qty,
+        );
+      }
+      return deleted;
+    });
     await recordEntityAudit({
       entityType: EntityTypes.STOCK_BATCH_BALANCES,
       entityId: id,

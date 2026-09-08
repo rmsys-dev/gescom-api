@@ -28,9 +28,9 @@ export const createStockMovementSchema = z
     type: movementTypeSchema,
     productsEnterprisesId: z.string().uuid(),
     quantity: z.number().positive(),
-    fromStockLocationId: z.string().uuid().optional(),
+    fromLocationsId: z.string().uuid().optional(),
     fromStockBatchId: z.string().uuid().optional(),
-    toStockLocationId: z.string().uuid().optional(),
+    toLocationsId: z.string().uuid().optional(),
     toStockBatchId: z.string().uuid().optional(),
     notes: z.string().trim().max(500).optional(),
     documentRef: z.string().trim().max(100).optional(),
@@ -39,18 +39,18 @@ export const createStockMovementSchema = z
   .strict()
   .superRefine((data, ctx) => {
     if (data.type === "TRANSFERENCIA") {
-      if (!data.fromStockLocationId || !data.toStockLocationId) {
+      if (!data.fromLocationsId || !data.toLocationsId) {
         ctx.addIssue({
           code: "custom",
           message:
-            "TRANSFERENCIA exige fromStockLocationId e toStockLocationId",
-          path: ["fromStockLocationId"],
+            "TRANSFERENCIA exige fromLocationsId e toLocationsId",
+          path: ["fromLocationsId"],
         });
-      } else if (data.fromStockLocationId === data.toStockLocationId) {
+      } else if (data.fromLocationsId === data.toLocationsId) {
         ctx.addIssue({
           code: "custom",
           message: "Locacoes de origem e destino devem ser distintas",
-          path: ["toStockLocationId"],
+          path: ["toLocationsId"],
         });
       }
       if (
@@ -75,18 +75,18 @@ export const createStockMovementSchema = z
       "TRANSFERENCIA",
       "AJUSTE",
     ].includes(data.type);
-    if (needsFrom && !data.fromStockLocationId) {
+    if (needsFrom && !data.fromLocationsId) {
       ctx.addIssue({
         code: "custom",
-        message: `${data.type} exige fromStockLocationId`,
-        path: ["fromStockLocationId"],
+        message: `${data.type} exige fromLocationsId`,
+        path: ["fromLocationsId"],
       });
     }
-    if (needsTo && !data.toStockLocationId) {
+    if (needsTo && !data.toLocationsId) {
       ctx.addIssue({
         code: "custom",
-        message: `${data.type} exige toStockLocationId`,
-        path: ["toStockLocationId"],
+        message: `${data.type} exige toLocationsId`,
+        path: ["toLocationsId"],
       });
     }
   });

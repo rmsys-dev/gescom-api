@@ -7,7 +7,7 @@ export const listStockBatchBalancesQuerySchema =
 export const createStockBatchBalanceSchema = z
   .object({
     stockBatchId: z.string().uuid(),
-    stockLocationId: z.string().uuid(),
+    locationsId: z.string().uuid(),
     quantity: z.number().min(0),
   })
   .strict();
@@ -15,7 +15,7 @@ export const createStockBatchBalanceSchema = z
 export const patchStockBatchBalanceSchema = z
   .object({
     stockBatchId: z.string().uuid().optional(),
-    stockLocationId: z.string().uuid().optional(),
+    locationsId: z.string().uuid().optional(),
     quantity: z.number().min(0).optional(),
   })
   .strict()

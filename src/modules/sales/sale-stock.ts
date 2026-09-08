@@ -5,7 +5,7 @@ import { NotFoundError, ValidationError } from "../../shared/errors/app-error.js
 import { isServiceProductTypeById } from "../../shared/products/product-type-service.js";
 import {
   assertBatchBelongsToProduct,
-  assertStockSectorBelongsToEnterprise,
+  assertSectorBelongsToEnterprise,
   assertSufficientStock,
   getLocationSectorId,
   getProductEnterpriseForStock,
@@ -46,9 +46,9 @@ export type SaleItemRow = {
   id: string;
   productsEnterprisesId: string;
   productTypeId: string;
-  stockLocationId: string | null;
+  locationsId: string | null;
   stockBatchId: string | null;
-  stockSectorId: string | null;
+  sectorId: string | null;
   quantity: string;
 };
 
@@ -95,8 +95,8 @@ function saleItemStockFieldsChanged(
 ): boolean {
   return (
     oldItem.productsEnterprisesId !== newItem.productsEnterprisesId ||
-    oldItem.stockSectorId !== (newItem.stockSectorId ?? null) ||
-    oldItem.stockLocationId !== (newItem.stockLocationId ?? null) ||
+    oldItem.sectorId !== (newItem.sectorId ?? null) ||
+    oldItem.locationsId !== (newItem.locationsId ?? null) ||
     oldItem.stockBatchId !== (newItem.stockBatchId ?? null) ||
     Number(oldItem.quantity) !== newItem.quantity
   );
@@ -135,7 +135,7 @@ async function applySaleItemStockRevisionReturn(
       type: "DEVOLUCAO",
       productsEnterprisesId: item.productsEnterprisesId,
       quantity,
-      toStockLocationId: item.stockLocationId!,
+      toLocationsId: item.locationsId!,
       toStockBatchId: item.stockBatchId,
       documentRef,
       notes: `Estorno revisao ${revision} venda pedido ${orderNumber}`,
@@ -151,22 +151,22 @@ function assertNonServiceStockFields(
   item: SaleItemInput,
   pathPrefix: string,
 ) {
-  if (!item.stockSectorId) {
+  if (!item.sectorId) {
     throw new ValidationError(
       [
         {
-          path: `${pathPrefix}.stockSectorId`,
+          path: `${pathPrefix}.sectorId`,
           message: "Setor de estoque obrigatorio para produto que nao e servico",
         },
       ],
       "Setor de estoque obrigatorio",
     );
   }
-  if (!item.stockLocationId) {
+  if (!item.locationsId) {
     throw new ValidationError(
       [
         {
-          path: `${pathPrefix}.stockLocationId`,
+          path: `${pathPrefix}.locationsId`,
           message: "Locacao de estoque obrigatoria para produto que nao e servico",
         },
       ],
@@ -223,18 +223,18 @@ export async function validateSaleItemStock(
 
   assertNonServiceStockFields(item, pathPrefix);
 
-  await assertStockSectorBelongsToEnterprise(
+  await assertSectorBelongsToEnterprise(
     enterpriseId,
-    item.stockSectorId!,
+    item.sectorId!,
     tx,
   );
 
-  const locationSector = await getLocationSectorId(item.stockLocationId!, tx);
-  if (locationSector.stockSectorId !== item.stockSectorId) {
+  const locationSector = await getLocationSectorId(item.locationsId!, tx);
+  if (locationSector.sectorId !== item.sectorId) {
     throw new ValidationError(
       [
         {
-          path: `${pathPrefix}.stockSectorId`,
+          path: `${pathPrefix}.sectorId`,
           message: "Setor nao corresponde a locacao informada",
         },
       ],
@@ -274,8 +274,6 @@ export async function validateSaleItemStock(
     await assertSufficientStock(tx, {
       enterpriseId,
       productsEnterprisesId: item.productsEnterprisesId,
-      stockLocationId: item.stockLocationId!,
-      stockBatchId: item.stockBatchId,
       quantity: item.quantity,
       pathPrefix: `${pathPrefix}.quantity`,
     });
@@ -293,11 +291,11 @@ export async function assertSaleItemStockAvailable(
 }
 
 function assertItemHasLocation(item: SaleItemRow) {
-  if (!item.stockLocationId) {
+  if (!item.locationsId) {
     throw new ValidationError(
       [
         {
-          path: "items.stockLocationId",
+          path: "items.locationsId",
           message: "Item sem locacao de estoque para movimentar",
         },
       ],
@@ -335,7 +333,7 @@ export async function applySaleItemStockOut(
       type: "VENDA",
       productsEnterprisesId: item.productsEnterprisesId,
       quantity: Number(item.quantity),
-      fromStockLocationId: item.stockLocationId!,
+      fromLocationsId: item.locationsId!,
       fromStockBatchId: item.stockBatchId,
       documentRef,
       notes: `Venda pedido ${orderNumber}`,
@@ -377,7 +375,7 @@ export async function applySaleItemStockReturn(
       type: "DEVOLUCAO",
       productsEnterprisesId: item.productsEnterprisesId,
       quantity: Number(item.quantity),
-      toStockLocationId: item.stockLocationId!,
+      toLocationsId: item.locationsId!,
       toStockBatchId: item.stockBatchId,
       documentRef,
       notes: `Estorno venda pedido ${orderNumber}`,
@@ -452,7 +450,7 @@ export async function applySaleReturnDocumentItemStockIn(
       type: "DEVOLUCAO",
       productsEnterprisesId: item.productsEnterprisesId,
       quantity: Number(returnItem.quantity),
-      toStockLocationId: item.stockLocationId!,
+      toLocationsId: item.locationsId!,
       toStockBatchId: item.stockBatchId,
       documentRef,
       notes: `Devolucao ${returnOrder} pedido ${saleOrderNumber}`,
@@ -563,10 +561,10 @@ export async function syncSaleItemStockOnUpdate(
 
   assertItemHasLocation({
     ...oldItem,
-    stockLocationId: newItem.stockLocationId ?? null,
+    locationsId: newItem.locationsId ?? null,
     stockBatchId: newItem.stockBatchId ?? null,
     productsEnterprisesId: newItem.productsEnterprisesId,
-    stockSectorId: newItem.stockSectorId ?? null,
+    sectorId: newItem.sectorId ?? null,
     quantity: newItem.quantity.toString(),
   });
 
@@ -577,7 +575,7 @@ export async function syncSaleItemStockOnUpdate(
       type: "VENDA",
       productsEnterprisesId: newItem.productsEnterprisesId,
       quantity: newItem.quantity,
-      fromStockLocationId: newItem.stockLocationId!,
+      fromLocationsId: newItem.locationsId!,
       fromStockBatchId: newItem.stockBatchId ?? null,
       documentRef: revisionOutRef,
       notes: `Venda pedido ${orderNumber} (revisao ${nextRevision})`,

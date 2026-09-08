@@ -5,8 +5,10 @@ import { stockMovements } from "../../db/schema.js";
 import { ValidationError } from "../../shared/errors/app-error.js";
 import {
   adjustStockBalance,
+  ensureStockSectorRentalAssignment,
   getLocationSectorId,
   getProductEnterpriseForStock,
+  getStockBalance,
 } from "./balance.js";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -27,9 +29,9 @@ export type CreateStockMovementTxInput = {
   type: StockMovementType;
   productsEnterprisesId: string;
   quantity: number;
-  fromStockLocationId?: string;
+  fromLocationsId?: string;
   fromStockBatchId?: string | null;
-  toStockLocationId?: string;
+  toLocationsId?: string;
   toStockBatchId?: string | null;
   notes?: string | null;
   documentRef?: string | null;
@@ -57,22 +59,22 @@ export async function createStockMovementInTx(  // REGISTRA MOVIMENTAÇÃO DE ES
   let toStockBatchId = input.toStockBatchId ?? null;
 
   if (input.type === "TRANSFERENCIA") {
-    if (!input.fromStockLocationId || !input.toStockLocationId) {  // TRANSFERÊNCIA EXIGE LOCAÇÕES DE ORIGEM E DESTINO
+    if (!input.fromLocationsId || !input.toLocationsId) {  // TRANSFERÊNCIA EXIGE LOCAÇÕES DE ORIGEM E DESTINO
       throw new ValidationError(
         [
           {
-            path: "body.fromStockLocationId",
+            path: "body.fromLocationsId",
             message: "TRANSFERENCIA exige locacoes de origem e destino",
           },
         ],
         "Transferencia invalida",
       );
     }
-    if (input.fromStockLocationId === input.toStockLocationId) {  // LOCAÇÕES DE ORIGEM E DESTINO DEVEM SER DISTINTAS
+    if (input.fromLocationsId === input.toLocationsId) {  // LOCAÇÕES DE ORIGEM E DESTINO DEVEM SER DISTINTAS
       throw new ValidationError(
         [
           {
-            path: "body.toStockLocationId",
+            path: "body.toLocationsId",
             message: "Locacoes de origem e destino devem ser distintas",
           },
         ],
@@ -124,8 +126,8 @@ export async function createStockMovementInTx(  // REGISTRA MOVIMENTAÇÃO DE ES
   let fromAfter: number | null = null;
   let toBefore: number | null = null;
   let toAfter: number | null = null;
-  let fromStockSectorId: string | null = null;
-  let toStockSectorId: string | null = null;
+  let fromSectorId: string | null = null;
+  let toSectorId: string | null = null;
 
   const decreaseTypes = ["SAIDA", "PERDA", "VENDA", "TRANSFERENCIA"];
   const increaseTypes = [
@@ -135,31 +137,62 @@ export async function createStockMovementInTx(  // REGISTRA MOVIMENTAÇÃO DE ES
     "TRANSFERENCIA",
     "AJUSTE",
   ];
+  const isTransfer = input.type === "TRANSFERENCIA";
+  const skipProductBalance = isTransfer && productEnterprise.controlsBatch;
 
-  if (decreaseTypes.includes(input.type) && input.fromStockLocationId) {  // DECRESCENTE: SAIDA, PERDA, VENDA, TRANSFERENCIA
-    const sector = await getLocationSectorId(input.fromStockLocationId, tx);
-    fromStockSectorId = sector.stockSectorId;
-    const r = await adjustStockBalance(tx, {
+  if (isTransfer && !productEnterprise.controlsBatch) {
+    const fromLocationsId = input.fromLocationsId!;
+    const toLocationsId = input.toLocationsId!;
+    const fromSector = await getLocationSectorId(fromLocationsId, tx);
+    const toSector = await getLocationSectorId(toLocationsId, tx);
+    fromSectorId = fromSector.sectorId;
+    toSectorId = toSector.sectorId;
+    await ensureStockSectorRentalAssignment(
+      tx,
+      productEnterprise.id,
+      fromLocationsId,
+    );
+    await ensureStockSectorRentalAssignment(
+      tx,
+      productEnterprise.id,
+      toLocationsId,
+    );
+    const total = await getStockBalance(tx, {
       productsEnterprises: productEnterprise,
-      stockLocationId: input.fromStockLocationId,
-      stockBatchId: fromStockBatchId,
-      delta: -qty,
+      lock: true,
     });
-    fromBefore = r.before;
-    fromAfter = r.after;
-  }
+    fromBefore = total;
+    fromAfter = total;
+    toBefore = total;
+    toAfter = total;
+  } else {
+    if (decreaseTypes.includes(input.type) && input.fromLocationsId) {  // DECRESCENTE: SAIDA, PERDA, VENDA, TRANSFERENCIA
+      const sector = await getLocationSectorId(input.fromLocationsId, tx);
+      fromSectorId = sector.sectorId;
+      const r = await adjustStockBalance(tx, {
+        productsEnterprises: productEnterprise,
+        locationId: input.fromLocationsId,
+        stockBatchId: fromStockBatchId,
+        delta: -qty,
+        skipProductBalance,
+      });
+      fromBefore = r.before;
+      fromAfter = r.after;
+    }
 
-  if (increaseTypes.includes(input.type) && input.toStockLocationId) {  // CRESCENTE: ENTRADA, COMPRA, DEVOLUCAO, TRANSFERENCIA, AJUSTE
-    const sector = await getLocationSectorId(input.toStockLocationId, tx);
-    toStockSectorId = sector.stockSectorId;
-    const r = await adjustStockBalance(tx, {
-      productsEnterprises: productEnterprise,
-      stockLocationId: input.toStockLocationId,
-      stockBatchId: toStockBatchId,
-      delta: qty,
-    });
-    toBefore = r.before;
-    toAfter = r.after;
+    if (increaseTypes.includes(input.type) && input.toLocationsId) {  // CRESCENTE: ENTRADA, COMPRA, DEVOLUCAO, TRANSFERENCIA, AJUSTE
+      const sector = await getLocationSectorId(input.toLocationsId, tx);
+      toSectorId = sector.sectorId;
+      const r = await adjustStockBalance(tx, {
+        productsEnterprises: productEnterprise,
+        locationId: input.toLocationsId,
+        stockBatchId: toStockBatchId,
+        delta: qty,
+        skipProductBalance,
+      });
+      toBefore = r.before;
+      toAfter = r.after;
+    }
   }
 
   const [row] = await tx
@@ -168,11 +201,11 @@ export async function createStockMovementInTx(  // REGISTRA MOVIMENTAÇÃO DE ES
       transferGroupId,
       type: input.type,
       productsEnterprisesId: input.productsEnterprisesId,
-      fromStockSectorId,
-      fromStockLocationId: input.fromStockLocationId ?? null,
+      fromSectorId,
+      fromLocationsId: input.fromLocationsId ?? null,
       fromStockBatchId,
-      toStockSectorId,
-      toStockLocationId: input.toStockLocationId ?? null,
+      toSectorId,
+      toLocationsId: input.toLocationsId ?? null,
       toStockBatchId,
       quantity: qty.toString(),
       fromQuantityBefore: fromBefore !== null ? fromBefore.toString() : null,

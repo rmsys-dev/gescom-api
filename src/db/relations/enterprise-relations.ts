@@ -7,7 +7,7 @@ import {
 } from "../entities/enterprises.js";
 import { ceps } from "../entities/addresses.js";
 import { enterprisesMembers } from "../entities/members.js";
-import { stockSectors } from "../entities/stock.js";
+import { sectors } from "../entities/sector.js";
 import {
   productBrands,
   productGroups,
@@ -35,7 +35,7 @@ export const enterprisesRelations = relations(enterprises, ({ many }) => ({
   addresses: many(enterprisesAddress),
   sequences: many(enterprisesSequences),
   parameters: many(enterpriseParameters),
-  stockSectors: many(stockSectors),
+  sectors: many(sectors),
   productGroups: many(productGroups),
   productSubgroups: many(productSubgroups),
   productBrands: many(productBrands),

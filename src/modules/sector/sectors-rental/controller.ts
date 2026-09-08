@@ -13,25 +13,24 @@ import {
   sendSuccessResponse,
 } from "../../../shared/responses/send-success-response.js";
 import type {
-  CreateStockSectorRentalInput,
-  ListStockSectorsRentalQuery,
-  PatchStockSectorRentalInput,
+  CreateSectorRentalInput,
+  ListSectorsRentalQuery,
+  PatchSectorRentalInput,
 } from "./schema.js";
-import { stockSectorsRentalService } from "./service.js";
+import { sectorsRentalService } from "./service.js";
 
-export class StockSectorsRentalController {
+export class SectorsRentalController {
   public list = async (req: Request, res: Response): Promise<void> => {
-    const query = (
-      req as RequestWithValidatedQuery<ListStockSectorsRentalQuery>
-    ).validatedQuery;
+    const query = (req as RequestWithValidatedQuery<ListSectorsRentalQuery>)
+      .validatedQuery;
     const enterpriseId = requireTenantEnterpriseId(
       (req as RequestWithAuth).auth!,
     );
-    const page = await stockSectorsRentalService.list(enterpriseId, query);
+    const page = await sectorsRentalService.list(enterpriseId, query);
     sendPageFromService(
       res,
       HttpStatus.OK,
-      "Saldos de estoque listados com sucesso.",
+      "Locacoes de estoque listadas com sucesso.",
       page,
     );
   };
@@ -40,75 +39,72 @@ export class StockSectorsRentalController {
     const enterpriseId = requireTenantEnterpriseId(
       (req as RequestWithAuth).auth!,
     );
-    const stockSectorRentalId = req.params["stockSectorRentalId"] as string;
-    const row = await stockSectorsRentalService.getById(
-      enterpriseId,
-      stockSectorRentalId,
-    );
+    const sectorRentalId = req.params["sectorRentalId"] as string;
+    const row = await sectorsRentalService.getById(enterpriseId, sectorRentalId);
     sendSuccessResponse(res, HttpStatus.OK, {
-      message: "Saldo de estoque recuperado com sucesso.",
+      message: "Locacao de estoque recuperada com sucesso.",
       data: row,
     });
   };
 
   public create = async (req: Request, res: Response): Promise<void> => {
-    const body = req.body as CreateStockSectorRentalInput;
+    const body = req.body as CreateSectorRentalInput;
     const auth = (req as RequestWithAuth).auth!;
     const enterpriseId = requireTenantEnterpriseId(auth);
-    const row = await stockSectorsRentalService.create(
+    const row = await sectorsRentalService.create(
       enterpriseId,
       body,
       auditContextFromPostAuth(
         auth,
         req,
-        "stock.stock-sectors-rental.service.create",
+        "sector.sectors-rental.service.create",
       ),
     );
     sendSuccessResponse(res, HttpStatus.CREATED, {
-      message: "Saldo de estoque criado com sucesso.",
+      message: "Locacao de estoque criada com sucesso.",
       data: row,
     });
   };
 
   public patch = async (req: Request, res: Response): Promise<void> => {
-    const stockSectorRentalId = req.params["stockSectorRentalId"] as string;
-    const body = req.body as PatchStockSectorRentalInput;
+    const sectorRentalId = req.params["sectorRentalId"] as string;
+    const body = req.body as PatchSectorRentalInput;
     const auth = (req as RequestWithAuth).auth!;
     const enterpriseId = requireTenantEnterpriseId(auth);
-    const row = await stockSectorsRentalService.patch(
+    const row = await sectorsRentalService.patch(
       enterpriseId,
-      stockSectorRentalId,
+      sectorRentalId,
       body,
       auditContextFromPatchAuth(
         auth,
         req,
-        "stock.stock-sectors-rental.service.patch",
+        "sector.sectors-rental.service.patch",
       ),
     );
     sendSuccessResponse(res, HttpStatus.OK, {
-      message: "Saldo de estoque atualizado com sucesso.",
+      message: "Locacao de estoque atualizada com sucesso.",
       data: row,
     });
   };
 
   public delete = async (req: Request, res: Response): Promise<void> => {
-    const stockSectorRentalId = req.params["stockSectorRentalId"] as string;
+    const sectorRentalId = req.params["sectorRentalId"] as string;
     const auth = (req as RequestWithAuth).auth!;
     const enterpriseId = requireTenantEnterpriseId(auth);
-    const row = await stockSectorsRentalService.delete(
+    const row = await sectorsRentalService.delete(
       enterpriseId,
-      stockSectorRentalId,
+      sectorRentalId,
       auditContextFromDeleteAuth(
         auth,
         req,
-        "stock.stock-sectors-rental.service.delete",
+        "sector.sectors-rental.service.delete",
       ),
     );
     sendSuccessResponse(res, HttpStatus.OK, {
-      message: "Saldo de estoque excluido com sucesso.",
+      message: "Locacao de estoque excluida com sucesso.",
       data: row,
     });
   };
 }
 
-export const stockSectorsRentalController = new StockSectorsRentalController();
+export const sectorsRentalController = new SectorsRentalController();

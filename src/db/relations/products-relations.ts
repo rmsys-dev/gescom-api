@@ -20,7 +20,8 @@ import {
 } from "../entities/products.js";
 import { enterprises } from "../entities/enterprises.js";
 import { typeSped } from "../entities/products.js";
-import { stockSectorsRental, stockBatches } from "../entities/stock.js";
+import { stockBatches } from "../entities/stock.js";
+import { sectorsRental } from "../entities/sector.js";
 
 export const productsRelations = relations(products, ({ many }) => ({
   productsEnterprises: many(productsEnterprises),
@@ -88,7 +89,7 @@ export const productsEnterprisesRelations = relations(
       references: [prices.productsEnterprisesId],
     }),
     promotionalPrices: many(promotionalPrices),
-    stockSectorsRental: many(stockSectorsRental),
+    sectorsRental: many(sectorsRental),
     stockBatches: many(stockBatches),
   }),
 );

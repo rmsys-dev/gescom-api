@@ -34,8 +34,8 @@ import {
   salesPayments,
   salesReturns,
   stockBatches,
-  stockLocations,
-  stockSectors,
+  locations,
+  sectors,
   users,
   usersAddress,
   usersContact,
@@ -73,6 +73,12 @@ import {
   assertEnterpriseParameter,
   resolveEnterpriseParameters,
 } from "../../enterprises/parameters/resolve.js";
+import { enterprisesService } from "../../enterprises/service.js";
+import { htmlToPdf } from "../print/html-to-pdf.js";
+import {
+  renderWorkOrderPrintHtml,
+  workOrderPdfFilename,
+} from "../print/os-print-html.js";
 import { resolveDefaultSaleItemStockRefs } from "../../stock/balance.js";
 import {
   assertSaleOrderNumberAvailable,
@@ -110,8 +116,8 @@ import type { z } from "zod";
 type ConvertBudgetItemLine = z.infer<typeof convertBudgetItemInputSchema>;
 type ConvertOsItemLine = z.infer<typeof convertOsItemInputSchema>;
 type ConversionStockLine = {
-  stockSectorId?: string;
-  stockLocationId?: string;
+  sectorId?: string;
+  locationsId?: string;
   stockBatchId?: string | null;
 };
 
@@ -688,15 +694,15 @@ export class SalesServiceCore {
           type: productTypes.type,
           description: productTypes.description,
         },
-        stockSector: {
-          id: stockSectors.id,
-          description: stockSectors.description,
+        sector: {
+          id: sectors.id,
+          description: sectors.description,
         },
-        stockLocation: {
-          id: stockLocations.id,
-          box: stockLocations.box,
-          description: stockLocations.description,
-          status: stockLocations.status,
+        location: {
+          id: locations.id,
+          box: locations.box,
+          description: locations.description,
+          status: locations.status,
         },
         stockBatch: {
           id: stockBatches.id,
@@ -721,11 +727,8 @@ export class SalesServiceCore {
       )
       .innerJoin(measurementUnits, eq(salesItems.unitid, measurementUnits.id))
       .innerJoin(productTypes, eq(salesItems.productTypeId, productTypes.id))
-      .leftJoin(stockSectors, eq(salesItems.stockSectorId, stockSectors.id))
-      .leftJoin(
-        stockLocations,
-        eq(salesItems.stockLocationId, stockLocations.id),
-      )
+      .leftJoin(sectors, eq(salesItems.sectorId, sectors.id))
+      .leftJoin(locations, eq(salesItems.locationsId, locations.id))
       .leftJoin(stockBatches, eq(salesItems.stockBatchId, stockBatches.id))
       .leftJoin(
         promotionalPrices,
@@ -792,8 +795,8 @@ export class SalesServiceCore {
         productsEnterprises: pe,
         unit,
         productType,
-        stockSector,
-        stockLocation,
+        sector,
+        location,
         stockBatch,
         promotionalPrice,
       }) => ({
@@ -806,8 +809,8 @@ export class SalesServiceCore {
         productsEnterprises: pe,
         unit,
         productType,
-        stockSector: this.nullableById(stockSector),
-        stockLocation: this.nullableById(stockLocation),
+        sector: this.nullableById(sector),
+        location: this.nullableById(location),
         stockBatch: this.nullableById(stockBatch),
         promotionalPrice: this.nullableById(promotionalPrice),
         mechanics: mechanicsByItemId.get(item.id) ?? [],
@@ -836,6 +839,21 @@ export class SalesServiceCore {
           fuelType: vehicles.fuelType,
           vehicleYear: vehicles.vehicleYear,
           fleetNumber: vehicles.fleetNumber,
+          vehicleType: vehicles.vehicleType,
+          bodyType: vehicles.bodyType,
+          axleType: vehicles.axleType,
+          capacityKg: vehicles.capacityKg,
+          capacityM3: vehicles.capacityM3,
+          tareWeight: vehicles.tareWeight,
+          rntrcCode: vehicles.rntrcCode,
+          entireCode: vehicles.entireCode,
+          ownerType: vehicles.ownerType,
+          location: vehicles.location,
+          ipvaPaymentMonth: vehicles.ipvaPaymentMonth,
+          refuelingMileage: vehicles.refuelingMileage,
+          licensingStateId: vehicles.licensingStateId,
+          licensingStateAcronym: states.acronym,
+          licensingStateName: states.description,
         })
         .from(vehiclesEnterprisesMembers)
         .innerJoin(
@@ -849,6 +867,7 @@ export class SalesServiceCore {
           vehicles,
           eq(vehiclesEnterprisesMembers.vehiclesId, vehicles.id),
         )
+        .leftJoin(states, eq(vehicles.licensingStateId, states.id))
         .where(
           and(
             eq(vehiclesEnterprisesMembers.id, vehiclesEnterprisesMembersId),
@@ -1359,8 +1378,8 @@ export class SalesServiceCore {
       productsEnterprisesId: budgetItem.productsEnterprisesId,
       unitId: budgetItem.unitid,
       productTypeId: budgetItem.productTypeId,
-      stockSectorId: budgetItem.stockSectorId ?? undefined,
-      stockLocationId: budgetItem.stockLocationId ?? undefined,
+      sectorId: budgetItem.sectorId ?? undefined,
+      locationsId: budgetItem.locationsId ?? undefined,
       stockBatchId: budgetItem.stockBatchId ?? undefined,
       description: budgetItem.description ?? undefined,
       typeService: budgetItem.typeService ?? undefined,
@@ -1386,24 +1405,22 @@ export class SalesServiceCore {
       return base;
     }
 
-    let stockSectorId =
-      line?.stockSectorId ?? budgetItem.stockSectorId ?? undefined;
-    let stockLocationId =
-      line?.stockLocationId ?? budgetItem.stockLocationId ?? undefined;
+    let sectorId = line?.sectorId ?? budgetItem.sectorId ?? undefined;
+    let locationsId = line?.locationsId ?? budgetItem.locationsId ?? undefined;
     let stockBatchId =
       line?.stockBatchId !== undefined
         ? (line.stockBatchId ?? undefined)
         : (budgetItem.stockBatchId ?? undefined);
 
-    if (!stockSectorId || !stockLocationId) {
+    if (!sectorId || !locationsId) {
       const defaults = await resolveDefaultSaleItemStockRefs(
         enterpriseId,
         budgetItem.productsEnterprisesId,
         tx,
         itemPath,
       );
-      stockSectorId = stockSectorId ?? defaults.stockSectorId;
-      stockLocationId = stockLocationId ?? defaults.stockLocationId;
+      sectorId = sectorId ?? defaults.sectorId;
+      locationsId = locationsId ?? defaults.locationsId;
       if (stockBatchId === undefined) {
         stockBatchId = defaults.stockBatchId ?? undefined;
       }
@@ -1411,8 +1428,8 @@ export class SalesServiceCore {
 
     return {
       ...base,
-      stockSectorId,
-      stockLocationId,
+      sectorId,
+      locationsId,
       stockBatchId,
     };
   }
@@ -1805,8 +1822,8 @@ export class SalesServiceCore {
       productsEnterprisesId: item.productsEnterprisesId,
       unitid: item.unitId,
       productTypeId: item.productTypeId,
-      stockSectorId: item.stockSectorId ?? null,
-      stockLocationId: item.stockLocationId ?? null,
+      sectorId: item.sectorId ?? null,
+      locationsId: item.locationsId ?? null,
       stockBatchId: item.stockBatchId ?? null,
       userId: actor.userId,
       userLegalName: actor.userLegalName,
@@ -1982,7 +1999,11 @@ export class SalesServiceCore {
     return member.comissionPartial;
   }
 
-  protected async applySaleItemsCommission(tx: Tx, saleId: string, rate: string) {
+  protected async applySaleItemsCommission(
+    tx: Tx,
+    saleId: string,
+    rate: string,
+  ) {
     await tx
       .update(salesItems)
       .set({
@@ -2246,9 +2267,8 @@ export class SalesServiceCore {
         input.productsEnterprisesId ?? existing.productsEnterprisesId,
       unitId: input.unitId ?? existing.unitid,
       productTypeId: input.productTypeId ?? existing.productTypeId,
-      stockSectorId: input.stockSectorId ?? existing.stockSectorId ?? undefined,
-      stockLocationId:
-        input.stockLocationId ?? existing.stockLocationId ?? undefined,
+      sectorId: input.sectorId ?? existing.sectorId ?? undefined,
+      locationsId: input.locationsId ?? existing.locationsId ?? undefined,
       stockBatchId:
         input.stockBatchId !== undefined
           ? (input.stockBatchId ?? undefined)
@@ -3115,6 +3135,45 @@ export class SalesServiceCore {
     };
   }
 
+  public async getPrintHtml(
+    enterpriseId: string,
+    saleId: string,
+    mode: "html" | "pdf" = "html",
+  ) {
+    const sale = await this.getById(enterpriseId, saleId);
+    if (sale.type !== "ORDEM DE SERVICO") {
+      throw new ValidationError(
+        [
+          {
+            path: "params.saleId",
+            message: "Impressão A4 disponível somente para Ordem de Serviço",
+          },
+        ],
+        "Tipo invalido",
+      );
+    }
+    const enterprise = await enterprisesService.getById(enterpriseId);
+    const html = renderWorkOrderPrintHtml({
+      sale,
+      enterprise,
+      printedAt: new Date(),
+      mode,
+    });
+    return {
+      html,
+      orderNumber: sale.orderNumber,
+      filename: workOrderPdfFilename(sale.orderNumber),
+    };
+  }
+
+  public async getPrintPdf(enterpriseId: string, saleId: string) {
+    const document = await this.getPrintHtml(enterpriseId, saleId, "pdf");
+    return {
+      pdf: await htmlToPdf(document.html),
+      filename: document.filename,
+    };
+  }
+
   public async listSaleConversions(enterpriseId: string, saleId: string) {
     const sale = await this.getSaleRow(db, enterpriseId, saleId);
     if (
@@ -3773,4 +3832,3 @@ export class SalesServiceCore {
     }
   }
 }
-

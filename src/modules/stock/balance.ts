@@ -4,9 +4,9 @@ import {
   productsEnterprises,
   stockBatchBalances,
   stockBatches,
-  stockLocations,
-  stockSectors,
-  stockSectorsRental,
+  locations,
+  sectors,
+  sectorsRental,
 } from "../../db/schema.js";
 import { isPostgresUniqueViolation } from "../../shared/db/postgres-errors.js";
 import {
@@ -28,7 +28,7 @@ function insufficientStock(path: string, message: string): ValidationError {
 async function lockStockBatchBalanceRow(
   tx: Tx,
   stockBatchId: string,
-  stockLocationId: string,
+  locationId: string,
 ): Promise<StockBalanceRow | undefined> {
   const rows = await tx
     .select({
@@ -39,7 +39,7 @@ async function lockStockBatchBalanceRow(
     .where(
       and(
         eq(stockBatchBalances.stockBatchId, stockBatchId),
-        eq(stockBatchBalances.stockLocationId, stockLocationId),
+        eq(stockBatchBalances.locationsId, locationId),
       ),
     )
     .for("update")
@@ -47,26 +47,73 @@ async function lockStockBatchBalanceRow(
   return rows[0];
 }
 
-async function lockStockSectorRentalRow(
+async function lockProductEnterpriseStockBalance(
   tx: Tx,
   productsEnterprisesId: string,
-  stockLocationId: string,
-): Promise<StockBalanceRow | undefined> {
+): Promise<StockBalanceRow> {
   const rows = await tx
     .select({
-      id: stockSectorsRental.id,
-      quantity: stockSectorsRental.quantity,
+      id: productsEnterprises.id,
+      quantity: productsEnterprises.stockBalance,
     })
-    .from(stockSectorsRental)
-    .where(
-      and(
-        eq(stockSectorsRental.productsEnterprisesId, productsEnterprisesId),
-        eq(stockSectorsRental.stockLocationId, stockLocationId),
-      ),
-    )
+    .from(productsEnterprises)
+    .where(eq(productsEnterprises.id, productsEnterprisesId))
     .for("update")
     .limit(1);
-  return rows[0];
+  const row = rows[0];
+  if (!row) {
+    throw new NotFoundError(
+      "Produto da empresa nao encontrado",
+      "PRODUCT_ENTERPRISE_NOT_FOUND",
+    );
+  }
+  return row;
+}
+
+export async function applyProductStockBalanceDelta(
+  tx: Tx,
+  productsEnterprisesId: string,
+  delta: number,
+): Promise<{ before: number; after: number }> {
+  const existing = await lockProductEnterpriseStockBalance(
+    tx,
+    productsEnterprisesId,
+  );
+  const before = Number(existing.quantity);
+  const after = before + delta;
+  if (after < 0) {
+    throw insufficientStock("body.quantity", "Saldo insuficiente no produto");
+  }
+  if (delta === 0) {
+    return { before, after: before };
+  }
+  await tx
+    .update(productsEnterprises)
+    .set({ stockBalance: after.toString(), updatedAt: new Date() })
+    .where(eq(productsEnterprises.id, productsEnterprisesId));
+  return { before, after };
+}
+
+export async function ensureStockSectorRentalAssignment(
+  tx: Tx,
+  productsEnterprisesId: string,
+  locationId: string,
+) {
+  try {
+    await tx
+      .insert(sectorsRental)
+      .values({
+        productsEnterprisesId,
+        locationsId: locationId,
+      })
+      .onConflictDoNothing({
+        target: [sectorsRental.productsEnterprisesId, sectorsRental.locationsId],
+      });
+  } catch (err) {
+    if (!isPostgresUniqueViolation(err)) {
+      throw err;
+    }
+  }
 }
 
 async function applyDeltaToLockedBalance(params: {
@@ -119,7 +166,7 @@ export type ProductEnterpriseStock = {
   productTypeId: string;
 };
 
-export async function getProductEnterpriseForStock( // PRODUTO EMPRESA  
+export async function getProductEnterpriseForStock(
   enterpriseId: string,
   productsEnterprisesId: string,
   tx?: Tx,
@@ -151,83 +198,75 @@ export async function getProductEnterpriseForStock( // PRODUTO EMPRESA
   return row;
 }
 
-export async function assertStockSectorBelongsToEnterprise(
+export async function assertSectorBelongsToEnterprise(
   enterpriseId: string,
-  stockSectorId: string,
+  sectorId: string,
   tx?: Tx,
 ) {
   const runner = tx ?? db;
   const row = (
     await runner
-      .select({ id: stockSectors.id })
-      .from(stockSectors)
-      .where(
-        and(
-          eq(stockSectors.id, stockSectorId),
-          eq(stockSectors.enterprisesId, enterpriseId),
-        ),
-      )
+      .select({ id: sectors.id })
+      .from(sectors)
+      .where(and(eq(sectors.id, sectorId), eq(sectors.enterprisesId, enterpriseId)))
       .limit(1)
   )[0];
   if (!row) {
     throw new NotFoundError(
       "Setor de estoque nao encontrado",
-      "STOCK_SECTOR_NOT_FOUND",
+      "SECTOR_NOT_FOUND",
     );
   }
   return row;
 }
 
-export async function assertStockLocationBelongsToEnterprise(
+export async function assertLocationBelongsToEnterprise(
   enterpriseId: string,
-  stockLocationId: string,
+  locationId: string,
   tx?: Tx,
 ) {
   const runner = tx ?? db;
   const row = (
     await runner
-      .select({ id: stockLocations.id })
-      .from(stockLocations)
-      .innerJoin(stockSectors, eq(stockLocations.stockSectorId, stockSectors.id))
+      .select({ id: locations.id })
+      .from(locations)
+      .innerJoin(sectors, eq(locations.sectorId, sectors.id))
       .where(
-        and(
-          eq(stockLocations.id, stockLocationId),
-          eq(stockSectors.enterprisesId, enterpriseId),
-        ),
+        and(eq(locations.id, locationId), eq(sectors.enterprisesId, enterpriseId)),
       )
       .limit(1)
   )[0];
   if (!row) {
     throw new NotFoundError(
       "Locacao fisica de estoque nao encontrada",
-      "STOCK_LOCATION_NOT_FOUND",
+      "LOCATION_NOT_FOUND",
     );
   }
   return row;
 }
 
-export async function getLocationSectorId( // LOCAÇÃO FÍSICA DENTRO DO SETOR
-  stockLocationId: string,
+export async function getLocationSectorId(
+  locationId: string,
   tx?: Tx,
-): Promise<{ stockSectorId: string }> {
+): Promise<{ sectorId: string }> {
   const runner = tx ?? db;
   const row = (
     await runner
-      .select({ stockSectorId: stockLocations.stockSectorId })
-      .from(stockLocations)
-      .where(eq(stockLocations.id, stockLocationId))
+      .select({ sectorId: locations.sectorId })
+      .from(locations)
+      .where(eq(locations.id, locationId))
       .limit(1)
   )[0];
   if (!row) {
     throw new NotFoundError(
       "Locacao fisica de estoque nao encontrada",
-      "STOCK_LOCATION_NOT_FOUND",
+      "LOCATION_NOT_FOUND",
     );
   }
   return row;
 }
 
-export async function assertBatchBelongsToProduct( // LOTE PERTENCE AO PRODUTO EMPRESA
+export async function assertBatchBelongsToProduct(
   productsEnterprisesId: string,
   stockBatchId: string,
   tx?: Tx,
@@ -250,79 +289,45 @@ export async function assertBatchBelongsToProduct( // LOTE PERTENCE AO PRODUTO E
   }
 }
 
-export async function getStockBalance(   // SALDO DE ESTOQUE POR LOCAÇÃO FÍSICA DENTRO DO SETOR OU LOTE
+export async function getStockBalance(
   tx: Tx,
   params: {
     productsEnterprises: ProductEnterpriseStock;
-    stockLocationId: string;
-    stockBatchId?: string | null;
-    /** Bloqueia a linha de saldo até o fim da transação (evita TOCTOU com assert + adjust). */
     lock?: boolean;
   },
 ): Promise<number> {
-  const { productsEnterprises, stockLocationId, stockBatchId, lock } = params;
+  const { productsEnterprises: pe, lock } = params;
 
-  if (productsEnterprises.controlsBatch) {
-    if (!stockBatchId) return 0;
-    if (lock) {
-      const row = await lockStockBatchBalanceRow(tx, stockBatchId, stockLocationId);
-      return row ? Number(row.quantity) : 0;
-    }
-    const rows = await tx
-      .select({ quantity: stockBatchBalances.quantity })
-      .from(stockBatchBalances)
-      .where(
-        and(
-          eq(stockBatchBalances.stockBatchId, stockBatchId),
-          eq(stockBatchBalances.stockLocationId, stockLocationId),
-        ),
-      )
-      .limit(1);
-    return rows[0] ? Number(rows[0].quantity) : 0;
-  }
-
+  // Consulta sempre o saldo geral. Com lote, stock_batch_balances deve bater com este total.
   if (lock) {
-    const row = await lockStockSectorRentalRow(
-      tx,
-      productsEnterprises.id,
-      stockLocationId,
-    );
-    return row ? Number(row.quantity) : 0;
+    const row = await lockProductEnterpriseStockBalance(tx, pe.id);
+    return Number(row.quantity);
   }
 
   const rows = await tx
-    .select({ quantity: stockSectorsRental.quantity })
-    .from(stockSectorsRental)
-    .where(
-      and(
-        eq(stockSectorsRental.productsEnterprisesId, productsEnterprises.id),
-        eq(stockSectorsRental.stockLocationId, stockLocationId),
-      ),
-    )
+    .select({ quantity: productsEnterprises.stockBalance })
+    .from(productsEnterprises)
+    .where(eq(productsEnterprises.id, pe.id))
     .limit(1);
   return rows[0] ? Number(rows[0].quantity) : 0;
 }
 
-export async function assertSufficientStock(  // VERIFICA SE O SALDO DE ESTOQUE É SUFICIENTE
+export async function assertSufficientStock(
   tx: Tx,
   params: {
     enterpriseId: string;
     productsEnterprisesId: string;
-    stockLocationId: string;
-    stockBatchId?: string | null;
     quantity: number;
     pathPrefix?: string;
   },
 ) {
-  const pe = await getProductEnterpriseForStock(  
+  const pe = await getProductEnterpriseForStock(
     params.enterpriseId,
     params.productsEnterprisesId,
     tx,
   );
   const available = await getStockBalance(tx, {
     productsEnterprises: pe,
-    stockLocationId: params.stockLocationId,
-    stockBatchId: params.stockBatchId,
     lock: true,
   });
   if (available < params.quantity) {
@@ -338,16 +343,23 @@ export async function assertSufficientStock(  // VERIFICA SE O SALDO DE ESTOQUE 
   }
 }
 
-export async function adjustStockBalance(  // AJUSTA O SALDO DE ESTOQUE POR LOCAÇÃO FÍSICA DENTRO DO SETOR OU LOTE
+export async function adjustStockBalance(
   tx: Tx,
   params: {
     productsEnterprises: ProductEnterpriseStock;
-    stockLocationId: string;
+    locationId: string;
     stockBatchId?: string | null;
     delta: number;
+    skipProductBalance?: boolean;
   },
 ): Promise<{ before: number; after: number }> {
-  const { productsEnterprises, stockLocationId, stockBatchId, delta } = params;
+  const {
+    productsEnterprises,
+    locationId,
+    stockBatchId,
+    delta,
+    skipProductBalance,
+  } = params;
 
   if (productsEnterprises.controlsBatch) {
     if (!stockBatchId) {
@@ -369,9 +381,9 @@ export async function adjustStockBalance(  // AJUSTA O SALDO DE ESTOQUE POR LOCA
     const existing = await lockStockBatchBalanceRow(
       tx,
       stockBatchId,
-      stockLocationId,
+      locationId,
     );
-    return applyDeltaToLockedBalance({
+    const result = await applyDeltaToLockedBalance({
       delta,
       existing,
       insufficientPath: "body.quantity",
@@ -381,7 +393,7 @@ export async function adjustStockBalance(  // AJUSTA O SALDO DE ESTOQUE POR LOCA
           .insert(stockBatchBalances)
           .values({
             stockBatchId,
-            stockLocationId,
+            locationsId: locationId,
             quantity: delta.toString(),
           })
           .returning({
@@ -399,8 +411,12 @@ export async function adjustStockBalance(  // AJUSTA O SALDO DE ESTOQUE POR LOCA
           .set({ quantity: after, updatedAt: new Date() })
           .where(eq(stockBatchBalances.id, id));
       },
-      retryLoad: () => lockStockBatchBalanceRow(tx, stockBatchId, stockLocationId),
+      retryLoad: () => lockStockBatchBalanceRow(tx, stockBatchId, locationId),
     });
+    if (!skipProductBalance) {
+      await applyProductStockBalanceDelta(tx, productsEnterprises.id, delta);
+    }
+    return result;
   }
 
   if (stockBatchId) {
@@ -415,47 +431,22 @@ export async function adjustStockBalance(  // AJUSTA O SALDO DE ESTOQUE POR LOCA
     );
   }
 
-  const existing = await lockStockSectorRentalRow(
+  const result = await applyProductStockBalanceDelta(
     tx,
     productsEnterprises.id,
-    stockLocationId,
-  );
-  return applyDeltaToLockedBalance({
     delta,
-    existing,
-    insufficientPath: "body.quantity",
-    insufficientMessage: "Saldo insuficiente na locacao",
-    insert: async () => {
-      const [row] = await tx
-        .insert(stockSectorsRental)
-        .values({
-          productsEnterprisesId: productsEnterprises.id,
-          stockLocationId,
-          quantity: delta.toString(),
-        })
-        .returning({
-          id: stockSectorsRental.id,
-          quantity: stockSectorsRental.quantity,
-        });
-      if (!row) {
-        throw new Error("Falha ao criar saldo de locacao");
-      }
-      return row;
-    },
-    update: async (id, after) => {
-      await tx
-        .update(stockSectorsRental)
-        .set({ quantity: after, updatedAt: new Date() })
-        .where(eq(stockSectorsRental.id, id));
-    },
-    retryLoad: () =>
-      lockStockSectorRentalRow(tx, productsEnterprises.id, stockLocationId),
-  });
+  );
+  await ensureStockSectorRentalAssignment(
+    tx,
+    productsEnterprises.id,
+    locationId,
+  );
+  return result;
 }
 
 export type DefaultSaleItemStockRefs = {
-  stockSectorId: string;
-  stockLocationId: string;
+  sectorId: string;
+  locationsId: string;
   stockBatchId: string | null;
 };
 
@@ -477,7 +468,7 @@ export async function resolveDefaultSaleItemStockRefs(
       await runner
         .select({
           batchId: stockBatches.id,
-          locationId: stockBatchBalances.stockLocationId,
+          locationsId: stockBatchBalances.locationsId,
         })
         .from(stockBatches)
         .innerJoin(
@@ -489,10 +480,10 @@ export async function resolveDefaultSaleItemStockRefs(
     )[0];
 
     if (batchRow) {
-      const locRow = await getLocationSectorId(batchRow.locationId, tx);
+      const locRow = await getLocationSectorId(batchRow.locationsId, tx);
       return {
-        stockSectorId: locRow.stockSectorId,
-        stockLocationId: batchRow.locationId,
+        sectorId: locRow.sectorId,
+        locationsId: batchRow.locationsId,
         stockBatchId: batchRow.batchId,
       };
     }
@@ -500,17 +491,17 @@ export async function resolveDefaultSaleItemStockRefs(
 
   const rentalRow = (
     await runner
-      .select({ locationId: stockSectorsRental.stockLocationId })
-      .from(stockSectorsRental)
-      .where(eq(stockSectorsRental.productsEnterprisesId, productsEnterprisesId))
+      .select({ locationId: sectorsRental.locationsId })
+      .from(sectorsRental)
+      .where(eq(sectorsRental.productsEnterprisesId, productsEnterprisesId))
       .limit(1)
   )[0];
 
   if (rentalRow) {
     const locRow = await getLocationSectorId(rentalRow.locationId, tx);
     return {
-      stockSectorId: locRow.stockSectorId,
-      stockLocationId: rentalRow.locationId,
+      sectorId: locRow.sectorId,
+      locationsId: rentalRow.locationId,
       stockBatchId: null,
     };
   }

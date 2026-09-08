@@ -1,6 +1,6 @@
 import { and, asc, count, eq } from "drizzle-orm";
 import { db } from "../../../db/index.js";
-import { stockSectors } from "../../../db/schema.js";
+import { sectors } from "../../../db/schema.js";
 import {
   ConflictError,
   NotFoundError,
@@ -15,30 +15,30 @@ import {
 import { toAuditRecord } from "../../../shared/audit/build-field-diff.js";
 import { EntityTypes } from "../../../shared/audit/entity-types.js";
 import type {
-  CreateStockSectorInput,
-  ListStockSectorsQuery,
-  PatchStockSectorInput,
+  CreateSectorInput,
+  ListSectorsQuery,
+  PatchSectorInput,
 } from "./schema.js";
 
-export class StockSectorsService {
+export class SectorsService {
   private scope(enterpriseId: string, id?: string) {
-    const base = [eq(stockSectors.enterprisesId, enterpriseId)];
-    if (id) base.push(eq(stockSectors.id, id));
+    const base = [eq(sectors.enterprisesId, enterpriseId)];
+    if (id) base.push(eq(sectors.id, id));
     return and(...base);
   }
 
-  public async list(enterpriseId: string, query: ListStockSectorsQuery = {}) {
+  public async list(enterpriseId: string, query: ListSectorsQuery = {}) {
     const { limit, offset } = resolveListPagination(query);
     const where = this.scope(enterpriseId);
     const [items, totalRows] = await Promise.all([
       db
         .select()
-        .from(stockSectors)
+        .from(sectors)
         .where(where)
-        .orderBy(asc(stockSectors.description), asc(stockSectors.id))
+        .orderBy(asc(sectors.description), asc(sectors.id))
         .limit(limit)
         .offset(offset),
-      db.select({ c: count() }).from(stockSectors).where(where),
+      db.select({ c: count() }).from(sectors).where(where),
     ]);
     const total = Number(totalRows[0]?.c ?? 0);
     return { items, total, limit, offset };
@@ -48,14 +48,14 @@ export class StockSectorsService {
     const row = (
       await db
         .select()
-        .from(stockSectors)
+        .from(sectors)
         .where(this.scope(enterpriseId, id))
         .limit(1)
     )[0];
     if (!row) {
       throw new NotFoundError(
         "Setor de estoque nao encontrado",
-        "STOCK_SECTOR_NOT_FOUND",
+        "SECTOR_NOT_FOUND",
       );
     }
     return row;
@@ -63,12 +63,12 @@ export class StockSectorsService {
 
   public async create(
     enterpriseId: string,
-    input: CreateStockSectorInput,
+    input: CreateSectorInput,
     audit: EntityAuditContext,
   ) {
     try {
       const [row] = await db
-        .insert(stockSectors)
+        .insert(sectors)
         .values({
           enterprisesId: enterpriseId,
           description: input.description.trim(),
@@ -76,7 +76,7 @@ export class StockSectorsService {
         .returning();
       if (!row) throw new Error("Falha ao criar setor de estoque");
       await recordCreateAudit({
-        entityType: EntityTypes.STOCK_SECTORS,
+        entityType: EntityTypes.SECTORS,
         entityId: row.id,
         after: row,
         ctx: audit,
@@ -86,7 +86,7 @@ export class StockSectorsService {
       if (isPostgresUniqueViolation(err)) {
         throw new ConflictError(
           "Descricao de setor ja existe na empresa",
-          "STOCK_SECTOR_CONFLICT",
+          "SECTOR_CONFLICT",
         );
       }
       throw err;
@@ -96,13 +96,13 @@ export class StockSectorsService {
   public async patch(
     enterpriseId: string,
     id: string,
-    input: PatchStockSectorInput,
+    input: PatchSectorInput,
     audit: EntityAuditContext,
   ) {
     const existing = await this.getById(enterpriseId, id);
     try {
       const [row] = await db
-        .update(stockSectors)
+        .update(sectors)
         .set({
           ...(input.description !== undefined
             ? { description: input.description.trim() }
@@ -114,11 +114,11 @@ export class StockSectorsService {
       if (!row) {
         throw new NotFoundError(
           "Setor de estoque nao encontrado",
-          "STOCK_SECTOR_NOT_FOUND",
+          "SECTOR_NOT_FOUND",
         );
       }
       await recordEntityAudit({
-        entityType: EntityTypes.STOCK_SECTORS,
+        entityType: EntityTypes.SECTORS,
         entityId: id,
         action: "UPDATE",
         before: toAuditRecord(existing),
@@ -130,7 +130,7 @@ export class StockSectorsService {
       if (isPostgresUniqueViolation(err)) {
         throw new ConflictError(
           "Descricao de setor ja existe na empresa",
-          "STOCK_SECTOR_CONFLICT",
+          "SECTOR_CONFLICT",
         );
       }
       throw err;
@@ -144,17 +144,17 @@ export class StockSectorsService {
   ) {
     const existing = await this.getById(enterpriseId, id);
     const [row] = await db
-      .delete(stockSectors)
+      .delete(sectors)
       .where(this.scope(enterpriseId, id))
       .returning();
     if (!row) {
       throw new NotFoundError(
         "Setor de estoque nao encontrado",
-        "STOCK_SECTOR_NOT_FOUND",
+        "SECTOR_NOT_FOUND",
       );
     }
     await recordEntityAudit({
-      entityType: EntityTypes.STOCK_SECTORS,
+      entityType: EntityTypes.SECTORS,
       entityId: id,
       action: "DELETE",
       before: toAuditRecord(existing),
@@ -165,4 +165,4 @@ export class StockSectorsService {
   }
 }
 
-export const stockSectorsService = new StockSectorsService();
+export const sectorsService = new SectorsService();

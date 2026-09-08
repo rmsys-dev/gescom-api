@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import { boolean, decimal, integer, uuid } from "drizzle-orm/pg-core";
 import { integerOrFractionalEnum, statusEnum } from "../enums.js";
 import { varchar } from "drizzle-orm/pg-core";
-import { pgTable, uniqueIndex, index } from "drizzle-orm/pg-core";
+import { pgTable, uniqueIndex, index, check } from "drizzle-orm/pg-core";
 import { enterprises } from "./enterprises.js";
 import { pisCofinsTypeEnum } from "../enums.js";
 import {
@@ -319,6 +319,9 @@ export const productsEnterprises = pgTable(
     enterprisesId: uuid("enterprises_id")
       .notNull()
       .references(() => enterprises.id, { onDelete: "cascade" }),
+    stockBalance: decimal("stock_balance", { precision: 14, scale: 4 })
+      .notNull()
+      .default("0.0000"), // QUANTIDADE EM ESTOQUE (total do produto-empresa)
     measurementUnitId: uuid("measurement_unit_id") // unidade de medida
       .notNull()
       .references(() => measurementUnits.id, { onDelete: "restrict" }),
@@ -348,8 +351,8 @@ export const productsEnterprises = pgTable(
     productTaxationId: uuid("product_taxation_id") // tributação do produto
       .notNull()
       .references(() => productTaxation.id, { onDelete: "restrict" }),
-
     controlsBatch: boolean("controls_batch").notNull().default(false), // controla lote do produto
+    controlsRental: boolean("controls_rental").notNull().default(false), // controla locacao do produto
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
   },
@@ -358,6 +361,10 @@ export const productsEnterprises = pgTable(
       t.productId,
       t.enterprisesId,
       t.code,
+    ),
+    check(
+      "products_enterprises_stock_balance_non_negative",
+      sql`${t.stockBalance} >= 0`,
     ),
   ],
 );

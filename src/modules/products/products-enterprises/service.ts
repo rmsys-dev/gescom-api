@@ -19,9 +19,9 @@ import {
   promotionalPrices,
   stockBatchBalances,
   stockBatches,
-  stockLocations,
-  stockSectors,
-  stockSectorsRental,
+  locations,
+  sectors,
+  sectorsRental,
 } from "../../../db/schema.js";
 import {
   ConflictError,
@@ -72,6 +72,8 @@ const productEnterpriseSelectFields = {
   productPisCofinsSituationId: productsEnterprises.productPisCofinsSituationId,
   productTaxationId: productsEnterprises.productTaxationId,
   controlsBatch: productsEnterprises.controlsBatch,
+  controlsRental: productsEnterprises.controlsRental,
+  stockBalance: productsEnterprises.stockBalance,
   status: products.status,
   barCode: products.barCode,
   createdAt: productsEnterprises.createdAt,
@@ -428,6 +430,7 @@ export class ProductsEnterprisesService {
         productPisCofinsSituationId: input.productPisCofinsSituationId,
         productTaxationId: input.productTaxationId,
         controlsBatch: input.controlsBatch ?? false,
+        controlsRental: input.controlsRental ?? false,
       })
       .returning({ id: productsEnterprises.id });
     if (!row) throw new Error("Falha ao vincular produto a empresa");
@@ -618,31 +621,28 @@ export class ProductsEnterprisesService {
     if (query.location) {
       const term = `%${query.location}%`;
       const locationTextMatch = or(
-        ilike(stockLocations.box, term),
-        ilike(stockLocations.description, term),
+        ilike(locations.box, term),
+        ilike(locations.description, term),
       )!;
 
       conditions.push(
         or(
           exists(
             db
-              .select({ id: stockSectorsRental.id })
-              .from(stockSectorsRental)
+              .select({ id: sectorsRental.id })
+              .from(sectorsRental)
               .innerJoin(
-                stockLocations,
-                eq(stockLocations.id, stockSectorsRental.stockLocationId),
+                locations,
+                eq(locations.id, sectorsRental.locationsId),
               )
-              .innerJoin(
-                stockSectors,
-                eq(stockSectors.id, stockLocations.stockSectorId),
-              )
+              .innerJoin(sectors, eq(sectors.id, locations.sectorId))
               .where(
                 and(
                   eq(
-                    stockSectorsRental.productsEnterprisesId,
+                    sectorsRental.productsEnterprisesId,
                     productsEnterprises.id,
                   ),
-                  eq(stockSectors.enterprisesId, enterpriseId),
+                  eq(sectors.enterprisesId, enterpriseId),
                   locationTextMatch,
                 ),
               ),
@@ -656,20 +656,17 @@ export class ProductsEnterprisesService {
                 eq(stockBatches.id, stockBatchBalances.stockBatchId),
               )
               .innerJoin(
-                stockLocations,
-                eq(stockLocations.id, stockBatchBalances.stockLocationId),
+                locations,
+                eq(locations.id, stockBatchBalances.locationsId),
               )
-              .innerJoin(
-                stockSectors,
-                eq(stockSectors.id, stockLocations.stockSectorId),
-              )
+              .innerJoin(sectors, eq(sectors.id, locations.sectorId))
               .where(
                 and(
                   eq(
                     stockBatches.productsEnterprisesId,
                     productsEnterprises.id,
                   ),
-                  eq(stockSectors.enterprisesId, enterpriseId),
+                  eq(sectors.enterprisesId, enterpriseId),
                   locationTextMatch,
                 ),
               ),
@@ -1074,6 +1071,9 @@ export class ProductsEnterprisesService {
             : {}),
           ...(input.controlsBatch !== undefined
             ? { controlsBatch: input.controlsBatch }
+            : {}),
+          ...(input.controlsRental !== undefined
+            ? { controlsRental: input.controlsRental }
             : {}),
           updatedAt: new Date(),
         })

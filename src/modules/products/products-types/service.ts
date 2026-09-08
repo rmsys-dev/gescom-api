@@ -28,16 +28,24 @@ type ProductTypeWithTypeSped = typeof productTypes.$inferSelect & {
 };
 
 export class TypesProductsService {
+  private scope(enterpriseId: string, id?: string) {
+    const base = [eq(productTypes.enterprisesId, enterpriseId)];
+    if (id) base.push(eq(productTypes.id, id));
+    return and(...base);
+  }
+
   private toResponse(row: ProductTypeWithTypeSped) {
     const { typeSpedId: _typeSpedId, typeSped: typeSpedRow, ...rest } = row;
     return { ...rest, typeSped: typeSpedRow };
   }
 
-  private async assertTypeSpedExists(typeSpedId: string) {
+  private async assertTypeSpedExists(enterpriseId: string, typeSpedId: string) {
     const rows = await db
       .select({ id: typeSped.id })
       .from(typeSped)
-      .where(eq(typeSped.id, typeSpedId))
+      .where(
+        and(eq(typeSped.id, typeSpedId), eq(typeSped.enterprisesId, enterpriseId)),
+      )
       .limit(1);
     if (!rows[0]) {
       throw new NotFoundError(
@@ -47,13 +55,14 @@ export class TypesProductsService {
     }
   }
 
-  private async getPlainById(id: string) {
-    const rows = await db
-      .select()
-      .from(productTypes)
-      .where(eq(productTypes.id, id))
-      .limit(1);
-    const row = rows[0];
+  private async getPlainById(enterpriseId: string, id: string) {
+    const row = (
+      await db
+        .select()
+        .from(productTypes)
+        .where(this.scope(enterpriseId, id))
+        .limit(1)
+    )[0];
     if (!row) {
       throw new NotFoundError(
         "Tipo de produto nao encontrado",
@@ -63,15 +72,15 @@ export class TypesProductsService {
     return row;
   }
 
-  public async list(query: ListTypesProductsQuery = {}) {
+  public async list(enterpriseId: string, query: ListTypesProductsQuery = {}) {
     const { limit, offset } = resolveListPagination(query);
-    const conditions = [];
+    const conditions = [eq(productTypes.enterprisesId, enterpriseId)];
     if (query.description) {
       conditions.push(
         ilike(productTypes.description, `%${query.description}%`),
       );
     }
-    const where = conditions.length > 0 ? and(...conditions) : undefined;
+    const where = and(...conditions);
     const [items, totalRows] = await Promise.all([
       db.query.productTypes.findMany({
         where,
@@ -92,9 +101,9 @@ export class TypesProductsService {
     };
   }
 
-  public async getById(id: string) {
+  public async getById(enterpriseId: string, id: string) {
     const row = await db.query.productTypes.findFirst({
-      where: eq(productTypes.id, id),
+      where: this.scope(enterpriseId, id),
       with: { typeSped: true },
     });
     if (!row) {
@@ -107,14 +116,16 @@ export class TypesProductsService {
   }
 
   public async create(
+    enterpriseId: string,
     input: CreateTypeProductInput,
     audit: EntityAuditContext,
   ) {
-    await this.assertTypeSpedExists(input.typeSpedId);
+    await this.assertTypeSpedExists(enterpriseId, input.typeSpedId);
     try {
       const [row] = await db
         .insert(productTypes)
         .values({
+          enterprisesId: enterpriseId,
           type: input.type,
           description: input.description.trim(),
           manufacturing: input.manufacturing ?? false,
@@ -135,7 +146,7 @@ export class TypesProductsService {
     } catch (err) {
       if (isPostgresUniqueViolation(err)) {
         throw new ConflictError(
-          "Tipo de produto em conflito (tipo duplicado)",
+          "Tipo de produto em conflito (tipo duplicado na empresa)",
           "TYPE_PRODUCT_CONFLICT",
         );
       }
@@ -144,25 +155,15 @@ export class TypesProductsService {
   }
 
   public async patch(
+    enterpriseId: string,
     typeProductId: string,
     input: PatchTypeProductInput,
     audit: EntityAuditContext,
   ) {
-    const rows = await db
-      .select()
-      .from(productTypes)
-      .where(and(eq(productTypes.id, typeProductId)))
-      .limit(1);
-    const existing = rows[0];
-    if (!existing) {
-      throw new NotFoundError(
-        "Tipo de produto nao encontrado",
-        "TYPE_PRODUCT_NOT_FOUND",
-      );
-    }
+    const existing = await this.getPlainById(enterpriseId, typeProductId);
 
     if (input.typeSpedId !== undefined) {
-      await this.assertTypeSpedExists(input.typeSpedId);
+      await this.assertTypeSpedExists(enterpriseId, input.typeSpedId);
     }
 
     const now = new Date();
@@ -184,7 +185,7 @@ export class TypesProductsService {
             : {}),
           updatedAt: now,
         })
-        .where(and(eq(productTypes.id, typeProductId)))
+        .where(this.scope(enterpriseId, typeProductId))
         .returning();
       if (!row) {
         throw new NotFoundError(
@@ -204,7 +205,7 @@ export class TypesProductsService {
     } catch (err) {
       if (isPostgresUniqueViolation(err)) {
         throw new ConflictError(
-          "Tipo de produto em conflito (tipo duplicado)",
+          "Tipo de produto em conflito (tipo duplicado na empresa)",
           "TYPE_PRODUCT_CONFLICT",
         );
       }
@@ -212,12 +213,16 @@ export class TypesProductsService {
     }
   }
 
-  public async delete(typeProductId: string, audit: EntityAuditContext) {
-    const existing = await this.getPlainById(typeProductId);
+  public async delete(
+    enterpriseId: string,
+    typeProductId: string,
+    audit: EntityAuditContext,
+  ) {
+    const existing = await this.getPlainById(enterpriseId, typeProductId);
     try {
       const [row] = await db
         .delete(productTypes)
-        .where(eq(productTypes.id, typeProductId))
+        .where(this.scope(enterpriseId, typeProductId))
         .returning();
       if (!row) {
         throw new NotFoundError(

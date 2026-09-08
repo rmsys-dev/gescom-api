@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import type { RequestWithAuth } from "../../../shared/middleware/auth-middleware.js";
+import { requireTenantEnterpriseId } from "../../../shared/controllers/tenant-context.js";
 import {
   auditContextFromDeleteAuth,
   auditContextFromPatchAuth,
@@ -22,7 +23,10 @@ export class TypeSpedController {
   public list = async (req: Request, res: Response): Promise<void> => {
     const query = (req as RequestWithValidatedQuery<ListTypeSpedQuery>)
       .validatedQuery;
-    const page = await typeSpedService.list(query);
+    const enterpriseId = requireTenantEnterpriseId(
+      (req as RequestWithAuth).auth!,
+    );
+    const page = await typeSpedService.list(enterpriseId, query);
     sendPageFromService(
       res,
       HttpStatus.OK,
@@ -32,8 +36,11 @@ export class TypeSpedController {
   };
 
   public getById = async (req: Request, res: Response): Promise<void> => {
+    const enterpriseId = requireTenantEnterpriseId(
+      (req as RequestWithAuth).auth!,
+    );
     const typeSpedId = req.params["typeSpedId"] as string;
-    const row = await typeSpedService.getById(typeSpedId);
+    const row = await typeSpedService.getById(enterpriseId, typeSpedId);
     sendSuccessResponse(res, HttpStatus.OK, {
       message: "Tipo SPED recuperado com sucesso.",
       data: row,
@@ -43,7 +50,9 @@ export class TypeSpedController {
   public create = async (req: Request, res: Response): Promise<void> => {
     const body = req.body as CreateTypeSpedInput;
     const auth = (req as RequestWithAuth).auth!;
+    const enterpriseId = requireTenantEnterpriseId(auth);
     const row = await typeSpedService.create(
+      enterpriseId,
       body,
       auditContextFromPostAuth(auth, req, "products.type-sped.service.create"),
     );
@@ -57,7 +66,9 @@ export class TypeSpedController {
     const typeSpedId = req.params["typeSpedId"] as string;
     const body = req.body as PatchTypeSpedInput;
     const auth = (req as RequestWithAuth).auth!;
+    const enterpriseId = requireTenantEnterpriseId(auth);
     const row = await typeSpedService.patch(
+      enterpriseId,
       typeSpedId,
       body,
       auditContextFromPatchAuth(auth, req, "products.type-sped.service.patch"),
@@ -71,7 +82,9 @@ export class TypeSpedController {
   public delete = async (req: Request, res: Response): Promise<void> => {
     const typeSpedId = req.params["typeSpedId"] as string;
     const auth = (req as RequestWithAuth).auth!;
+    const enterpriseId = requireTenantEnterpriseId(auth);
     const row = await typeSpedService.delete(
+      enterpriseId,
       typeSpedId,
       auditContextFromDeleteAuth(auth, req, "products.type-sped.service.delete"),
     );

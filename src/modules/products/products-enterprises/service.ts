@@ -122,7 +122,12 @@ export class ProductsEnterprisesService {
           await db
             .select({ id: productTypes.id })
             .from(productTypes)
-            .where(eq(productTypes.id, id))
+            .where(
+              and(
+                eq(productTypes.id, id),
+                eq(productTypes.enterprisesId, enterpriseId),
+              ),
+            )
             .limit(1)
         )[0];
         if (!row) {

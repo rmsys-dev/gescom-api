@@ -526,6 +526,13 @@
       "when": 1788694000000,
       "tag": "0074_rename_sales_pie_to_product",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1788780400000,
+      "tag": "0075_type_sped_product_types_enterprise",
+      "breakpoints": true
     }
   ]
 }

@@ -111,6 +111,10 @@ export const productTypesRelations = relations(
       references: [typeSped.id],
     }),
     productsEnterprises: many(productsEnterprises),
+    enterprise: one(enterprises, {
+      fields: [productTypes.enterprisesId],
+      references: [enterprises.id],
+    }),
   }),
 );
 
@@ -263,6 +267,10 @@ export const promotionalPricesRelations = relations(
   }),
 );
 
-export const typeSpedRelations = relations(typeSped, ({ many }) => ({
+export const typeSpedRelations = relations(typeSped, ({ one, many }) => ({
+  enterprise: one(enterprises, {
+    fields: [typeSped.enterprisesId],
+    references: [enterprises.id],
+  }),
   productTypes: many(productTypes),
 }));

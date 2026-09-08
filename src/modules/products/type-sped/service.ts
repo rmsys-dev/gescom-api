@@ -1,4 +1,4 @@
-import { asc, count, eq } from "drizzle-orm";
+import { and, asc, count, eq } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import { typeSped } from "../../../db/schema.js";
 import {
@@ -24,29 +24,38 @@ import type {
 } from "./schema.js";
 
 export class TypeSpedService {
-  public async list(query: ListTypeSpedQuery = {}) {
+  private scope(enterpriseId: string, id?: string) {
+    const base = [eq(typeSped.enterprisesId, enterpriseId)];
+    if (id) base.push(eq(typeSped.id, id));
+    return and(...base);
+  }
+
+  public async list(enterpriseId: string, query: ListTypeSpedQuery = {}) {
     const { limit, offset } = resolveListPagination(query);
+    const where = eq(typeSped.enterprisesId, enterpriseId);
     const [items, totalRows] = await Promise.all([
       db
         .select()
         .from(typeSped)
+        .where(where)
         .orderBy(asc(typeSped.description), asc(typeSped.id))
         .limit(limit)
         .offset(offset),
-      db.select({ c: count() }).from(typeSped),
+      db.select({ c: count() }).from(typeSped).where(where),
     ]);
 
     const total = Number(totalRows[0]?.c ?? 0);
     return { items, total, limit, offset };
   }
 
-  public async getById(id: string) {
-    const rows = await db
-      .select()
-      .from(typeSped)
-      .where(eq(typeSped.id, id))
-      .limit(1);
-    const row = rows[0];
+  public async getById(enterpriseId: string, id: string) {
+    const row = (
+      await db
+        .select()
+        .from(typeSped)
+        .where(this.scope(enterpriseId, id))
+        .limit(1)
+    )[0];
     if (!row) {
       throw new NotFoundError(
         "Tipo SPED nao encontrado",
@@ -56,11 +65,16 @@ export class TypeSpedService {
     return row;
   }
 
-  public async create(input: CreateTypeSpedInput, audit: EntityAuditContext) {
+  public async create(
+    enterpriseId: string,
+    input: CreateTypeSpedInput,
+    audit: EntityAuditContext,
+  ) {
     try {
       const [row] = await db
         .insert(typeSped)
         .values({
+          enterprisesId: enterpriseId,
           type: input.type,
           description: input.description.trim(),
           generateInventory: input.generateInventory ?? true,
@@ -79,7 +93,7 @@ export class TypeSpedService {
     } catch (err) {
       if (isPostgresUniqueViolation(err)) {
         throw new ConflictError(
-          "Tipo SPED em conflito (tipo duplicado)",
+          "Tipo SPED em conflito (tipo duplicado na empresa)",
           "TYPE_SPED_CONFLICT",
         );
       }
@@ -88,11 +102,12 @@ export class TypeSpedService {
   }
 
   public async patch(
+    enterpriseId: string,
     typeSpedId: string,
     input: PatchTypeSpedInput,
     audit: EntityAuditContext,
   ) {
-    const existing = await this.getById(typeSpedId);
+    const existing = await this.getById(enterpriseId, typeSpedId);
     const now = new Date();
 
     try {
@@ -108,7 +123,7 @@ export class TypeSpedService {
             : {}),
           updatedAt: now,
         })
-        .where(eq(typeSped.id, typeSpedId))
+        .where(this.scope(enterpriseId, typeSpedId))
         .returning();
       if (!row) {
         throw new NotFoundError(
@@ -128,7 +143,7 @@ export class TypeSpedService {
     } catch (err) {
       if (isPostgresUniqueViolation(err)) {
         throw new ConflictError(
-          "Tipo SPED em conflito (tipo duplicado)",
+          "Tipo SPED em conflito (tipo duplicado na empresa)",
           "TYPE_SPED_CONFLICT",
         );
       }
@@ -136,12 +151,16 @@ export class TypeSpedService {
     }
   }
 
-  public async delete(typeSpedId: string, audit: EntityAuditContext) {
-    const existing = await this.getById(typeSpedId);
+  public async delete(
+    enterpriseId: string,
+    typeSpedId: string,
+    audit: EntityAuditContext,
+  ) {
+    const existing = await this.getById(enterpriseId, typeSpedId);
     try {
       const [row] = await db
         .delete(typeSped)
-        .where(eq(typeSped.id, typeSpedId))
+        .where(this.scope(enterpriseId, typeSpedId))
         .returning();
       if (!row) {
         throw new NotFoundError(

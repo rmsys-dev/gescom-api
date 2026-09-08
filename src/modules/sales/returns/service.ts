@@ -22,6 +22,8 @@ import {
 } from "../../../shared/products/product-type-service.js";
 import { applySaleReturnDocumentItemStockIn } from "../sale-stock.js";
 import { nextSaleReturnOrder } from "./sequences.js";
+import { getProductEnterpriseForStock } from "../../stock/balance.js";
+import { productRequiresStockLocation } from "../../stock/stock-location.js";
 import type {
   CreateFullReturnInput,
   CreatePartialReturnInput,
@@ -212,7 +214,12 @@ export class SalesReturnsService {
         "Quantidade invalida",
       );
     }
-    if (!item.locationsId) {
+    const pe = await getProductEnterpriseForStock(
+      params.enterpriseId,
+      item.productsEnterprisesId,
+      tx,
+    );
+    if (productRequiresStockLocation(pe) && !item.locationsId) {
       throw new ValidationError(
         [{ path: "body.saleItemId", message: "Item sem locacao de estoque" }],
         "Locacao obrigatoria",

@@ -65,30 +65,6 @@ export const createStockMovementSchema = z
         });
       }
     }
-    const needsFrom = ["SAIDA", "PERDA", "VENDA", "TRANSFERENCIA"].includes(
-      data.type,
-    );
-    const needsTo = [
-      "ENTRADA",
-      "COMPRA",
-      "DEVOLUCAO",
-      "TRANSFERENCIA",
-      "AJUSTE",
-    ].includes(data.type);
-    if (needsFrom && !data.fromLocationsId) {
-      ctx.addIssue({
-        code: "custom",
-        message: `${data.type} exige fromLocationsId`,
-        path: ["fromLocationsId"],
-      });
-    }
-    if (needsTo && !data.toLocationsId) {
-      ctx.addIssue({
-        code: "custom",
-        message: `${data.type} exige toLocationsId`,
-        path: ["toLocationsId"],
-      });
-    }
   });
 
 export const stockMovementParamsSchema = z

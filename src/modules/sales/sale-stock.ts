@@ -10,6 +10,7 @@ import {
   getLocationSectorId,
   getProductEnterpriseForStock,
 } from "../stock/balance.js";
+import { productRequiresStockLocation } from "../stock/stock-location.js";
 import {
   createStockMovementInTx,
   stockMovementExistsByDocumentRef,
@@ -116,7 +117,6 @@ async function applySaleItemStockRevisionReturn(
 ) {
   const { enterpriseId, userId, saleId, orderNumber, item, revision, quantity } =
     params;
-  assertItemHasLocation(item);
 
   const outRef = saleItemStockRevisionOutRef(saleId, item.id, revision);
   if (!(await stockMovementExistsByDocumentRef(tx, outRef))) {
@@ -135,7 +135,7 @@ async function applySaleItemStockRevisionReturn(
       type: "DEVOLUCAO",
       productsEnterprisesId: item.productsEnterprisesId,
       quantity,
-      toLocationsId: item.locationsId!,
+      toLocationsId: item.locationsId ?? undefined,
       toStockBatchId: item.stockBatchId,
       documentRef,
       notes: `Estorno revisao ${revision} venda pedido ${orderNumber}`,
@@ -156,7 +156,7 @@ function assertNonServiceStockFields(
       [
         {
           path: `${pathPrefix}.sectorId`,
-          message: "Setor de estoque obrigatorio para produto que nao e servico",
+          message: "Setor de estoque obrigatorio para produto com controle de locacao ou lote",
         },
       ],
       "Setor de estoque obrigatorio",
@@ -167,10 +167,38 @@ function assertNonServiceStockFields(
       [
         {
           path: `${pathPrefix}.locationsId`,
-          message: "Locacao de estoque obrigatoria para produto que nao e servico",
+          message: "Locacao de estoque obrigatoria para produto com controle de locacao ou lote",
         },
       ],
       "Locacao de estoque obrigatoria",
+    );
+  }
+}
+
+function assertLocationNotAllowed(
+  item: SaleItemInput,
+  pathPrefix: string,
+) {
+  if (item.sectorId) {
+    throw new ValidationError(
+      [
+        {
+          path: `${pathPrefix}.sectorId`,
+          message: "Produto sem controle de locacao nao aceita setor",
+        },
+      ],
+      "Setor nao permitido",
+    );
+  }
+  if (item.locationsId) {
+    throw new ValidationError(
+      [
+        {
+          path: `${pathPrefix}.locationsId`,
+          message: "Produto sem controle de locacao nao aceita locacao",
+        },
+      ],
+      "Locacao nao permitida",
     );
   }
 }
@@ -184,6 +212,7 @@ export async function validateSaleItemStock(
   const pe = await getProductEnterpriseForStock(
     enterpriseId,
     item.productsEnterprisesId,
+    tx,
   );
 
   if (pe.measurementUnitId !== item.unitId) {
@@ -221,25 +250,29 @@ export async function validateSaleItemStock(
     return;
   }
 
-  assertNonServiceStockFields(item, pathPrefix);
+  if (productRequiresStockLocation(pe)) {
+    assertNonServiceStockFields(item, pathPrefix);
 
-  await assertSectorBelongsToEnterprise(
-    enterpriseId,
-    item.sectorId!,
-    tx,
-  );
-
-  const locationSector = await getLocationSectorId(item.locationsId!, tx);
-  if (locationSector.sectorId !== item.sectorId) {
-    throw new ValidationError(
-      [
-        {
-          path: `${pathPrefix}.sectorId`,
-          message: "Setor nao corresponde a locacao informada",
-        },
-      ],
-      "Setor invalido",
+    await assertSectorBelongsToEnterprise(
+      enterpriseId,
+      item.sectorId!,
+      tx,
     );
+
+    const locationSector = await getLocationSectorId(item.locationsId!, tx);
+    if (locationSector.sectorId !== item.sectorId) {
+      throw new ValidationError(
+        [
+          {
+            path: `${pathPrefix}.sectorId`,
+            message: "Setor nao corresponde a locacao informada",
+          },
+        ],
+        "Setor invalido",
+      );
+    }
+  } else {
+    assertLocationNotAllowed(item, pathPrefix);
   }
 
   if (pe.controlsBatch) {
@@ -290,20 +323,6 @@ export async function assertSaleItemStockAvailable(
   await validateSaleItemStock(enterpriseId, item, pathPrefix, tx);
 }
 
-function assertItemHasLocation(item: SaleItemRow) {
-  if (!item.locationsId) {
-    throw new ValidationError(
-      [
-        {
-          path: "items.locationsId",
-          message: "Item sem locacao de estoque para movimentar",
-        },
-      ],
-      "Locacao obrigatoria",
-    );
-  }
-}
-
 /** Baixa estoque de um item de venda (idempotente por linha). */
 export async function applySaleItemStockOut(
   tx: Tx,
@@ -319,7 +338,6 @@ export async function applySaleItemStockOut(
   if (await isServiceProductTypeById(item.productTypeId)) {
     return;
   }
-  assertItemHasLocation(item);
 
   const documentRef = saleItemStockOutRef(saleId, item.id);
   if (await stockMovementExistsByDocumentRef(tx, documentRef)) {
@@ -333,7 +351,7 @@ export async function applySaleItemStockOut(
       type: "VENDA",
       productsEnterprisesId: item.productsEnterprisesId,
       quantity: Number(item.quantity),
-      fromLocationsId: item.locationsId!,
+      fromLocationsId: item.locationsId ?? undefined,
       fromStockBatchId: item.stockBatchId,
       documentRef,
       notes: `Venda pedido ${orderNumber}`,
@@ -356,7 +374,6 @@ export async function applySaleItemStockReturn(
   if (await isServiceProductTypeById(item.productTypeId)) {
     return;
   }
-  assertItemHasLocation(item);
 
   const outRef = saleItemStockOutRef(saleId, item.id);
   if (!(await stockMovementExistsByDocumentRef(tx, outRef))) {
@@ -375,7 +392,7 @@ export async function applySaleItemStockReturn(
       type: "DEVOLUCAO",
       productsEnterprisesId: item.productsEnterprisesId,
       quantity: Number(item.quantity),
-      toLocationsId: item.locationsId!,
+      toLocationsId: item.locationsId ?? undefined,
       toStockBatchId: item.stockBatchId,
       documentRef,
       notes: `Estorno venda pedido ${orderNumber}`,
@@ -436,7 +453,6 @@ export async function applySaleReturnDocumentItemStockIn(
   if (await isServiceProductTypeById(item.productTypeId)) {
     return;
   }
-  assertItemHasLocation(item);
 
   const documentRef = saleReturnDocumentItemRef(salesReturnId);
   if (await stockMovementExistsByDocumentRef(tx, documentRef)) {
@@ -450,7 +466,7 @@ export async function applySaleReturnDocumentItemStockIn(
       type: "DEVOLUCAO",
       productsEnterprisesId: item.productsEnterprisesId,
       quantity: Number(returnItem.quantity),
-      toLocationsId: item.locationsId!,
+      toLocationsId: item.locationsId ?? undefined,
       toStockBatchId: item.stockBatchId,
       documentRef,
       notes: `Devolucao ${returnOrder} pedido ${saleOrderNumber}`,
@@ -559,15 +575,6 @@ export async function syncSaleItemStockOnUpdate(
     return;
   }
 
-  assertItemHasLocation({
-    ...oldItem,
-    locationsId: newItem.locationsId ?? null,
-    stockBatchId: newItem.stockBatchId ?? null,
-    productsEnterprisesId: newItem.productsEnterprisesId,
-    sectorId: newItem.sectorId ?? null,
-    quantity: newItem.quantity.toString(),
-  });
-
   await createStockMovementInTx(tx, {
     enterpriseId,
     userId,
@@ -575,7 +582,7 @@ export async function syncSaleItemStockOnUpdate(
       type: "VENDA",
       productsEnterprisesId: newItem.productsEnterprisesId,
       quantity: newItem.quantity,
-      fromLocationsId: newItem.locationsId!,
+      fromLocationsId: newItem.locationsId ?? undefined,
       fromStockBatchId: newItem.stockBatchId ?? null,
       documentRef: revisionOutRef,
       notes: `Venda pedido ${orderNumber} (revisao ${nextRevision})`,

@@ -162,6 +162,7 @@ async function applyDeltaToLockedBalance(params: {
 export type ProductEnterpriseStock = {
   id: string;
   controlsBatch: boolean;
+  controlsRental: boolean;
   measurementUnitId: string;
   productTypeId: string;
 };
@@ -177,6 +178,7 @@ export async function getProductEnterpriseForStock(
       .select({
         id: productsEnterprises.id,
         controlsBatch: productsEnterprises.controlsBatch,
+        controlsRental: productsEnterprises.controlsRental,
         measurementUnitId: productsEnterprises.measurementUnitId,
         productTypeId: productsEnterprises.productTypeId,
       })
@@ -347,7 +349,7 @@ export async function adjustStockBalance(
   tx: Tx,
   params: {
     productsEnterprises: ProductEnterpriseStock;
-    locationId: string;
+    locationId?: string | null;
     stockBatchId?: string | null;
     delta: number;
     skipProductBalance?: boolean;
@@ -371,6 +373,17 @@ export async function adjustStockBalance(
           },
         ],
         "Lote obrigatorio",
+      );
+    }
+    if (!locationId) {
+      throw new ValidationError(
+        [
+          {
+            path: "body.toLocationsId",
+            message: "Produto com controle de lote exige locacao",
+          },
+        ],
+        "Locacao obrigatoria",
       );
     }
     await assertBatchBelongsToProduct(
@@ -431,17 +444,44 @@ export async function adjustStockBalance(
     );
   }
 
-  const result = await applyProductStockBalanceDelta(
-    tx,
-    productsEnterprises.id,
-    delta,
-  );
-  await ensureStockSectorRentalAssignment(
-    tx,
-    productsEnterprises.id,
-    locationId,
-  );
-  return result;
+  if (locationId) {
+    if (!productsEnterprises.controlsRental) {
+      throw new ValidationError(
+        [
+          {
+            path: "body.toLocationsId",
+            message: "Produto sem controle de locacao nao aceita locacao",
+          },
+        ],
+        "Locacao nao permitida",
+      );
+    }
+    const result = await applyProductStockBalanceDelta(
+      tx,
+      productsEnterprises.id,
+      delta,
+    );
+    await ensureStockSectorRentalAssignment(
+      tx,
+      productsEnterprises.id,
+      locationId,
+    );
+    return result;
+  }
+
+  if (productsEnterprises.controlsRental) {
+    throw new ValidationError(
+      [
+        {
+          path: "body.toLocationsId",
+          message: "Produto com controle de locacao exige locacao",
+        },
+      ],
+      "Locacao obrigatoria",
+    );
+  }
+
+  return applyProductStockBalanceDelta(tx, productsEnterprises.id, delta);
 }
 
 export type DefaultSaleItemStockRefs = {

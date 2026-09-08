@@ -89,6 +89,18 @@ export class SectorsRentalService {
         "Use locacao por lote",
       );
     }
+    if (!pe.controlsRental) {
+      throw new ValidationError(
+        [
+          {
+            path: "body.productsEnterprisesId",
+            message:
+              "Produto sem controle de locacao nao aceita vinculo de locacao",
+          },
+        ],
+        "Locacao nao permitida",
+      );
+    }
     await assertLocationBelongsToEnterprise(enterpriseId, input.locationsId);
   }
 

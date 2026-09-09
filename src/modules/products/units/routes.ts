@@ -4,12 +4,7 @@ import { requirePermission } from "../../../shared/middleware/permission-middlew
 import { validateSchema } from "../../../shared/middleware/validate-schema.js";
 import { emptyQuerySchema } from "../../../shared/validation/common-schemas.js";
 import { unitsController } from "./controller.js";
-import {
-  createUnitSchema,
-  listUnitsQuerySchema,
-  patchUnitSchema,
-  unitParamsSchema,
-} from "./schema.js";
+import { listUnitsQuerySchema, unitParamsSchema } from "./schema.js";
 
 const unitsRouter = Router();
 
@@ -27,33 +22,6 @@ unitsRouter.get(
   requirePermission("consultar_unidades_medida"),
   validateSchema({ params: unitParamsSchema, query: emptyQuerySchema }),
   unitsController.getById,
-);
-
-unitsRouter.post(
-  "/",
-  authMiddleware,
-  requirePermission("incluir_unidades_medida"),
-  validateSchema({ body: createUnitSchema }),
-  unitsController.create,
-);
-
-unitsRouter.patch(
-  "/:unitId",
-  authMiddleware,
-  requirePermission("alterar_unidades_medida"),
-  validateSchema({
-    params: unitParamsSchema,
-    body: patchUnitSchema,
-  }),
-  unitsController.patch,
-);
-
-unitsRouter.delete(
-  "/:unitId",
-  authMiddleware,
-  requirePermission("excluir_unidades_medida"),
-  validateSchema({ params: unitParamsSchema, query: emptyQuerySchema }),
-  unitsController.delete,
 );
 
 export { unitsRouter };

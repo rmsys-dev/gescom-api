@@ -5,6 +5,7 @@ import { modulesRouter } from "../../modules/modules/routes.js";
 import { enterprisesRouter } from "../../modules/enterprises/routes.js";
 import { maintainerModulesRouter } from "../../modules/maintainer/modules/routes.js";
 import { maintainerEnterprisesRouter } from "../../modules/maintainer/enterprises/routes.js";
+import { maintainerProductsRouter } from "../../modules/maintainer/products/routes.js";
 import { unitsRouter } from "../../modules/products/units/routes.js";
 import { typesProductsRouter } from "../../modules/products/products-types/routes.js";
 import { typeSpedRouter } from "../../modules/products/type-sped/routes.js";
@@ -47,6 +48,7 @@ v1Router.use("/enterprises", enterprisesRouter);
 v1Router.use("/modules", modulesRouter);
 v1Router.use("/maintainer/enterprises", maintainerEnterprisesRouter);
 v1Router.use("/maintainer/modules", maintainerModulesRouter);
+v1Router.use("/maintainer/products", maintainerProductsRouter);
 //NOVAS ROTAS 01/06/2026
 v1Router.use("/units", unitsRouter);
 v1Router.use("/types-products", typesProductsRouter);

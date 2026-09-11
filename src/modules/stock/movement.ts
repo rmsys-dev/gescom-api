@@ -9,7 +9,9 @@ import {
   getLocationSectorId,
   getProductEnterpriseForStock,
   getStockBalance,
+  type ProductEnterpriseStock,
 } from "./balance.js";
+import { productRequiresStockLocation } from "./stock-location.js";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -38,6 +40,81 @@ export type CreateStockMovementTxInput = {
   transferGroupId?: string;
 };
 
+const DECREASE_TYPES: StockMovementType[] = [
+  "SAIDA",
+  "PERDA",
+  "VENDA",
+  "TRANSFERENCIA",
+];
+const INCREASE_TYPES: StockMovementType[] = [
+  "ENTRADA",
+  "COMPRA",
+  "DEVOLUCAO",
+  "TRANSFERENCIA",
+  "AJUSTE",
+];
+
+function assertMovementLocations(
+  productEnterprise: ProductEnterpriseStock,
+  input: CreateStockMovementTxInput,
+) {
+  const requiresLocation = productRequiresStockLocation(productEnterprise);
+  const needsFrom = DECREASE_TYPES.includes(input.type);
+  const needsTo = INCREASE_TYPES.includes(input.type);
+
+  if (input.type === "TRANSFERENCIA" && !requiresLocation) {
+    throw new ValidationError(
+      [
+        {
+          path: "body.type",
+          message: "TRANSFERENCIA exige produto com controle de locacao",
+        },
+      ],
+      "Transferencia invalida",
+    );
+  }
+
+  if (!requiresLocation) {
+    if (input.fromLocationsId || input.toLocationsId) {
+      throw new ValidationError(
+        [
+          {
+            path: input.toLocationsId
+              ? "body.toLocationsId"
+              : "body.fromLocationsId",
+            message: "Produto sem controle de locacao nao aceita locacao",
+          },
+        ],
+        "Locacao nao permitida",
+      );
+    }
+    return;
+  }
+
+  if (needsFrom && !input.fromLocationsId) {
+    throw new ValidationError(
+      [
+        {
+          path: "body.fromLocationsId",
+          message: `${input.type} exige fromLocationsId`,
+        },
+      ],
+      "Locacao obrigatoria",
+    );
+  }
+  if (needsTo && !input.toLocationsId) {
+    throw new ValidationError(
+      [
+        {
+          path: "body.toLocationsId",
+          message: `${input.type} exige toLocationsId`,
+        },
+      ],
+      "Locacao obrigatoria",
+    );
+  }
+}
+
 export async function createStockMovementInTx(  // REGISTRA MOVIMENTAÇÃO DE ESTOQUE
   tx: Tx,
   params: {
@@ -57,6 +134,8 @@ export async function createStockMovementInTx(  // REGISTRA MOVIMENTAÇÃO DE ES
   const transferGroupId = input.transferGroupId ?? randomUUID();
   let fromStockBatchId = input.fromStockBatchId ?? null;
   let toStockBatchId = input.toStockBatchId ?? null;
+
+  assertMovementLocations(productEnterprise, input);
 
   if (input.type === "TRANSFERENCIA") {
     if (!input.fromLocationsId || !input.toLocationsId) {  // TRANSFERÊNCIA EXIGE LOCAÇÕES DE ORIGEM E DESTINO
@@ -129,14 +208,6 @@ export async function createStockMovementInTx(  // REGISTRA MOVIMENTAÇÃO DE ES
   let fromSectorId: string | null = null;
   let toSectorId: string | null = null;
 
-  const decreaseTypes = ["SAIDA", "PERDA", "VENDA", "TRANSFERENCIA"];
-  const increaseTypes = [
-    "ENTRADA",
-    "COMPRA",
-    "DEVOLUCAO",
-    "TRANSFERENCIA",
-    "AJUSTE",
-  ];
   const isTransfer = input.type === "TRANSFERENCIA";
   const skipProductBalance = isTransfer && productEnterprise.controlsBatch;
 
@@ -166,9 +237,11 @@ export async function createStockMovementInTx(  // REGISTRA MOVIMENTAÇÃO DE ES
     toBefore = total;
     toAfter = total;
   } else {
-    if (decreaseTypes.includes(input.type) && input.fromLocationsId) {  // DECRESCENTE: SAIDA, PERDA, VENDA, TRANSFERENCIA
-      const sector = await getLocationSectorId(input.fromLocationsId, tx);
-      fromSectorId = sector.sectorId;
+    if (DECREASE_TYPES.includes(input.type)) {  // DECRESCENTE: SAIDA, PERDA, VENDA, TRANSFERENCIA
+      if (input.fromLocationsId) {
+        const sector = await getLocationSectorId(input.fromLocationsId, tx);
+        fromSectorId = sector.sectorId;
+      }
       const r = await adjustStockBalance(tx, {
         productsEnterprises: productEnterprise,
         locationId: input.fromLocationsId,
@@ -180,9 +253,11 @@ export async function createStockMovementInTx(  // REGISTRA MOVIMENTAÇÃO DE ES
       fromAfter = r.after;
     }
 
-    if (increaseTypes.includes(input.type) && input.toLocationsId) {  // CRESCENTE: ENTRADA, COMPRA, DEVOLUCAO, TRANSFERENCIA, AJUSTE
-      const sector = await getLocationSectorId(input.toLocationsId, tx);
-      toSectorId = sector.sectorId;
+    if (INCREASE_TYPES.includes(input.type)) {  // CRESCENTE: ENTRADA, COMPRA, DEVOLUCAO, TRANSFERENCIA, AJUSTE
+      if (input.toLocationsId) {
+        const sector = await getLocationSectorId(input.toLocationsId, tx);
+        toSectorId = sector.sectorId;
+      }
       const r = await adjustStockBalance(tx, {
         productsEnterprises: productEnterprise,
         locationId: input.toLocationsId,

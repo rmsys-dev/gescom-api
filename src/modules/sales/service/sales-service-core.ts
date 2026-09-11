@@ -83,7 +83,11 @@ import {
   salePdfFilename,
   workOrderPdfFilename,
 } from "../print/os-print-html.js";
-import { resolveDefaultSaleItemStockRefs } from "../../stock/balance.js";
+import {
+  getProductEnterpriseForStock,
+  resolveDefaultSaleItemStockRefs,
+} from "../../stock/balance.js";
+import { productRequiresStockLocation } from "../../stock/stock-location.js";
 import {
   assertSaleOrderNumberAvailable,
   nextSaleOrderNumber,
@@ -1403,6 +1407,19 @@ export class SalesServiceCore {
     const typeCode = await getProductTypeCode(budgetItem.productTypeId);
     if (typeCode && isServiceProductType(typeCode)) {
       return base;
+    }
+
+    const pe = await getProductEnterpriseForStock(
+      enterpriseId,
+      budgetItem.productsEnterprisesId,
+      tx,
+    );
+    if (!productRequiresStockLocation(pe)) {
+      return {
+        ...base,
+        sectorId: undefined,
+        locationsId: undefined,
+      };
     }
 
     let sectorId = line?.sectorId ?? budgetItem.sectorId ?? undefined;

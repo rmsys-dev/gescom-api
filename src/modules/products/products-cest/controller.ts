@@ -1,21 +1,11 @@
 import type { Request, Response } from "express";
-import type { RequestWithAuth } from "../../../shared/middleware/auth-middleware.js";
-import {
-  auditContextFromDeleteAuth,
-  auditContextFromPatchAuth,
-  auditContextFromPostAuth,
-} from "../../../shared/audit/request-meta.js";
 import { HttpStatus } from "../../../shared/http/http-status.js";
 import type { RequestWithValidatedQuery } from "../../../shared/middleware/validate-schema.js";
 import {
   sendPageFromService,
   sendSuccessResponse,
 } from "../../../shared/responses/send-success-response.js";
-import type {
-  CreateProductsCestInput,
-  ListProductsCestQuery,
-  PatchProductsCestInput,
-} from "./schema.js";
+import type { ListProductsCestQuery } from "./schema.js";
 import { productsCestService } from "./service.js";
 
 export class ProductsCestController {
@@ -36,47 +26,6 @@ export class ProductsCestController {
     const row = await productsCestService.getById(productsCestId);
     sendSuccessResponse(res, HttpStatus.OK, {
       message: "CEST de produto recuperado com sucesso.",
-      data: row,
-    });
-  };
-
-  public create = async (req: Request, res: Response): Promise<void> => {
-    const body = req.body as CreateProductsCestInput;
-    const auth = (req as RequestWithAuth).auth!;
-    const row = await productsCestService.create(
-      body,
-      auditContextFromPostAuth(auth, req, "products.products-cest.service.create"),
-    );
-    sendSuccessResponse(res, HttpStatus.CREATED, {
-      message: "CEST de produto criado com sucesso.",
-      data: row,
-    });
-  };
-
-  public patch = async (req: Request, res: Response): Promise<void> => {
-    const productsCestId = req.params["productsCestId"] as string;
-    const body = req.body as PatchProductsCestInput;
-    const auth = (req as RequestWithAuth).auth!;
-    const row = await productsCestService.patch(
-      productsCestId,
-      body,
-      auditContextFromPatchAuth(auth, req, "products.products-cest.service.patch"),
-    );
-    sendSuccessResponse(res, HttpStatus.OK, {
-      message: "CEST de produto atualizado com sucesso.",
-      data: row,
-    });
-  };
-
-  public delete = async (req: Request, res: Response): Promise<void> => {
-    const productsCestId = req.params["productsCestId"] as string;
-    const auth = (req as RequestWithAuth).auth!;
-    const row = await productsCestService.delete(
-      productsCestId,
-      auditContextFromDeleteAuth(auth, req, "products.products-cest.service.delete"),
-    );
-    sendSuccessResponse(res, HttpStatus.OK, {
-      message: "CEST de produto excluído com sucesso.",
       data: row,
     });
   };

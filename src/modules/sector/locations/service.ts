@@ -109,9 +109,7 @@ export class LocationsService {
     ]);
     const total = Number(totalRows[0]?.c ?? 0);
     return {
-      items: items.map((row) =>
-        toLocationResponse(row as LocationWithSector),
-      ),
+      items: items.map((row) => toLocationResponse(row as LocationWithSector)),
       total,
       limit,
       offset,
@@ -159,7 +157,7 @@ export class LocationsService {
     } catch (err) {
       if (isPostgresUniqueViolation(err)) {
         throw new ConflictError(
-          "Codigo de locacao ja existe no setor",
+          "Codigo de locação já existe no setor",
           "LOCATION_CONFLICT",
         );
       }
@@ -209,7 +207,7 @@ export class LocationsService {
     } catch (err) {
       if (isPostgresUniqueViolation(err)) {
         throw new ConflictError(
-          "Codigo de locacao ja existe no setor",
+          "Codigo de locação já existe no setor",
           "LOCATION_CONFLICT",
         );
       }

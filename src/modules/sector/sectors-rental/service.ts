@@ -19,6 +19,7 @@ import {
   getProductEnterpriseForStock,
   assertLocationBelongsToEnterprise,
 } from "../../stock/balance.js";
+import { productRequiresStockLocation } from "../../stock/stock-location.js";
 import {
   locationDetailWith,
   toLocationResponse,
@@ -77,19 +78,7 @@ export class SectorsRentalService {
       enterpriseId,
       input.productsEnterprisesId,
     );
-    if (pe.controlsBatch) {
-      throw new ValidationError(
-        [
-          {
-            path: "body.productsEnterprisesId",
-            message:
-              "Produto com lote deve usar locacao em /stock-batch-balances",
-          },
-        ],
-        "Use locacao por lote",
-      );
-    }
-    if (!pe.controlsRental) {
+    if (!productRequiresStockLocation(pe)) {
       throw new ValidationError(
         [
           {
@@ -156,7 +145,9 @@ export class SectorsRentalService {
     ]);
     const total = Number(totalRows[0]?.c ?? 0);
     return {
-      items: items.map((row) => this.toResponse(row as SectorRentalWithRelations)),
+      items: items.map((row) =>
+        this.toResponse(row as SectorRentalWithRelations),
+      ),
       total,
       limit,
       offset,
@@ -207,7 +198,7 @@ export class SectorsRentalService {
     } catch (err) {
       if (isPostgresUniqueViolation(err)) {
         throw new ConflictError(
-          "Locacao ja existe para produto e local",
+          "Locação já vinculada a este produto e local.",
           "SECTOR_RENTAL_CONFLICT",
         );
       }
@@ -259,7 +250,7 @@ export class SectorsRentalService {
     } catch (err) {
       if (isPostgresUniqueViolation(err)) {
         throw new ConflictError(
-          "Locacao ja existe para produto e local",
+          "Locação já vinculada a este produto e local.",
           "SECTOR_RENTAL_CONFLICT",
         );
       }

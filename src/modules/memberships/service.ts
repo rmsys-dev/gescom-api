@@ -110,11 +110,19 @@ type MemberWithUserRow = {
   typeNetwork?: typeof typeNetworks.$inferSelect | null;
 };
 
-const formatAddressLine = (street: string, number: string): string => {
-  const parts = [street.trim(), number.trim()].filter(
+const formatAddressLine = (
+  street: string,
+  number: string,
+  complement?: string | null,
+  neighborhood?: string | null,
+): string => {
+  const head = [street.trim(), number.trim()].filter(
     (part) => part.length > 0,
   );
-  return parts.join(", ");
+  const extras = [complement?.trim(), neighborhood?.trim()].filter(
+    (part): part is string => !!part && part.length > 0,
+  );
+  return [...(head.length > 0 ? [head.join(", ")] : []), ...extras].join(" — ");
 };
 
 const loadPrincipalAddressSummariesByUserId = async (
@@ -132,7 +140,10 @@ const loadPrincipalAddressSummariesByUserId = async (
       userId: usersAddress.userId,
       street: ceps.address,
       number: usersAddress.number,
+      complement: usersAddress.complement,
+      neighborhood: ceps.neighborhood,
       cityName: cities.citieName,
+      adressType: usersAddress.adressType,
     })
     .from(usersAddress)
     .innerJoin(ceps, eq(usersAddress.cepId, ceps.id))
@@ -140,7 +151,6 @@ const loadPrincipalAddressSummariesByUserId = async (
     .where(
       and(
         inArray(usersAddress.userId, uniqueUserIds),
-        eq(usersAddress.adressType, "PRINCIPAL"),
         isNull(usersAddress.deletedAt),
         isNull(ceps.deletedAt),
         isNull(cities.deletedAt),
@@ -152,8 +162,14 @@ const loadPrincipalAddressSummariesByUserId = async (
     { addressLine: string | null; cityName: string | null }
   >();
   for (const row of rows) {
-    if (byUserId.has(row.userId)) continue;
-    const addressLine = formatAddressLine(row.street, row.number);
+    const isPrincipal = row.adressType === "PRINCIPAL";
+    if (byUserId.has(row.userId) && !isPrincipal) continue;
+    const addressLine = formatAddressLine(
+      row.street,
+      row.number,
+      row.complement,
+      row.neighborhood,
+    );
     byUserId.set(row.userId, {
       addressLine: addressLine || null,
       cityName: row.cityName?.trim() || null,
@@ -423,6 +439,10 @@ export class MembershipsService {
     }
 
     const permissionsByMember = await resolvePermissionsBatch([row.id]);
+    const addressByUserId = await loadPrincipalAddressSummariesByUserId([
+      row.user.id,
+    ]);
+    const address = addressByUserId.get(row.user.id);
 
     const modulesPayload = row.modules.map((link) => ({
       id: link.id,
@@ -449,6 +469,8 @@ export class MembershipsService {
           userRegistration: row.user.userRegistration,
           userEmail: row.user.userEmail,
           userPhone: row.user.userPhone,
+          addressLine: address?.addressLine ?? null,
+          cityName: address?.cityName ?? null,
         },
         typeSupplierCustomer: row.typeSupplierCustomer ?? null,
         typeNetwork: row.typeNetwork ?? null,

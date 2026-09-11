@@ -19,6 +19,8 @@ export type WorkOrderPrintItem = {
   sector?: { description?: string | null } | null;
   location?: { box?: string | null; description?: string | null } | null;
   mechanics?: Array<{ member?: { userName?: string | null } | null }>;
+  quantityConverted?: Decimalish;
+  quantityRemaining?: Decimalish;
 };
 
 export type WorkOrderPrintSale = {
@@ -98,7 +100,15 @@ export type WorkOrderPrintSale = {
     }>;
   }>;
   sourceBudget?: { orderNumber?: number | null } | null;
-  generatedSales?: Array<{ orderNumber?: number | null }>;
+  sourceWorkOrder?: { orderNumber?: number | null } | null;
+  generatedSales?: Array<{
+    id?: string;
+    orderNumber?: number | null;
+    type?: string | null;
+    status?: string | null;
+    valueLiquid?: Decimalish;
+    payments?: WorkOrderPrintSale["payments"];
+  }>;
 };
 
 export type WorkOrderPrintEnterprise = {
@@ -134,6 +144,12 @@ export type WorkOrderPrintInput = {
 
 export const workOrderPdfFilename = (orderNumber: number): string =>
   `OS-${formatOrderNumber(orderNumber)}.pdf`;
+
+export const budgetPdfFilename = (orderNumber: number): string =>
+  `ORCAMENTO-${formatOrderNumber(orderNumber)}.pdf`;
+
+export const salePdfFilename = (orderNumber: number): string =>
+  `PEDIDO-${formatOrderNumber(orderNumber)}.pdf`;
 
 const moneyFmt = new Intl.NumberFormat("pt-BR", {
   style: "currency",
@@ -188,7 +204,7 @@ export const formatKm = (value: number | null | undefined): string => {
 };
 
 export const formatOrderNumber = (orderNumber: number): string =>
-  String(orderNumber).padStart(6, "0");
+  String(orderNumber);
 
 export const formatDocument = (value: string | null | undefined): string => {
   if (!value) return "—";
@@ -266,6 +282,39 @@ const locationLine = (item: WorkOrderPrintItem) => {
   return parts.join("  ");
 };
 
+const itemConversionSubline = (item: WorkOrderPrintItem) => {
+  if (isZeroish(item.quantityConverted)) return "";
+  const remaining =
+    item.quantityRemaining !== undefined && item.quantityRemaining !== null
+      ? item.quantityRemaining
+      : parseDecimal(item.quantity) !== null
+        ? (parseDecimal(item.quantity) ?? 0) -
+          (parseDecimal(item.quantityConverted) ?? 0)
+        : null;
+  const remainingBit =
+    remaining === null
+      ? ""
+      : ` · Restante: ${escapeHtml(formatQty(remaining))}`;
+  return `<div class="subline">Convertido: ${escapeHtml(formatQty(item.quantityConverted))}${remainingBit}</div>`;
+};
+
+const sellerName = (sale: WorkOrderPrintSale) =>
+  sale.seller?.userName?.trim() || sale.sellerLegalName?.trim() || "";
+
+const memberDisplayName = (sale: WorkOrderPrintSale) =>
+  sale.member?.memberLegalName?.trim() ||
+  sale.memberRef?.userName?.trim() ||
+  "";
+
+const memberCityUf = (sale: WorkOrderPrintSale) =>
+  [sale.member?.memberCity, sale.member?.memberState].filter(Boolean).join("/");
+
+type ItemTableOpts = {
+  showLocation?: boolean;
+  showMechanics?: boolean;
+  showConversion?: boolean;
+};
+
 const principalAddress = (enterprise: WorkOrderPrintEnterprise) => {
   const addresses = enterprise.addresses ?? [];
   return (
@@ -282,11 +331,19 @@ const isBlankPrintValue = (value: string | null | undefined): boolean => {
   return s.length === 0 || s === "—";
 };
 
-/** Omite o campo quando não há dado (não imprime "—"). */
-const dlItemIf = (label: string, value: string | null | undefined) => {
-  if (isBlankPrintValue(value)) return "";
-  return dlItem(label, escapeHtml(String(value).trim()));
-};
+const pairValue = (value: string | null | undefined) =>
+  isBlankPrintValue(value) ? "" : escapeHtml(String(value).trim());
+
+const pairRow = (
+  leftLabel: string,
+  leftValue: string | null | undefined,
+  rightLabel: string,
+  rightHtml: string,
+) =>
+  `<tr><th>${escapeHtml(leftLabel)}</th><td>${pairValue(leftValue)}</td><th>${escapeHtml(rightLabel)}</th><td>${rightHtml}</td></tr>`;
+
+const pairRowRightOnly = (label: string, valueHtml: string) =>
+  `<tr><th></th><td></td><th>${escapeHtml(label)}</th><td>${valueHtml}</td></tr>`;
 
 /** Linha inteira "Rótulo: valor" para preencher o quadro. */
 const stackLine = (label: string, value: string | null | undefined) => {
@@ -375,23 +432,72 @@ html, body {
   border: 0.8pt solid #111;
   padding: 6px 8px;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100%;
 }
 .os-box h1 {
   margin: 0 0 4px;
   font-size: 13pt;
   letter-spacing: 0.02em;
 }
-.os-num { font-size: 16pt; font-weight: 700; }
-.brand { display: flex; gap: 8px; align-items: flex-start; }
-.logo { height: 18mm; width: auto; max-width: 40mm; object-fit: contain; }
+.os-num { font-size: 16pt; font-weight: 700; margin: 0 0 8px; }
+.os-type { margin: 6px 0; }
+.os-status { font-weight: 700; margin: 6px 0 4px; }
+.os-box .muted { margin: 4px 0; }
+.brand {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+}
+.logo {
+  height: 18mm;
+  width: auto;
+  max-width: 52mm;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+}
 .company .trade { font-size: 12pt; font-weight: 700; }
-.company .stack { flex: 1; min-width: 0; }
+.company .stack { width: 100%; min-width: 0; }
 .muted { color: #333; font-size: 8pt; }
 .split {
   display: grid;
   grid-template-columns: 1fr 1fr;
 }
 .split > .col + .col { border-left: 0.4pt solid #333; }
+.split-head {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.split-head .block-title + .block-title { border-left: 0.4pt solid #333; }
+.pair-kv {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.pair-kv col.lbl { width: 26mm; }
+.pair-kv col.val { width: calc(50% - 26mm); }
+.pair-kv th,
+.pair-kv td {
+  padding: 3.5px 6px;
+  vertical-align: top;
+  font-size: 8pt;
+  line-height: 1.4;
+}
+.pair-kv th {
+  font-weight: 700;
+  color: #333;
+  font-size: 7.5pt;
+  text-align: left;
+  white-space: nowrap;
+}
+.pair-kv th:nth-child(3),
+.pair-kv td:nth-child(3) {
+  border-left: 0.4pt solid #333;
+}
 .kv { display: grid; grid-template-columns: 28mm 1fr; gap: 2px 6px; margin: 1px 0; }
 .kv dt { font-weight: 700; color: #333; font-size: 7.5pt; }
 .kv dd { margin: 0; }
@@ -489,18 +595,21 @@ table.totals .strong td {
 }
 `;
 
-const partsTable = (items: WorkOrderPrintItem[]) => {
+const partsTable = (items: WorkOrderPrintItem[], opts?: ItemTableOpts) => {
   if (items.length === 0) return "";
+  const showLocation = opts?.showLocation ?? true;
+  const showConversion = opts?.showConversion ?? false;
   const rows = items
     .map((item, i) => {
-      const extra = locationLine(item);
+      const extra = showLocation ? locationLine(item) : "";
       const extraRow = extra
         ? `<tr><td></td><td></td><td class="subline" colspan="7">${text(extra, "")}</td></tr>`
         : "";
+      const conversion = showConversion ? itemConversionSubline(item) : "";
       return `<tr>
         <td>${i + 1}</td>
         <td>${text(itemCode(item))}</td>
-        <td>${text(itemDescription(item))}</td>
+        <td>${text(itemDescription(item))}${conversion}</td>
         <td>${text(item.unit?.unit)}</td>
         ${qtyCell(item.quantity)}
         ${moneyCell(item.valueUnit)}
@@ -525,20 +634,23 @@ const partsTable = (items: WorkOrderPrintItem[]) => {
   </section>`;
 };
 
-const servicesTable = (items: WorkOrderPrintItem[]) => {
+const servicesTable = (items: WorkOrderPrintItem[], opts?: ItemTableOpts) => {
   if (items.length === 0) return "";
+  const showMechanics = opts?.showMechanics ?? true;
+  const showConversion = opts?.showConversion ?? false;
   const showAcresce = items.some((item) => !isZeroish(item.valueAcresce));
   const rows = items
     .map((item, i) => {
-      const mechanics = mechanicNames(item);
+      const mechanics = showMechanics ? mechanicNames(item) : "";
       const extra = mechanics
         ? `<div class="subline">Mecânico: ${text(mechanics)}</div>`
         : "";
+      const conversion = showConversion ? itemConversionSubline(item) : "";
       const acresce = showAcresce ? moneyCell(item.valueAcresce) : "";
       return `<tr>
         <td>${i + 1}</td>
         <td>${text(itemCode(item))}</td>
-        <td>${text(itemDescription(item))}${extra}</td>
+        <td>${text(itemDescription(item))}${extra}${conversion}</td>
         <td>${enumLabel(item.typeService)}</td>
         <td>${text(item.unit?.unit)}</td>
         ${qtyCell(item.quantity)}
@@ -565,45 +677,57 @@ const servicesTable = (items: WorkOrderPrintItem[]) => {
   </section>`;
 };
 
-const paymentsBlock = (sale: WorkOrderPrintSale) => {
-  if (sale.status !== "FINALIZADA" || !sale.payments?.length) {
-    return `<p class="muted">Pagamento ainda não registrado.</p>`;
+const paymentGroups = (sale: WorkOrderPrintSale) => {
+  if (sale.payments?.length) {
+    return [{ orderNumber: null as number | null, payments: sale.payments }];
   }
-  return sale.payments
-    .map((payment) => {
-      const dues = (payment.dues ?? [])
-        .map(
-          (due) =>
-            `<div>${escapeHtml(formatDateTime(due.dueDate))} — ${escapeHtml(formatMoney(due.valueInstallment))}</div>`,
-        )
-        .join("");
-      const kind = payment.paymentType?.paymentType
-        ? ` (${payment.paymentType.paymentType.replaceAll("_", " ")})`
-        : "";
-      return `<div class="kv">
+  return (sale.generatedSales ?? [])
+    .map((row) => ({
+      orderNumber: row.orderNumber ?? null,
+      payments: row.payments ?? [],
+    }))
+    .filter((row) => row.payments.length > 0);
+};
+
+const renderPayment = (
+  payment: NonNullable<WorkOrderPrintSale["payments"]>[number],
+) => {
+  const dues = (payment.dues ?? [])
+    .map(
+      (due) =>
+        `<div>${escapeHtml(formatDate(due.dueDate))} — ${escapeHtml(formatMoney(due.valueInstallment))}</div>`,
+    )
+    .join("");
+  const kind = payment.paymentType?.paymentType
+    ? ` (${payment.paymentType.paymentType.replaceAll("_", " ")})`
+    : "";
+  return `<div class="kv">
         <dt>${text(payment.paymentType?.description, "Pagamento")}${escapeHtml(kind)}</dt>
         <dd>${escapeHtml(formatMoney(payment.valueTotal))}${dues}</dd>
       </div>`;
+};
+
+const paymentsBlock = (sale: WorkOrderPrintSale) => {
+  const groups = paymentGroups(sale);
+  if (sale.status !== "FINALIZADA" || groups.length === 0) {
+    return `<p class="muted">Pagamento ainda não registrado.</p>`;
+  }
+  const showPedido = groups.length > 1;
+  return groups
+    .map((group) => {
+      const heading =
+        showPedido && group.orderNumber != null
+          ? `<div class="muted">Pedido Nº ${escapeHtml(formatOrderNumber(group.orderNumber))}</div>`
+          : "";
+      return `${heading}${group.payments.map(renderPayment).join("")}`;
     })
     .join("");
 };
 
-export const renderWorkOrderPrintHtml = (
-  input: WorkOrderPrintInput,
-): string => {
-  const { sale, enterprise, printedAt, mode = "html" } = input;
-  const logoSrc = loadPrintLogoSrc();
-  const items = sale.items ?? [];
-  const parts = items.filter((item) => !itemIsService(item));
-  const services = items.filter(itemIsService);
-  const vehicle = sale.vehiclesEnterprisesMembers;
-  const memberName =
-    sale.member?.memberLegalName?.trim() ||
-    sale.memberRef?.userName?.trim() ||
-    "";
-  const cityUf = [sale.member?.memberCity, sale.member?.memberState]
-    .filter(Boolean)
-    .join("/");
+const companyBrandHtml = (
+  enterprise: WorkOrderPrintEnterprise,
+  logoSrc: string | null,
+) => {
   const companyAddress = principalAddress(enterprise);
   const companyStreet = [
     companyAddress?.cep?.address?.trim(),
@@ -614,9 +738,140 @@ export const renderWorkOrderPrintHtml = (
   const companyCep = companyAddress?.cep?.cepNumber
     ? formatCep(companyAddress.cep.cepNumber)
     : "";
+  return `<div class="company">
+        <div class="brand">
+          ${logoSrc ? `<img class="logo" src="${logoSrc}" alt="" />` : ""}
+          <div class="stack">
+            <div class="trade">${text(enterprise.tradeName)}</div>
+            <table class="stack-table">
+            ${stackLine("Razão social", enterprise.legalName)}
+            ${stackLine("CNPJ", formatDocument(enterprise.registration))}
+            ${stackParts([
+              ["Endereço", companyStreet],
+              ["Complemento", companyAddress?.complement],
+            ])}
+            ${stackParts([
+              ["Setor", companyAddress?.cep?.neighborhood],
+              ["Cidade", companyAddress?.cep?.city?.citieName],
+              ["Estado", companyAddress?.cep?.city?.state?.acronym],
+            ])}
+            ${stackParts([
+              ["CEP", companyCep],
+              ["Telefone", enterprise.phone],
+            ])}
+            ${stackLine("E-mail", enterprise.email)}
+            </table>
+          </div>
+        </div>
+      </div>`;
+};
+
+const totalsTableHtml = (sale: WorkOrderPrintSale) => `<table class="totals">
+            ${totalRow("Subtotal itens", sale.subTotal, { hideZero: true })}
+            ${totalRow("Desconto nos itens", sale.discountValuetems, { hideZero: true })}
+            ${totalRow("Acréscimo nos itens", sale.valueAcresceItems, { hideZero: true })}
+            ${totalRow("Peças", sale.valueProduct)}
+            ${totalRow("Serviços", sale.valueService)}
+            ${totalRow("Desc. financeiro peças", sale.valueDiscountFinancialProduct, { hideZero: true, extra: percentHint(sale.percentageDiscountProduct) })}
+            ${totalRow("Desc. financeiro serviços", sale.valueDiscountFinancialService, { hideZero: true, extra: percentHint(sale.percentageDiscountService) })}
+            ${totalRow("Acrésc. financeiro peças", sale.valueAcresceFinancialProduct, { hideZero: true, extra: percentHint(sale.percentageAcresceProduct) })}
+            ${totalRow("Acrésc. financeiro serviços", sale.valueAcresceFinancialService, { hideZero: true, extra: percentHint(sale.percentageAcresceService) })}
+            ${sale.returnSituation && sale.returnSituation !== "SEM_DEVOLUCAO" ? `<tr><td>Devolução</td><td class="num">${enumLabel(sale.returnSituation)}</td></tr>` : ""}
+            ${totalRow("Valor líquido", sale.valueLiquid, { strong: true })}
+          </table>`;
+
+const generatedDocumentsHtml = (sale: WorkOrderPrintSale) => {
+  const rows = (sale.generatedSales ?? []).filter(
+    (row) => row.orderNumber != null,
+  );
+  if (rows.length === 0) {
+    return `<p class="muted">Proposta comercial. Sem pagamento neste documento.</p>`;
+  }
+  return rows
+    .map((row) => {
+      const kind =
+        row.type === "ORDEM DE SERVICO"
+          ? "OS"
+          : row.type === "VENDA"
+            ? "Venda"
+            : "Documento";
+      const status = row.status ? ` · ${enumLabel(row.status)}` : "";
+      const value = !isZeroish(row.valueLiquid)
+        ? ` — ${escapeHtml(formatMoney(row.valueLiquid))}`
+        : "";
+      return `<div>${escapeHtml(kind)} Nº ${escapeHtml(formatOrderNumber(row.orderNumber!))}${status}${value}</div>`;
+    })
+    .join("");
+};
+
+const wrapPrintHtml = (
+  title: string,
+  articleInner: string,
+  printedAt: Date,
+  mode: "html" | "pdf",
+) => `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>${escapeHtml(title)}</title>
+  <style>${PRINT_CSS}</style>
+</head>
+<body>
+  ${
+    mode === "pdf"
+      ? ""
+      : `<div class="toolbar no-print">
+    <button type="button" onclick="window.print()">Imprimir</button>
+  </div>`
+  }
+  <article class="sheet">
+    ${articleInner}
+  </article>
+  <div class="printed-at">Impresso em: ${escapeHtml(formatDateTime(printedAt))}</div>
+  ${
+    mode === "pdf"
+      ? ""
+      : `<script>
+    if (new URLSearchParams(location.search).get("autoPrint") === "1") {
+      window.addEventListener("load", function () { window.print(); });
+    }
+  </script>`
+  }
+</body>
+</html>`;
+
+const pairKvColgroup = `<colgroup>
+          <col class="lbl" />
+          <col class="val" />
+          <col class="lbl" />
+          <col class="val" />
+        </colgroup>`;
+
+const itemsAndTotals = (
+  sale: WorkOrderPrintSale,
+  parts: WorkOrderPrintItem[],
+  services: WorkOrderPrintItem[],
+  itemOpts?: ItemTableOpts,
+) => `${partsTable(parts, itemOpts)}
+    ${parts.length ? `<div class="subtotal">Subtotal peças: ${escapeHtml(formatMoney(sale.valueProduct))}</div>` : ""}
+    ${servicesTable(services, itemOpts)}
+    ${services.length ? `<div class="subtotal">Subtotal serviços: ${escapeHtml(formatMoney(sale.valueService))}</div>` : ""}`;
+
+export const renderWorkOrderPrintHtml = (
+  input: WorkOrderPrintInput,
+): string => {
+  const { sale, enterprise, printedAt, mode = "html" } = input;
+  const logoSrc = loadPrintLogoSrc();
+  const items = sale.items ?? [];
+  const parts = items.filter((item) => !itemIsService(item));
+  const services = items.filter(itemIsService);
+  const vehicle = sale.vehiclesEnterprisesMembers;
+  const memberName = memberDisplayName(sale);
+  const cityUf = memberCityUf(sale);
   const origin = sale.sourceBudget?.orderNumber
     ? `Orçamento Nº ${formatOrderNumber(sale.sourceBudget.orderNumber)}`
-    : "—";
+    : "";
   const generated = (sale.generatedSales ?? [])
     .map((row) =>
       row.orderNumber != null ? formatOrderNumber(row.orderNumber) : null,
@@ -645,92 +900,46 @@ export const renderWorkOrderPrintHtml = (
     vehicle?.location ? ["Locação", text(vehicle.location)] : null,
   ].filter((row): row is [string, string] => row !== null);
 
-  return `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Ordem de Serviço Nº ${escapeHtml(formatOrderNumber(sale.orderNumber))}</title>
-  <style>${PRINT_CSS}</style>
-</head>
-<body>
-  ${
-    mode === "pdf"
-      ? ""
-      : `<div class="toolbar no-print">
-    <button type="button" onclick="window.print()">Imprimir</button>
-  </div>`
-  }
-  <article class="sheet">
-    <section class="block pad header">
-      <div class="company">
-        <div class="brand">
-          ${logoSrc ? `<img class="logo" src="${logoSrc}" alt="" />` : ""}
-          <div class="stack">
-            <div class="trade">${text(enterprise.tradeName)}</div>
-            <table class="stack-table">
-            ${stackLine("Razão social", enterprise.legalName)}
-            ${stackLine("CNPJ", formatDocument(enterprise.registration))}
-            ${stackParts([
-              ["Endereço", companyStreet],
-              ["Complemento", companyAddress?.complement],
-            ])}
-            ${stackParts([
-              ["Setor", companyAddress?.cep?.neighborhood],
-              ["Cidade", companyAddress?.cep?.city?.citieName],
-              ["Estado", companyAddress?.cep?.city?.state?.acronym],
-            ])}
-            ${stackParts([
-              ["CEP", companyCep],
-              ["Telefone", enterprise.phone],
-            ])}
-            ${stackLine("E-mail", enterprise.email)}
-            </table>
-          </div>
-        </div>
-      </div>
+  return wrapPrintHtml(
+    `Ordem de Serviço Nº ${formatOrderNumber(sale.orderNumber)}`,
+    `<section class="block pad header">
+      ${companyBrandHtml(enterprise, logoSrc)}
       <div class="os-box">
         <h1>ORDEM DE SERVIÇO</h1>
         <div class="os-num">Nº ${text(formatOrderNumber(sale.orderNumber))}</div>
         ${
           sale.serviceType
-            ? `<div>Tipo: ${enumLabel(sale.serviceType)}</div>`
+            ? `<div class="os-type">Tipo: ${enumLabel(sale.serviceType)}</div>`
             : ""
         }
-        <div>Situação: ${enumLabel(sale.status)}</div>
+        <div class="os-status">Situação: ${enumLabel(sale.status)}</div>
         <div class="muted">Abertura: ${escapeHtml(formatDateTime(sale.createdAt))}</div>
-        <div class="muted">Conclusão: ${escapeHtml(formatDate(sale.completedionDate ?? null))}</div>
-        <div class="muted">Origem: ${text(origin)}</div>
-        ${generated ? `<div class="muted">Venda gerada: Nº ${text(generated)}</div>` : ""}
+        ${
+          sale.status === "FINALIZADA"
+            ? `<div class="muted">Conclusão: ${escapeHtml(formatDate(sale.completedionDate ?? null))}</div>`
+            : ""
+        }
+        ${origin ? `<div class="muted">Origem: ${escapeHtml(origin)}</div>` : ""}
+        ${generated ? `<div class="muted">Venda gerada: Nº ${escapeHtml(generated)}</div>` : ""}
       </div>
     </section>
 
-    <section class="block split">
-      <div class="col">
+    <section class="block">
+      <div class="split-head">
         <div class="block-title">Cliente</div>
-        <div class="pad">
-          ${dlItemIf("Cliente", memberName)}
-          ${dlItemIf("CPF/CNPJ", formatDocument(sale.member?.registration))}
-          ${dlItemIf("Endereço", sale.member?.memberAddress)}
-          ${dlItemIf("CEP", formatCep(sale.member?.memberCep))}
-          ${dlItemIf("Cidade/UF", cityUf)}
-          ${dlItemIf("Telefone", sale.member?.memberPhone)}
-          ${dlItemIf("Celular", sale.member?.memberMobile)}
-        </div>
-      </div>
-      <div class="col">
         <div class="block-title">Veículo</div>
-        <div class="pad">
-          ${dlItem("Placa", text(vehicle?.plate))}
-          ${dlItem("Modelo", text(vehicle?.model))}
-          ${dlItem("Ano", text(vehicle?.vehicleYear))}
-          ${dlItem("Cor", text(vehicle?.color))}
-          ${dlItem("Combustível", enumLabel(vehicle?.fuelType))}
-          ${dlItem("KM na entrada", text(formatKm(sale.vehicleMileage)))}
-          ${dlItem("Frota", text(vehicle?.fleetNumber))}
-          ${extraVehicle.map(([label, value]) => dlItem(label, value)).join("")}
-        </div>
       </div>
+      <table class="pair-kv">
+        ${pairKvColgroup}
+        ${pairRow("Cliente", memberName, "Placa", text(vehicle?.plate))}
+        ${pairRow("CPF/CNPJ", formatDocument(sale.member?.registration), "Modelo", text(vehicle?.model))}
+        ${pairRow("Endereço", sale.member?.memberAddress, "Ano", text(vehicle?.vehicleYear))}
+        ${pairRow("CEP", formatCep(sale.member?.memberCep), "Cor", text(vehicle?.color))}
+        ${pairRow("Cidade/UF", cityUf, "Combustível", enumLabel(vehicle?.fuelType))}
+        ${pairRow("Telefone", sale.member?.memberPhone, "KM na entrada", text(formatKm(sale.vehicleMileage)))}
+        ${pairRow("Celular", sale.member?.memberMobile, "Frota", text(vehicle?.fleetNumber))}
+        ${extraVehicle.map(([label, value]) => pairRowRightOnly(label, value)).join("")}
+      </table>
     </section>
 
     <section class="block split">
@@ -744,10 +953,7 @@ export const renderWorkOrderPrintHtml = (
       </div>
     </section>
 
-    ${partsTable(parts)}
-    ${parts.length ? `<div class="subtotal">Subtotal peças: ${escapeHtml(formatMoney(sale.valueProduct))}</div>` : ""}
-    ${servicesTable(services)}
-    ${services.length ? `<div class="subtotal">Subtotal serviços: ${escapeHtml(formatMoney(sale.valueService))}</div>` : ""}
+    ${itemsAndTotals(sale, parts, services)}
 
     <section class="bottom">
       <div class="block">
@@ -757,19 +963,7 @@ export const renderWorkOrderPrintHtml = (
       <div class="block">
         <div class="block-title">Totais</div>
         <div class="pad">
-          <table class="totals">
-            ${totalRow("Subtotal itens", sale.subTotal, { hideZero: true })}
-            ${totalRow("Desconto nos itens", sale.discountValuetems, { hideZero: true })}
-            ${totalRow("Acréscimo nos itens", sale.valueAcresceItems, { hideZero: true })}
-            ${totalRow("Peças", sale.valueProduct)}
-            ${totalRow("Serviços", sale.valueService)}
-            ${totalRow("Desc. financeiro peças", sale.valueDiscountFinancialProduct, { hideZero: true, extra: percentHint(sale.percentageDiscountProduct) })}
-            ${totalRow("Desc. financeiro serviços", sale.valueDiscountFinancialService, { hideZero: true, extra: percentHint(sale.percentageDiscountService) })}
-            ${totalRow("Acrésc. financeiro peças", sale.valueAcresceFinancialProduct, { hideZero: true, extra: percentHint(sale.percentageAcresceProduct) })}
-            ${totalRow("Acrésc. financeiro serviços", sale.valueAcresceFinancialService, { hideZero: true, extra: percentHint(sale.percentageAcresceService) })}
-            ${sale.returnSituation && sale.returnSituation !== "SEM_DEVOLUCAO" ? `<tr><td>Devolução</td><td class="num">${enumLabel(sale.returnSituation)}</td></tr>` : ""}
-            ${totalRow("Valor líquido", sale.valueLiquid, { strong: true })}
-          </table>
+          ${totalsTableHtml(sale)}
         </div>
       </div>
     </section>
@@ -794,18 +988,192 @@ export const renderWorkOrderPrintHtml = (
           </td>
         </tr>
       </table>
+    </section>`,
+    printedAt,
+    mode,
+  );
+};
+
+export const renderBudgetPrintHtml = (input: WorkOrderPrintInput): string => {
+  const { sale, enterprise, printedAt, mode = "html" } = input;
+  const logoSrc = loadPrintLogoSrc();
+  const items = sale.items ?? [];
+  const parts = items.filter((item) => !itemIsService(item));
+  const services = items.filter(itemIsService);
+  const seller = sellerName(sale);
+  const observations = sale.observations?.trim() || "";
+  const itemOpts: ItemTableOpts = {
+    showLocation: false,
+    showMechanics: false,
+    showConversion: sale.status === "PARCIAL",
+  };
+
+  return wrapPrintHtml(
+    `Orçamento Nº ${formatOrderNumber(sale.orderNumber)}`,
+    `<section class="block pad header">
+      ${companyBrandHtml(enterprise, logoSrc)}
+      <div class="os-box">
+        <h1>ORÇAMENTO</h1>
+        <div class="os-num">Nº ${text(formatOrderNumber(sale.orderNumber))}</div>
+        <div class="os-status">Situação: ${enumLabel(sale.status)}</div>
+        <div class="muted">Emissão: ${escapeHtml(formatDateTime(sale.createdAt))}</div>
+        ${seller ? `<div class="muted">Vendedor: ${text(seller)}</div>` : ""}
+      </div>
     </section>
-  </article>
-  <div class="printed-at">Impresso em: ${escapeHtml(formatDateTime(printedAt))}</div>
-  ${
-    mode === "pdf"
-      ? ""
-      : `<script>
-    if (new URLSearchParams(location.search).get("autoPrint") === "1") {
-      window.addEventListener("load", function () { window.print(); });
+
+    <section class="block">
+      <div class="block-title">Cliente</div>
+      <table class="pair-kv">
+        ${pairKvColgroup}
+        ${pairRow("Cliente", memberDisplayName(sale), "CPF/CNPJ", pairValue(formatDocument(sale.member?.registration)))}
+        ${pairRow("Endereço", sale.member?.memberAddress, "CEP", pairValue(formatCep(sale.member?.memberCep)))}
+        ${pairRow("Cidade/UF", memberCityUf(sale), "Telefone", pairValue(sale.member?.memberPhone))}
+        ${pairRow("Celular", sale.member?.memberMobile, "", "")}
+      </table>
+    </section>
+
+    ${
+      observations
+        ? `<section class="block">
+      <div class="block-title">Observações</div>
+      <div class="pad"><p class="pre">${text(observations)}</p></div>
+    </section>`
+        : ""
     }
-  </script>`
+
+    ${itemsAndTotals(sale, parts, services, itemOpts)}
+
+    <section class="bottom">
+      <div class="block">
+        <div class="block-title">Documentos gerados</div>
+        <div class="pad">${generatedDocumentsHtml(sale)}</div>
+      </div>
+      <div class="block">
+        <div class="block-title">Totais</div>
+        <div class="pad">
+          ${totalsTableHtml(sale)}
+        </div>
+      </div>
+    </section>
+
+    <section class="block pad ops">
+      Emitido por: ${text(sale.user?.userName || sale.userLegalName)}
+      <p class="terms">Esta proposta não autoriza execução nem reserva de peças. Valores sujeitos a confirmação no fechamento.</p>
+      <table class="signs">
+        <tr>
+          <td class="sign">
+            <div class="sign-line"></div>
+            Cliente / responsável
+          </td>
+          <td class="sign">
+            <div class="sign-line"></div>
+            Vendedor
+          </td>
+        </tr>
+      </table>
+    </section>`,
+    printedAt,
+    mode,
+  );
+};
+
+export const renderSalePrintHtml = (input: WorkOrderPrintInput): string => {
+  const { sale, enterprise, printedAt, mode = "html" } = input;
+  const logoSrc = loadPrintLogoSrc();
+  const items = sale.items ?? [];
+  const parts = items.filter((item) => !itemIsService(item));
+  const services = items.filter(itemIsService);
+  const seller = sellerName(sale);
+  const observations = sale.observations?.trim() || "";
+  const itemOpts: ItemTableOpts = {
+    showLocation: false,
+    showMechanics: false,
+    showConversion: false,
+  };
+  const originParts: string[] = [];
+  if (sale.sourceBudget?.orderNumber != null) {
+    originParts.push(
+      `Orçamento Nº ${formatOrderNumber(sale.sourceBudget.orderNumber)}`,
+    );
   }
-</body>
-</html>`;
+  if (sale.sourceWorkOrder?.orderNumber != null) {
+    originParts.push(
+      `OS Nº ${formatOrderNumber(sale.sourceWorkOrder.orderNumber)}`,
+    );
+  }
+  const origin = originParts.join(" · ");
+
+  return wrapPrintHtml(
+    `Pedido de Venda Nº ${formatOrderNumber(sale.orderNumber)}`,
+    `<section class="block pad header">
+      ${companyBrandHtml(enterprise, logoSrc)}
+      <div class="os-box">
+        <h1>PEDIDO DE VENDA</h1>
+        <div class="os-num">Nº ${text(formatOrderNumber(sale.orderNumber))}</div>
+        <div class="os-status">Situação: ${enumLabel(sale.status)}</div>
+        <div class="muted">Emissão: ${escapeHtml(formatDateTime(sale.createdAt))}</div>
+        ${
+          sale.status === "FINALIZADA"
+            ? `<div class="muted">Conclusão: ${escapeHtml(formatDate(sale.completedionDate ?? null))}</div>`
+            : ""
+        }
+        ${seller ? `<div class="muted">Vendedor: ${text(seller)}</div>` : ""}
+        ${origin ? `<div class="muted">Origem: ${escapeHtml(origin)}</div>` : ""}
+      </div>
+    </section>
+
+    <section class="block">
+      <div class="block-title">Cliente</div>
+      <table class="pair-kv">
+        ${pairKvColgroup}
+        ${pairRow("Cliente", memberDisplayName(sale), "CPF/CNPJ", pairValue(formatDocument(sale.member?.registration)))}
+        ${pairRow("Endereço", sale.member?.memberAddress, "CEP", pairValue(formatCep(sale.member?.memberCep)))}
+        ${pairRow("Cidade/UF", memberCityUf(sale), "Telefone", pairValue(sale.member?.memberPhone))}
+        ${pairRow("Celular", sale.member?.memberMobile, "", "")}
+      </table>
+    </section>
+
+    ${
+      observations
+        ? `<section class="block">
+      <div class="block-title">Observações</div>
+      <div class="pad"><p class="pre">${text(observations)}</p></div>
+    </section>`
+        : ""
+    }
+
+    ${itemsAndTotals(sale, parts, services, itemOpts)}
+
+    <section class="bottom">
+      <div class="block">
+        <div class="block-title">Pagamento</div>
+        <div class="pad">${paymentsBlock(sale)}</div>
+      </div>
+      <div class="block">
+        <div class="block-title">Totais</div>
+        <div class="pad">
+          ${totalsTableHtml(sale)}
+        </div>
+      </div>
+    </section>
+
+    <section class="block pad ops">
+      Emitido por: ${text(sale.user?.userName || sale.userLegalName)}
+      <p class="terms">Confirmo a compra das peças e/ou serviços discriminados neste pedido, ciente dos valores e da forma de pagamento apresentados.</p>
+      <table class="signs">
+        <tr>
+          <td class="sign">
+            <div class="sign-line"></div>
+            Cliente / responsável
+          </td>
+          <td class="sign">
+            <div class="sign-line"></div>
+            Vendedor
+          </td>
+        </tr>
+      </table>
+    </section>`,
+    printedAt,
+    mode,
+  );
 };

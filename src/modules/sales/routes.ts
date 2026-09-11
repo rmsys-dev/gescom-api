@@ -43,7 +43,6 @@ salesRouter.get(
   "/:saleId/print",
   authMiddleware,
   tenantMiddleware,
-  requireOs,
   requirePermission("consultar_vendas"),
   validateSchema({ params: saleParamsSchema, query: printSaleQuerySchema }),
   salesController.printWorkOrder,

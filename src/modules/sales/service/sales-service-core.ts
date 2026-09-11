@@ -76,7 +76,11 @@ import {
 import { enterprisesService } from "../../enterprises/service.js";
 import { htmlToPdf } from "../print/html-to-pdf.js";
 import {
+  budgetPdfFilename,
+  renderBudgetPrintHtml,
+  renderSalePrintHtml,
   renderWorkOrderPrintHtml,
+  salePdfFilename,
   workOrderPdfFilename,
 } from "../print/os-print-html.js";
 import { resolveDefaultSaleItemStockRefs } from "../../stock/balance.js";
@@ -90,7 +94,6 @@ import {
   applySaleItemStockReturn,
   assertSaleItemStockAvailable,
   assertSaleItemsStockCommitted,
-  syncSaleItemStockOnUpdate,
   validateSaleItemStock,
 } from "../sale-stock.js";
 import { resolveSaleClosingOrigin, type SaleOrigin } from "../sale-origin.js";
@@ -100,9 +103,6 @@ import {
   computeItemValueTotal,
   convertBudgetItemInputSchema,
   convertOsItemInputSchema,
-  type ConvertBudgetToOsInput,
-  type ConvertBudgetToSaleInput,
-  type ConvertOsToSaleInput,
   type CreateSaleInput,
   type CreateSaleItemInput,
   type ListSalesQuery,
@@ -3141,20 +3141,68 @@ export class SalesServiceCore {
     mode: "html" | "pdf" = "html",
   ) {
     const sale = await this.getById(enterpriseId, saleId);
-    if (sale.type !== "ORDEM DE SERVICO") {
+    if (
+      sale.type !== "ORDEM DE SERVICO" &&
+      sale.type !== "ORCAMENTO" &&
+      sale.type !== "VENDA"
+    ) {
       throw new ValidationError(
         [
           {
             path: "params.saleId",
-            message: "Impressão A4 disponível somente para Ordem de Serviço",
+            message:
+              "Impressão A4 disponível para Pedido de Venda, Orçamento ou Ordem de Serviço",
           },
         ],
         "Tipo invalido",
       );
     }
+    if (sale.type === "ORDEM DE SERVICO") {
+      await this.assertTrabalhaOsEnabled(enterpriseId);
+    }
     const enterprise = await enterprisesService.getById(enterpriseId);
+    if (sale.type === "ORCAMENTO") {
+      const html = renderBudgetPrintHtml({
+        sale,
+        enterprise,
+        printedAt: new Date(),
+        mode,
+      });
+      return {
+        html,
+        orderNumber: sale.orderNumber,
+        filename: budgetPdfFilename(sale.orderNumber),
+      };
+    }
+    if (sale.type === "VENDA") {
+      const html = renderSalePrintHtml({
+        sale,
+        enterprise,
+        printedAt: new Date(),
+        mode,
+      });
+      return {
+        html,
+        orderNumber: sale.orderNumber,
+        filename: salePdfFilename(sale.orderNumber),
+      };
+    }
+    const generated = sale.generatedSales ?? [];
+    let printSale = sale;
+    if (!sale.payments?.length && generated.length > 0) {
+      const paymentsBySaleId = await this.loadSalePaymentsBySaleIds(
+        generated.map((row) => row.id),
+      );
+      printSale = {
+        ...sale,
+        generatedSales: generated.map((row) => ({
+          ...row,
+          payments: paymentsBySaleId.get(row.id) ?? [],
+        })),
+      };
+    }
     const html = renderWorkOrderPrintHtml({
-      sale,
+      sale: printSale,
       enterprise,
       printedAt: new Date(),
       mode,

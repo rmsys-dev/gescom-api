@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  budgetPdfFilename,
   formatCep,
   formatDocument,
   formatMoney,
   formatOrderNumber,
   isZeroish,
+  renderBudgetPrintHtml,
+  renderSalePrintHtml,
   renderWorkOrderPrintHtml,
+  salePdfFilename,
   workOrderPdfFilename,
   type WorkOrderPrintInput,
 } from "../../src/modules/sales/print/os-print-html.js";
@@ -152,7 +156,7 @@ const baseInput = (): WorkOrderPrintInput => ({
 
 describe("os-print-html formatters", () => {
   it("formata numero da OS, documento, CEP e moeda", () => {
-    assert.equal(formatOrderNumber(123), "000123");
+    assert.equal(formatOrderNumber(123), "123");
     assert.equal(formatDocument("52998224725"), "529.982.247-25");
     assert.equal(formatDocument("12345678000195"), "12.345.678/0001-95");
     assert.equal(formatCep("01310100"), "01310-100");
@@ -168,7 +172,7 @@ describe("renderWorkOrderPrintHtml", () => {
 
     assert.match(html, /@page \{ size: A4/);
     assert.match(html, /ORDEM DE SERVIÇO/);
-    assert.match(html, /Nº 000123/);
+    assert.match(html, /Nº 123/);
     assert.match(html, /Tipo: SERVICO/);
     assert.match(html, /Situação: FINALIZADA/);
     assert.doesNotMatch(html, /VEICULO/);
@@ -224,8 +228,8 @@ describe("renderWorkOrderPrintHtml", () => {
     assert.doesNotMatch(html, /UTILITARIO/);
     assert.doesNotMatch(html, /VEICULO 2 EIXOS/);
     assert.doesNotMatch(html, /PROPRIETARIO/);
-    assert.match(html, /Orçamento Nº 000050/);
-    assert.match(html, /Venda gerada: Nº 000200/);
+    assert.match(html, /Orçamento Nº 50/);
+    assert.match(html, /Venda gerada: Nº 200/);
 
     const partsIdx = html.indexOf("Discriminação de peças");
     const servicesIdx = html.indexOf("Discriminação de serviços");
@@ -254,22 +258,53 @@ describe("renderWorkOrderPrintHtml", () => {
     input.sale.defect = `<img src=x onerror="alert(1)">`;
     input.sale.status = "ABERTA";
     input.sale.payments = [];
+    input.sale.sourceBudget = undefined;
+    input.sale.generatedSales = [];
     const html = renderWorkOrderPrintHtml(input);
     assert.match(html, /Discriminação de peças/);
     assert.doesNotMatch(html, /Discriminação de serviços/);
     assert.match(html, /&lt;img src=x onerror=/);
     assert.doesNotMatch(html, /<img src=x/);
     assert.match(html, /Pagamento ainda não registrado/);
+    assert.doesNotMatch(html, /Origem:/);
+    assert.doesNotMatch(html, /Venda gerada:/);
+    assert.doesNotMatch(html, /Conclusão:/);
+  });
+
+  it("imprime pagamento da venda gerada quando a OS nao tem pagamento proprio", () => {
+    const input = baseInput();
+    input.sale.payments = [];
+    input.sale.generatedSales = [
+      {
+        orderNumber: 200,
+        payments: [
+          {
+            valueTotal: "585.00",
+            paymentType: { description: "Pix", paymentType: "A_VISTA" },
+            dues: [
+              {
+                valueInstallment: "585.00",
+                dueDate: new Date("2026-09-08T12:00:00.000Z"),
+              },
+            ],
+          },
+        ],
+      },
+    ];
+    const html = renderWorkOrderPrintHtml(input);
+    assert.match(html, /Pix/);
+    assert.doesNotMatch(html, /Pagamento ainda não registrado/);
+    assert.doesNotMatch(html, /Pedido Nº/);
   });
 
   it("omite toolbar no modo pdf e monta o nome do arquivo", () => {
     const html = renderWorkOrderPrintHtml({ ...baseInput(), mode: "pdf" });
     assert.doesNotMatch(html, /Imprimir/);
     assert.doesNotMatch(html, /autoPrint/);
-    assert.equal(workOrderPdfFilename(123), "OS-000123.pdf");
+    assert.equal(workOrderPdfFilename(123), "OS-123.pdf");
   });
 
-  it("omite campos vazios do cliente em vez de imprimir travessao", () => {
+  it("imprime todos os campos do cliente e deixa vazio sem travessao", () => {
     const input = baseInput();
     input.sale.member = {
       memberLegalName: "Maria Cliente",
@@ -282,18 +317,210 @@ describe("renderWorkOrderPrintHtml", () => {
       memberMobile: null,
     };
     const html = renderWorkOrderPrintHtml(input);
-    assert.match(html, />Cliente<\/dt>/);
+    assert.match(html, /<th>Cliente<\/th>/);
     assert.match(html, /Maria Cliente/);
-    const clienteBlock = html.slice(
-      html.indexOf("block-title\">Cliente"),
-      html.indexOf("block-title\">Veículo"),
+    assert.match(html, /<th>CPF\/CNPJ<\/th><td><\/td>/);
+    assert.match(html, /<th>Endereço<\/th><td><\/td>/);
+    assert.match(html, /<th>CEP<\/th><td><\/td>/);
+    assert.match(html, /<th>Cidade\/UF<\/th><td><\/td>/);
+    assert.match(html, /<th>Telefone<\/th><td><\/td>/);
+    assert.match(html, /<th>Celular<\/th><td><\/td>/);
+  });
+});
+
+describe("renderBudgetPrintHtml", () => {
+  const budgetInput = (): WorkOrderPrintInput => {
+    const input = baseInput();
+    input.sale.type = "ORCAMENTO";
+    input.sale.status = "ABERTA";
+    input.sale.orderNumber = 50;
+    input.sale.vehiclesEnterprisesMembers = null;
+    input.sale.defect = "Não deve aparecer";
+    input.sale.payments = [];
+    input.sale.sourceBudget = undefined;
+    input.sale.generatedSales = [];
+    input.sale.completedionDate = null;
+    return input;
+  };
+
+  it("imprime orcamento sem veiculo e com vendedor uma unica vez", () => {
+    const html = renderBudgetPrintHtml(budgetInput());
+
+    assert.match(html, /<h1>ORÇAMENTO<\/h1>/);
+    assert.match(html, /Nº 50/);
+    assert.match(html, /Situação: ABERTA/);
+    assert.match(html, /Emissão:/);
+    assert.match(html, /Vendedor: Vendedor/);
+    assert.equal((html.match(/Vendedor:/g) ?? []).length, 1);
+    assert.match(html, /Emitido por: Operador/);
+    assert.doesNotMatch(html, /Emitido por:[\s\S]*Vendedor:/);
+    assert.match(html, /Maria Cliente/);
+    assert.match(html, /529\.982\.247-25/);
+    assert.match(html, /Discriminação de peças/);
+    assert.match(html, /Filtro de óleo/);
+    assert.match(html, /Discriminação de serviços/);
+    assert.match(html, /Troca de óleo e filtro/);
+    assert.match(html, /Valor líquido/);
+    assert.match(html, /Documentos gerados/);
+    assert.match(html, /Proposta comercial/);
+    assert.match(html, /Cliente \/ responsável/);
+    assert.match(
+      html,
+      /<table class="signs">[\s\S]*<td class="sign">[\s\S]*Cliente \/ responsável[\s\S]*<td class="sign">[\s\S]*Vendedor/,
     );
-    assert.doesNotMatch(clienteBlock, />CPF\/CNPJ</);
-    assert.doesNotMatch(clienteBlock, />Endereço</);
-    assert.doesNotMatch(clienteBlock, />CEP</);
-    assert.doesNotMatch(clienteBlock, />Cidade\/UF</);
-    assert.doesNotMatch(clienteBlock, />Telefone</);
-    assert.doesNotMatch(clienteBlock, />Celular</);
-    assert.doesNotMatch(clienteBlock, />—</);
+    assert.equal((html.match(/class="sign-line"/g) ?? []).length, 2);
+
+    assert.doesNotMatch(html, /ORDEM DE SERVIÇO/);
+    assert.doesNotMatch(html, /Veículo/);
+    assert.doesNotMatch(html, /ABC1D23/);
+    assert.doesNotMatch(html, /45\.210 km/);
+    assert.doesNotMatch(html, /Defeito relatado/);
+    assert.doesNotMatch(html, /Não deve aparecer/);
+    assert.doesNotMatch(html, /Setor: Almox/);
+    assert.doesNotMatch(html, /Mecânico:/);
+    assert.doesNotMatch(html, />Pagamento</);
+    assert.doesNotMatch(html, /Aberto por:/);
+  });
+
+  it("lista documentos gerados e omite observacoes vazias", () => {
+    const input = budgetInput();
+    input.sale.status = "PARCIAL";
+    input.sale.observations = "  ";
+    input.sale.generatedSales = [
+      {
+        orderNumber: 123,
+        type: "ORDEM DE SERVICO",
+        status: "ABERTA",
+        valueLiquid: "300.00",
+      },
+      {
+        orderNumber: 200,
+        type: "VENDA",
+        status: "FINALIZADA",
+        valueLiquid: "585.00",
+      },
+    ];
+    input.sale.items = [
+      {
+        productCode: 10045,
+        productDescription: "Filtro de óleo",
+        quantity: "2",
+        quantityConverted: "1",
+        quantityRemaining: "1",
+        valueUnit: "45.00",
+        valueDiscount: "0",
+        valueAcresce: "0",
+        valueTotal: "45.00",
+        productType: { type: "00" },
+        unit: { unit: "UN" },
+        sector: { description: "Almox" },
+      },
+    ];
+    const html = renderBudgetPrintHtml(input);
+    assert.match(html, /OS Nº 123/);
+    assert.match(html, /Venda Nº 200/);
+    assert.match(html, /Convertido:/);
+    assert.doesNotMatch(html, /Observações/);
+    assert.doesNotMatch(html, /Proposta comercial/);
+    assert.doesNotMatch(html, /Setor: Almox/);
+  });
+
+  it("omite toolbar no modo pdf e monta o nome do arquivo", () => {
+    const html = renderBudgetPrintHtml({ ...budgetInput(), mode: "pdf" });
+    assert.doesNotMatch(html, /Imprimir/);
+    assert.doesNotMatch(html, /autoPrint/);
+    assert.equal(budgetPdfFilename(50), "ORCAMENTO-50.pdf");
+  });
+});
+
+describe("renderSalePrintHtml", () => {
+  const saleInput = (): WorkOrderPrintInput => {
+    const input = baseInput();
+    input.sale.type = "VENDA";
+    input.sale.status = "FINALIZADA";
+    input.sale.orderNumber = 200;
+    input.sale.vehiclesEnterprisesMembers = null;
+    input.sale.defect = "Não deve aparecer";
+    input.sale.sourceBudget = undefined;
+    input.sale.sourceWorkOrder = undefined;
+    input.sale.generatedSales = [];
+    return input;
+  };
+
+  it("imprime pedido de venda com dados comerciais e pagamento", () => {
+    const html = renderSalePrintHtml(saleInput());
+
+    assert.match(html, /<h1>PEDIDO DE VENDA<\/h1>/);
+    assert.match(html, /Nº 200/);
+    assert.match(html, /Situação: FINALIZADA/);
+    assert.match(html, /Emissão:/);
+    assert.match(html, /Conclusão:/);
+    assert.match(html, /Vendedor: Vendedor/);
+    assert.equal((html.match(/Vendedor:/g) ?? []).length, 1);
+    assert.match(html, /Emitido por: Operador/);
+    assert.match(html, /Maria Cliente/);
+    assert.match(html, /529\.982\.247-25/);
+    assert.match(html, /Discriminação de peças/);
+    assert.match(html, /Filtro de óleo/);
+    assert.match(html, /Discriminação de serviços/);
+    assert.match(html, /Troca de óleo e filtro/);
+    assert.match(html, /Valor líquido/);
+    assert.match(html, />Pagamento</);
+    assert.match(html, /Pix/);
+    assert.match(html, /Cliente \/ responsável/);
+    assert.match(
+      html,
+      /<table class="signs">[\s\S]*<td class="sign">[\s\S]*Cliente \/ responsável[\s\S]*<td class="sign">[\s\S]*Vendedor/,
+    );
+    assert.equal((html.match(/class="sign-line"/g) ?? []).length, 2);
+    assert.match(html, /Confirmo a compra/);
+
+    assert.doesNotMatch(html, /ORDEM DE SERVIÇO/);
+    assert.doesNotMatch(html, /ORÇAMENTO/);
+    assert.doesNotMatch(html, /Veículo/);
+    assert.doesNotMatch(html, /ABC1D23/);
+    assert.doesNotMatch(html, /45\.210 km/);
+    assert.doesNotMatch(html, /Defeito relatado/);
+    assert.doesNotMatch(html, /Não deve aparecer/);
+    assert.doesNotMatch(html, /Setor: Almox/);
+    assert.doesNotMatch(html, /Mecânico:/);
+    assert.doesNotMatch(html, /Documentos gerados/);
+    assert.doesNotMatch(html, /Aberto por:/);
+    assert.doesNotMatch(html, /Encerrado por:/);
+    assert.doesNotMatch(html, /Convertido:/);
+  });
+
+  it("mostra origem do orcamento e da OS e omite observacoes vazias", () => {
+    const input = saleInput();
+    input.sale.observations = "  ";
+    input.sale.sourceBudget = { orderNumber: 50 };
+    input.sale.sourceWorkOrder = { orderNumber: 123 };
+    input.sale.items = [
+      {
+        productCode: 10045,
+        productDescription: "Filtro de óleo",
+        quantity: "1",
+        valueUnit: "45.00",
+        valueDiscount: "0",
+        valueAcresce: "0",
+        valueTotal: "45.00",
+        productType: { type: "00" },
+        unit: { unit: "UN" },
+        sector: { description: "Almox" },
+        location: { box: "A-12", description: "Prateleira" },
+      },
+    ];
+    const html = renderSalePrintHtml(input);
+    assert.match(html, /Origem: Orçamento Nº 50 · OS Nº 123/);
+    assert.doesNotMatch(html, /Observações/);
+    assert.doesNotMatch(html, /Setor: Almox/);
+    assert.doesNotMatch(html, /Discriminação de serviços/);
+  });
+
+  it("omite toolbar no modo pdf e monta o nome do arquivo", () => {
+    const html = renderSalePrintHtml({ ...saleInput(), mode: "pdf" });
+    assert.doesNotMatch(html, /Imprimir/);
+    assert.doesNotMatch(html, /autoPrint/);
+    assert.equal(salePdfFilename(10), "PEDIDO-10.pdf");
   });
 });

@@ -49,7 +49,7 @@ export const measurementUnits = pgTable(
   (t) => [uniqueIndex("measurement_units_unit_unique").on(t.unit)],
 );
 
-// tipos de produtos. - Fechado por tenant
+// tipos de produtos. - Global
 export const productTypes = pgTable(
   "products_types",
   {
@@ -61,19 +61,10 @@ export const productTypes = pgTable(
     typeSpedId: uuid("type_sped_id")
       .notNull()
       .references(() => typeSped.id, { onDelete: "restrict" }),
-    enterprisesId: uuid("enterprises_id")
-      .notNull()
-      .references(() => enterprises.id, { onDelete: "cascade" }),
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
   },
-  (t) => [
-    uniqueIndex("products_types_enterprise_type_unique").on(
-      t.enterprisesId,
-      t.type,
-    ),
-    index("products_types_enterprise_idx").on(t.enterprisesId),
-  ],
+  (t) => [uniqueIndex("products_types_type_unique").on(t.type)],
 );
 
 // NCM de produtos. - Global
@@ -444,7 +435,7 @@ export const promotionalPrices = pgTable(
   }),
 );
 
-// tipos SPED. - Fechado por tenant
+// tipos SPED. - Global
 export const typeSped = pgTable(
   "type_sped",
   {
@@ -452,14 +443,8 @@ export const typeSped = pgTable(
     type: varchar("type", { length: 255 }).notNull(),
     description: varchar("description", { length: 255 }).notNull(),
     generateInventory: boolean("generate_inventory").notNull().default(true), // se gera inventário.
-    enterprisesId: uuid("enterprises_id")
-      .notNull()
-      .references(() => enterprises.id, { onDelete: "cascade" }),
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
   },
-  (t) => [
-    uniqueIndex("type_sped_enterprise_type_unique").on(t.enterprisesId, t.type),
-    index("type_sped_enterprise_idx").on(t.enterprisesId),
-  ],
+  (t) => [uniqueIndex("type_sped_type_unique").on(t.type)],
 );

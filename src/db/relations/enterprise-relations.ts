@@ -12,8 +12,6 @@ import {
   productBrands,
   productGroups,
   productSubgroups,
-  productTypes,
-  typeSped,
 } from "../entities/products.js";
 
 //**RELAÇÕES DE ENDEREÇOS DE EMPRESAS**//
@@ -41,8 +39,6 @@ export const enterprisesRelations = relations(enterprises, ({ many }) => ({
   productGroups: many(productGroups),
   productSubgroups: many(productSubgroups),
   productBrands: many(productBrands),
-  productTypes: many(productTypes),
-  typeSped: many(typeSped),
 }));
 
 //**RELAÇÕES DE SEQUÊNCIAS**//

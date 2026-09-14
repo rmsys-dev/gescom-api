@@ -533,6 +533,13 @@
       "when": 1788780400000,
       "tag": "0075_type_sped_product_types_enterprise",
       "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1788866800000,
+      "tag": "0076_type_sped_product_types_global",
+      "breakpoints": true
     }
   ]
 }

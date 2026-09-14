@@ -5,6 +5,8 @@ import { maintainerProductsAnpRouter } from "./products-anp/routes.js";
 import { maintainerProductsCestRouter } from "./products-cest/routes.js";
 import { maintainerProductsNbsRouter } from "./products-nbs/routes.js";
 import { maintainerProductsNcmRouter } from "./products-ncm/routes.js";
+import { maintainerTypesProductsRouter } from "./products-types/routes.js";
+import { maintainerTypeSpedRouter } from "./type-sped/routes.js";
 import { maintainerUnitsRouter } from "./units/routes.js";
 
 const maintainerProductsRouter = Router();
@@ -19,5 +21,7 @@ maintainerProductsRouter.use(
   "/pis-cofins-situation",
   maintainerPisCofinsSituationRouter,
 );
+maintainerProductsRouter.use("/type-sped", maintainerTypeSpedRouter);
+maintainerProductsRouter.use("/types-products", maintainerTypesProductsRouter);
 
 export { maintainerProductsRouter };

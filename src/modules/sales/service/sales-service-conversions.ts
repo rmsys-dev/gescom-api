@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import { sales, salesItems } from "../../../db/schema.js";
 import { ValidationError } from "../../../shared/errors/app-error.js";
@@ -30,6 +30,14 @@ import {
   buildSaleServiceFieldValues,
   type SaleConversionClosureKind,
 } from "../sale-service-shared.js";
+import {
+  assertOsEligibleForEstorno,
+  buildGeneratedSaleCancelUpdate,
+  buildGeneratedSaleItemUnlinkUpdate,
+  buildGeneratedSaleUnlinkUpdate,
+  buildOsEstornoItemUpdate,
+  buildOsEstornoWorkOrderUpdate,
+} from "../os-estorno.js";
 import { nextSaleOrderNumber } from "../sequences.js";
 import type {
   ConvertBudgetToOsInput,
@@ -1286,6 +1294,107 @@ export class SalesServiceConversions extends SalesServiceCore {
       });
 
       return this.getById(enterpriseId, generatedSaleId);
+    } catch (err) {
+      const conflict = mapSaleUniqueViolation(err);
+      if (conflict) throw conflict;
+      throw err;
+    }
+  }
+
+  public async estornoOsToOpen(
+    enterpriseId: string,
+    workOrderSaleId: string,
+    audit: EntityAuditContext,
+  ) {
+    await this.assertTrabalhaOsEnabled(enterpriseId);
+
+    try {
+      let workOrderBefore!: typeof sales.$inferSelect;
+      const cancelledBefores: (typeof sales.$inferSelect)[] = [];
+
+      await db.transaction(async (tx) => {
+        workOrderBefore = await this.getSaleRow(
+          tx,
+          enterpriseId,
+          workOrderSaleId,
+        );
+
+        const generatedSales = await tx
+          .select()
+          .from(sales)
+          .where(
+            and(
+              eq(sales.enterprisesId, enterpriseId),
+              eq(sales.sourceWorkOrderSaleId, workOrderSaleId),
+            ),
+          );
+
+        assertOsEligibleForEstorno(workOrderBefore, generatedSales);
+
+        const now = new Date();
+        const generatedCancel = buildGeneratedSaleCancelUpdate();
+        const generatedUnlink = buildGeneratedSaleUnlinkUpdate();
+        const generatedIds = generatedSales.map((generated) => generated.id);
+
+        for (const generated of generatedSales) {
+          cancelledBefores.push(generated);
+          await tx
+            .update(sales)
+            .set({
+              ...(generated.status === "CANCELADA"
+                ? generatedUnlink
+                : generatedCancel),
+              updatedAt: now,
+            })
+            .where(
+              and(
+                eq(sales.enterprisesId, enterpriseId),
+                eq(sales.id, generated.id),
+              ),
+            );
+        }
+
+        await tx
+          .update(salesItems)
+          .set({
+            ...buildGeneratedSaleItemUnlinkUpdate(),
+            updatedAt: now,
+          })
+          .where(inArray(salesItems.salesId, generatedIds));
+
+        await tx
+          .update(salesItems)
+          .set({
+            ...buildOsEstornoItemUpdate(),
+            updatedAt: now,
+          })
+          .where(eq(salesItems.salesId, workOrderSaleId));
+
+        await tx
+          .update(sales)
+          .set({
+            ...buildOsEstornoWorkOrderUpdate(),
+            updatedAt: now,
+          })
+          .where(this.scope(enterpriseId, workOrderSaleId));
+      });
+
+      for (const before of cancelledBefores) {
+        await this.recordSaleUpdateAudit(
+          enterpriseId,
+          before.id,
+          before,
+          audit,
+        );
+      }
+      await this.recordSaleUpdateAudit(
+        enterpriseId,
+        workOrderSaleId,
+        workOrderBefore,
+        audit,
+      );
+
+      return this.getById(enterpriseId, workOrderSaleId);
     } catch (err) {
       const conflict = mapSaleUniqueViolation(err);
       if (conflict) throw conflict;

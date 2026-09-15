@@ -7,7 +7,10 @@ import {
 } from "../../shared/middleware/permission-middleware.js";
 import { tenantMiddleware } from "../../shared/middleware/tenant-middleware.js";
 import { validateSchema } from "../../shared/middleware/validate-schema.js";
-import { emptyQuerySchema } from "../../shared/validation/common-schemas.js";
+import {
+  emptyBodySchema,
+  emptyQuerySchema,
+} from "../../shared/validation/common-schemas.js";
 import { salesController } from "./controller.js";
 import { salesAnalyticsRouter } from "./analytics/routes.js";
 import { salesReturnsRouter } from "./returns/routes.js";
@@ -123,6 +126,20 @@ salesRouter.post(
     query: emptyQuerySchema,
   }),
   salesController.convertOsToSale,
+);
+
+salesRouter.post(
+  "/:saleId/estorno-os",
+  authMiddleware,
+  tenantMiddleware,
+  requireOs,
+  requirePermission("alterar_vendas"),
+  validateSchema({
+    params: saleParamsSchema,
+    body: emptyBodySchema,
+    query: emptyQuerySchema,
+  }),
+  salesController.estornoOs,
 );
 
 salesRouter.get(

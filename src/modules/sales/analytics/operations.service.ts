@@ -15,6 +15,7 @@ import {
   returnLineValueSql,
 } from "./scope.js";
 import type { AnalyticsOperationsQuery } from "./schema.js";
+import { isEnterpriseParameterEnabledFor } from "../../enterprises/parameters/resolve.js";
 
 const statusLabels: Record<string, string> = {
   ABERTA: "Aberta",
@@ -73,7 +74,7 @@ export class OperationsAnalyticsService {
   /**
    * Breakdown operacional separado:
    * - salesByStatus: somente type = VENDA
-   * - operationsByStatus: ORCAMENTO + ORDEM DE SERVICO (ainda nao e venda)
+   * - operationsByStatus: ORCAMENTO; OS só entra se `trabalha_os` estiver activo
    */
   public async statusBreakdown(
     enterpriseId: string,
@@ -82,7 +83,13 @@ export class OperationsAnalyticsService {
     const period = resolveAnalyticsPeriod(query);
     const filters = extractFilters(query);
     const localDate = localCreatedDateSql(period.timezone);
-    const operationTypes = ["ORCAMENTO", "ORDEM DE SERVICO"] as const;
+    const osEnabled = await isEnterpriseParameterEnabledFor(
+      enterpriseId,
+      "trabalha_os",
+    );
+    const operationTypes = osEnabled
+      ? (["ORCAMENTO", "ORDEM DE SERVICO"] as const)
+      : (["ORCAMENTO"] as const);
 
     const filterConditions = [];
     if (filters.sellerId) filterConditions.push(eq(sales.sellerId, filters.sellerId));

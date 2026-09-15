@@ -16,13 +16,11 @@ import {
 
 export {
   AUTH_MEMBERSHIP_TTL_MS,
-  AUTH_PARAMETERS_TTL_MS,
   AUTH_PERMISSIONS_TTL_MS,
   AUTH_SESSION_TTL_MS,
   authCacheKeys,
   invalidateAuthSession,
   invalidateAuthSessions,
-  invalidateEnterpriseParameters,
   invalidateMemberPermissions,
   invalidateMembershipContext,
 } from "./auth-cache-invalidation.js";

@@ -28,6 +28,7 @@ import type {
   AnalyticsTimeseriesQuery,
   CompareMode,
 } from "./schema.js";
+import { isEnterpriseParameterEnabledFor } from "../../enterprises/parameters/resolve.js";
 
 export type PipelineKpis = {
   openSalesCount: number;
@@ -257,7 +258,13 @@ export class PipelineAnalyticsService {
   public async overview(enterpriseId: string, query: AnalyticsPeriodQuery) {
     const period = resolveAnalyticsPeriod(query);
     const filters = extractFilters(query);
-    const kpis = await fetchPipelineKpis(enterpriseId, period, filters);
+    const includeWorkOrders = await isEnterpriseParameterEnabledFor(
+      enterpriseId,
+      "trabalha_os",
+    );
+    const kpis = await fetchPipelineKpis(enterpriseId, period, filters, {
+      includeWorkOrders,
+    });
 
     return {
       period: {
@@ -280,9 +287,16 @@ export class PipelineAnalyticsService {
       throw new Error("Periodo de comparacao invalido");
     }
 
+    const includeWorkOrders = await isEnterpriseParameterEnabledFor(
+      enterpriseId,
+      "trabalha_os",
+    );
+
     const [current, comparison] = await Promise.all([
-      fetchPipelineKpis(enterpriseId, period, filters),
-      fetchPipelineKpis(enterpriseId, comparisonPeriod, filters),
+      fetchPipelineKpis(enterpriseId, period, filters, { includeWorkOrders }),
+      fetchPipelineKpis(enterpriseId, comparisonPeriod, filters, {
+        includeWorkOrders,
+      }),
     ]);
 
     return {

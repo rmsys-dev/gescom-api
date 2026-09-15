@@ -20,13 +20,27 @@ export const enterpriseParameterDefaults = {
 } as const satisfies Record<EnterpriseParameterSlug, boolean>;
 
 /**
- * Slugs omitidos em `/auth/me` quando o parâmetro está desligado.
- * `trabalha_os` não filtra permissões: veículos seguem só o RBAC.
- * OS reutiliza slugs de vendas; o bloqueio é por tipo de documento nas
- * operações de escrita (criar, alterar, excluir itens, converter).
+ * Permissões do pacote OS/veículos omitidas em `/auth/me` quando `trabalha_os`
+ * está desligado. OS reutiliza slugs de vendas (`consultar/incluir/alterar_vendas`);
+ * o bloqueio de OS é por tipo de documento nas rotas/serviço.
  */
+export const osPackagePermissionSlugs = [
+  "consultar_veiculos",
+  "consultar_veiculos_membros",
+  "consultar_comissoes_itens_venda",
+  "incluir_veiculos",
+  "incluir_veiculos_membros",
+  "incluir_comissoes_itens_venda",
+  "alterar_veiculos",
+  "alterar_veiculos_membros",
+  "alterar_comissoes_itens_venda",
+  "excluir_veiculos",
+  "excluir_veiculos_membros",
+  "excluir_comissoes_itens_venda",
+] as const;
+
 export const permissionsHiddenByParameter = {
-  trabalha_os: [],
+  trabalha_os: osPackagePermissionSlugs,
 } as const satisfies Record<EnterpriseParameterSlug, readonly string[]>;
 
 export const isEnterpriseParameterSlug = (

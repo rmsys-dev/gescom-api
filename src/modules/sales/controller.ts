@@ -285,6 +285,21 @@ export class SalesController {
     });
   };
 
+  public estornoOs = async (req: Request, res: Response): Promise<void> => {
+    const auth = (req as RequestWithAuth).auth!;
+    const enterpriseId = requireTenantEnterpriseId(auth);
+    const saleId = req.params["saleId"] as string;
+    const data = await salesService.estornoOsToOpen(
+      enterpriseId,
+      saleId,
+      auditContextFromPostAuth(auth, req, "sales.service.estornoOsToOpen"),
+    );
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Ordem de servico estornada com sucesso.",
+      data,
+    });
+  };
+
   public listSaleConversions = async (
     req: Request,
     res: Response,

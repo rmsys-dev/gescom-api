@@ -9,6 +9,7 @@ import {
   inArray,
   isNull,
   lte,
+  ne,
   notInArray,
   or,
   sql,
@@ -2889,6 +2890,7 @@ export class SalesServiceCore {
         and(
           eq(sales.enterprisesId, enterpriseId),
           eq(sales.sourceWorkOrderSaleId, workOrderSaleId),
+          ne(sales.status, "CANCELADA"),
         ),
       )
       .orderBy(asc(sales.createdAt), asc(sales.id));

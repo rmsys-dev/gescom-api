@@ -1,0 +1,182 @@
+import { and, eq, inArray, sql } from "drizzle-orm";
+import { db } from "../../../db/index.js";
+import { sales, salesItems, salesReturns } from "../../../db/schema.js";
+import { decNum, ratePercent, roundMoney } from "./metrics.js";
+import { fillDenseSeries, formatBucketLabel, pgGranularitySql, resolveAnalyticsPeriod, } from "./period.js";
+import { extractFilters, localCreatedDateSql, localReturnCreatedDateSql, returnLineValueSql, } from "./scope.js";
+import { isEnterpriseParameterEnabledFor } from "../../enterprises/parameters/resolve.js";
+const statusLabels = {
+    ABERTA: "Aberta",
+    PARCIAL: "Parcial",
+    FINALIZADA: "Finalizada",
+    CANCELADA: "Cancelada",
+    INATIVA: "Inativa",
+};
+const typeLabels = {
+    VENDA: "Venda",
+    ORCAMENTO: "Orçamento",
+    "ORDEM DE SERVICO": "Ordem de serviço",
+};
+const mapBreakdownRows = (rows, totalCount, totalValue) => rows.map((row) => {
+    const count = Number(row.count);
+    const value = roundMoney(decNum(row.value));
+    return {
+        type: row.type,
+        typeLabel: typeLabels[row.type] ?? row.type,
+        status: row.status,
+        statusLabel: statusLabels[row.status] ?? row.status,
+        label: `${typeLabels[row.type] ?? row.type} · ${statusLabels[row.status] ?? row.status}`,
+        count,
+        value,
+        sharePercent: ratePercent(count, totalCount),
+        valueSharePercent: ratePercent(value, totalValue),
+    };
+});
+const buildBreakdownSection = (rows) => {
+    const totalCount = rows.reduce((sum, r) => sum + Number(r.count), 0);
+    const totalValue = rows.reduce((sum, r) => sum + decNum(r.value), 0);
+    return {
+        breakdown: mapBreakdownRows(rows, totalCount, totalValue),
+        totalCount,
+        totalValue: roundMoney(totalValue),
+    };
+};
+/** Servico de analytics de operacoes de vendas. */
+export class OperationsAnalyticsService {
+    /**
+     * Breakdown operacional separado:
+     * - salesByStatus: somente type = VENDA
+     * - operationsByStatus: ORCAMENTO; OS só entra se `trabalha_os` estiver activo
+     */
+    async statusBreakdown(enterpriseId, query) {
+        const period = resolveAnalyticsPeriod(query);
+        const filters = extractFilters(query);
+        const localDate = localCreatedDateSql(period.timezone);
+        const osEnabled = await isEnterpriseParameterEnabledFor(enterpriseId, "trabalha_os");
+        const operationTypes = osEnabled
+            ? ["ORCAMENTO", "ORDEM DE SERVICO"]
+            : ["ORCAMENTO"];
+        const filterConditions = [];
+        if (filters.sellerId)
+            filterConditions.push(eq(sales.sellerId, filters.sellerId));
+        if (filters.memberId) {
+            filterConditions.push(eq(sales.memberId, filters.memberId));
+        }
+        const periodConditions = [
+            eq(sales.enterprisesId, enterpriseId),
+            sql `${localDate} >= ${period.from}::date`,
+            sql `${localDate} <= ${period.to}::date`,
+            ...filterConditions,
+        ];
+        const [salesRows, operationsRows] = await Promise.all([
+            db
+                .select({
+                type: sales.type,
+                status: sales.status,
+                count: sql `count(*)`,
+                value: sql `coalesce(sum(${sales.valueLiquid}), 0)`,
+            })
+                .from(sales)
+                .where(and(...periodConditions, eq(sales.type, "VENDA")))
+                .groupBy(sales.type, sales.status)
+                .orderBy(sales.status),
+            db
+                .select({
+                type: sales.type,
+                status: sales.status,
+                count: sql `count(*)`,
+                value: sql `coalesce(sum(${sales.valueLiquid}), 0)`,
+            })
+                .from(sales)
+                .where(and(...periodConditions, inArray(sales.type, [...operationTypes])))
+                .groupBy(sales.type, sales.status)
+                .orderBy(sales.type, sales.status),
+        ]);
+        return {
+            period: { from: period.from, to: period.to, timezone: period.timezone },
+            salesByStatus: buildBreakdownSection(salesRows),
+            operationsByStatus: buildBreakdownSection(operationsRows),
+        };
+    }
+    /**
+     * Card de devolucoes: linhas de sales_returns no periodo (createdAt local),
+     * taxa sobre vendas criadas no mesmo periodo.
+     */
+    async returns(enterpriseId, query) {
+        const period = resolveAnalyticsPeriod(query);
+        const filters = extractFilters(query);
+        const returnLocalDate = localReturnCreatedDateSql(period.timezone);
+        const saleLocalDate = localCreatedDateSql(period.timezone);
+        const bucket = sql `date_trunc(${pgGranularitySql("day")}, ${returnLocalDate}::timestamp)`;
+        const returnValue = returnLineValueSql();
+        const saleFilters = [
+            eq(sales.enterprisesId, enterpriseId),
+            eq(sales.type, "VENDA"),
+        ];
+        if (filters.sellerId)
+            saleFilters.push(eq(sales.sellerId, filters.sellerId));
+        if (filters.memberId) {
+            saleFilters.push(eq(sales.memberId, filters.memberId));
+        }
+        const returnsWhere = and(...saleFilters, sql `${returnLocalDate} >= ${period.from}::date`, sql `${returnLocalDate} <= ${period.to}::date`);
+        const allSalesWhere = and(...saleFilters, sql `${saleLocalDate} >= ${period.from}::date`, sql `${saleLocalDate} <= ${period.to}::date`);
+        const [totals, allSales, series] = await Promise.all([
+            db
+                .select({
+                count: sql `count(*)`,
+                returnedValue: sql `coalesce(sum(${returnValue}), 0)`,
+                salesAffected: sql `count(distinct ${salesReturns.salesId})`,
+            })
+                .from(salesReturns)
+                .innerJoin(sales, eq(salesReturns.salesId, sales.id))
+                .innerJoin(salesItems, eq(salesReturns.saleItemId, salesItems.id))
+                .where(returnsWhere),
+            db
+                .select({
+                count: sql `count(*)`,
+            })
+                .from(sales)
+                .where(allSalesWhere),
+            db
+                .select({
+                bucketStart: sql `to_char(${bucket}, 'YYYY-MM-DD')`,
+                count: sql `count(*)`,
+                returnedValue: sql `coalesce(sum(${returnValue}), 0)`,
+            })
+                .from(salesReturns)
+                .innerJoin(sales, eq(salesReturns.salesId, sales.id))
+                .innerJoin(salesItems, eq(salesReturns.saleItemId, salesItems.id))
+                .where(returnsWhere)
+                .groupBy(bucket)
+                .orderBy(bucket),
+        ]);
+        const returnCount = Number(totals[0]?.count ?? 0);
+        const salesAffected = Number(totals[0]?.salesAffected ?? 0);
+        const salesCount = Number(allSales[0]?.count ?? 0);
+        const returnedValue = roundMoney(decNum(totals[0]?.returnedValue));
+        const sparse = series.map((row) => ({
+            bucketStart: row.bucketStart,
+            count: Number(row.count),
+            returnedValue: roundMoney(decNum(row.returnedValue)),
+        }));
+        const denseSeries = fillDenseSeries(period, "day", sparse, (bucketStart, bucketLabel) => ({
+            bucketStart,
+            bucketLabel,
+            count: 0,
+            returnedValue: 0,
+        }));
+        return {
+            period: { from: period.from, to: period.to, timezone: period.timezone },
+            returnCount,
+            returnedValue,
+            salesAffected,
+            salesCount,
+            returnRatePercent: ratePercent(salesAffected, salesCount),
+            series: denseSeries.map((point) => ({
+                ...point,
+                bucketLabel: point.bucketLabel ?? formatBucketLabel(point.bucketStart, "day"),
+            })),
+        };
+    }
+}
+export const operationsAnalyticsService = new OperationsAnalyticsService();

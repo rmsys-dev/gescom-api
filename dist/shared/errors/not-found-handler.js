@@ -1,0 +1,4 @@
+import { NotFoundError } from "./app-error.js";
+export const notFoundHandler = (_req, _res, next) => {
+    next(new NotFoundError("Rota nao encontrada", "ROUTE_NOT_FOUND"));
+};

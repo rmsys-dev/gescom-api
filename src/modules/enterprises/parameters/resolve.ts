@@ -1,10 +1,5 @@
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { db, enterpriseParameters } from "../../../db/schema.js";
-import {
-  AUTH_PARAMETERS_TTL_MS,
-  authCacheKeys,
-} from "../../../shared/cache/auth-cache-invalidation.js";
-import { memoryCache } from "../../../shared/cache/memory-cache.js";
 import { ForbiddenError } from "../../../shared/errors/app-error.js";
 import {
   enterpriseParameterDefaults,
@@ -19,10 +14,10 @@ export type ResolvedEnterpriseParameters = Record<
 >;
 
 /**
- * Resolve parâmetros da empresa a partir da BD com cache em memória (TTL curto).
+ * Resolve parâmetros da empresa a partir da BD.
  * Escopo: empresa inteira, não um membro.
  */
-const loadEnterpriseParametersFromDatabase = async (
+export const resolveEnterpriseParameters = async (
   enterpriseId: string,
 ): Promise<ResolvedEnterpriseParameters> => {
   const rows = await db
@@ -41,34 +36,13 @@ const loadEnterpriseParametersFromDatabase = async (
   return serializeEnterpriseParameters(mergeEnterpriseParameters(rows));
 };
 
-export const resolveEnterpriseParameters = async (
-  enterpriseId: string,
-): Promise<ResolvedEnterpriseParameters> =>
-  memoryCache.getOrSet(
-    authCacheKeys.enterpriseParameters(enterpriseId),
-    AUTH_PARAMETERS_TTL_MS,
-    () => loadEnterpriseParametersFromDatabase(enterpriseId),
-  );
-
 export const resolveEnterpriseParametersMany = async (
   enterpriseIds: readonly string[],
 ): Promise<Map<string, ResolvedEnterpriseParameters>> => {
   const uniqueIds = [...new Set(enterpriseIds.filter(Boolean))];
   const result = new Map<string, ResolvedEnterpriseParameters>();
-  const missingIds: string[] = [];
 
-  for (const id of uniqueIds) {
-    const cached = memoryCache.get<ResolvedEnterpriseParameters>(
-      authCacheKeys.enterpriseParameters(id),
-    );
-    if (cached) {
-      result.set(id, cached);
-    } else {
-      missingIds.push(id);
-    }
-  }
-
-  if (missingIds.length === 0) {
+  if (uniqueIds.length === 0) {
     return result;
   }
 
@@ -81,13 +55,13 @@ export const resolveEnterpriseParametersMany = async (
     .from(enterpriseParameters)
     .where(
       and(
-        inArray(enterpriseParameters.enterpriseId, missingIds),
+        inArray(enterpriseParameters.enterpriseId, uniqueIds),
         isNull(enterpriseParameters.deletedAt),
       ),
     );
 
   const grouped = new Map<string, Array<{ parameter: string; enabled: boolean }>>();
-  for (const id of missingIds) {
+  for (const id of uniqueIds) {
     grouped.set(id, []);
   }
   for (const row of rows) {
@@ -98,15 +72,10 @@ export const resolveEnterpriseParametersMany = async (
   }
 
   for (const [enterpriseId, enterpriseRows] of grouped) {
-    const resolved = serializeEnterpriseParameters(
-      mergeEnterpriseParameters(enterpriseRows),
+    result.set(
+      enterpriseId,
+      serializeEnterpriseParameters(mergeEnterpriseParameters(enterpriseRows)),
     );
-    memoryCache.set(
-      authCacheKeys.enterpriseParameters(enterpriseId),
-      resolved,
-      AUTH_PARAMETERS_TTL_MS,
-    );
-    result.set(enterpriseId, resolved);
   }
 
   return result;
@@ -120,6 +89,14 @@ export const isEnterpriseParameterEnabled = (
     return enterpriseParameterDefaults[slug];
   }
   return parameters[slug] === true;
+};
+
+export const isEnterpriseParameterEnabledFor = async (
+  enterpriseId: string,
+  slug: EnterpriseParameterSlug,
+): Promise<boolean> => {
+  const parameters = await resolveEnterpriseParameters(enterpriseId);
+  return isEnterpriseParameterEnabled(parameters, slug);
 };
 
 export const assertEnterpriseParameter = (

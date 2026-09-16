@@ -5,15 +5,12 @@ import { memoryCache } from "./memory-cache.js";
 export const AUTH_SESSION_TTL_MS = 60 * MS_PER_SECOND;
 export const AUTH_MEMBERSHIP_TTL_MS = 60 * MS_PER_SECOND;
 export const AUTH_PERMISSIONS_TTL_MS = 5 * MS_PER_MINUTE;
-export const AUTH_PARAMETERS_TTL_MS = 5 * MS_PER_MINUTE;
 
 export const authCacheKeys = {
   session: (sessionId: string) => `auth:session:${sessionId}`,
   membership: (memberId: string, userId: string) =>
     `auth:membership:${memberId}:${userId}`,
   permissions: (memberId: string) => `auth:permissions:${memberId}`,
-  enterpriseParameters: (enterpriseId: string) =>
-    `auth:enterprise-parameters:${enterpriseId}`,
 } as const;
 
 export const invalidateAuthSession = (sessionId: string): void => {
@@ -35,8 +32,4 @@ export const invalidateMembershipContext = (
 
 export const invalidateMemberPermissions = (memberId: string): void => {
   memoryCache.delete(authCacheKeys.permissions(memberId));
-};
-
-export const invalidateEnterpriseParameters = (enterpriseId: string): void => {
-  memoryCache.delete(authCacheKeys.enterpriseParameters(enterpriseId));
 };

@@ -8,7 +8,6 @@ import {
 import { EntityTypes } from "../../../shared/audit/entity-types.js";
 import { toAuditRecord } from "../../../shared/audit/build-field-diff.js";
 import { NotFoundError } from "../../../shared/errors/app-error.js";
-import { invalidateEnterpriseParameters } from "../../../shared/cache/auth-cache-invalidation.js";
 import { enterpriseParameterCatalog } from "./catalog.js";
 import {
   resolveEnterpriseParameters,
@@ -118,7 +117,6 @@ export class EnterpriseParametersService {
       }
     });
 
-    invalidateEnterpriseParameters(enterpriseId);
     return resolveEnterpriseParameters(enterpriseId);
   }
 }

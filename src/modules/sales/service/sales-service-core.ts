@@ -72,6 +72,7 @@ import { PERM } from "../../auth/default-permissions.js";
 import { isAllowed, resolvePermissions } from "../../auth/permissions.js";
 import {
   assertEnterpriseParameter,
+  isEnterpriseParameterEnabled,
   resolveEnterpriseParameters,
 } from "../../enterprises/parameters/resolve.js";
 import { enterprisesService } from "../../enterprises/service.js";
@@ -560,6 +561,11 @@ export class SalesServiceCore {
     });
   }
 
+  protected async isTrabalhaOsEnabled(enterpriseId: string): Promise<boolean> {
+    const parameters = await resolveEnterpriseParameters(enterpriseId);
+    return isEnterpriseParameterEnabled(parameters, "trabalha_os");
+  }
+
   protected async assertTrabalhaOsEnabled(enterpriseId: string): Promise<void> {
     const parameters = await resolveEnterpriseParameters(enterpriseId);
     assertEnterpriseParameter({ parameters }, "trabalha_os");
@@ -574,6 +580,21 @@ export class SalesServiceCore {
     }
   }
 
+  protected async assertOsQueryAllowed(
+    enterpriseId: string,
+    query: ListSalesQuery = {},
+  ): Promise<boolean> {
+    const osEnabled = await this.isTrabalhaOsEnabled(enterpriseId);
+    if (
+      !osEnabled &&
+      (query.type === "ORDEM DE SERVICO" ||
+        query.vehiclesEnterprisesMembersId !== undefined)
+    ) {
+      await this.assertTrabalhaOsEnabled(enterpriseId);
+    }
+    return osEnabled;
+  }
+
   protected scope(enterpriseId: string, id?: string) {
     // Scope para buscar vendas
     const base = [eq(sales.enterprisesId, enterpriseId)];
@@ -581,10 +602,16 @@ export class SalesServiceCore {
     return and(...base);
   }
 
-  protected listScope(enterpriseId: string, query?: ListSalesQuery) {
+  protected listScope(
+    enterpriseId: string,
+    query?: ListSalesQuery,
+    options?: { excludeWorkOrders?: boolean },
+  ) {
     const filters: SQL[] = [eq(sales.enterprisesId, enterpriseId)];
     if (query?.type) {
       filters.push(eq(sales.type, query.type));
+    } else if (options?.excludeWorkOrders) {
+      filters.push(ne(sales.type, "ORDEM DE SERVICO"));
     }
     if (query?.status) {
       filters.push(eq(sales.status, query.status));
@@ -2827,8 +2854,11 @@ export class SalesServiceCore {
   }
 
   public async list(enterpriseId: string, query: ListSalesQuery = {}) {
+    const osEnabled = await this.assertOsQueryAllowed(enterpriseId, query);
     const { limit, offset } = resolveListPagination(query);
-    const where = this.listScope(enterpriseId, query);
+    const where = this.listScope(enterpriseId, query, {
+      excludeWorkOrders: !osEnabled,
+    });
     const [items, totalRows] = await Promise.all([
       this.listFromWithMemberJoins()
         .where(where)
@@ -3071,6 +3101,10 @@ export class SalesServiceCore {
     if (!sale) {
       throw new NotFoundError("Venda nao encontrada", "SALE_NOT_FOUND");
     }
+    const osEnabled = await this.isTrabalhaOsEnabled(enterpriseId);
+    if (sale.type === "ORDEM DE SERVICO") {
+      await this.assertTrabalhaOsEnabled(enterpriseId);
+    }
     const [
       items,
       paymentsBySaleId,
@@ -3085,7 +3119,10 @@ export class SalesServiceCore {
       this.loadSaleMemberDetail(enterpriseId, id, sale.memberId),
       this.loadSaleReturns(id),
       this.loadSaleConversionsCascade(enterpriseId, id, "linked"),
-      this.loadSaleVehicleLink(enterpriseId, sale.vehiclesEnterprisesMembersId),
+      this.loadSaleVehicleLink(
+        enterpriseId,
+        osEnabled ? sale.vehiclesEnterprisesMembersId : null,
+      ),
       this.loadUsersByIds([
         sale.userId,
         sale.sellerId,
@@ -3095,12 +3132,16 @@ export class SalesServiceCore {
     ]);
     const payments = paymentsBySaleId.get(id) ?? [];
 
-    const generatedSales =
+    const generatedSalesRaw =
       sale.type === "ORCAMENTO"
         ? await this.loadGeneratedSalesSummary(enterpriseId, id)
         : sale.type === "ORDEM DE SERVICO"
           ? await this.loadGeneratedSalesFromWorkOrder(enterpriseId, id)
           : undefined;
+    const generatedSales =
+      generatedSalesRaw === undefined || osEnabled
+        ? generatedSalesRaw
+        : generatedSalesRaw.filter((row) => row.type !== "ORDEM DE SERVICO");
 
     const sourceBudget =
       sale.sourceBudgetSaleId !== null
@@ -3111,7 +3152,7 @@ export class SalesServiceCore {
         : undefined;
 
     const sourceWorkOrder =
-      sale.sourceWorkOrderSaleId !== null
+      osEnabled && sale.sourceWorkOrderSaleId !== null
         ? await this.loadSourceDocumentSummary(
             enterpriseId,
             sale.sourceWorkOrderSaleId,
@@ -3247,6 +3288,9 @@ export class SalesServiceCore {
 
   public async listSaleConversions(enterpriseId: string, saleId: string) {
     const sale = await this.getSaleRow(db, enterpriseId, saleId);
+    if (sale.type === "ORDEM DE SERVICO") {
+      await this.assertTrabalhaOsEnabled(enterpriseId);
+    }
     if (
       sale.type !== "ORCAMENTO" &&
       sale.type !== "ORDEM DE SERVICO" &&

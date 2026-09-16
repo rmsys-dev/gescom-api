@@ -9,7 +9,6 @@ import type { RequestWithAuth } from "./auth-middleware.js";
 
 /**
  * Gate de parâmetro de empresa, análogo a `requirePermission`.
- * Usa cache em memória de `resolveEnterpriseParameters` (invalidado em mutações).
  */
 export const requireParameter = (
   parameter: EnterpriseParameterSlug,

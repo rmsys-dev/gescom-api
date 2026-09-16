@@ -39,6 +39,10 @@ import {
   buildOsEstornoWorkOrderUpdate,
 } from "../os-estorno.js";
 import { nextSaleOrderNumber } from "../sequences.js";
+import {
+  enqueueHarbourSaleSync,
+  harbourEventForSaleTransition,
+} from "../harbour-sale-sync.js";
 import type {
   ConvertBudgetToOsInput,
   ConvertBudgetToSaleInput,
@@ -1265,6 +1269,20 @@ export class SalesServiceConversions extends SalesServiceCore {
           })),
         });
 
+        await enqueueHarbourSaleSync(tx, {
+          enterprisesId: enterpriseId,
+          saleId: workOrderSaleId,
+          eventType: "OS_CONVERTED_TO_SALE",
+        });
+        const generatedEvent = harbourEventForSaleTransition("VENDA", status);
+        if (generatedEvent) {
+          await enqueueHarbourSaleSync(tx, {
+            enterprisesId: enterpriseId,
+            saleId: generatedSale.id,
+            eventType: generatedEvent,
+          });
+        }
+
         return generatedSale.id;
       });
 
@@ -1377,6 +1395,20 @@ export class SalesServiceConversions extends SalesServiceCore {
             updatedAt: now,
           })
           .where(this.scope(enterpriseId, workOrderSaleId));
+
+        await enqueueHarbourSaleSync(tx, {
+          enterprisesId: enterpriseId,
+          saleId: workOrderSaleId,
+          eventType: "OS_ESTORNO",
+        });
+        for (const generated of generatedSales) {
+          if (generated.status === "CANCELADA") continue;
+          await enqueueHarbourSaleSync(tx, {
+            enterprisesId: enterpriseId,
+            saleId: generated.id,
+            eventType: "SALE_CANCELLED",
+          });
+        }
       });
 
       for (const before of cancelledBefores) {

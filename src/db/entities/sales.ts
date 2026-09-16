@@ -28,6 +28,8 @@ import {
   axleTypeEnum,
   saleConversionTypeEnum,
   saleConversionClosureKindEnum,
+  harbourSaleSyncEventTypeEnum,
+  harbourSaleSyncStatusEnum,
 } from "../enums.js";
 import { users } from "./users.js";
 import { enterprisesMembers } from "./members.js";
@@ -563,5 +565,34 @@ export const mechanicSalesItems = pgTable(
   },
   (t) => [
     uniqueIndex("mechanic_sales_items_unique").on(t.mechanic, t.salesItemsId),
+  ],
+);
+
+// Fila de sincronizacao Harbour (DBF/CDX). Sem payload da venda.
+export const harbourSaleSyncEvents = pgTable(
+  "harbour_sale_sync_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    enterprisesId: uuid("enterprises_id")
+      .notNull()
+      .references(() => enterprises.id, { onDelete: "cascade" }),
+    saleId: uuid("sale_id")
+      .notNull()
+      .references(() => sales.id, { onDelete: "restrict" }),
+    eventType: harbourSaleSyncEventTypeEnum("event_type").notNull(),
+    status: harbourSaleSyncStatusEnum("status").notNull().default("PENDING"),
+    attempts: integer("attempts").notNull().default(0),
+    lastError: varchar("last_error", { length: 500 }),
+    createdAt: tz("created_at").defaultNow().notNull(),
+    processedAt: tz("processed_at"),
+  },
+  (t) => [
+    index("harbour_sale_sync_events_sale_id_idx").on(t.saleId),
+    index("harbour_sale_sync_events_pending_idx")
+      .on(t.enterprisesId, t.createdAt)
+      .where(sql`${t.status} = 'PENDING'`),
+    uniqueIndex("harbour_sale_sync_events_pending_unique")
+      .on(t.enterprisesId, t.saleId, t.eventType)
+      .where(sql`${t.status} = 'PENDING'`),
   ],
 );

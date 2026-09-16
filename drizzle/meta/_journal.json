@@ -540,6 +540,13 @@
       "when": 1788866800000,
       "tag": "0076_type_sped_product_types_global",
       "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1788953200000,
+      "tag": "0077_harbour_sale_sync_events",
+      "breakpoints": true
     }
   ]
 }

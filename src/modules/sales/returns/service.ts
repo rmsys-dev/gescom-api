@@ -21,6 +21,7 @@ import {
   isServiceProductTypeById,
 } from "../../../shared/products/product-type-service.js";
 import { applySaleReturnDocumentItemStockIn } from "../sale-stock.js";
+import { enqueueHarbourSaleSync } from "../harbour-sale-sync.js";
 import { nextSaleReturnOrder } from "./sequences.js";
 import { getProductEnterpriseForStock } from "../../stock/balance.js";
 import { productRequiresStockLocation } from "../../stock/stock-location.js";
@@ -328,6 +329,11 @@ export class SalesReturnsService {
       }
 
       await this.syncSaleReturnSituation(tx, saleId);
+      await enqueueHarbourSaleSync(tx, {
+        enterprisesId: enterpriseId,
+        saleId,
+        eventType: "SALE_RETURNED",
+      });
       return rows;
     });
 
@@ -390,6 +396,11 @@ export class SalesReturnsService {
       }
 
       await this.syncSaleReturnSituation(tx, saleId);
+      await enqueueHarbourSaleSync(tx, {
+        enterprisesId: enterpriseId,
+        saleId,
+        eventType: "SALE_RETURNED",
+      });
       return rows;
     });
 

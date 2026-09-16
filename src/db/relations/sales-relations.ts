@@ -11,6 +11,7 @@ import {
   salesDues,
   salesMembers,
   vehicles,
+  harbourSaleSyncEvents,
 } from "../entities/sales.js";
 import { users } from "../entities/users.js";
 import { enterprisesMembers } from "../entities/members.js";
@@ -90,6 +91,7 @@ export const salesRelations = relations(sales, ({ one, many }) => ({
     fields: [sales.vehiclesEnterprisesMembersId],
     references: [vehiclesEnterprisesMembers.id],
   }),
+  harbourSyncEvents: many(harbourSaleSyncEvents),
 }));
 
 export const salesMembersRelations = relations(salesMembers, ({ one }) => ({
@@ -308,6 +310,20 @@ export const mechanicSalesItemsRelations = relations(
     salesItem: one(salesItems, {
       fields: [mechanicSalesItems.salesItemsId],
       references: [salesItems.id],
+    }),
+  }),
+);
+
+export const harbourSaleSyncEventsRelations = relations(
+  harbourSaleSyncEvents,
+  ({ one }) => ({
+    sale: one(sales, {
+      fields: [harbourSaleSyncEvents.saleId],
+      references: [sales.id],
+    }),
+    enterprise: one(enterprises, {
+      fields: [harbourSaleSyncEvents.enterprisesId],
+      references: [enterprises.id],
     }),
   }),
 );

@@ -372,6 +372,32 @@ export const saleConversionTypeEnum = pgEnum("sale_conversion_type", [
 export type SaleConversionType =
   (typeof saleConversionTypeEnum.enumValues)[number];
 
+// Eventos da fila de sincronizacao Harbour (DBF/CDX)
+export const harbourSaleSyncEventTypeEnum = pgEnum(
+  "harbour_sale_sync_event_type",
+  [
+    "SALE_FINALIZED",
+    "SALE_CANCELLED",
+    "OS_FINALIZED",
+    "OS_CANCELLED",
+    "OS_CONVERTED_TO_SALE",
+    "OS_ESTORNO",
+    "SALE_RETURNED",
+  ],
+);
+export type HarbourSaleSyncEventType =
+  (typeof harbourSaleSyncEventTypeEnum.enumValues)[number];
+
+// Status da fila de sincronizacao Harbour
+export const harbourSaleSyncStatusEnum = pgEnum("harbour_sale_sync_status", [
+  "PENDING",
+  "PROCESSING",
+  "DONE",
+  "ERROR",
+]);
+export type HarbourSaleSyncStatus =
+  (typeof harbourSaleSyncStatusEnum.enumValues)[number];
+
 // nivel de acesso (N0 sem permissão … N6 gerenciais)
 export const accessLevelEnum = pgEnum("access_level", [
   "N0",

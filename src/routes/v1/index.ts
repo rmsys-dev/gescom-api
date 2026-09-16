@@ -38,7 +38,6 @@ import { typeSupplierCustomersRouter } from "../../modules/memberships/type-supp
 import { vehiclesRouter } from "../../modules/vehicles/vehicles/routes.js";
 import { vehiclesEnterprisesMembersRouter } from "../../modules/vehicles/vehicles-enterprises-members/routes.js";
 import { mechanicSalesItemsRouter } from "../../modules/vehicles/mechanic-sales-items/routes.js";
-import { migrationsRouter } from "../../modules/migrations/routes.js";
 
 const v1Router = Router();
 
@@ -85,6 +84,5 @@ v1Router.use(
   vehiclesEnterprisesMembersRouter,
 );
 v1Router.use("/mechanic-sales-items", mechanicSalesItemsRouter);
-v1Router.use("/migrations", migrationsRouter);
 
 export { v1Router };

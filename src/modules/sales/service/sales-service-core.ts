@@ -91,6 +91,10 @@ import {
 } from "../../stock/balance.js";
 import { productRequiresStockLocation } from "../../stock/stock-location.js";
 import {
+  enqueueHarbourSaleSync,
+  harbourEventForSaleTransition,
+} from "../harbour-sale-sync.js";
+import {
   assertSaleOrderNumberAvailable,
   nextSaleOrderNumber,
   syncSaleOrderSequenceFloor,
@@ -3560,6 +3564,15 @@ export class SalesServiceCore {
           );
         }
 
+        const eventType = harbourEventForSaleTransition(input.type, status);
+        if (eventType) {
+          await enqueueHarbourSaleSync(tx, {
+            enterprisesId: enterpriseId,
+            saleId: sale.id,
+            eventType,
+          });
+        }
+
         return sale.id;
       });
 
@@ -3929,6 +3942,20 @@ export class SalesServiceCore {
               saleId: id,
               orderNumber: row.orderNumber,
               item,
+            });
+          }
+        }
+
+        if (input.status !== undefined && input.status !== previousStatus) {
+          const eventType = harbourEventForSaleTransition(
+            existing.type,
+            nextStatus,
+          );
+          if (eventType) {
+            await enqueueHarbourSaleSync(tx, {
+              enterprisesId: enterpriseId,
+              saleId: id,
+              eventType,
             });
           }
         }

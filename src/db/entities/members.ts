@@ -1,0 +1,197 @@
+import { sql } from "drizzle-orm";
+import {
+  boolean,
+  check,
+  date,
+  index,
+  integer,
+  pgTable,
+  uniqueIndex,
+  varchar,
+  uuid,
+  decimal,
+} from "drizzle-orm/pg-core";
+import {
+  statusEnum,
+  memberClassEnum,
+  invitePurposeEnum,
+  inviteChannelEnum,
+  typeClassificationCustomersEnum,
+  passwordResetCheckStatusEnum,
+} from "../enums.js";
+import { users } from "./users.js";
+import { enterprises } from "./enterprises.js";
+import { tz, percentageDecimal } from "../functions.js";
+
+//Tabela de membros de empresas
+export const enterprisesMembers = pgTable(
+  "enterprises_members",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    code: integer("code"), // Código do membro
+    status: statusEnum("status").default("PENDENTE").notNull(), // Status do membro
+    postSalesStatus: statusEnum("post_sales_status")
+      .default("PENDENTE")
+      .notNull(), // Status pós-venda
+    class: memberClassEnum("class").notNull(), // Classe
+    observations: varchar("observations", { length: 500 }), // Observações
+    registeredOn: date("registered_on", { mode: "date" })
+      .default(sql`CURRENT_DATE`)
+      .notNull(),
+    saleLimit: decimal("sale_limit", percentageDecimal)
+      .notNull()
+      .default("0.00"), // Limite de vendas
+    exceedDiscountSale: boolean("exceed_discount_sale")
+      .notNull()
+      .default(false), // Exceder desconto de venda
+    receiptLimitDiscount: decimal("receipt_limit_discount", percentageDecimal)
+      .notNull()
+      .default("0.00"), // Limite de desconto de recebimento
+    comissionOnSight: decimal("comission_on_sight", percentageDecimal)
+      .notNull()
+      .default("0.00"), // Comissão a vista
+    comissionToTerms: decimal("comission_to_terms", percentageDecimal)
+      .notNull()
+      .default("0.00"), // Comissão a prazo
+    comissionPartial: decimal("comission_partial", percentageDecimal)
+      .notNull()
+      .default("0.00"), // Comissão parcial
+    comissionService: decimal("comission_service", percentageDecimal)
+      .notNull()
+      .default("0.00"), // Comissão de serviço
+    notifyMaturity: boolean("notify_maturity").default(false).notNull(), // Notificar vencimento
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }), // Usuário
+    enterpriseId: uuid("enterprise_id")
+      .notNull()
+      .references(() => enterprises.id, { onDelete: "restrict" }), // Empresa
+    includedBy: uuid("included_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }), // Incluído por
+    typeSupplierCustomerId: uuid("type_supplier_customer_id").references(
+      () => typeSupplierCustomers.id,
+      { onDelete: "restrict" },
+    ),
+    typeNetworkId: uuid("type_network_id").references(() => typeNetworks.id, {
+      onDelete: "restrict",
+    }),
+    approvedAt: date("approved_at", { mode: "date" }), // Data de aprovação / ativação
+    approvedBy: uuid("approved_by").references(() => users.id, {
+      onDelete: "restrict",
+    }), // Aprovado por
+    createdAt: tz("created_at").defaultNow().notNull(),
+    updatedAt: tz("updated_at"),
+    deletedAt: tz("deleted_at"),
+  },
+  (t) => [
+    uniqueIndex("enterprises_members_user_enterprise_class_active_unique")
+      .on(t.userId, t.enterpriseId, t.class)
+      .where(sql`${t.deletedAt} is null`),
+    index("enterprises_members_user_enterprise_active_idx").on(
+      t.enterpriseId,
+      t.deletedAt,
+    ),
+  ],
+);
+
+//Códigos de primeiro acesso (código de 6 dígitos, TTL limitado)
+export const userInvitations = pgTable(
+  "user_invitations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    status: statusEnum("status").default("ATIVO").notNull(),
+    checkStatus: passwordResetCheckStatusEnum("check_status")
+      .default("PENDENTE")
+      .notNull(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    purpose: invitePurposeEnum("purpose").notNull(),
+    memberId: uuid("member_id").references(() => enterprisesMembers.id, {
+      onDelete: "restrict",
+    }),
+    codeHash: varchar("code_hash", { length: 255 }).notNull(),
+    channel: inviteChannelEnum("channel").notNull(),
+    sentTo: varchar("sent_to", { length: 255 }).notNull(),
+    attempts: integer("attempts").default(0).notNull(),
+    maxAttempts: integer("max_attempts").default(5).notNull(),
+    expiresAt: tz("expires_at").notNull(),
+    verifiedAt: tz("verified_at"),
+    resetTokenHash: varchar("reset_token_hash", { length: 255 }),
+    consumedAt: tz("consumed_at"),
+    ipAddress: varchar("ip_address", { length: 64 }),
+    userAgent: varchar("user_agent", { length: 500 }),
+    createdAt: tz("created_at").defaultNow().notNull(),
+    updatedAt: tz("updated_at"),
+    deletedAt: tz("deleted_at"),
+  },
+  (t) => [
+    uniqueIndex("user_invitations_first_access_user_pending_unique")
+      .on(t.userId)
+      .where(
+        sql`${t.purpose} = 'FIRST_ACCESS'::invite_purpose and ${t.consumedAt} is null and ${t.deletedAt} is null`,
+      ),
+    uniqueIndex("user_invitations_membership_member_pending_unique")
+      .on(t.memberId)
+      .where(
+        sql`${t.purpose} = 'MEMBERSHIP_ACCEPT'::invite_purpose and ${t.memberId} is not null and ${t.consumedAt} is null and ${t.deletedAt} is null`,
+      ),
+    check("user_invitations_attempts_non_negative", sql`${t.attempts} >= 0`),
+    check(
+      "user_invitations_attempts_le_max",
+      sql`${t.attempts} <= ${t.maxAttempts}`,
+    ),
+    check(
+      "user_invitations_membership_member_required",
+      sql`${t.purpose} <> 'MEMBERSHIP_ACCEPT'::invite_purpose or ${t.memberId} is not null`,
+    ),
+    index("user_invitations_user_member_purpose_idx").on(
+      t.userId,
+      t.memberId,
+      t.purpose,
+    ),
+  ],
+);
+
+//Tabela de tipos de fornecedores/clientes
+export const typeSupplierCustomers = pgTable(
+  "type_supplier_customers",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    status: statusEnum("status").default("ATIVO").notNull(), // Status
+    description: varchar("description", { length: 255 }).notNull(), // Descrição
+    icmsReduction: decimal("icms_reduction", percentageDecimal), // Redução ICMS
+    low: boolean("low").notNull().default(false), // Baixa
+    generatesSt: boolean("generates_st").notNull().default(false), // Gera ST
+    endConsumer: boolean("end_consumer").notNull().default(false), // Consumidor final
+    classification: typeClassificationCustomersEnum("classification")
+      .notNull()
+      .default("CLIENTE"), // Classificação
+    benefitCode: varchar("benefit_code", { length: 255 }), // Código de benefício     // ainda tem que fazer a tabela de codigo beneficio
+    customerDiscount: decimal("customer_discount", percentageDecimal), // Desconto do cliente
+    createdAt: tz("created_at").defaultNow().notNull(),
+    updatedAt: tz("updated_at"),
+  },
+  (t) => [
+    uniqueIndex("type_supplier_customers_description_active_unique").on(
+      t.description,
+    ),
+  ],
+);
+
+//Tabela de tipos de redes
+export const typeNetworks = pgTable(
+  "type_networks",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    description: varchar("description", { length: 255 }).notNull(), // Descrição
+    status: statusEnum("status").default("ATIVO").notNull(), // Status
+    createdAt: tz("created_at").defaultNow().notNull(),
+    updatedAt: tz("updated_at"),
+  },
+  (t) => [
+    uniqueIndex("type_networks_description_active_unique").on(t.description),
+  ],
+);

@@ -1,0 +1,88 @@
+import { Router } from "express";
+import { addressesRouter } from "../../modules/addresses/routes.js";
+import { authRouter } from "../../modules/auth/routes.js";
+import { modulesRouter } from "../../modules/modules/routes.js";
+import { enterprisesRouter } from "../../modules/enterprises/routes.js";
+import { maintainerModulesRouter } from "../../modules/maintainer/modules/routes.js";
+import { maintainerEnterprisesRouter } from "../../modules/maintainer/enterprises/routes.js";
+import { maintainerProductsRouter } from "../../modules/maintainer/products/routes.js";
+import { unitsRouter } from "../../modules/products/units/routes.js";
+import { typesProductsRouter } from "../../modules/products/products-types/routes.js";
+import { typeSpedRouter } from "../../modules/products/type-sped/routes.js";
+import { productsNcmRouter } from "../../modules/products/products-ncm/routes.js";
+import { productsCestRouter } from "../../modules/products/products-cest/routes.js";
+import { productsAnpRouter } from "../../modules/products/products-anp/routes.js";
+import { productsNbsRouter } from "../../modules/products/products-nbs/routes.js";
+import { productGroupsRouter } from "../../modules/products/product-groups/routes.js";
+import { productSubgroupsRouter } from "../../modules/products/product-subgroups/routes.js";
+import { productBrandsRouter } from "../../modules/products/product-brands/routes.js";
+import { pisCofinsSituationRouter } from "../../modules/products/pis-cofins-situation/routes.js";
+import { icmsTaxationRouter } from "../../modules/products/icms-taxation/routes.js";
+import { sectorsRouter } from "../../modules/sector/sectors/routes.js";
+import { locationsRouter } from "../../modules/sector/locations/routes.js";
+import { stockBatchesRouter } from "../../modules/stock/stock-batches/routes.js";
+import { stockBatchBalancesRouter } from "../../modules/stock/stock-batch-balances/routes.js";
+import { paymentTypesRouter } from "../../modules/sales/payment-types/routes.js";
+import { productsRouter } from "../../modules/products/routes.js";
+import { productsEnterprisesRouter } from "../../modules/products/products-enterprises/routes.js";
+import { productTaxationRouter } from "../../modules/products/product-taxation/routes.js";
+import { productApplicationsRouter } from "../../modules/products/product-applications/routes.js";
+import { pricesRouter } from "../../modules/products/prices/routes.js";
+import { promotionalPricesRouter } from "../../modules/products/promotional-prices/routes.js";
+import { sectorsRentalRouter } from "../../modules/sector/sectors-rental/routes.js";
+import { stockMinMaxRouter } from "../../modules/stock/stock-min-max/routes.js";
+import { stockMovementsRouter } from "../../modules/stock/stock-movements/routes.js";
+import { salesRouter } from "../../modules/sales/routes.js";
+import { typeNetworksRouter } from "../../modules/memberships/type-networks/routes.js";
+import { typeSupplierCustomersRouter } from "../../modules/memberships/type-supplier-customers/routes.js";
+import { vehiclesRouter } from "../../modules/vehicles/vehicles/routes.js";
+import { vehiclesEnterprisesMembersRouter } from "../../modules/vehicles/vehicles-enterprises-members/routes.js";
+import { mechanicSalesItemsRouter } from "../../modules/vehicles/mechanic-sales-items/routes.js";
+
+const v1Router = Router();
+
+v1Router.use("/auth", authRouter);
+v1Router.use("/addresses", addressesRouter);
+v1Router.use("/enterprises", enterprisesRouter);
+v1Router.use("/modules", modulesRouter);
+v1Router.use("/maintainer/enterprises", maintainerEnterprisesRouter);
+v1Router.use("/maintainer/modules", maintainerModulesRouter);
+v1Router.use("/maintainer/products", maintainerProductsRouter);
+//NOVAS ROTAS 01/06/2026
+v1Router.use("/units", unitsRouter);
+v1Router.use("/types-products", typesProductsRouter);
+v1Router.use("/type-sped", typeSpedRouter);
+v1Router.use("/products-ncm", productsNcmRouter);
+v1Router.use("/products-cest", productsCestRouter);
+v1Router.use("/products-anp", productsAnpRouter);
+v1Router.use("/products-nbs", productsNbsRouter);
+v1Router.use("/icms-taxation", icmsTaxationRouter);
+v1Router.use("/product-groups", productGroupsRouter);
+v1Router.use("/product-subgroups", productSubgroupsRouter);
+v1Router.use("/product-brands", productBrandsRouter);
+v1Router.use("/pis-cofins-situation", pisCofinsSituationRouter);
+v1Router.use("/sectors", sectorsRouter);
+v1Router.use("/locations", locationsRouter);
+v1Router.use("/stock-batches", stockBatchesRouter);
+v1Router.use("/stock-batch-balances", stockBatchBalancesRouter);
+v1Router.use("/payment-types", paymentTypesRouter);
+v1Router.use("/products", productsRouter);
+v1Router.use("/products-enterprises", productsEnterprisesRouter);
+v1Router.use("/product-taxation", productTaxationRouter);
+v1Router.use("/product-applications", productApplicationsRouter);
+v1Router.use("/prices", pricesRouter);
+v1Router.use("/promotional-prices", promotionalPricesRouter);
+v1Router.use("/sectors-rental", sectorsRentalRouter);
+v1Router.use("/stock-min-max", stockMinMaxRouter);
+v1Router.use("/stock-movements", stockMovementsRouter);
+v1Router.use("/sales", salesRouter);
+v1Router.use("/type-networks", typeNetworksRouter);
+v1Router.use("/type-supplier-customers", typeSupplierCustomersRouter);
+v1Router.use("/vehicles", vehiclesRouter);
+v1Router.use(
+  "/vehicles-enterprises-members",
+  vehiclesEnterprisesMembersRouter,
+);
+v1Router.use("/mechanic-sales-items", mechanicSalesItemsRouter);
+
+export { v1Router };

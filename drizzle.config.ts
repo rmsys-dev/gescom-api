@@ -1,5 +1,6 @@
-import "dotenv/config";
 import { defineConfig } from "drizzle-kit";
+import { config } from "dotenv";
+config();
 
 const drizzleDatabaseUrl =
   process.env.DRIZZLE_DATABASE_URL || process.env.DATABASE_URL;

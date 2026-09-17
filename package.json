@@ -12,20 +12,7 @@
     "build": "tsc -p tsconfig.json && node src/modules/sales/print/copy-print-assets.mjs",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/**/*.test.ts",
-    "start": "node dist/server.js",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx scripts/db/apply-pending-migrations.ts",
-    "db:check-migrations": "tsx scripts/db/check-migrations-status.ts",
-    "db:check-pending-migrations": "tsx scripts/db/check-pending-migration-files.ts",
-    "db:compare-prod-schema": "tsx scripts/db/compare-prod-schema.ts",
-    "db:backup:snapshot": "tsx scripts/db/capture-pre-migration-snapshot.ts",
-    "db:push": "drizzle-kit push",
-    "db:register:pending-migration-hashes": "tsx scripts/db/register-pending-migration-hashes.ts",
-    "db:repair-pending-migration-sql": "tsx scripts/db/repair-pending-migration-sql.ts",
-    "db:sync-pending-migration-hashes": "tsx scripts/db/repair-pending-migration-sql.ts --sync-hashes-only",
-    "db:seed:admin": "tsx scripts/db/seed-base-admin.ts",
-    "db:seed:test-user": "tsx scripts/db/seed-test-user.ts",
-    "postman:generate": "node postman-collections/generate-complete-collection.mjs"
+    "start": "node dist/server.js"
   },
   "dependencies": {
     "axios": "^1.15.1",

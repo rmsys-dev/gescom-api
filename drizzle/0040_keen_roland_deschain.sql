@@ -1,2 +1,0 @@
-DROP INDEX IF EXISTS "products_description_bar_code_active_unique";--> statement-breakpoint
-CREATE UNIQUE INDEX "products_description_bar_code_active_unique" ON "products" USING btree ("description","bar_code");

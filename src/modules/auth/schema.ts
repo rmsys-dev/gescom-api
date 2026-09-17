@@ -46,9 +46,25 @@ export const firstAccessLookupSchema = z
 
 export const firstAccessVerifySchema = z
   .object({
-    loginType: loginTypeSchema,
-    login: z.string().trim().min(1).max(255),
+    email: emailSchema("email").optional(),
+    cpf: cpfOrCnpjSchema.optional(),
     code: codeSchema,
+  })
+  .refine((data) => Boolean(data.email || data.cpf), {
+    message: "Informe ao menos um dos campos: email ou cpf",
+    path: ["email"],
+  })
+  .strict();
+
+export const firstAccessConfirmSchema = z
+  .object({
+    email: emailSchema("email").optional(),
+    cpf: cpfOrCnpjSchema.optional(),
+    resetToken: z
+      .string()
+      .trim()
+      .min(20, "Campo 'resetToken' invalido")
+      .max(255),
     password: z
       .string()
       .min(8, "Campo 'password' deve ter ao menos 8 caracteres")
@@ -59,6 +75,10 @@ export const firstAccessVerifySchema = z
       .max(255),
   })
   .strict()
+  .refine((data) => Boolean(data.email || data.cpf), {
+    message: "Informe ao menos um dos campos: email ou cpf",
+    path: ["email"],
+  })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Senhas nao conferem",
     path: ["confirmPassword"],
@@ -79,9 +99,25 @@ export const passwordResetRequestSchema = z
 
 export const passwordResetVerifySchema = z
   .object({
-    loginType: loginTypeSchema,
-    login: z.string().trim().min(1).max(255),
+    email: emailSchema("email").optional(),
+    cpf: cpfOrCnpjSchema.optional(),
     code: codeSchema,
+  })
+  .refine((data) => Boolean(data.email || data.cpf), {
+    message: "Informe ao menos um dos campos: email ou cpf",
+    path: ["email"],
+  })
+  .strict();
+
+export const passwordResetConfirmSchema = z
+  .object({
+    email: emailSchema("email").optional(),
+    cpf: cpfOrCnpjSchema.optional(),
+    resetToken: z
+      .string()
+      .trim()
+      .min(20, "Campo 'resetToken' invalido")
+      .max(255),
     password: z
       .string()
       .min(8, "Campo 'password' deve ter ao menos 8 caracteres")
@@ -92,6 +128,10 @@ export const passwordResetVerifySchema = z
       .max(255),
   })
   .strict()
+  .refine((data) => Boolean(data.email || data.cpf), {
+    message: "Informe ao menos um dos campos: email ou cpf",
+    path: ["email"],
+  })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Senhas nao conferem",
     path: ["confirmPassword"],
@@ -104,12 +144,16 @@ export type RefreshInput = z.infer<typeof refreshSchema>;
 export type SwitchEnterpriseInput = z.infer<typeof switchEnterpriseSchema>;
 export type FirstAccessLookupInput = z.infer<typeof firstAccessLookupSchema>;
 export type FirstAccessVerifyInput = z.infer<typeof firstAccessVerifySchema>;
+export type FirstAccessConfirmInput = z.infer<typeof firstAccessConfirmSchema>;
 export type FirstAccessResendInput = z.infer<typeof firstAccessResendSchema>;
 export type PasswordResetRequestInput = z.infer<
   typeof passwordResetRequestSchema
 >;
 export type PasswordResetVerifyInput = z.infer<
   typeof passwordResetVerifySchema
+>;
+export type PasswordResetConfirmInput = z.infer<
+  typeof passwordResetConfirmSchema
 >;
 export type PasswordResetResendInput = z.infer<
   typeof passwordResetResendSchema

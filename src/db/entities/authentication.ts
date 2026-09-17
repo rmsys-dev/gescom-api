@@ -7,7 +7,12 @@ import {
   uniqueIndex,
   check,
 } from "drizzle-orm/pg-core";
-import { statusEnum, loginTypeEnum, inviteChannelEnum } from "../enums.js";
+import {
+  statusEnum,
+  loginTypeEnum,
+  inviteChannelEnum,
+  passwordResetCheckStatusEnum,
+} from "../enums.js";
 import { users } from "./users.js";
 import { enterprisesMembers } from "./members.js";
 import { sql } from "drizzle-orm";
@@ -86,6 +91,9 @@ export const passwordResetTokens = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     status: statusEnum("status").default("ATIVO").notNull(),
+    checkStatus: passwordResetCheckStatusEnum("check_status")
+      .default("PENDENTE")
+      .notNull(),
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
@@ -95,6 +103,8 @@ export const passwordResetTokens = pgTable(
     attempts: integer("attempts").default(0).notNull(),
     maxAttempts: integer("max_attempts").default(5).notNull(),
     expiresAt: tz("expires_at").notNull(),
+    verifiedAt: tz("verified_at"),
+    resetTokenHash: varchar("reset_token_hash", { length: 255 }),
     consumedAt: tz("consumed_at"),
     ipAddress: varchar("ip_address", { length: 64 }),
     userAgent: varchar("user_agent", { length: 500 }),

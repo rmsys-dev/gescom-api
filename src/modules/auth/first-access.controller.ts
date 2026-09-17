@@ -3,11 +3,13 @@ import { HttpStatus } from "../../shared/http/http-status.js";
 import type { RequestWithId } from "../../shared/middleware/request-id.js";
 import { sendSuccessResponse } from "../../shared/responses/send-success-response.js";
 import type {
+  FirstAccessConfirmInput,
   FirstAccessLookupInput,
   FirstAccessResendInput,
   FirstAccessVerifyInput,
 } from "./schema.js";
 import {
+  firstAccessConfirm,
   firstAccessLookup,
   firstAccessResend,
   firstAccessVerify,
@@ -19,7 +21,13 @@ const meta = (req: Request) => ({
   requestId: (req as RequestWithId).requestId ?? null,
 });
 
-const resolveLookupLogin = (body: FirstAccessLookupInput) => {
+const resolveLookupLogin = (
+  body:
+    | FirstAccessLookupInput
+    | FirstAccessResendInput
+    | FirstAccessVerifyInput
+    | FirstAccessConfirmInput,
+) => {
   if (body.email) {
     return {
       loginType: "EMAIL" as const,
@@ -53,10 +61,26 @@ export class FirstAccessController {
 
   public verify = async (req: Request, res: Response): Promise<void> => {
     const body = req.body as FirstAccessVerifyInput;
-    const response = await firstAccessVerify({
-      loginType: body.loginType,
-      login: body.login,
+    const loginInput = resolveLookupLogin(body);
+    const result = await firstAccessVerify({
+      loginType: loginInput.loginType,
+      login: loginInput.login,
       code: body.code,
+      ...meta(req),
+    });
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Codigo verificado com sucesso.",
+      data: { resetToken: result.resetToken },
+    });
+  };
+
+  public confirm = async (req: Request, res: Response): Promise<void> => {
+    const body = req.body as FirstAccessConfirmInput;
+    const loginInput = resolveLookupLogin(body);
+    const response = await firstAccessConfirm({
+      loginType: loginInput.loginType,
+      login: loginInput.login,
+      resetToken: body.resetToken,
       password: body.password,
       confirmPassword: body.confirmPassword,
       ...meta(req),

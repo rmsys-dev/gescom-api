@@ -1,9 +1,11 @@
 node_modules/
 coverage/
+
+# Pastas locais (não versionar)
 docs/
-/scripts/*
-!/scripts/db/
-!/scripts/db/**
+scripts/
+postman-collections/
+performance/
 
 .env
 .env.docker.development
@@ -29,7 +31,6 @@ pnpm-debug.log*
 # Pastas temporárias (uploads locais, scratch, etc.)
 tmp/
 temp/
-scripts/db/backups/
 
 # Chaves e certificados (não versionar material criptográfico local)
 *.pem
@@ -42,7 +43,3 @@ desktop.ini
 ehthumbs.db
 
 .idea/
-
-postman-collections/
-
-/scripts

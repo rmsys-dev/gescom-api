@@ -25,11 +25,17 @@ import {
   createInvitationRow,
   countInvitationsByUserSince,
   findApprovedActiveMembershipIdForUser,
-  findPendingInviteFirstAccessForUser,
+  findOpenInviteFirstAccessForUser,
+  findVerifiedInviteFirstAccessForUser,
+  generateInviteConfirmToken,
   generateNumericInviteCode,
+  hashInviteConfirmToken,
   incrementInviteAttempts,
   invalidatePendingInvites,
+  inviteConfirmTokensMatch,
+  isInviteConfirmWindowExpired,
   isInviteExpired,
+  markInviteVerified,
   softDeleteInvite,
   userHasAnyActiveCredential,
 } from "./invitations-repository.js";
@@ -47,6 +53,11 @@ type AuthMeta = {
   userAgent: string | null;
   requestId: string | null;
 };
+
+const genericOk = (): { ok: true } => ({ ok: true });
+
+const invalidFirstAccessError = (message = "Código inválido ou expirado") =>
+  new UnauthorizedError(message, "FIRST_ACCESS_INVALID");
 
 const resolveUserByLoginType = async (
   loginType: AuthLoginType,
@@ -101,8 +112,6 @@ export const firstAccessLookup = async (
   const normalized = normalizeLogin(input.loginType, input.login);
 
   const user = await resolveUserByLoginType(input.loginType, normalized);
-
-  const genericOk = (): { ok: true } => ({ ok: true });
 
   if (!user || user.status !== "ATIVO") {
     await writeAudit({
@@ -247,6 +256,111 @@ export const firstAccessVerify = async (
     loginType: AuthLoginType;
     login: string;
     code: string;
+  } & AuthMeta,
+): Promise<{ resetToken: string }> => {
+  const normalized = normalizeLogin(input.loginType, input.login);
+  const user = await resolveUserByLoginType(input.loginType, normalized);
+
+  if (!user || user.status !== "ATIVO") {
+    await writeAudit({
+      event: "FIRST_ACCESS_FAILED",
+      loginAttempt: input.login,
+      loginType: input.loginType,
+      ipAddress: input.ipAddress,
+      userAgent: input.userAgent,
+      requestId: input.requestId,
+      reason: "Usuario invalido para verificacao de codigo",
+    });
+    throw invalidFirstAccessError();
+  }
+
+  if (await userHasAnyActiveCredential(user.id)) {
+    await writeAudit({
+      event: "FIRST_ACCESS_FAILED",
+      userId: user.id,
+      loginAttempt: input.login,
+      loginType: input.loginType,
+      ipAddress: input.ipAddress,
+      userAgent: input.userAgent,
+      requestId: input.requestId,
+      reason: "Usuario ja possui credencial durante verify",
+    });
+    throw invalidFirstAccessError();
+  }
+
+  const invite = await findOpenInviteFirstAccessForUser(user.id);
+
+  if (!invite || isInviteExpired(invite)) {
+    if (invite) {
+      await softDeleteInvite(invite.id);
+    }
+    await writeAudit({
+      event: "FIRST_ACCESS_FAILED",
+      userId: user.id,
+      loginAttempt: input.login,
+      loginType: input.loginType,
+      ipAddress: input.ipAddress,
+      userAgent: input.userAgent,
+      requestId: input.requestId,
+      reason: "Codigo ausente ou expirado",
+    });
+    throw invalidFirstAccessError();
+  }
+
+  const codeDigits = input.code.replace(/\D/g, "");
+  const codeOk = await verifyPassword(codeDigits, invite.codeHash);
+
+  if (!codeOk) {
+    const nextAttempts = invite.attempts + 1;
+    await incrementInviteAttempts(invite.id, invite.attempts);
+    if (nextAttempts >= invite.maxAttempts) {
+      await softDeleteInvite(invite.id);
+    }
+
+    await writeAudit({
+      event: "FIRST_ACCESS_FAILED",
+      userId: user.id,
+      loginAttempt: input.login,
+      loginType: input.loginType,
+      ipAddress: input.ipAddress,
+      userAgent: input.userAgent,
+      requestId: input.requestId,
+      reason:
+        nextAttempts >= invite.maxAttempts
+          ? "Max tentativas de codigo"
+          : "Codigo incorreto",
+    });
+
+    throw invalidFirstAccessError();
+  }
+
+  const resetToken = generateInviteConfirmToken();
+  const resetTokenHash = hashInviteConfirmToken(resetToken);
+
+  await markInviteVerified({
+    inviteId: invite.id,
+    resetTokenHash,
+  });
+
+  await writeAudit({
+    event: "FIRST_ACCESS_VERIFIED",
+    userId: user.id,
+    loginAttempt: input.login,
+    loginType: input.loginType,
+    ipAddress: input.ipAddress,
+    userAgent: input.userAgent,
+    requestId: input.requestId,
+    reason: "Codigo de primeiro acesso verificado",
+  });
+
+  return { resetToken };
+};
+
+export const firstAccessConfirm = async (
+  input: {
+    loginType: AuthLoginType;
+    login: string;
+    resetToken: string;
     password: string;
     confirmPassword: string;
   } & AuthMeta,
@@ -276,17 +390,14 @@ export const firstAccessVerify = async (
       ipAddress: input.ipAddress,
       userAgent: input.userAgent,
       requestId: input.requestId,
-      reason: "Usuario invalido para primeiro acesso",
+      reason: "Usuario invalido para confirmacao de senha",
     });
-    throw new UnauthorizedError(
+    throw invalidFirstAccessError(
       "Nao foi possivel concluir o primeiro acesso",
-      "FIRST_ACCESS_INVALID",
     );
   }
 
-  const invite = await findPendingInviteFirstAccessForUser(user.id);
-
-  if (!invite || isInviteExpired(invite)) {
+  if (await userHasAnyActiveCredential(user.id)) {
     await writeAudit({
       event: "FIRST_ACCESS_FAILED",
       userId: user.id,
@@ -295,47 +406,40 @@ export const firstAccessVerify = async (
       ipAddress: input.ipAddress,
       userAgent: input.userAgent,
       requestId: input.requestId,
-      reason: "Codigo ausente ou expirado",
+      reason: "Usuario ja possui credencial durante confirm",
     });
-    throw new UnauthorizedError(
-      "Codigo invalido ou expirado",
-      "FIRST_ACCESS_INVALID",
+    throw invalidFirstAccessError(
+      "Nao foi possivel concluir o primeiro acesso",
     );
   }
 
-  const codeDigits = input.code.replace(/\D/g, "");
-  const codeOk = await verifyPassword(codeDigits, invite.codeHash);
+  const invite = await findVerifiedInviteFirstAccessForUser(user.id);
 
-  if (!codeOk) {
-    const nextAttempts = invite.attempts + 1;
-    await incrementInviteAttempts(invite.id, invite.attempts);
-    if (nextAttempts >= invite.maxAttempts) {
+  if (
+    !invite ||
+    isInviteConfirmWindowExpired(invite) ||
+    !inviteConfirmTokensMatch(input.resetToken, invite.resetTokenHash)
+  ) {
+    if (invite && isInviteConfirmWindowExpired(invite)) {
       await softDeleteInvite(invite.id);
-      await writeAudit({
-        event: "FIRST_ACCESS_FAILED",
-        userId: user.id,
-        loginAttempt: input.login,
-        loginType: input.loginType,
-        ipAddress: input.ipAddress,
-        userAgent: input.userAgent,
-        requestId: input.requestId,
-        reason: "Max tentativas de codigo",
-      });
-    } else {
-      await writeAudit({
-        event: "FIRST_ACCESS_FAILED",
-        userId: user.id,
-        loginAttempt: input.login,
-        loginType: input.loginType,
-        ipAddress: input.ipAddress,
-        userAgent: input.userAgent,
-        requestId: input.requestId,
-        reason: "Codigo incorreto",
-      });
     }
-    throw new UnauthorizedError(
-      "Codigo invalido ou expirado",
-      "FIRST_ACCESS_INVALID",
+
+    await writeAudit({
+      event: "FIRST_ACCESS_FAILED",
+      userId: user.id,
+      loginAttempt: input.login,
+      loginType: input.loginType,
+      ipAddress: input.ipAddress,
+      userAgent: input.userAgent,
+      requestId: input.requestId,
+      reason: !invite
+        ? "Invite verificado ausente"
+        : isInviteConfirmWindowExpired(invite)
+          ? "Janela de confirmacao expirada"
+          : "Reset token invalido",
+    });
+    throw invalidFirstAccessError(
+      "Nao foi possivel concluir o primeiro acesso",
     );
   }
 
@@ -357,9 +461,8 @@ export const firstAccessVerify = async (
       requestId: input.requestId,
       reason: "Usuario sem e-mail ou CPF/CNPJ cadastrado",
     });
-    throw new UnauthorizedError(
+    throw invalidFirstAccessError(
       "Nao foi possivel concluir o primeiro acesso",
-      "FIRST_ACCESS_INVALID",
     );
   }
 
@@ -377,11 +480,10 @@ export const firstAccessVerify = async (
       ipAddress: input.ipAddress,
       userAgent: input.userAgent,
       requestId: input.requestId,
-      reason: "Credencial ja existente durante verify",
+      reason: "Credencial ja existente durante confirm",
     });
-    throw new UnauthorizedError(
+    throw invalidFirstAccessError(
       "Nao foi possivel concluir o primeiro acesso",
-      "FIRST_ACCESS_INVALID",
     );
   }
 
@@ -442,7 +544,7 @@ export const firstAccessVerify = async (
   });
 
   await writeAudit({
-    event: "FIRST_ACCESS_VERIFIED",
+    event: "FIRST_ACCESS_COMPLETED",
     userId: user.id,
     loginAttempt: input.login,
     loginType: input.loginType,
@@ -450,6 +552,7 @@ export const firstAccessVerify = async (
     ipAddress: input.ipAddress,
     userAgent: input.userAgent,
     requestId: input.requestId,
+    reason: "Primeiro acesso concluido com sucesso",
   });
 
   return {

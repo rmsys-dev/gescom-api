@@ -134,6 +134,14 @@ export const inviteChannelEnum = pgEnum("invite_channel", [
   "WHATSAPP",
 ]);
 
+//Status de checagem do código de redefinição de senha
+export const passwordResetCheckStatusEnum = pgEnum(
+  "password_reset_check_status",
+  ["PENDENTE", "VERIFICADO"],
+);
+export type PasswordResetCheckStatus =
+  (typeof passwordResetCheckStatusEnum.enumValues)[number];
+
 //Classes de membros
 export const memberClassEnum = pgEnum("member_class", [
   "ADMINISTRADOR",
@@ -166,6 +174,7 @@ export const authEventEnum = pgEnum("auth_event", [
   "FIRST_ACCESS_REQUESTED",
   "FIRST_ACCESS_VERIFIED",
   "FIRST_ACCESS_FAILED",
+  "FIRST_ACCESS_COMPLETED",
   "INVITE_CREATED",
   "INVITE_ACCEPTED",
   "INVITE_DECLINED",
@@ -175,6 +184,7 @@ export const authEventEnum = pgEnum("auth_event", [
   "PASSWORD_RESET_VERIFIED",
   "PASSWORD_RESET_FAILED",
   "PASSWORD_RESET_RATE_LIMITED",
+  "PASSWORD_RESET_COMPLETED",
 ]);
 
 //Ações de auditoria de entidades de domínio

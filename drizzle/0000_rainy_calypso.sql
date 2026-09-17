@@ -1,2 +1,0 @@
--- Baseline inicial do banco (schema criado antes do versionamento das migracoes locais).
--- Esta migracao e um marcador para o Drizzle Kit; o schema base ja existe em producao.

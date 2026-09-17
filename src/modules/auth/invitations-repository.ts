@@ -199,10 +199,7 @@ export const incrementInviteAttempts = async (
     .update(userInvitations)
     .set({ attempts: previousAttempts + 1, ...touchUpdatedAt(now) })
     .where(
-      and(
-        eq(userInvitations.id, inviteId),
-        isNull(userInvitations.deletedAt),
-      ),
+      and(eq(userInvitations.id, inviteId), isNull(userInvitations.deletedAt)),
     );
 };
 
@@ -215,10 +212,7 @@ export const consumeInvite = async (
     .update(userInvitations)
     .set({ consumedAt: now, ...touchUpdatedAt(now) })
     .where(
-      and(
-        eq(userInvitations.id, inviteId),
-        isNull(userInvitations.deletedAt),
-      ),
+      and(eq(userInvitations.id, inviteId), isNull(userInvitations.deletedAt)),
     );
 };
 
@@ -231,10 +225,7 @@ export const softDeleteInvite = async (
     .update(userInvitations)
     .set(softDeleteValues(now))
     .where(
-      and(
-        eq(userInvitations.id, inviteId),
-        isNull(userInvitations.deletedAt),
-      ),
+      and(eq(userInvitations.id, inviteId), isNull(userInvitations.deletedAt)),
     );
 };
 

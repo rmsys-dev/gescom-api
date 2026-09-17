@@ -31,7 +31,10 @@ export const passwordResetConfirmTokensMatch = (
     return false;
   }
 
-  const incoming = Buffer.from(hashPasswordResetConfirmToken(plainToken), "hex");
+  const incoming = Buffer.from(
+    hashPasswordResetConfirmToken(plainToken),
+    "hex",
+  );
   const stored = Buffer.from(storedHash, "hex");
 
   if (incoming.length !== stored.length) {

@@ -12,10 +12,12 @@ import { AuthController } from "./controller.js";
 import { FirstAccessController } from "./first-access.controller.js";
 import { PasswordResetController } from "./password-reset.controller.js";
 import {
+  firstAccessConfirmSchema,
   firstAccessLookupSchema,
   firstAccessResendSchema,
   firstAccessVerifySchema,
   loginSchema,
+  passwordResetConfirmSchema,
   passwordResetRequestSchema,
   passwordResetResendSchema,
   passwordResetVerifySchema,
@@ -79,6 +81,13 @@ authRouter.post(
 );
 
 authRouter.post(
+  "/first-access/confirm",
+  firstAccessRateLimit,
+  validateSchema({ body: firstAccessConfirmSchema }),
+  firstAccessController.confirm,
+);
+
+authRouter.post(
   "/first-access/resend",
   firstAccessRateLimit,
   validateSchema({ body: firstAccessResendSchema }),
@@ -97,6 +106,13 @@ authRouter.post(
   passwordResetRateLimit,
   validateSchema({ body: passwordResetVerifySchema }),
   passwordResetController.verify,
+);
+
+authRouter.post(
+  "/password-reset/confirm",
+  passwordResetRateLimit,
+  validateSchema({ body: passwordResetConfirmSchema }),
+  passwordResetController.confirm,
 );
 
 authRouter.post(

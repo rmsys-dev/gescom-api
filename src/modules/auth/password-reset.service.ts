@@ -5,7 +5,11 @@ import {
   TooManyRequestsError,
   UnauthorizedError,
 } from "../../shared/errors/app-error.js";
-import { sendPasswordResetCode } from "../../shared/notifications/email-sender.js";
+import { logError } from "../../shared/logging/logger.js";
+import {
+  sendPasswordResetCode,
+  sendPasswordResetCompletedAlert,
+} from "../../shared/notifications/email-sender.js";
 import {
   addMinutesFromNow,
   subtractMinutesFromNow,
@@ -22,11 +26,17 @@ import {
   consumePasswordResetToken,
   countPasswordResetTokensByUserSince,
   createPasswordResetToken,
-  findPendingPasswordResetTokenForUser,
+  findOpenPasswordResetTokenForUser,
+  findVerifiedPasswordResetTokenForUser,
   generateNumericPasswordResetCode,
+  generatePasswordResetConfirmToken,
+  hashPasswordResetConfirmToken,
   incrementPasswordResetAttempts,
   invalidatePendingPasswordResetTokens,
+  isPasswordResetConfirmWindowExpired,
   isPasswordResetTokenExpired,
+  markPasswordResetTokenVerified,
+  passwordResetConfirmTokensMatch,
   softDeletePasswordResetToken,
 } from "./password-reset.repository.js";
 import { hashPassword, normalizeLogin, verifyPassword } from "./password.js";
@@ -38,6 +48,9 @@ type AuthMeta = {
 };
 
 const genericOk = (): { ok: true } => ({ ok: true });
+
+const invalidResetError = (message = "Código inválido ou expirado") =>
+  new UnauthorizedError(message, "PASSWORD_RESET_INVALID");
 
 const resolveUserByLoginType = async (
   loginType: AuthLoginType,
@@ -213,14 +226,8 @@ export const passwordResetVerify = async (
     loginType: AuthLoginType;
     login: string;
     code: string;
-    password: string;
-    confirmPassword: string;
   } & AuthMeta,
-): Promise<{ ok: true }> => {
-  if (input.password !== input.confirmPassword) {
-    throw new UnauthorizedError("Senhas nao conferem", "PASSWORD_MISMATCH");
-  }
-
+): Promise<{ resetToken: string }> => {
   const normalized = normalizeLogin(input.loginType, input.login);
   const user = await resolveUserByLoginType(input.loginType, normalized);
 
@@ -232,12 +239,9 @@ export const passwordResetVerify = async (
       ipAddress: input.ipAddress,
       userAgent: input.userAgent,
       requestId: input.requestId,
-      reason: "Usuario invalido para redefinicao de senha",
+      reason: "Usuario invalido para verificacao de codigo",
     });
-    throw new UnauthorizedError(
-      "Nao foi possivel concluir a redefinicao de senha",
-      "PASSWORD_RESET_INVALID",
-    );
+    throw invalidResetError();
   }
 
   const credentials = await findActiveCredentialsByUserId(user.id);
@@ -252,13 +256,10 @@ export const passwordResetVerify = async (
       requestId: input.requestId,
       reason: "Usuario sem credencial ativa durante verify",
     });
-    throw new UnauthorizedError(
-      "Nao foi possivel concluir a redefinicao de senha",
-      "PASSWORD_RESET_INVALID",
-    );
+    throw invalidResetError();
   }
 
-  const token = await findPendingPasswordResetTokenForUser(user.id);
+  const token = await findOpenPasswordResetTokenForUser(user.id);
 
   if (!token || isPasswordResetTokenExpired(token)) {
     if (token) {
@@ -274,10 +275,7 @@ export const passwordResetVerify = async (
       requestId: input.requestId,
       reason: "Token ausente ou expirado",
     });
-    throw new UnauthorizedError(
-      "Codigo invalido ou expirado",
-      "PASSWORD_RESET_INVALID",
-    );
+    throw invalidResetError();
   }
 
   const codeDigits = input.code.replace(/\D/g, "");
@@ -304,10 +302,101 @@ export const passwordResetVerify = async (
           : "Codigo incorreto",
     });
 
-    throw new UnauthorizedError(
-      "Codigo invalido ou expirado",
-      "PASSWORD_RESET_INVALID",
-    );
+    throw invalidResetError();
+  }
+
+  const resetToken = generatePasswordResetConfirmToken();
+  const resetTokenHash = hashPasswordResetConfirmToken(resetToken);
+
+  await markPasswordResetTokenVerified({
+    tokenId: token.id,
+    resetTokenHash,
+  });
+
+  await writeAudit({
+    event: "PASSWORD_RESET_VERIFIED",
+    userId: user.id,
+    loginAttempt: input.login,
+    loginType: input.loginType,
+    ipAddress: input.ipAddress,
+    userAgent: input.userAgent,
+    requestId: input.requestId,
+    reason: "Codigo de redefinicao verificado",
+  });
+
+  return { resetToken };
+};
+
+export const passwordResetConfirm = async (
+  input: {
+    loginType: AuthLoginType;
+    login: string;
+    resetToken: string;
+    password: string;
+    confirmPassword: string;
+  } & AuthMeta,
+): Promise<{ ok: true }> => {
+  if (input.password !== input.confirmPassword) {
+    throw new UnauthorizedError("Senhas nao conferem", "PASSWORD_MISMATCH");
+  }
+
+  const normalized = normalizeLogin(input.loginType, input.login);
+  const user = await resolveUserByLoginType(input.loginType, normalized);
+
+  if (!user || user.status !== "ATIVO") {
+    await writeAudit({
+      event: "PASSWORD_RESET_FAILED",
+      loginAttempt: input.login,
+      loginType: input.loginType,
+      ipAddress: input.ipAddress,
+      userAgent: input.userAgent,
+      requestId: input.requestId,
+      reason: "Usuario invalido para confirmacao de senha",
+    });
+    throw invalidResetError("Nao foi possivel concluir a redefinicao de senha");
+  }
+
+  const credentials = await findActiveCredentialsByUserId(user.id);
+  if (credentials.length === 0) {
+    await writeAudit({
+      event: "PASSWORD_RESET_FAILED",
+      userId: user.id,
+      loginAttempt: input.login,
+      loginType: input.loginType,
+      ipAddress: input.ipAddress,
+      userAgent: input.userAgent,
+      requestId: input.requestId,
+      reason: "Usuario sem credencial ativa durante confirm",
+    });
+    throw invalidResetError("Nao foi possivel concluir a redefinicao de senha");
+  }
+
+  const token = await findVerifiedPasswordResetTokenForUser(user.id);
+
+  if (
+    !token ||
+    isPasswordResetConfirmWindowExpired(token) ||
+    !passwordResetConfirmTokensMatch(input.resetToken, token.resetTokenHash)
+  ) {
+    if (token && isPasswordResetConfirmWindowExpired(token)) {
+      await softDeletePasswordResetToken(token.id);
+    }
+
+    await writeAudit({
+      event: "PASSWORD_RESET_FAILED",
+      userId: user.id,
+      loginAttempt: input.login,
+      loginType: input.loginType,
+      ipAddress: input.ipAddress,
+      userAgent: input.userAgent,
+      requestId: input.requestId,
+      reason: !token
+        ? "Token verificado ausente"
+        : isPasswordResetConfirmWindowExpired(token)
+          ? "Janela de confirmacao expirada"
+          : "Reset token invalido",
+    });
+    throw invalidResetError("Nao foi possivel concluir a redefinicao de senha");
   }
 
   const passwordHash = await hashPassword(input.password);
@@ -319,7 +408,7 @@ export const passwordResetVerify = async (
   });
 
   await writeAudit({
-    event: "PASSWORD_RESET_VERIFIED",
+    event: "PASSWORD_RESET_COMPLETED",
     userId: user.id,
     loginAttempt: input.login,
     loginType: input.loginType,
@@ -328,6 +417,25 @@ export const passwordResetVerify = async (
     requestId: input.requestId,
     reason: "Senha redefinida com sucesso",
   });
+
+  if (user.userEmail) {
+    try {
+      await sendPasswordResetCompletedAlert({
+        to: user.userEmail,
+        userName: user.userName,
+      });
+    } catch (error) {
+      logError({
+        event: "password_reset_alert_email_failed",
+        requestId: input.requestId,
+        userId: user.id,
+        reason:
+          error instanceof Error
+            ? error.message
+            : "Falha ao enviar e-mail de alerta de redefinicao de senha",
+      });
+    }
+  }
 
   return genericOk();
 };

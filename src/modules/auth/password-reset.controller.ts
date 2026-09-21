@@ -3,11 +3,13 @@ import { HttpStatus } from "../../shared/http/http-status.js";
 import type { RequestWithId } from "../../shared/middleware/request-id.js";
 import { sendSuccessResponse } from "../../shared/responses/send-success-response.js";
 import type {
+  PasswordResetConfirmInput,
   PasswordResetRequestInput,
   PasswordResetResendInput,
   PasswordResetVerifyInput,
 } from "./schema.js";
 import {
+  passwordResetConfirm,
   passwordResetRequest,
   passwordResetResend,
   passwordResetVerify,
@@ -20,7 +22,11 @@ const meta = (req: Request) => ({
 });
 
 const resolveLookupLogin = (
-  body: PasswordResetRequestInput | PasswordResetResendInput,
+  body:
+    | PasswordResetRequestInput
+    | PasswordResetResendInput
+    | PasswordResetVerifyInput
+    | PasswordResetConfirmInput,
 ) => {
   if (body.email) {
     return {
@@ -55,10 +61,26 @@ export class PasswordResetController {
 
   public verify = async (req: Request, res: Response): Promise<void> => {
     const body = req.body as PasswordResetVerifyInput;
-    await passwordResetVerify({
-      loginType: body.loginType,
-      login: body.login,
+    const loginInput = resolveLookupLogin(body);
+    const result = await passwordResetVerify({
+      loginType: loginInput.loginType,
+      login: loginInput.login,
       code: body.code,
+      ...meta(req),
+    });
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Codigo verificado com sucesso.",
+      data: { resetToken: result.resetToken },
+    });
+  };
+
+  public confirm = async (req: Request, res: Response): Promise<void> => {
+    const body = req.body as PasswordResetConfirmInput;
+    const loginInput = resolveLookupLogin(body);
+    await passwordResetConfirm({
+      loginType: loginInput.loginType,
+      login: loginInput.login,
+      resetToken: body.resetToken,
       password: body.password,
       confirmPassword: body.confirmPassword,
       ...meta(req),

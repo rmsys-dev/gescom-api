@@ -121,6 +121,34 @@ export const sendPasswordResetCode = async (input: {
   });
 };
 
+export const sendPasswordResetCompletedAlert = async (input: {
+  to: string;
+  userName: string;
+}): Promise<void> => {
+  const subject = "Alerta de segurança: senha redefinida";
+  const text = [
+    `Olá, ${input.userName}.`,
+    "",
+    "A senha da sua conta foi redefinida com sucesso.",
+    "",
+    "Se você não reconhece esta alteração, entre em contato com o suporte do sistema imediatamente.",
+  ].join("\n");
+
+  const html = `
+    <p>Olá, <strong>${escapeHtml(input.userName)}</strong>.</p>
+    <p>A senha da sua conta foi redefinida com sucesso.</p>
+    <p>Se você <strong>não reconhece esta alteração</strong>, entre em contato com o suporte do sistema imediatamente.</p>
+  `;
+
+  await sendEmail({
+    to: input.to,
+    subject,
+    html,
+    text,
+    fallbackErrorMessage: "Falha ao enviar e-mail de alerta de redefinicao de senha",
+  });
+};
+
 const escapeHtml = (value: string): string =>
   value
     .replace(/&/g, "&amp;")

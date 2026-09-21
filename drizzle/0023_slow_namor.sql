@@ -1,1 +1,0 @@
-ALTER TABLE "sales" ADD COLUMN "member_legal_name" varchar(255);

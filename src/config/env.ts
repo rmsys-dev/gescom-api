@@ -106,6 +106,12 @@ const envSchema = z.object({
     .default(60),
   INVITATION_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(20).default(5),
   INVITATION_CODE_LENGTH: z.coerce.number().int().min(4).max(10).default(6),
+  FIRST_ACCESS_CONFIRM_TTL_MINUTES: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(1440)
+    .default(15),
   PASSWORD_RESET_CODE_TTL_MINUTES: z.coerce
     .number()
     .int()
@@ -124,6 +130,12 @@ const envSchema = z.object({
     .min(4)
     .max(10)
     .default(6),
+  PASSWORD_RESET_CONFIRM_TTL_MINUTES: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(1440)
+    .default(15),
   CORS_ORIGINS: z
     .string()
     .transform((value) => value.trim())

@@ -1,1 +1,0 @@
-CREATE UNIQUE INDEX "products_description_active_unique" ON "products" USING btree ("description") WHERE "products"."status" = 'ATIVO' and "products"."description" is not null;

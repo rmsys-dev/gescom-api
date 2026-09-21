@@ -1,4 +1,4 @@
-import { randomInt } from "crypto";
+import { randomBytes, randomInt, timingSafeEqual } from "crypto";
 import { and, count, desc, eq, gte, isNull } from "drizzle-orm";
 import { db } from "../../db/schema.js";
 import {
@@ -12,6 +12,7 @@ import {
   softDeleteValues,
   touchUpdatedAt,
 } from "../../shared/db/record-lifecycle.js";
+import { hashRefreshToken } from "./tokens.js";
 import type { DbExecutor } from "./repository.js";
 
 export type InvitePurpose = "FIRST_ACCESS";
@@ -21,6 +22,30 @@ export const generateNumericInviteCode = (): string => {
   const max = 10 ** len - 1;
   const min = 10 ** (len - 1);
   return String(randomInt(min, max + 1));
+};
+
+export const generateInviteConfirmToken = (): string =>
+  randomBytes(32).toString("base64url");
+
+export const hashInviteConfirmToken = (token: string): string =>
+  hashRefreshToken(token);
+
+export const inviteConfirmTokensMatch = (
+  plainToken: string,
+  storedHash: string | null,
+): boolean => {
+  if (!storedHash) {
+    return false;
+  }
+
+  const incoming = Buffer.from(hashInviteConfirmToken(plainToken), "hex");
+  const stored = Buffer.from(storedHash, "hex");
+
+  if (incoming.length !== stored.length) {
+    return false;
+  }
+
+  return timingSafeEqual(incoming, stored);
 };
 
 export const invalidatePendingInvites = async (
@@ -74,12 +99,13 @@ export const createInvitationRow = async (
       ipAddress: input.ipAddress,
       userAgent: input.userAgent,
       status: "ATIVO",
+      checkStatus: "PENDENTE",
     })
     .returning();
   return row;
 };
 
-export const findPendingInviteFirstAccessForUser = async (
+export const findOpenInviteFirstAccessForUser = async (
   userId: string,
 ): Promise<typeof userInvitations.$inferSelect | null> => {
   const rows = await db
@@ -95,6 +121,54 @@ export const findPendingInviteFirstAccessForUser = async (
     )
     .limit(1);
   return rows[0] ?? null;
+};
+
+/** @deprecated Use findOpenInviteFirstAccessForUser */
+export const findPendingInviteFirstAccessForUser =
+  findOpenInviteFirstAccessForUser;
+
+export const findVerifiedInviteFirstAccessForUser = async (
+  userId: string,
+): Promise<typeof userInvitations.$inferSelect | null> => {
+  const rows = await db
+    .select()
+    .from(userInvitations)
+    .where(
+      and(
+        eq(userInvitations.userId, userId),
+        eq(userInvitations.purpose, "FIRST_ACCESS"),
+        eq(userInvitations.checkStatus, "VERIFICADO"),
+        isNull(userInvitations.consumedAt),
+        isNull(userInvitations.deletedAt),
+      ),
+    )
+    .limit(1);
+  return rows[0] ?? null;
+};
+
+export const markInviteVerified = async (
+  input: {
+    inviteId: string;
+    resetTokenHash: string;
+  },
+  executor: DbExecutor = db,
+): Promise<void> => {
+  const now = new Date();
+  await executor
+    .update(userInvitations)
+    .set({
+      checkStatus: "VERIFICADO",
+      verifiedAt: now,
+      resetTokenHash: input.resetTokenHash,
+      ...touchUpdatedAt(now),
+    })
+    .where(
+      and(
+        eq(userInvitations.id, input.inviteId),
+        isNull(userInvitations.deletedAt),
+        isNull(userInvitations.consumedAt),
+      ),
+    );
 };
 
 export const countInvitationsByUserSince = async (input: {
@@ -125,10 +199,7 @@ export const incrementInviteAttempts = async (
     .update(userInvitations)
     .set({ attempts: previousAttempts + 1, ...touchUpdatedAt(now) })
     .where(
-      and(
-        eq(userInvitations.id, inviteId),
-        isNull(userInvitations.deletedAt),
-      ),
+      and(eq(userInvitations.id, inviteId), isNull(userInvitations.deletedAt)),
     );
 };
 
@@ -141,10 +212,7 @@ export const consumeInvite = async (
     .update(userInvitations)
     .set({ consumedAt: now, ...touchUpdatedAt(now) })
     .where(
-      and(
-        eq(userInvitations.id, inviteId),
-        isNull(userInvitations.deletedAt),
-      ),
+      and(eq(userInvitations.id, inviteId), isNull(userInvitations.deletedAt)),
     );
 };
 
@@ -157,10 +225,7 @@ export const softDeleteInvite = async (
     .update(userInvitations)
     .set(softDeleteValues(now))
     .where(
-      and(
-        eq(userInvitations.id, inviteId),
-        isNull(userInvitations.deletedAt),
-      ),
+      and(eq(userInvitations.id, inviteId), isNull(userInvitations.deletedAt)),
     );
 };
 
@@ -206,3 +271,22 @@ export const findApprovedActiveMembershipIdForUser = async (
 
 export const isInviteExpired = (invite: { expiresAt: Date }): boolean =>
   invite.expiresAt.getTime() <= Date.now();
+
+export const isInviteConfirmWindowExpired = (invite: {
+  expiresAt: Date;
+  verifiedAt: Date | null;
+}): boolean => {
+  if (isInviteExpired(invite)) {
+    return true;
+  }
+
+  if (!invite.verifiedAt) {
+    return true;
+  }
+
+  const confirmDeadline =
+    invite.verifiedAt.getTime() +
+    env.FIRST_ACCESS_CONFIRM_TTL_MINUTES * 60 * 1000;
+
+  return Math.min(invite.expiresAt.getTime(), confirmDeadline) <= Date.now();
+};

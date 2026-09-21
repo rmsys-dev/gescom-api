@@ -38,6 +38,8 @@ import { typeSupplierCustomersRouter } from "../../modules/memberships/type-supp
 import { vehiclesRouter } from "../../modules/vehicles/vehicles/routes.js";
 import { vehiclesEnterprisesMembersRouter } from "../../modules/vehicles/vehicles-enterprises-members/routes.js";
 import { mechanicSalesItemsRouter } from "../../modules/vehicles/mechanic-sales-items/routes.js";
+import { nfeRouter } from "../../modules/nfe/routes.js";
+import { maintainerNfeParametersRouter } from "../../modules/maintainer/nfe/parameters/routes.js";
 
 const v1Router = Router();
 
@@ -48,6 +50,7 @@ v1Router.use("/modules", modulesRouter);
 v1Router.use("/maintainer/enterprises", maintainerEnterprisesRouter);
 v1Router.use("/maintainer/modules", maintainerModulesRouter);
 v1Router.use("/maintainer/products", maintainerProductsRouter);
+v1Router.use("/maintainer/nfe/parameters", maintainerNfeParametersRouter);
 //NOVAS ROTAS 01/06/2026
 v1Router.use("/units", unitsRouter);
 v1Router.use("/types-products", typesProductsRouter);
@@ -84,5 +87,6 @@ v1Router.use(
   vehiclesEnterprisesMembersRouter,
 );
 v1Router.use("/mechanic-sales-items", mechanicSalesItemsRouter);
+v1Router.use("/nfe", nfeRouter);
 
 export { v1Router };

@@ -133,6 +133,11 @@ const envSchema = z.object({
     .string()
     .transform((value) => value.trim())
     .pipe(z.string().min(32)),
+  NFE_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(15000),
+  NFE_SECRETS_KEY: z
+    .string()
+    .transform((value) => value.trim())
+    .pipe(z.string().min(32)),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);

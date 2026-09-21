@@ -13,6 +13,7 @@ import * as sales from "./entities/sales.js";
 import * as sector from "./entities/sector.js";
 import * as stock from "./entities/stock.js";
 import * as auditoriums from "./auditoriums.js";
+import * as nfe from "./entities/nfe.js";
 
 export * from "./entities/addresses.js";
 export * from "./entities/enterprises.js";
@@ -25,6 +26,7 @@ export * from "./entities/products.js";
 export * from "./entities/sales.js";
 export * from "./entities/sector.js";
 export * from "./entities/stock.js";
+export * from "./entities/nfe.js";
 export * from "./auditoriums.js";
 
 /**RELAÇÕES**/
@@ -69,6 +71,7 @@ const schema = {
   ...sales,
   ...sector,
   ...stock,
+  ...nfe,
   ...auditoriums,
   ...addressesRelations,
   ...enterpriseRelations,

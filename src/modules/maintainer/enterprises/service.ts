@@ -4,6 +4,7 @@ import {
   enterpriseParameters,
   enterprises,
   enterprisesMembers,
+  enterprisesNfe,
   modules,
 } from "../../../db/schema.js";
 import { cascadeSoftDeleteEnterprise } from "../../../shared/db/cascade-enterprise-soft-delete.js";
@@ -68,6 +69,10 @@ export class MaintainerEnterprisesService {
             enabled: false,
           })),
         );
+
+        await tx.insert(enterprisesNfe).values({
+          enterpriseId: created.id,
+        });
 
         const [adminModule] = await tx
           .select({ id: modules.id })

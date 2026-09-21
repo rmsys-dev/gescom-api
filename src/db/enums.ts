@@ -249,6 +249,9 @@ export const entityTypeEnum = pgEnum("entity_type", [
   "VEHICLES_ENTERPRISES_MEMBERS",
   "ENTERPRISES_MEMBER_SALES_ITEMS",
   "MECHANIC_SALES_ITEMS",
+  "NFE_PARAMETERS",
+  "ENTERPRISES_NFE",
+  "ENTERPRISES_NFE_CERTIFICATES",
 ]);
 
 export const stockMovementTypeEnum = pgEnum("stock_movement_type", [
@@ -398,6 +401,13 @@ export const harbourSaleSyncStatusEnum = pgEnum("harbour_sale_sync_status", [
 export type HarbourSaleSyncStatus =
   (typeof harbourSaleSyncStatusEnum.enumValues)[number];
 
+export const nfeCertificateStatusEnum = pgEnum("nfe_certificate_status", [
+  "ATIVO",
+  "SUBSTITUIDO",
+]);
+export type NfeCertificateStatus =
+  (typeof nfeCertificateStatusEnum.enumValues)[number];
+
 // nivel de acesso (N0 sem permissão … N6 gerenciais)
 export const accessLevelEnum = pgEnum("access_level", [
   "N0",
@@ -408,3 +418,31 @@ export const accessLevelEnum = pgEnum("access_level", [
   "N5",
   "N6",
 ]);
+
+// tipo de emissão de NFE ( PROPRIA, TERCEIRIZADA )
+export const nfeIssuanceTypeEnum = pgEnum("nfe_issuance_type", [
+  "PROPRIA",
+  "TERCEIRO",
+]);
+export type NfeIssuanceType =
+  (typeof nfeIssuanceTypeEnum.enumValues)[number];
+
+// tipo de movimento de NFE ( ENTRADA, SAIDA )
+export const nfeMovimentsEnum = pgEnum("nfe_moviments", [
+  "ENTRADA",
+  "SAIDA",
+]);
+export type NfeMoviments =
+  (typeof nfeMovimentsEnum.enumValues)[number];
+
+// situação da NF-e perante a emissão e a SEFAZ
+export const nfeInvoiceStatusEnum = pgEnum("nfe_invoice_status", [
+  "RASCUNHO",
+  "ASSINADA",
+  "AUTORIZADA",
+  "REJEITADA",
+  "CANCELADA",
+  "DENEGADA",
+]);
+export type NfeInvoiceStatus =
+  (typeof nfeInvoiceStatusEnum.enumValues)[number];

@@ -8,6 +8,11 @@ const SENSITIVE_KEYS = new Set([
   "secret",
   "code",
   "codeHash",
+  "pfx",
+  "csc",
+  "cscEncrypted",
+  "passwordEncrypted",
+  "passphrase",
 ]);
 
 export type FieldDiff = {

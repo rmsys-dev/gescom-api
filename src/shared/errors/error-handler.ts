@@ -61,6 +61,25 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
     return;
   }
 
+  if (
+    err instanceof Error &&
+    err.name === "MulterError" &&
+    "code" in err &&
+    (err as { code?: string }).code === "LIMIT_FILE_SIZE"
+  ) {
+    const payloadTooLarge = new PayloadTooLargeError(
+      "Arquivo do certificado excede o limite permitido",
+    );
+    res.status(payloadTooLarge.statusCode).json(
+      createApiErrorResponse({
+        requestId,
+        code: payloadTooLarge.code,
+        message: payloadTooLarge.message,
+      }),
+    );
+    return;
+  }
+
   if (err instanceof ZodError) {
     res.status(422).json(
       createApiErrorResponse({

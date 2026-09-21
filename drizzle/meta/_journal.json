@@ -547,6 +547,34 @@
       "when": 1788953200000,
       "tag": "0077_harbour_sale_sync_events",
       "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1789039600000,
+      "tag": "0078_nfe_parameters",
+      "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1789126000000,
+      "tag": "0079_enterprises_nfe",
+      "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1789212400000,
+      "tag": "0080_nfe_config_seed",
+      "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1789298800000,
+      "tag": "0081_nfe_invoices",
+      "breakpoints": true
     }
   ]
 }

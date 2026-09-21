@@ -4,6 +4,9 @@ import {
   enterprisesAddress,
   enterpriseParameters,
   enterprisesMembers,
+  enterprisesNfe,
+  enterprisesNfeCertificates,
+  nfeInvoices,
   enterprisesSequences,
   memberModules,
   modulePermissions,
@@ -111,6 +114,36 @@ export const cascadeSoftDeleteEnterprise = async (
       and(
         eq(enterpriseParameters.enterpriseId, enterpriseId),
         isNull(enterpriseParameters.deletedAt),
+      ),
+    );
+
+  await tx
+    .update(enterprisesNfe)
+    .set(softDeleteValues(now))
+    .where(
+      and(
+        eq(enterprisesNfe.enterpriseId, enterpriseId),
+        isNull(enterprisesNfe.deletedAt),
+      ),
+    );
+
+  await tx
+    .update(enterprisesNfeCertificates)
+    .set(softDeleteValues(now))
+    .where(
+      and(
+        eq(enterprisesNfeCertificates.enterpriseId, enterpriseId),
+        isNull(enterprisesNfeCertificates.deletedAt),
+      ),
+    );
+
+  await tx
+    .update(nfeInvoices)
+    .set(softDeleteValues(now))
+    .where(
+      and(
+        eq(nfeInvoices.enterpriseId, enterpriseId),
+        isNull(nfeInvoices.deletedAt),
       ),
     );
 

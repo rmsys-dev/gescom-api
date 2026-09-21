@@ -390,6 +390,23 @@ export const defaultModules = {
       },
     },
   },
+
+  nfe: {
+    name: "Nota fiscal eletronica",
+    description: "Comunicacao com a SEFAZ para NF-e (55) e NFC-e (65)",
+    permissions: {
+      N1: [
+        "consultar_status_sefaz",
+        "consultar_parametros_nfe",
+        "consultar_configuracao_nfe",
+      ],
+      N2: [],
+      N3: [],
+      N4: ["alterar_configuracao_nfe"],
+      N5: [],
+      N6: [],
+    },
+  },
 } as const;
 
 export type ModuleReference = keyof typeof defaultModules;
@@ -405,6 +422,7 @@ export const domainModuleReferences = [
   "enderecos",
   "vendas",
   "estoque",
+  "nfe",
 ] as const satisfies readonly ModuleReference[];
 
 export const moduleReferenceCatalog = [
@@ -635,6 +653,10 @@ export const PERM = {
   incluir_vendas: "incluir_vendas",
   alterar_vendas: "alterar_vendas",
   gerenciais_vendas: "gerenciais_vendas",
+  consultar_status_sefaz: "consultar_status_sefaz",
+  consultar_parametros_nfe: "consultar_parametros_nfe",
+  consultar_configuracao_nfe: "consultar_configuracao_nfe",
+  alterar_configuracao_nfe: "alterar_configuracao_nfe",
 } as const satisfies Record<string, PermissionSlug>;
 
 export const isPermissionSlug = (v: string): v is PermissionSlug =>

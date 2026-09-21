@@ -26,6 +26,11 @@ const LOG_SENSITIVE_EXACT_KEYS = new Set([
   "otp",
   "verificationCode",
   "payload",
+  "pfx",
+  "csc",
+  "passphrase",
+  "cscEncrypted",
+  "passwordEncrypted",
 ]);
 
 const REDACTED = "[REDACTED]";
@@ -37,7 +42,7 @@ const isSensitiveLogKey = (key: string): boolean => {
 
   const lower = key.toLowerCase();
 
-  if (lower.includes("password")) {
+  if (lower.includes("password") || lower === "pfx" || lower === "csc") {
     return true;
   }
 

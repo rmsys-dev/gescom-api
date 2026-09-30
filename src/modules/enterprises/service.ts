@@ -51,6 +51,10 @@ const mapMembershipsToListItem = (
     phone: row.enterprise!.phone,
     email: row.enterprise!.email,
     whatsapp: row.enterprise!.whatsapp,
+    stateRegistration: row.enterprise!.stateRegistration,
+    municipalRegistration: row.enterprise!.municipalRegistration,
+    suframaRegistration: row.enterprise!.suframaRegistration,
+    crt: row.enterprise!.crt,
     memberId: row.memberId,
     class: row.class,
     parameters: row.parameters,
@@ -265,6 +269,16 @@ export class EnterprisesService {
                   : null,
               }
             : {}),
+          ...(input.stateRegistration !== undefined
+            ? { stateRegistration: input.stateRegistration }
+            : {}),
+          ...(input.municipalRegistration !== undefined
+            ? { municipalRegistration: input.municipalRegistration }
+            : {}),
+          ...(input.suframaRegistration !== undefined
+            ? { suframaRegistration: input.suframaRegistration }
+            : {}),
+          ...(input.crt !== undefined ? { crt: input.crt } : {}),
           updatedAt: new Date(),
         })
         .where(whereActiveById(enterprises, id))

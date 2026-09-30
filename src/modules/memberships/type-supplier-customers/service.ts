@@ -1,4 +1,4 @@
-import { asc, count, eq } from "drizzle-orm";
+import { and, asc, count, eq } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import { typeSupplierCustomers } from "../../../db/schema.js";
 import {
@@ -20,31 +20,42 @@ import type {
   PatchTypeSupplierCustomerInput,
 } from "./schema.js";
 
+const scoped = (enterpriseId: string, id: string) =>
+  and(
+    eq(typeSupplierCustomers.id, id),
+    eq(typeSupplierCustomers.enterpriseId, enterpriseId),
+  );
+
 export class TypeSupplierCustomersService {
-  public async list(query: ListTypeSupplierCustomersQuery = {}) {
+  public async list(
+    enterpriseId: string,
+    query: ListTypeSupplierCustomersQuery = {},
+  ) {
     const { limit, offset } = resolveListPagination(query);
+    const where = eq(typeSupplierCustomers.enterpriseId, enterpriseId);
     const [items, totalRows] = await Promise.all([
       db
         .select()
         .from(typeSupplierCustomers)
+        .where(where)
         .orderBy(
           asc(typeSupplierCustomers.description),
           asc(typeSupplierCustomers.id),
         )
         .limit(limit)
         .offset(offset),
-      db.select({ c: count() }).from(typeSupplierCustomers),
+      db.select({ c: count() }).from(typeSupplierCustomers).where(where),
     ]);
     const total = Number(totalRows[0]?.c ?? 0);
     return { items, total, limit, offset };
   }
 
-  public async getById(id: string) {
+  public async getById(enterpriseId: string, id: string) {
     const row = (
       await db
         .select()
         .from(typeSupplierCustomers)
-        .where(eq(typeSupplierCustomers.id, id))
+        .where(scoped(enterpriseId, id))
         .limit(1)
     )[0];
     if (!row) {
@@ -57,6 +68,7 @@ export class TypeSupplierCustomersService {
   }
 
   public async create(
+    enterpriseId: string,
     input: CreateTypeSupplierCustomerInput,
     audit: EntityAuditContext,
   ) {
@@ -64,17 +76,13 @@ export class TypeSupplierCustomersService {
       const [row] = await db
         .insert(typeSupplierCustomers)
         .values({
+          enterpriseId,
           description: input.description.trim(),
           status: input.status ?? "ATIVO",
-          icmsReduction:
-            input.icmsReduction != null
-              ? input.icmsReduction.toString()
-              : null,
           low: input.low ?? false,
           generatesSt: input.generatesSt ?? false,
           endConsumer: input.endConsumer ?? false,
           classification: input.classification ?? "CLIENTE",
-          benefitCode: input.benefitCode?.trim() ?? null,
           customerDiscount:
             input.customerDiscount != null
               ? input.customerDiscount.toString()
@@ -101,11 +109,12 @@ export class TypeSupplierCustomersService {
   }
 
   public async patch(
+    enterpriseId: string,
     id: string,
     input: PatchTypeSupplierCustomerInput,
     audit: EntityAuditContext,
   ) {
-    const existing = await this.getById(id);
+    const existing = await this.getById(enterpriseId, id);
     try {
       const [row] = await db
         .update(typeSupplierCustomers)
@@ -114,14 +123,6 @@ export class TypeSupplierCustomersService {
             ? { description: input.description.trim() }
             : {}),
           ...(input.status !== undefined ? { status: input.status } : {}),
-          ...(input.icmsReduction !== undefined
-            ? {
-                icmsReduction:
-                  input.icmsReduction != null
-                    ? input.icmsReduction.toString()
-                    : null,
-              }
-            : {}),
           ...(input.low !== undefined ? { low: input.low } : {}),
           ...(input.generatesSt !== undefined
             ? { generatesSt: input.generatesSt }
@@ -131,9 +132,6 @@ export class TypeSupplierCustomersService {
             : {}),
           ...(input.classification !== undefined
             ? { classification: input.classification }
-            : {}),
-          ...(input.benefitCode !== undefined
-            ? { benefitCode: input.benefitCode?.trim() ?? null }
             : {}),
           ...(input.customerDiscount !== undefined
             ? {
@@ -145,7 +143,7 @@ export class TypeSupplierCustomersService {
             : {}),
           updatedAt: new Date(),
         })
-        .where(eq(typeSupplierCustomers.id, id))
+        .where(scoped(enterpriseId, id))
         .returning();
       if (!row) {
         throw new NotFoundError(
@@ -173,11 +171,15 @@ export class TypeSupplierCustomersService {
     }
   }
 
-  public async delete(id: string, audit: EntityAuditContext) {
-    const existing = await this.getById(id);
+  public async delete(
+    enterpriseId: string,
+    id: string,
+    audit: EntityAuditContext,
+  ) {
+    const existing = await this.getById(enterpriseId, id);
     const [row] = await db
       .delete(typeSupplierCustomers)
-      .where(eq(typeSupplierCustomers.id, id))
+      .where(scoped(enterpriseId, id))
       .returning();
     if (!row) {
       throw new NotFoundError(

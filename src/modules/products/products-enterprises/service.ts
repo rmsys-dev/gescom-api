@@ -15,8 +15,8 @@ import {
   productsEnterprises,
   productsNcm,
   productsNbs,
-  pisCofinsSituation,
   promotionalPrices,
+  classificationIbsCbs,
   stockBatchBalances,
   stockBatches,
   locations,
@@ -69,8 +69,8 @@ const productEnterpriseSelectFields = {
   productGroupId: productsEnterprises.productGroupId,
   productSubgroupId: productsEnterprises.productSubgroupId,
   productBrandId: productsEnterprises.productBrandId,
-  productPisCofinsSituationId: productsEnterprises.productPisCofinsSituationId,
   productTaxationId: productsEnterprises.productTaxationId,
+  classificationIbsCbsId: productsEnterprises.classificationIbsCbsId,
   controlsBatch: productsEnterprises.controlsBatch,
   controlsRental: productsEnterprises.controlsRental,
   stockBalance: productsEnterprises.stockBalance,
@@ -252,18 +252,18 @@ export class ProductsEnterprisesService {
           );
         }
       },
-      pisCofinsSituation: async (id: string) => {
+      classificationIbsCbs: async (id: string) => {
         const row = (
           await db
-            .select({ id: pisCofinsSituation.id })
-            .from(pisCofinsSituation)
-            .where(eq(pisCofinsSituation.id, id))
+            .select({ id: classificationIbsCbs.id })
+            .from(classificationIbsCbs)
+            .where(eq(classificationIbsCbs.id, id))
             .limit(1)
         )[0];
         if (!row) {
           throw new NotFoundError(
-            "Situacao PIS/COFINS nao encontrada",
-            "PIS_COFINS_SITUATION_NOT_FOUND",
+            "Classificacao IBS/CBS nao encontrada",
+            "CLASSIFICATION_IBS_CBS_NOT_FOUND",
           );
         }
       },
@@ -361,8 +361,8 @@ export class ProductsEnterprisesService {
     productGroupId: string;
     productSubgroupId: string;
     productBrandId: string;
-    productPisCofinsSituationId?: string | null;
     productTaxationId?: string | null;
+    classificationIbsCbsId?: string | null;
   },
   ) {
     await this.validateProductTypeRules(input);
@@ -375,9 +375,6 @@ export class ProductsEnterprisesService {
       fk.subgroup(input.productSubgroupId),
       fk.brand(input.productBrandId),
     ];
-    if (input.productPisCofinsSituationId) {
-      checks.push(fk.pisCofinsSituation(input.productPisCofinsSituationId));
-    }
     if (input.productTaxationId) {
       checks.push(fk.productTaxation(input.productTaxationId));
     }
@@ -392,6 +389,9 @@ export class ProductsEnterprisesService {
     }
     if (input.productNbsId) {
       checks.push(fk.nbs(input.productNbsId));
+    }
+    if (input.classificationIbsCbsId) {
+      checks.push(fk.classificationIbsCbs(input.classificationIbsCbsId));
     }
     await Promise.all(checks);
   }
@@ -427,8 +427,8 @@ export class ProductsEnterprisesService {
         productGroupId: input.productGroupId,
         productSubgroupId: input.productSubgroupId,
         productBrandId: input.productBrandId,
-        productPisCofinsSituationId: input.productPisCofinsSituationId,
         productTaxationId: input.productTaxationId,
+        classificationIbsCbsId: input.classificationIbsCbsId ?? null,
         controlsBatch: input.controlsBatch ?? false,
         controlsRental: input.controlsRental ?? false,
       })
@@ -798,7 +798,6 @@ export class ProductsEnterprisesService {
         productGroup: true,
         productSubgroup: true,
         productBrand: true,
-        productPisCofinsSituation: true,
         productTaxation: {
           with: {
             cstPisEntrada: true,
@@ -807,6 +806,9 @@ export class ProductsEnterprisesService {
             cstCofinsSaida: true,
             icmsTaxation: true,
           },
+        },
+        classificationIbsCbs: {
+          with: { cstIbsCbs: true },
         },
         productApplications: {
           orderBy: [
@@ -852,10 +854,9 @@ export class ProductsEnterprisesService {
       productSubgroupId: _productSubgroupId,
       productBrand,
       productBrandId: _productBrandId,
-      productPisCofinsSituation,
-      productPisCofinsSituationId: _productPisCofinsSituationId,
       productTaxation,
       productTaxationId: _productTaxationId,
+      classificationIbsCbs,
       productApplications,
       price,
       promotionalPrices: promotionalPricesRows,
@@ -914,8 +915,8 @@ export class ProductsEnterprisesService {
       productGroup,
       productSubgroup,
       productBrand,
-      productPisCofinsSituation: productPisCofinsSituation ?? null,
       productTaxation: productTaxationDetail,
+      classificationIbsCbs: classificationIbsCbs ?? null,
       productApplications,
       price: price ?? null,
       promotionalPrices: promotionalPricesRows,
@@ -993,10 +994,11 @@ export class ProductsEnterprisesService {
       productGroupId: input.productGroupId ?? existing.productGroupId,
       productSubgroupId: input.productSubgroupId ?? existing.productSubgroupId,
       productBrandId: input.productBrandId ?? existing.productBrandId,
-      productPisCofinsSituationId:
-        input.productPisCofinsSituationId ??
-        existing.productPisCofinsSituationId,
       productTaxationId: input.productTaxationId ?? existing.productTaxationId,
+      classificationIbsCbsId:
+        input.classificationIbsCbsId !== undefined
+          ? input.classificationIbsCbsId
+          : existing.classificationIbsCbsId,
     };
     if (
       input.measurementUnitId ||
@@ -1008,8 +1010,8 @@ export class ProductsEnterprisesService {
       input.productGroupId ||
       input.productSubgroupId ||
       input.productBrandId ||
-      input.productPisCofinsSituationId ||
-      input.productTaxationId
+      input.productTaxationId ||
+      input.classificationIbsCbsId
     ) {
       await this.validateProductFks(enterpriseId, merged);
     }
@@ -1061,13 +1063,11 @@ export class ProductsEnterprisesService {
           ...(input.productBrandId !== undefined
             ? { productBrandId: input.productBrandId }
             : {}),
-          ...(input.productPisCofinsSituationId !== undefined
-            ? {
-                productPisCofinsSituationId: input.productPisCofinsSituationId,
-              }
-            : {}),
           ...(input.productTaxationId !== undefined
             ? { productTaxationId: input.productTaxationId }
+            : {}),
+          ...(input.classificationIbsCbsId !== undefined
+            ? { classificationIbsCbsId: input.classificationIbsCbsId }
             : {}),
           ...(input.controlsBatch !== undefined
             ? { controlsBatch: input.controlsBatch }

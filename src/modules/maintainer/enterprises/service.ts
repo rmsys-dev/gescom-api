@@ -53,6 +53,10 @@ export class MaintainerEnterprisesService {
             phone: input.phone ? normalizePhone(input.phone) : null,
             email: input.email ? normalizeEmail(input.email) : null,
             whatsapp: input.whatsapp ? normalizePhone(input.whatsapp) : null,
+            stateRegistration: input.stateRegistration ?? null,
+            municipalRegistration: input.municipalRegistration ?? null,
+            suframaRegistration: input.suframaRegistration ?? null,
+            crt: input.crt ?? null,
           })
           .returning();
 

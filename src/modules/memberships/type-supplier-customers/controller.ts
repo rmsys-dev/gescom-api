@@ -5,6 +5,7 @@ import {
   auditContextFromPatchAuth,
   auditContextFromPostAuth,
 } from "../../../shared/audit/request-meta.js";
+import { BadRequestError } from "../../../shared/errors/app-error.js";
 import { HttpStatus } from "../../../shared/http/http-status.js";
 import type { RequestWithValidatedQuery } from "../../../shared/middleware/validate-schema.js";
 import {
@@ -18,12 +19,26 @@ import type {
 } from "./schema.js";
 import { typeSupplierCustomersService } from "./service.js";
 
+const requireEnterpriseId = (req: Request): string => {
+  const enterpriseId = (req as RequestWithAuth).auth.enterpriseId;
+  if (!enterpriseId) {
+    throw new BadRequestError(
+      "Contexto de empresa ausente para esta operacao",
+      "TENANT_SCOPE_REQUIRED",
+    );
+  }
+  return enterpriseId;
+};
+
 export class TypeSupplierCustomersController {
   public list = async (req: Request, res: Response): Promise<void> => {
     const query = (
       req as RequestWithValidatedQuery<ListTypeSupplierCustomersQuery>
     ).validatedQuery;
-    const page = await typeSupplierCustomersService.list(query);
+    const page = await typeSupplierCustomersService.list(
+      requireEnterpriseId(req),
+      query,
+    );
     sendPageFromService(
       res,
       HttpStatus.OK,
@@ -36,8 +51,10 @@ export class TypeSupplierCustomersController {
     const typeSupplierCustomerId = req.params[
       "typeSupplierCustomerId"
     ] as string;
-    const row =
-      await typeSupplierCustomersService.getById(typeSupplierCustomerId);
+    const row = await typeSupplierCustomersService.getById(
+      requireEnterpriseId(req),
+      typeSupplierCustomerId,
+    );
     sendSuccessResponse(res, HttpStatus.OK, {
       message: "Tipo de fornecedor/cliente recuperado com sucesso.",
       data: row,
@@ -45,14 +62,17 @@ export class TypeSupplierCustomersController {
   };
 
   public create = async (req: Request, res: Response): Promise<void> => {
+    const enterpriseId = requireEnterpriseId(req);
     const body = req.body as CreateTypeSupplierCustomerInput;
     const auth = (req as RequestWithAuth).auth!;
     const row = await typeSupplierCustomersService.create(
+      enterpriseId,
       body,
       auditContextFromPostAuth(
         auth,
         req,
         "memberships.type-supplier-customers.service.create",
+        { enterpriseId },
       ),
     );
     sendSuccessResponse(res, HttpStatus.CREATED, {
@@ -62,18 +82,21 @@ export class TypeSupplierCustomersController {
   };
 
   public patch = async (req: Request, res: Response): Promise<void> => {
+    const enterpriseId = requireEnterpriseId(req);
     const typeSupplierCustomerId = req.params[
       "typeSupplierCustomerId"
     ] as string;
     const body = req.body as PatchTypeSupplierCustomerInput;
     const auth = (req as RequestWithAuth).auth!;
     const row = await typeSupplierCustomersService.patch(
+      enterpriseId,
       typeSupplierCustomerId,
       body,
       auditContextFromPatchAuth(
         auth,
         req,
         "memberships.type-supplier-customers.service.patch",
+        { enterpriseId },
       ),
     );
     sendSuccessResponse(res, HttpStatus.OK, {
@@ -83,16 +106,19 @@ export class TypeSupplierCustomersController {
   };
 
   public delete = async (req: Request, res: Response): Promise<void> => {
+    const enterpriseId = requireEnterpriseId(req);
     const typeSupplierCustomerId = req.params[
       "typeSupplierCustomerId"
     ] as string;
     const auth = (req as RequestWithAuth).auth!;
     const row = await typeSupplierCustomersService.delete(
+      enterpriseId,
       typeSupplierCustomerId,
       auditContextFromDeleteAuth(
         auth,
         req,
         "memberships.type-supplier-customers.service.delete",
+        { enterpriseId },
       ),
     );
     sendSuccessResponse(res, HttpStatus.OK, {

@@ -446,6 +446,8 @@ export const listSalesQuerySchema = createPaginationQuerySchema(100)
     client: optionalTrimmedStringSchema("client", 255).optional(),
     dateFrom: dateOnlyIsoSchema("dateFrom").optional(),
     dateTo: dateOnlyIsoSchema("dateTo").optional(),
+    /** Exclui pedidos que já têm vínculo ativo em nfe_sales. */
+    pendingNfe: z.enum(["true", "false"]).optional(),
   })
   .superRefine((data, ctx) => {
     const hasFrom = data.dateFrom !== undefined;

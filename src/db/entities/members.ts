@@ -10,6 +10,7 @@ import {
   varchar,
   uuid,
   decimal,
+  text,
 } from "drizzle-orm/pg-core";
 import {
   statusEnum,
@@ -28,9 +29,9 @@ export const enterprisesMembers = pgTable(
   "enterprises_members",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-
     code: integer("code"), // Código do membro
     status: statusEnum("status").default("PENDENTE").notNull(), // Status do membro
+    additionalMember: text("additional_member"), // informações adicionais do membro
     postSalesStatus: statusEnum("post_sales_status")
       .default("PENDENTE")
       .notNull(), // Status pós-venda
@@ -38,7 +39,7 @@ export const enterprisesMembers = pgTable(
     observations: varchar("observations", { length: 500 }), // Observações
     registeredOn: date("registered_on", { mode: "date" })
       .default(sql`CURRENT_DATE`)
-      .notNull(),
+      .notNull(), // data de registro do membro
     saleLimit: decimal("sale_limit", percentageDecimal)
       .notNull()
       .default("0.00"), // Limite de vendas
@@ -63,13 +64,13 @@ export const enterprisesMembers = pgTable(
     notifyMaturity: boolean("notify_maturity").default(false).notNull(), // Notificar vencimento
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "restrict" }), // Usuário
+      .references(() => users.id, { onDelete: "restrict" }), // usuário que criou o membro
     enterpriseId: uuid("enterprise_id")
       .notNull()
-      .references(() => enterprises.id, { onDelete: "restrict" }), // Empresa
+      .references(() => enterprises.id, { onDelete: "restrict" }), // empresa do membro
     includedBy: uuid("included_by")
       .notNull()
-      .references(() => users.id, { onDelete: "restrict" }), // Incluído por
+      .references(() => users.id, { onDelete: "restrict" }), // usuário que incluiu o membro
     typeSupplierCustomerId: uuid("type_supplier_customer_id").references(
       () => typeSupplierCustomers.id,
       { onDelete: "restrict" },
@@ -77,10 +78,10 @@ export const enterprisesMembers = pgTable(
     typeNetworkId: uuid("type_network_id").references(() => typeNetworks.id, {
       onDelete: "restrict",
     }),
-    approvedAt: date("approved_at", { mode: "date" }), // Data de aprovação / ativação
+    approvedAt: date("approved_at", { mode: "date" }), // data de aprovação / ativação
     approvedBy: uuid("approved_by").references(() => users.id, {
       onDelete: "restrict",
-    }), // Aprovado por
+    }), // usuário que aprovou o membro
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
     deletedAt: tz("deleted_at"),
@@ -160,22 +161,24 @@ export const typeSupplierCustomers = pgTable(
   "type_supplier_customers",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    enterpriseId: uuid("enterprise_id")
+      .notNull()
+      .references(() => enterprises.id, { onDelete: "restrict" }), // empresa dona do tipo
     status: statusEnum("status").default("ATIVO").notNull(), // Status
     description: varchar("description", { length: 255 }).notNull(), // Descrição
-    icmsReduction: decimal("icms_reduction", percentageDecimal), // Redução ICMS
     low: boolean("low").notNull().default(false), // Baixa
     generatesSt: boolean("generates_st").notNull().default(false), // Gera ST
     endConsumer: boolean("end_consumer").notNull().default(false), // Consumidor final
     classification: typeClassificationCustomersEnum("classification")
       .notNull()
       .default("CLIENTE"), // Classificação
-    benefitCode: varchar("benefit_code", { length: 255 }), // Código de benefício     // ainda tem que fazer a tabela de codigo beneficio
     customerDiscount: decimal("customer_discount", percentageDecimal), // Desconto do cliente
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
   },
   (t) => [
-    uniqueIndex("type_supplier_customers_description_active_unique").on(
+    uniqueIndex("type_supplier_customers_enterprise_description_unique").on(
+      t.enterpriseId,
       t.description,
     ),
   ],
@@ -186,12 +189,18 @@ export const typeNetworks = pgTable(
   "type_networks",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    enterpriseId: uuid("enterprise_id")
+      .notNull()
+      .references(() => enterprises.id, { onDelete: "restrict" }), // empresa dona do tipo
     description: varchar("description", { length: 255 }).notNull(), // Descrição
     status: statusEnum("status").default("ATIVO").notNull(), // Status
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
   },
   (t) => [
-    uniqueIndex("type_networks_description_active_unique").on(t.description),
+    uniqueIndex("type_networks_enterprise_description_unique").on(
+      t.enterpriseId,
+      t.description,
+    ),
   ],
 );

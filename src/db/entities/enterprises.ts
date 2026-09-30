@@ -9,7 +9,12 @@ import {
   uuid,
   integer,
 } from "drizzle-orm/pg-core";
-import { statusEnum, adressTypeEnum, sequenceTypeEnum } from "../enums.js";
+import {
+  statusEnum,
+  adressTypeEnum,
+  sequenceTypeEnum,
+  regimeTributarioEnum,
+} from "../enums.js";
 import { ceps } from "../entities/addresses.js";
 import { tz } from "../functions.js";
 
@@ -18,19 +23,23 @@ export const enterprises = pgTable(
   "enterprises",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    status: statusEnum("status").default("ATIVO").notNull(),
+    status: statusEnum("status").default("ATIVO").notNull(), // Status
     registration: varchar("registration", { length: 14 }).notNull(), // CPF/CNPJ
     legalName: varchar("legal_name", { length: 255 }).notNull(), // Razão Social
     tradeName: varchar("trade_name", { length: 255 }).notNull(), // Nome Fantasia
     phone: varchar("phone", { length: 20 }), // Telefone
     email: varchar("email", { length: 255 }), // Email
     whatsapp: varchar("whatsapp", { length: 20 }), // WhatsApp
-    registeredOn: date("registered_on", { mode: "date" })
+    stateRegistration: varchar("state_registration", { length: 14 }), // Inscrição Estadual
+    municipalRegistration: varchar("municipal_registration", { length: 15 }), // Inscrição Municipal
+    suframaRegistration: varchar("suframa_registration", { length: 9 }), // Inscrição SUFRAMA
+    crt: regimeTributarioEnum("crt"), // CRT: 1 Simples Nacional, 2 excesso sublimite, 3 Regime Normal, 4 MEI
+    registeredOn: date("registered_on", { mode: "date" }) // Data de registro
       .default(sql`CURRENT_DATE`)
       .notNull(),
-    createdAt: tz("created_at").defaultNow().notNull(),
-    updatedAt: tz("updated_at"),
-    deletedAt: tz("deleted_at"),
+    createdAt: tz("created_at").defaultNow().notNull(), // Data de criação
+    updatedAt: tz("updated_at"), // Data de atualização   
+    deletedAt: tz("deleted_at"), // Data de exclusão
   },
   (t) => [
     uniqueIndex("enterprises_registration_active_unique")

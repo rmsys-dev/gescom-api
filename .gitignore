@@ -32,6 +32,9 @@ pnpm-debug.log*
 tmp/
 temp/
 
+# XML fiscal das notas (NFE_XML_DIR)
+storage/
+
 # Chaves e certificados (não versionar material criptográfico local)
 *.pem
 *.p12
@@ -43,3 +46,5 @@ desktop.ini
 ehthumbs.db
 
 .idea/
+
+dist/

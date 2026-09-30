@@ -6,6 +6,7 @@ import { typeSupplierCustomers } from "../entities/members.js";
 import { typeNetworks } from "../entities/members.js";
 import { mechanicSalesItems } from "../entities/sales.js";
 import { memberModules } from "../entities/modules.js";
+import { benefitTypeCostumers, nfeHeaders } from "../entities/nfe.js";
 
 //**RELAÇÕES DE MEMBROS DE EMPRESAS**//
 export const enterprisesMembersRelations = relations(
@@ -30,16 +31,30 @@ export const enterprisesMembersRelations = relations(
     modules: many(memberModules),
     invitations: many(userInvitations),
     mechanicSalesItems: many(mechanicSalesItems),
+    nfeEmitted: many(nfeHeaders, { relationName: "nfeEmitMember" }),
+    nfeReceived: many(nfeHeaders, { relationName: "nfeDestMember" }),
   }),
 );
 
 export const typeSupplierCustomersRelations = relations(
   typeSupplierCustomers,
-  ({ many }) => ({
+  ({ one, many }) => ({
+    enterprise: one(enterprises, {
+      fields: [typeSupplierCustomers.enterpriseId],
+      references: [enterprises.id],
+    }),
     members: many(enterprisesMembers),
+    benefits: many(benefitTypeCostumers),
   }),
 );
 
-export const typeNetworksRelations = relations(typeNetworks, ({ many }) => ({
-  members: many(enterprisesMembers),
-}));
+export const typeNetworksRelations = relations(
+  typeNetworks,
+  ({ one, many }) => ({
+    enterprise: one(enterprises, {
+      fields: [typeNetworks.enterpriseId],
+      references: [enterprises.id],
+    }),
+    members: many(enterprisesMembers),
+  }),
+);

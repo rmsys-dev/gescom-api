@@ -1,4 +1,4 @@
-import { and, asc, count, eq } from "drizzle-orm";
+import { and, asc, count, eq, ilike, or, sql } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import { prices, productsEnterprises } from "../../../db/schema.js";
 import {
@@ -23,15 +23,24 @@ import type {
 } from "./schema.js";
 
 export class PricesService {
-  private scope(enterpriseId: string, id?: string) {
+  private scope(enterpriseId: string, id?: string, search?: string) {
     const base = [eq(productsEnterprises.enterprisesId, enterpriseId)];
     if (id) base.push(eq(prices.id, id));
+    const term = search?.trim();
+    if (term) {
+      const like = `%${term}%`;
+      const match = or(
+        ilike(productsEnterprises.description, like),
+        sql`cast(${productsEnterprises.code} as text) ilike ${like}`,
+      );
+      if (match) base.push(match);
+    }
     return and(...base);
   }
 
   public async list(enterpriseId: string, query: ListPricesQuery = {}) {
     const { limit, offset } = resolveListPagination(query);
-    const where = this.scope(enterpriseId);
+    const where = this.scope(enterpriseId, undefined, query.search);
     const [items, totalRows] = await Promise.all([
       db
         .select({

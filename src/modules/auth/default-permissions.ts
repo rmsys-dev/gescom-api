@@ -142,7 +142,7 @@ export const defaultModules = {
       N3: [],
       N4: ["alterar_empresas"],
       N5: [],
-      N6: [],
+      N6: ["gerenciais_auditoria"],
     },
   },
 
@@ -399,10 +399,12 @@ export const defaultModules = {
         "consultar_status_sefaz",
         "consultar_parametros_nfe",
         "consultar_configuracao_nfe",
+        "consultar_cadastros_nfe",
+        "consultar_nfe",
       ],
       N2: [],
-      N3: [],
-      N4: ["alterar_configuracao_nfe"],
+      N3: ["incluir_nfe"],
+      N4: ["alterar_configuracao_nfe", "alterar_nfe"],
       N5: [],
       N6: [],
     },
@@ -657,6 +659,10 @@ export const PERM = {
   consultar_parametros_nfe: "consultar_parametros_nfe",
   consultar_configuracao_nfe: "consultar_configuracao_nfe",
   alterar_configuracao_nfe: "alterar_configuracao_nfe",
+  consultar_cadastros_nfe: "consultar_cadastros_nfe",
+  consultar_nfe: "consultar_nfe",
+  incluir_nfe: "incluir_nfe",
+  alterar_nfe: "alterar_nfe",
 } as const satisfies Record<string, PermissionSlug>;
 
 export const isPermissionSlug = (v: string): v is PermissionSlug =>

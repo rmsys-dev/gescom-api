@@ -22,6 +22,7 @@ import { enterprises } from "../entities/enterprises.js";
 import { typeSped } from "../entities/products.js";
 import { stockBatches } from "../entities/stock.js";
 import { sectorsRental } from "../entities/sector.js";
+import { anexosRt, classificationIbsCbs, nfeItems } from "../entities/nfe.js";
 
 export const productsRelations = relations(products, ({ many }) => ({
   productsEnterprises: many(productsEnterprises),
@@ -75,13 +76,13 @@ export const productsEnterprisesRelations = relations(
       fields: [productsEnterprises.productBrandId],
       references: [productBrands.id],
     }),
-    productPisCofinsSituation: one(pisCofinsSituation, {
-      fields: [productsEnterprises.productPisCofinsSituationId],
-      references: [pisCofinsSituation.id],
-    }),
     productTaxation: one(productTaxation, {
       fields: [productsEnterprises.productTaxationId],
       references: [productTaxation.id],
+    }),
+    classificationIbsCbs: one(classificationIbsCbs, {
+      fields: [productsEnterprises.classificationIbsCbsId],
+      references: [classificationIbsCbs.id],
     }),
     productApplications: many(productApplication),
     price: one(prices, {
@@ -91,6 +92,7 @@ export const productsEnterprisesRelations = relations(
     promotionalPrices: many(promotionalPrices),
     sectorsRental: many(sectorsRental),
     stockBatches: many(stockBatches),
+    nfeItems: many(nfeItems),
   }),
 );
 
@@ -117,6 +119,7 @@ export const productTypesRelations = relations(
 // relações da tabela de NCM de produtos.
 export const productsNcmRelations = relations(productsNcm, ({ many }) => ({
   productsEnterprises: many(productsEnterprises),
+  anexosRt: many(anexosRt),
 }));
 
 // relações da tabela de CEST de produtos.

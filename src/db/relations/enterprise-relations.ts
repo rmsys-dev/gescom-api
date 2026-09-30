@@ -6,13 +6,24 @@ import {
   enterprisesSequences,
 } from "../entities/enterprises.js";
 import { ceps } from "../entities/addresses.js";
-import { enterprisesMembers } from "../entities/members.js";
+import {
+  enterprisesMembers,
+  typeNetworks,
+  typeSupplierCustomers,
+} from "../entities/members.js";
 import { sectors } from "../entities/sector.js";
 import {
   productBrands,
   productGroups,
   productSubgroups,
 } from "../entities/products.js";
+import {
+  cfopsEnterprises,
+  enterprisesNfe,
+  enterprisesNfeCertificates,
+  nfeEvents,
+  nfeHeaders,
+} from "../entities/nfe.js";
 
 //**RELAÇÕES DE ENDEREÇOS DE EMPRESAS**//
 export const enterprisesAddressRelations = relations(
@@ -39,6 +50,13 @@ export const enterprisesRelations = relations(enterprises, ({ many }) => ({
   productGroups: many(productGroups),
   productSubgroups: many(productSubgroups),
   productBrands: many(productBrands),
+  nfeConfig: many(enterprisesNfe),
+  nfeCertificates: many(enterprisesNfeCertificates),
+  nfeHeaders: many(nfeHeaders),
+  nfeEvents: many(nfeEvents),
+  cfops: many(cfopsEnterprises),
+  typeSupplierCustomers: many(typeSupplierCustomers),
+  typeNetworks: many(typeNetworks),
 }));
 
 //**RELAÇÕES DE SEQUÊNCIAS**//

@@ -5,6 +5,8 @@ import { nfeCertInvalidError } from "./errors.js";
 
 export type LoadedClientCert = {
   cert: string;
+  /** Certificado do titular, sem a cadeia, para o KeyInfo da NF-e. */
+  leafCert: string;
   key: string;
 };
 
@@ -148,6 +150,7 @@ export const inspectPfx = (pfx: Buffer, passphrase: string): InspectedPfx => {
       cert: certificates
         .map((certificate) => forge.pki.certificateToPem(certificate))
         .join("\n"),
+      leafCert: forge.pki.certificateToPem(leaf),
       key: forge.pki.privateKeyToPem(privateKey),
       validFrom: leaf.validity.notBefore,
       validUntil: leaf.validity.notAfter,
@@ -169,5 +172,9 @@ export const loadPfxFromBuffer = (
   passphrase: string,
 ): LoadedClientCert => {
   const inspected = inspectPfx(pfx, passphrase);
-  return { cert: inspected.cert, key: inspected.key };
+  return {
+    cert: inspected.cert,
+    leafCert: inspected.leafCert,
+    key: inspected.key,
+  };
 };

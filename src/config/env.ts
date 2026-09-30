@@ -150,6 +150,12 @@ const envSchema = z.object({
     .string()
     .transform((value) => value.trim())
     .pipe(z.string().min(32)),
+  NFE_XML_DIR: z
+    .string()
+    .trim()
+    .min(1)
+    .optional()
+    .default("storage/nfe"),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { authMiddleware } from "../../../shared/middleware/auth-middleware.js";
+import { tenantMiddleware } from "../../../shared/middleware/tenant-middleware.js";
 import { requirePermission } from "../../../shared/middleware/permission-middleware.js";
 import { validateSchema } from "../../../shared/middleware/validate-schema.js";
 import { emptyQuerySchema } from "../../../shared/validation/common-schemas.js";
@@ -16,6 +17,7 @@ const typeSupplierCustomersRouter = Router();
 typeSupplierCustomersRouter.get(
   "/",
   authMiddleware,
+  tenantMiddleware,
   requirePermission("consultar_tipos_fornecedor_cliente"),
   validateSchema({ query: listTypeSupplierCustomersQuerySchema }),
   typeSupplierCustomersController.list,
@@ -24,6 +26,7 @@ typeSupplierCustomersRouter.get(
 typeSupplierCustomersRouter.get(
   "/:typeSupplierCustomerId",
   authMiddleware,
+  tenantMiddleware,
   requirePermission("consultar_tipos_fornecedor_cliente"),
   validateSchema({
     params: typeSupplierCustomerParamsSchema,
@@ -35,6 +38,7 @@ typeSupplierCustomersRouter.get(
 typeSupplierCustomersRouter.post(
   "/",
   authMiddleware,
+  tenantMiddleware,
   requirePermission("incluir_tipos_fornecedor_cliente"),
   validateSchema({ body: createTypeSupplierCustomerSchema }),
   typeSupplierCustomersController.create,
@@ -43,6 +47,7 @@ typeSupplierCustomersRouter.post(
 typeSupplierCustomersRouter.patch(
   "/:typeSupplierCustomerId",
   authMiddleware,
+  tenantMiddleware,
   requirePermission("alterar_tipos_fornecedor_cliente"),
   validateSchema({
     params: typeSupplierCustomerParamsSchema,
@@ -54,6 +59,7 @@ typeSupplierCustomersRouter.patch(
 typeSupplierCustomersRouter.delete(
   "/:typeSupplierCustomerId",
   authMiddleware,
+  tenantMiddleware,
   requirePermission("excluir_tipos_fornecedor_cliente"),
   validateSchema({
     params: typeSupplierCustomerParamsSchema,

@@ -10,6 +10,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { tz, percentageDecimal } from "../functions.js";
+import { difalCalculationEnum } from "../enums.js";
 
 //Tabela de países
 export const countries = pgTable(
@@ -56,14 +57,13 @@ export const states = pgTable(
     internalAliquot: decimal("internal_aliquot", percentageDecimal).notNull(), //Alíquota interna
     interstateAliquot: decimal("interstate_aliquot", percentageDecimal).notNull(), //Alíquota interestadual
     fcpAliquot: decimal("fcp_aliquot", percentageDecimal).notNull(), //Alíquota FCP
-    borders: integer("borders").notNull(), //Divisas
     generate_st: boolean("generate_st").notNull().default(false), // Gerar st
-    embedDifal: boolean("embed_difal").notNull().default(false), // embutir de DIFAL
-    ibs_uf_tax: decimal("ibs_uf_tax", percentageDecimal).notNull(), //Alíquota UF IB
-    ibs_municipal_tax: decimal("ibs_municipal_tax", percentageDecimal).notNull(), //Alíquota municipal IB
+    difalCalculation: difalCalculationEnum("difal_calculation").default("0"), // Tipo de cálculo de DIFAL
+    ibs_uf_tax: decimal("ibs_uf_tax", percentageDecimal).notNull(), //Alíquota UF IBS
+    ibs_municipal_tax: decimal("ibs_municipal_tax", percentageDecimal).notNull(), //Alíquota municipal IBS
     countryId: uuid("country_id") 
       .notNull()
-      .references(() => countries.id, { onDelete: "restrict" }),
+      .references(() => countries.id, { onDelete: "restrict" }), // país do estado
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
     deletedAt: tz("deleted_at"),
@@ -95,6 +95,29 @@ export const states = pgTable(
   ],
 );
 
+// DIVISAS DE ESTADOS
+export const statesDivisions = pgTable(
+  "states_divisions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    statesId: uuid("states_id")
+      .notNull()
+      .references(() => states.id, { onDelete: "restrict" }), // estado da divisão
+    uf: varchar("uf", { length: 2 }).notNull(), // UF da divisão ( sigla do estado )
+    createdAt: tz("created_at").defaultNow().notNull(),
+    updatedAt: tz("updated_at"),
+    deletedAt: tz("deleted_at"),
+  },
+  (t) => [
+    uniqueIndex("states_divisions_state_uf_unique")
+      .on(t.statesId, t.uf)
+      .where(sql`${t.deletedAt} is null`),
+  ],
+);
+
+
+
+
 //Tabela de CEPs
 export const ceps = pgTable(
   "ceps",
@@ -105,7 +128,7 @@ export const ceps = pgTable(
     neighborhood: varchar("neighborhood", { length: 255 }).notNull(), //Bairro
     cityId: uuid("city_id")
       .notNull()
-      .references(() => cities.id, { onDelete: "restrict" }),
+      .references(() => cities.id, { onDelete: "restrict" }), // cidade do CEP
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
     deletedAt: tz("deleted_at"),
@@ -128,7 +151,7 @@ export const cities = pgTable(
 
     stateId: uuid("state_id")
       .notNull()
-      .references(() => states.id, { onDelete: "restrict" }),
+      .references(() => states.id, { onDelete: "restrict" }), 
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
     deletedAt: tz("deleted_at"),

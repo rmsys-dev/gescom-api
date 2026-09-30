@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { enterpriseFiscalFields } from "../../enterprises/schema.js";
 import {
   cpfCnpjSchema,
   emailSchema,
@@ -17,6 +18,7 @@ export const createEnterpriseSchema = z
     phone: phoneSchema("phone").optional(),
     email: emailSchema("email").optional(),
     whatsapp: phoneSchema("whatsapp").optional(),
+    ...enterpriseFiscalFields,
   })
   .strict();
 

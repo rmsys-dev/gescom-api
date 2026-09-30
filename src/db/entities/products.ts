@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import { boolean, decimal, integer, uuid } from "drizzle-orm/pg-core";
 import { integerOrFractionalEnum, statusEnum } from "../enums.js";
 import { varchar } from "drizzle-orm/pg-core";
-import { pgTable, uniqueIndex, index, check } from "drizzle-orm/pg-core";
+import { pgTable, uniqueIndex, index, check, text } from "drizzle-orm/pg-core";
 import { enterprises } from "./enterprises.js";
 import { pisCofinsTypeEnum } from "../enums.js";
 import {
@@ -11,6 +11,7 @@ import {
   valorQuatroCasasDecimais,
   valorDuasCasasDecimais,
 } from "../functions.js";
+import { classificationIbsCbs } from "./nfe.js";
 
 //tabela de produtos. - Global (POST + snapshot; mutações só em products_enterprises)
 export const products = pgTable(
@@ -142,10 +143,10 @@ export const icmsTaxation = pgTable(
   "icms_taxation",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    icms: varchar("icms", { length: 255 }).notNull(),
-    icmsRate: decimal("icms_rate", percentageDecimal),
-    simplesIcmsRate: decimal("simples_icms_rate", percentageDecimal),
-    description: varchar("description", { length: 255 }).notNull(),
+    icms: varchar("icms", { length: 4 }).notNull(), // código com 4 dígitos
+    icmsRate: decimal("icms_rate", percentageDecimal), // alíquota do ICMS
+    simplesIcmsRate: decimal("simples_icms_rate", percentageDecimal), // alíquota do Simples Nacional do ICMS
+    description: varchar("description", { length: 255 }).notNull(), // descrição do ICMS
     createdAt: tz("criado_em").defaultNow().notNull(),
     updatedAt: tz("alterado_em"),
   },
@@ -193,8 +194,8 @@ export const pisCofinsSituation = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     cst: varchar("cst", { length: 255 }).notNull(),
     description: varchar("description", { length: 255 }).notNull(),
-    type: pisCofinsTypeEnum("type").notNull(),
-    framing: integer("framing").notNull(),
+    type: pisCofinsTypeEnum("type").notNull(), 
+    framing: integer("framing").notNull(),  
     pisRate: decimal("pis_rate", percentageDecimal),
     cofinsRate: decimal("cofins_rate", percentageDecimal),
     createdAt: tz("created_at").defaultNow().notNull(),
@@ -310,7 +311,8 @@ export const productsEnterprises = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     code: integer("code"),
-    description: varchar("description", { length: 255 }).notNull(),
+    description: varchar("description", { length: 255 }).notNull(), // descrição do produto
+    additionalProduct: text("additional_product"), // informações adicionais do produto
     origin: varchar("origin", { length: 255 }), // numero original
     manufacturer: varchar("manufacturer", { length: 255 }), //  numero do fabricante
     productId: uuid("product_id")
@@ -345,12 +347,11 @@ export const productsEnterprises = pgTable(
     productBrandId: uuid("product_brand_id") // marca de produtos
       .notNull()
       .references(() => productBrands.id, { onDelete: "restrict" }),
-    productPisCofinsSituationId: uuid("product_pis_cofins_situation_id") // situação do PIS/COFINS do produto
-      .notNull()
-      .references(() => pisCofinsSituation.id, { onDelete: "restrict" }),
     productTaxationId: uuid("product_taxation_id") // tributação do produto
       .notNull()
       .references(() => productTaxation.id, { onDelete: "restrict" }),
+    classificationIbsCbsId: uuid("classification_ibs_cbs_id") // classificação da IBS/CBS da nova reforma tributaria
+      .references(() => classificationIbsCbs.id, { onDelete: "restrict" }),
     controlsBatch: boolean("controls_batch").notNull().default(false), // controla lote do produto
     controlsRental: boolean("controls_rental").notNull().default(false), // controla locacao do produto
     createdAt: tz("created_at").defaultNow().notNull(),

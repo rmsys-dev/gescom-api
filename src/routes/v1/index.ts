@@ -39,7 +39,15 @@ import { vehiclesRouter } from "../../modules/vehicles/vehicles/routes.js";
 import { vehiclesEnterprisesMembersRouter } from "../../modules/vehicles/vehicles-enterprises-members/routes.js";
 import { mechanicSalesItemsRouter } from "../../modules/vehicles/mechanic-sales-items/routes.js";
 import { nfeRouter } from "../../modules/nfe/routes.js";
+import { entityAuditLogRouter } from "../../modules/entity-audit-log/routes.js";
 import { maintainerNfeParametersRouter } from "../../modules/maintainer/nfe/parameters/routes.js";
+import { maintainerCfopsRouter } from "../../modules/maintainer/nfe/cfops/routes.js";
+import { maintainerCstRouter } from "../../modules/maintainer/nfe/cst/routes.js";
+import { maintainerBenefitCodesRouter } from "../../modules/maintainer/nfe/benefit-codes/routes.js";
+import { maintainerCstIbsCbsRouter } from "../../modules/maintainer/nfe/cst-ibs-cbs/routes.js";
+import { maintainerClassificationIbsCbsRouter } from "../../modules/maintainer/nfe/classification-ibs-cbs/routes.js";
+import { maintainerAnexosRtRouter } from "../../modules/maintainer/nfe/anexos-rt/routes.js";
+import { maintainerPresumedCreditRouter } from "../../modules/maintainer/nfe/presumed-credit/routes.js";
 
 const v1Router = Router();
 
@@ -51,6 +59,16 @@ v1Router.use("/maintainer/enterprises", maintainerEnterprisesRouter);
 v1Router.use("/maintainer/modules", maintainerModulesRouter);
 v1Router.use("/maintainer/products", maintainerProductsRouter);
 v1Router.use("/maintainer/nfe/parameters", maintainerNfeParametersRouter);
+v1Router.use("/maintainer/nfe/cfops", maintainerCfopsRouter);
+v1Router.use("/maintainer/nfe/cst", maintainerCstRouter);
+v1Router.use("/maintainer/nfe/benefit-codes", maintainerBenefitCodesRouter);
+v1Router.use("/maintainer/nfe/cst-ibs-cbs", maintainerCstIbsCbsRouter);
+v1Router.use(
+  "/maintainer/nfe/classification-ibs-cbs",
+  maintainerClassificationIbsCbsRouter,
+);
+v1Router.use("/maintainer/nfe/anexos-rt", maintainerAnexosRtRouter);
+v1Router.use("/maintainer/nfe/presumed-credits", maintainerPresumedCreditRouter);
 //NOVAS ROTAS 01/06/2026
 v1Router.use("/units", unitsRouter);
 v1Router.use("/types-products", typesProductsRouter);
@@ -88,5 +106,6 @@ v1Router.use(
 );
 v1Router.use("/mechanic-sales-items", mechanicSalesItemsRouter);
 v1Router.use("/nfe", nfeRouter);
+v1Router.use("/entity-audit-log", entityAuditLogRouter);
 
 export { v1Router };

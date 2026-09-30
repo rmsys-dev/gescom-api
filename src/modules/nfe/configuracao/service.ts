@@ -204,9 +204,18 @@ export class NfeConfiguracaoService {
   };
 
   public getAmbiente = async (enterpriseId: string): Promise<SefazAmbiente> => {
+    const settings = await this.getEmissionSettings(enterpriseId);
+    return settings.ambiente;
+  };
+
+  public getEmissionSettings = async (enterpriseId: string) => {
     await assertEnterprise(enterpriseId);
     const settings = (await getSettingsRow(enterpriseId)) ?? defaultSettings;
-    return settings.ambiente as SefazAmbiente;
+    return {
+      ambiente: settings.ambiente as SefazAmbiente,
+      serieNfe: settings.serieNfe,
+      serieNfce: settings.serieNfce,
+    };
   };
 
   public patch = async (

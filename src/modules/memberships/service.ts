@@ -16,8 +16,10 @@ import {
   memberModules,
   modulePermissions,
   modules,
+  states,
   users,
   usersAddress,
+  usersTaxInfos,
 } from "../../db/schema.js";
 import { env } from "../../config/env.js";
 import {
@@ -93,14 +95,38 @@ type AuthMeta = {
   requestId: string | null;
 };
 
+type MemberAddressSummary = {
+  street: string | null;
+  number: string | null;
+  complement: string | null;
+  neighborhood: string | null;
+  cep: string | null;
+  cityName: string | null;
+  ibgeCode: number | null;
+  uf: string | null;
+  stateName: string | null;
+  stateRegistration: string | null;
+  addressLine: string | null;
+};
+
+type MemberTaxSummary = {
+  municipalRegistration: string | null;
+  suframaRegistration: string | null;
+  tradeName: string | null;
+};
+
 type MemberUserSummary = {
   id: string;
   userName: string;
   userRegistration: string | null;
   userEmail: string | null;
   userPhone: string | null;
-  addressLine?: string | null;
-  cityName?: string | null;
+  addressLine: string | null;
+  cityName: string | null;
+  uf: string | null;
+  stateRegistration: string | null;
+  address: MemberAddressSummary | null;
+  tax: MemberTaxSummary | null;
 };
 
 type MemberWithUserRow = {
@@ -125,11 +151,14 @@ const formatAddressLine = (
   return [...(head.length > 0 ? [head.join(", ")] : []), ...extras].join(" — ");
 };
 
+const emptyText = (value: string | null | undefined): string | null => {
+  const text = value?.trim();
+  return text ? text : null;
+};
+
 const loadPrincipalAddressSummariesByUserId = async (
   userIds: string[],
-): Promise<
-  Map<string, { addressLine: string | null; cityName: string | null }>
-> => {
+): Promise<Map<string, MemberAddressSummary>> => {
   const uniqueUserIds = [...new Set(userIds)];
   if (uniqueUserIds.length === 0) {
     return new Map();
@@ -142,25 +171,29 @@ const loadPrincipalAddressSummariesByUserId = async (
       number: usersAddress.number,
       complement: usersAddress.complement,
       neighborhood: ceps.neighborhood,
+      cep: ceps.cepNumber,
       cityName: cities.citieName,
+      ibgeCode: cities.ibgeCode,
+      uf: states.acronym,
+      stateName: states.description,
+      stateRegistration: usersAddress.stateRegistration,
       adressType: usersAddress.adressType,
     })
     .from(usersAddress)
     .innerJoin(ceps, eq(usersAddress.cepId, ceps.id))
     .innerJoin(cities, eq(ceps.cityId, cities.id))
+    .innerJoin(states, eq(states.id, cities.stateId))
     .where(
       and(
         inArray(usersAddress.userId, uniqueUserIds),
         isNull(usersAddress.deletedAt),
         isNull(ceps.deletedAt),
         isNull(cities.deletedAt),
+        isNull(states.deletedAt),
       ),
     );
 
-  const byUserId = new Map<
-    string,
-    { addressLine: string | null; cityName: string | null }
-  >();
+  const byUserId = new Map<string, MemberAddressSummary>();
   for (const row of rows) {
     const isPrincipal = row.adressType === "PRINCIPAL";
     if (byUserId.has(row.userId) && !isPrincipal) continue;
@@ -171,12 +204,75 @@ const loadPrincipalAddressSummariesByUserId = async (
       row.neighborhood,
     );
     byUserId.set(row.userId, {
+      street: emptyText(row.street),
+      number: emptyText(row.number),
+      complement: emptyText(row.complement),
+      neighborhood: emptyText(row.neighborhood),
+      cep: emptyText(row.cep),
+      cityName: emptyText(row.cityName),
+      ibgeCode: row.ibgeCode,
+      uf: emptyText(row.uf),
+      stateName: emptyText(row.stateName),
+      stateRegistration: emptyText(row.stateRegistration),
       addressLine: addressLine || null,
-      cityName: row.cityName?.trim() || null,
     });
   }
   return byUserId;
 };
+
+const loadTaxSummariesByUserId = async (
+  userIds: string[],
+): Promise<Map<string, MemberTaxSummary>> => {
+  const uniqueUserIds = [...new Set(userIds)];
+  if (uniqueUserIds.length === 0) {
+    return new Map();
+  }
+  const rows = await db
+    .select({
+      userId: usersTaxInfos.userId,
+      municipalRegistration: usersTaxInfos.municipalRegistration,
+      suframaRegistration: usersTaxInfos.suframa_registration,
+      tradeName: usersTaxInfos.userLegalName,
+    })
+    .from(usersTaxInfos)
+    .where(
+      and(inArray(usersTaxInfos.userId, uniqueUserIds), isNull(usersTaxInfos.deletedAt)),
+    );
+  return new Map(
+    rows.map((row) => [
+      row.userId,
+      {
+        municipalRegistration: emptyText(row.municipalRegistration),
+        suframaRegistration: emptyText(row.suframaRegistration),
+        tradeName: emptyText(row.tradeName),
+      },
+    ]),
+  );
+};
+
+const memberUserSummary = (
+  user: {
+    id: string;
+    userName: string;
+    userRegistration: string | null;
+    userEmail: string | null;
+    userPhone: string | null;
+  },
+  address: MemberAddressSummary | undefined,
+  tax: MemberTaxSummary | undefined,
+): MemberUserSummary => ({
+  id: user.id,
+  userName: user.userName,
+  userRegistration: user.userRegistration,
+  userEmail: user.userEmail,
+  userPhone: user.userPhone,
+  addressLine: address?.addressLine ?? null,
+  cityName: address?.cityName ?? null,
+  uf: address?.uf ?? null,
+  stateRegistration: address?.stateRegistration ?? null,
+  address: address ?? null,
+  tax: tax ?? null,
+});
 
 const formatMembershipPercentage = (value: number) =>
   Math.round(value * 100) / 100;
@@ -369,8 +465,10 @@ export class MembershipsService {
       const memberRow = rowsById.get(row.id);
       return memberRow?.user?.id ? [memberRow.user.id] : [];
     });
-    const addressByUserId =
-      await loadPrincipalAddressSummariesByUserId(userIds);
+    const [addressByUserId, taxByUserId] = await Promise.all([
+      loadPrincipalAddressSummariesByUserId(userIds),
+      loadTaxSummariesByUserId(userIds),
+    ]);
 
     const items = memberIds.flatMap((memberId) => {
       const row = rowsById.get(memberId);
@@ -378,20 +476,14 @@ export class MembershipsService {
         return [];
       }
 
-      const address = addressByUserId.get(row.user.id);
-
       return [
         mapMemberWithUser({
           member: row,
-          user: {
-            id: row.user.id,
-            userName: row.user.userName,
-            userRegistration: row.user.userRegistration,
-            userEmail: row.user.userEmail,
-            userPhone: row.user.userPhone,
-            addressLine: address?.addressLine ?? null,
-            cityName: address?.cityName ?? null,
-          },
+          user: memberUserSummary(
+            row.user,
+            addressByUserId.get(row.user.id),
+            taxByUserId.get(row.user.id),
+          ),
           typeSupplierCustomer: row.typeSupplierCustomer ?? null,
           typeNetwork: row.typeNetwork ?? null,
         }),
@@ -439,10 +531,10 @@ export class MembershipsService {
     }
 
     const permissionsByMember = await resolvePermissionsBatch([row.id]);
-    const addressByUserId = await loadPrincipalAddressSummariesByUserId([
-      row.user.id,
+    const [addressByUserId, taxByUserId] = await Promise.all([
+      loadPrincipalAddressSummariesByUserId([row.user.id]),
+      loadTaxSummariesByUserId([row.user.id]),
     ]);
-    const address = addressByUserId.get(row.user.id);
 
     const modulesPayload = row.modules.map((link) => ({
       id: link.id,
@@ -463,15 +555,11 @@ export class MembershipsService {
     return {
       ...mapMemberWithUser({
         member: row,
-        user: {
-          id: row.user.id,
-          userName: row.user.userName,
-          userRegistration: row.user.userRegistration,
-          userEmail: row.user.userEmail,
-          userPhone: row.user.userPhone,
-          addressLine: address?.addressLine ?? null,
-          cityName: address?.cityName ?? null,
-        },
+        user: memberUserSummary(
+          row.user,
+          addressByUserId.get(row.user.id),
+          taxByUserId.get(row.user.id),
+        ),
         typeSupplierCustomer: row.typeSupplierCustomer ?? null,
         typeNetwork: row.typeNetwork ?? null,
       }),
@@ -516,16 +604,24 @@ export class MembershipsService {
     return enterprise;
   }
 
-  //Verifica se os tipos de fornecedor/cliente e de rede informados existem
-  private async assertMembershipTypeReferences(input: {
-    typeSupplierCustomerId?: string | undefined;
-    typeNetworkId?: string | undefined;
-  }): Promise<void> {
+  //Verifica se os tipos de fornecedor/cliente e de rede informados existem na empresa
+  private async assertMembershipTypeReferences(
+    enterpriseId: string,
+    input: {
+      typeSupplierCustomerId?: string | undefined;
+      typeNetworkId?: string | undefined;
+    },
+  ): Promise<void> {
     if (input.typeSupplierCustomerId !== undefined) {
       const [type] = await db
         .select({ id: typeSupplierCustomers.id })
         .from(typeSupplierCustomers)
-        .where(eq(typeSupplierCustomers.id, input.typeSupplierCustomerId))
+        .where(
+          and(
+            eq(typeSupplierCustomers.id, input.typeSupplierCustomerId),
+            eq(typeSupplierCustomers.enterpriseId, enterpriseId),
+          ),
+        )
         .limit(1);
 
       if (!type) {
@@ -540,7 +636,12 @@ export class MembershipsService {
       const [type] = await db
         .select({ id: typeNetworks.id })
         .from(typeNetworks)
-        .where(eq(typeNetworks.id, input.typeNetworkId))
+        .where(
+          and(
+            eq(typeNetworks.id, input.typeNetworkId),
+            eq(typeNetworks.enterpriseId, enterpriseId),
+          ),
+        )
         .limit(1);
 
       if (!type) {
@@ -699,7 +800,7 @@ export class MembershipsService {
   ) {
     await this.assertEnterpriseExists(enterpriseId);
     await this.assertModulesExistAndActive(input.modules);
-    await this.assertMembershipTypeReferences(input);
+    await this.assertMembershipTypeReferences(enterpriseId, input);
 
     const targetUser = await findUserById(input.userId);
     if (!targetUser) {
@@ -860,7 +961,7 @@ export class MembershipsService {
   ) {
     await this.assertEnterpriseExists(enterpriseId);
     await this.assertModulesExistAndActive(input.member.modules);
-    await this.assertMembershipTypeReferences(input.member);
+    await this.assertMembershipTypeReferences(enterpriseId, input.member);
 
     const {
       userRegistration: registrationNormalized,
@@ -1145,7 +1246,7 @@ export class MembershipsService {
       throw new NotFoundError("Membro nao encontrado", "MEMBERSHIP_NOT_FOUND");
     }
 
-    await this.assertMembershipTypeReferences(input);
+    await this.assertMembershipTypeReferences(enterpriseId, input);
 
     const auditCtx: EntityAuditContext = {
       ...audit,

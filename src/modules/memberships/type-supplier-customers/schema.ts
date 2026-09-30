@@ -16,12 +16,10 @@ export const createTypeSupplierCustomerSchema = z
   .object({
     description: z.string().trim().min(1).max(255),
     status: statusSchema.default("ATIVO").optional(),
-    icmsReduction: percentageSchema.optional().nullable(),
     low: z.boolean().default(false).optional(),
     generatesSt: z.boolean().default(false).optional(),
     endConsumer: z.boolean().default(false).optional(),
     classification: classificationSchema.default("CLIENTE").optional(),
-    benefitCode: z.string().trim().max(255).optional().nullable(),
     customerDiscount: percentageSchema.optional().nullable(),
   })
   .strict();
@@ -30,12 +28,10 @@ export const patchTypeSupplierCustomerSchema = z
   .object({
     description: z.string().trim().min(1).max(255).optional(),
     status: statusSchema.optional(),
-    icmsReduction: percentageSchema.optional().nullable(),
     low: z.boolean().optional(),
     generatesSt: z.boolean().optional(),
     endConsumer: z.boolean().optional(),
     classification: classificationSchema.optional(),
-    benefitCode: z.string().trim().max(255).optional().nullable(),
     customerDiscount: percentageSchema.optional().nullable(),
   })
   .strict()
@@ -43,12 +39,10 @@ export const patchTypeSupplierCustomerSchema = z
     (data) =>
       data.description !== undefined ||
       data.status !== undefined ||
-      data.icmsReduction !== undefined ||
       data.low !== undefined ||
       data.generatesSt !== undefined ||
       data.endConsumer !== undefined ||
       data.classification !== undefined ||
-      data.benefitCode !== undefined ||
       data.customerDiscount !== undefined,
     "Deve haver ao menos um campo para atualizar",
   );

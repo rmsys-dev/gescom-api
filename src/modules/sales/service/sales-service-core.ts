@@ -34,6 +34,7 @@ import {
   salesMembers,
   salesPayments,
   salesReturns,
+  nfeSales,
   stockBatches,
   locations,
   sectors,
@@ -77,6 +78,7 @@ import {
 } from "../../enterprises/parameters/resolve.js";
 import { enterprisesService } from "../../enterprises/service.js";
 import { htmlToPdf } from "../print/html-to-pdf.js";
+import { salesOfSameMemberUser } from "../same-user-sales.js";
 import {
   budgetPdfFilename,
   renderBudgetPrintHtml,
@@ -639,7 +641,7 @@ export class SalesServiceCore {
       );
     }
     if (query?.memberId) {
-      filters.push(eq(sales.memberId, query.memberId));
+      filters.push(salesOfSameMemberUser(enterpriseId, query.memberId));
     }
     if (query?.vehiclesEnterprisesMembersId) {
       filters.push(
@@ -647,6 +649,15 @@ export class SalesServiceCore {
           sales.vehiclesEnterprisesMembersId,
           query.vehiclesEnterprisesMembersId,
         ),
+      );
+    }
+    if (query?.pendingNfe === "true") {
+      filters.push(
+        sql`not exists (
+          select 1 from ${nfeSales}
+          where ${nfeSales.salesId} = ${sales.id}
+            and ${nfeSales.deletedAt} is null
+        )`,
       );
     }
     if (query?.dateFrom && query?.dateTo) {

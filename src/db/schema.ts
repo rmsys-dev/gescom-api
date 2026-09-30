@@ -41,6 +41,7 @@ import * as productsRelations from "./relations/products-relations.js";
 import * as salesRelations from "./relations/sales-relations.js";
 import * as sectorRelations from "./relations/sector-relations.js";
 import * as stockRelations from "./relations/stock-relations.js";
+import * as nfeRelations from "./relations/nfe-relations.js";
 
 export * from "./relations/addresses-relations.js";
 export * from "./relations/enterprise-relations.js";
@@ -52,6 +53,7 @@ export * from "./relations/products-relations.js";
 export * from "./relations/sales-relations.js";
 export * from "./relations/sector-relations.js";
 export * from "./relations/stock-relations.js";
+export * from "./relations/nfe-relations.js";
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -83,6 +85,7 @@ const schema = {
   ...salesRelations,
   ...sectorRelations,
   ...stockRelations,
+  ...nfeRelations,
 };
 
 export const db = drizzle(client, { schema });

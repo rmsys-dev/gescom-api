@@ -1,4 +1,4 @@
-import { asc, count, eq } from "drizzle-orm";
+import { and, asc, count, eq } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import { typeNetworks } from "../../../db/schema.js";
 import {
@@ -20,28 +20,33 @@ import type {
   PatchTypeNetworkInput,
 } from "./schema.js";
 
+const scoped = (enterpriseId: string, id: string) =>
+  and(eq(typeNetworks.id, id), eq(typeNetworks.enterpriseId, enterpriseId));
+
 export class TypeNetworksService {
-  public async list(query: ListTypeNetworksQuery = {}) {
+  public async list(enterpriseId: string, query: ListTypeNetworksQuery = {}) {
     const { limit, offset } = resolveListPagination(query);
+    const where = eq(typeNetworks.enterpriseId, enterpriseId);
     const [items, totalRows] = await Promise.all([
       db
         .select()
         .from(typeNetworks)
+        .where(where)
         .orderBy(asc(typeNetworks.description), asc(typeNetworks.id))
         .limit(limit)
         .offset(offset),
-      db.select({ c: count() }).from(typeNetworks),
+      db.select({ c: count() }).from(typeNetworks).where(where),
     ]);
     const total = Number(totalRows[0]?.c ?? 0);
     return { items, total, limit, offset };
   }
 
-  public async getById(id: string) {
+  public async getById(enterpriseId: string, id: string) {
     const row = (
       await db
         .select()
         .from(typeNetworks)
-        .where(eq(typeNetworks.id, id))
+        .where(scoped(enterpriseId, id))
         .limit(1)
     )[0];
     if (!row) {
@@ -53,11 +58,16 @@ export class TypeNetworksService {
     return row;
   }
 
-  public async create(input: CreateTypeNetworkInput, audit: EntityAuditContext) {
+  public async create(
+    enterpriseId: string,
+    input: CreateTypeNetworkInput,
+    audit: EntityAuditContext,
+  ) {
     try {
       const [row] = await db
         .insert(typeNetworks)
         .values({
+          enterpriseId,
           description: input.description.trim(),
           status: input.status ?? "ATIVO",
         })
@@ -82,11 +92,12 @@ export class TypeNetworksService {
   }
 
   public async patch(
+    enterpriseId: string,
     id: string,
     input: PatchTypeNetworkInput,
     audit: EntityAuditContext,
   ) {
-    const existing = await this.getById(id);
+    const existing = await this.getById(enterpriseId, id);
     try {
       const [row] = await db
         .update(typeNetworks)
@@ -97,7 +108,7 @@ export class TypeNetworksService {
           ...(input.status !== undefined ? { status: input.status } : {}),
           updatedAt: new Date(),
         })
-        .where(eq(typeNetworks.id, id))
+        .where(scoped(enterpriseId, id))
         .returning();
       if (!row) {
         throw new NotFoundError(
@@ -125,11 +136,15 @@ export class TypeNetworksService {
     }
   }
 
-  public async delete(id: string, audit: EntityAuditContext) {
-    const existing = await this.getById(id);
+  public async delete(
+    enterpriseId: string,
+    id: string,
+    audit: EntityAuditContext,
+  ) {
+    const existing = await this.getById(enterpriseId, id);
     const [row] = await db
       .delete(typeNetworks)
-      .where(eq(typeNetworks.id, id))
+      .where(scoped(enterpriseId, id))
       .returning();
     if (!row) {
       throw new NotFoundError(

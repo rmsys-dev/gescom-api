@@ -6,7 +6,7 @@ import {
   enterprisesMembers,
   enterprisesNfe,
   enterprisesNfeCertificates,
-  nfeInvoices,
+  nfeHeaders,
   enterprisesSequences,
   memberModules,
   modulePermissions,
@@ -138,12 +138,12 @@ export const cascadeSoftDeleteEnterprise = async (
     );
 
   await tx
-    .update(nfeInvoices)
+    .update(nfeHeaders)
     .set(softDeleteValues(now))
     .where(
       and(
-        eq(nfeInvoices.enterpriseId, enterpriseId),
-        isNull(nfeInvoices.deletedAt),
+        eq(nfeHeaders.enterpriseId, enterpriseId),
+        isNull(nfeHeaders.deletedAt),
       ),
     );
 

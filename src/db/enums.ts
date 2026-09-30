@@ -262,6 +262,22 @@ export const entityTypeEnum = pgEnum("entity_type", [
   "NFE_PARAMETERS",
   "ENTERPRISES_NFE",
   "ENTERPRISES_NFE_CERTIFICATES",
+  "CFOPS",
+  "CFOPS_ENTERPRISES",
+  "SITUATION_TRIBUTARY_CST",
+  "BENEFIT_CODE",
+  "CST_COMPATIVEL_BENEFIT",
+  "CST_IBS_CBS",
+  "CLASSIFICATION_IBS_CBS",
+  "ANEXOS_RT",
+  "NFE_HEADERS",
+  "NFE_OPERATIONS",
+  "NFE_OPERATIONS_STATES",
+  "BENEFIT_CODE_BY_CFOP",
+  "BENEFIT_TYPE_COSTUMERS",
+  "BENEFIT_CODE_BY_STATE_AND_PRODUCTS",
+  "STATES_DIVISIONS",
+  "PRESUMED_CREDIT",
 ]);
 
 export const stockMovementTypeEnum = pgEnum("stock_movement_type", [
@@ -447,7 +463,7 @@ export type NfeMoviments =
 
 // situação da NF-e perante a emissão e a SEFAZ
 export const nfeInvoiceStatusEnum = pgEnum("nfe_invoice_status", [
-  "RASCUNHO",
+  "PENDENTE",
   "ASSINADA",
   "AUTORIZADA",
   "REJEITADA",
@@ -456,3 +472,91 @@ export const nfeInvoiceStatusEnum = pgEnum("nfe_invoice_status", [
 ]);
 export type NfeInvoiceStatus =
   (typeof nfeInvoiceStatusEnum.enumValues)[number];
+
+// documento referenciado em NFref
+export const nfeReferenceTypeEnum = pgEnum("nfe_reference_type", [
+  "NFE",
+  "CTE",
+  "NF",
+  "NFP",
+  "ECF",
+]);
+export type NfeReferenceType =
+  (typeof nfeReferenceTypeEnum.enumValues)[number];
+
+// evento da NF-e ou inutilização de numeração
+export const nfeEventTypeEnum = pgEnum("nfe_event_type", [
+  "CANCELAMENTO",
+  "CARTA_CORRECAO",
+  "INUTILIZACAO",
+]);
+export type NfeEventType = (typeof nfeEventTypeEnum.enumValues)[number];
+
+// local de retirada ou de entrega da NF-e
+export const nfePlaceTypeEnum = pgEnum("nfe_place_type", [
+  "RETIRADA",
+  "ENTREGA",
+]);
+export type NfePlaceType = (typeof nfePlaceTypeEnum.enumValues)[number];
+
+// observação do contribuinte ou do fisco na NF-e
+export const nfeAdditionalNoteTypeEnum = pgEnum("nfe_additional_note_type", [
+  "OBS_CONT",
+  "OBS_FISCO",
+]);
+export type NfeAdditionalNoteType =
+  (typeof nfeAdditionalNoteTypeEnum.enumValues)[number];
+
+// tipo de movimento no cfop
+export const cfopMovimentTypeEnum = pgEnum("cfop_moviment_type", [
+  "ENTRADA",
+  "SAIDA",
+  "TRANSFERENCIA",
+  "DEVOLUCAO",
+]);
+export type CfopMovimentType =
+  (typeof cfopMovimentTypeEnum.enumValues)[number];
+
+
+// regime tributário (CRT, códigos 1 a 4)
+export const regimeTributarioEnum = pgEnum("regime_tributario", [
+  "1", // Simples Nacional
+  "2", // Simples Nacional (excesso sublimite de receita bruta)
+  "3", // Regime Normal (Lucro Presumido ou Lucro Real)
+  "4", // Simples Nacional – Microempreendedor Individual (MEI)
+]);
+export type RegimeTributario =
+  (typeof regimeTributarioEnum.enumValues)[number];
+
+// origem da mercadoria na situação tributária (tabela de origem do CST, códigos 0 a 8)
+export const cstOriginEnum = pgEnum("cst_origin", [
+  "0", // Nacional, exceto as indicadas nos códigos 3, 4, 5 e 8
+  "1", // Estrangeira – Importação direta, exceto a indicada no código 6
+  "2", // Estrangeira – Adquirida no mercado interno, exceto a indicada no código 7
+  "3", // Nacional, mercadoria ou bem com Conteúdo de Importação superior a 40% e inferior ou igual a 70%
+  "4", // Nacional, cuja produção tenha sido feita em conformidade com os processos produtivos básicos de que tratam o Decreto-Lei nº 288/67 e demais legislações (Zona Franca de Manaus)
+  "5", // Nacional, mercadoria ou bem com Conteúdo de Importação inferior ou igual a 40%
+  "6", // Estrangeira – Importação direta, sem similar nacional, constante em lista de Resolução CAMEX e gás natural
+  "7", // Estrangeira – Adquirida no mercado interno, sem similar nacional, constante em lista de Resolução CAMEX e gás natural
+  "8", // Nacional, mercadoria ou bem com Conteúdo de Importação superior a 70%
+]);
+export type CstOrigin = (typeof cstOriginEnum.enumValues)[number];
+
+
+// tipo de tributação ( 1 - tributado, 2 - Substituicao, 3 - Tributado/Susbstituicao, 4- Isento)
+export const taxationTypeEnum = pgEnum("taxation_type", [
+  "1", // Tributado
+  "2", // Substituicao
+  "3", // Tributado/Susbstituicao
+  "4", // Isento IBS ou CBS
+]);
+export type TaxationType = (typeof taxationTypeEnum.enumValues)[number];
+
+
+// tipo de calculo de DIFAL ( 0 - Não aplicável, 1 - DIFAL por Fora ( Base Unica ), 2 - DIFIAL por Dentro ( Base Dupla )
+export const difalCalculationEnum = pgEnum("difal_calculation", [
+  "0", // Não aplicável
+  "1", // DIFAL por Fora ( Base Unica )
+  "2", // DIFAL por Dentro ( Base Dupla )
+]);
+export type DifalCalculation = (typeof difalCalculationEnum.enumValues)[number];

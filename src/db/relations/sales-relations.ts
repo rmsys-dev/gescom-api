@@ -29,10 +29,12 @@ import {
   vehiclesEnterprisesMembers,
 } from "../entities/sales.js";
 import { states } from "../entities/addresses.js";
+import { nfePayments } from "../entities/nfe.js";
 
 // relações da tabela de TIPOS DE PAGAMENTO.
 export const paymentTypesRelations = relations(paymentTypes, ({ many }) => ({
   salesPayments: many(salesPayments),
+  nfePayments: many(nfePayments),
 }));
 
 // relações da tabela de VENDAS.

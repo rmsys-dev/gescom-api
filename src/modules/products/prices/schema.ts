@@ -1,7 +1,12 @@
 import { z } from "zod";
-import { createPaginationQuerySchema } from "../../../shared/validation/common-schemas.js";
+import {
+  createPaginationQuerySchema,
+  optionalTrimmedStringSchema,
+} from "../../../shared/validation/common-schemas.js";
 
-export const listPricesQuerySchema = createPaginationQuerySchema(100);
+export const listPricesQuerySchema = createPaginationQuerySchema(100).extend({
+  search: optionalTrimmedStringSchema("search", 255).optional(),
+});
 
 export const createPriceSchema = z
   .object({

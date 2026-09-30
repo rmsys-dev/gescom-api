@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { difalCalculationEnum } from "../../../db/schema.js";
 import { createPaginationQuerySchema } from "../../../shared/validation/common-schemas.js";
 import {
   taxRateSchema,
@@ -20,9 +21,8 @@ export const createStateSchema = z
     internalAliquot: taxRateSchema,
     interstateAliquot: taxRateSchema,
     fcpAliquot: taxRateSchema,
-    borders: z.number().int().min(0),
     generate_st: z.boolean(),
-    embedDifal: z.boolean(),
+    difalCalculation: z.enum(difalCalculationEnum.enumValues).nullable().optional(),
     ibs_uf_tax: taxRateSchema,
     ibs_municipal_tax: taxRateSchema,
     countryId: uuidIdSchema("countryId"),
@@ -36,9 +36,8 @@ export const patchStateSchema = z
     internalAliquot: taxRateSchema.optional(),
     interstateAliquot: taxRateSchema.optional(),
     fcpAliquot: taxRateSchema.optional(),
-    borders: z.number().int().min(0).optional(),
     generate_st: z.boolean().optional(),
-    embedDifal: z.boolean().optional(),
+    difalCalculation: z.enum(difalCalculationEnum.enumValues).nullable().optional(),
     ibs_uf_tax: taxRateSchema.optional(),
     ibs_municipal_tax: taxRateSchema.optional(),
     countryId: uuidIdSchema("countryId").optional(),
@@ -52,9 +51,8 @@ export const patchStateSchema = z
       data.internalAliquot !== undefined ||
       data.interstateAliquot !== undefined ||
       data.fcpAliquot !== undefined ||
-      data.borders !== undefined ||
       data.generate_st !== undefined ||
-      data.embedDifal !== undefined ||
+      data.difalCalculation !== undefined ||
       data.ibs_uf_tax !== undefined ||
       data.ibs_municipal_tax !== undefined ||
       data.countryId !== undefined ||

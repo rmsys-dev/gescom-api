@@ -82,6 +82,7 @@ export const EntityTypes = {
   BENEFIT_CODE_BY_STATE_AND_PRODUCTS: "BENEFIT_CODE_BY_STATE_AND_PRODUCTS",
   STATES_DIVISIONS: "STATES_DIVISIONS",
   PRESUMED_CREDIT: "PRESUMED_CREDIT",
+  ENTERPRISE_GROUPS: "ENTERPRISE_GROUPS",
 } as const;
 
 export type EntityType = (typeof EntityTypes)[keyof typeof EntityTypes];

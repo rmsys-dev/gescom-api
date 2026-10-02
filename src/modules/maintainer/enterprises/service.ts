@@ -28,6 +28,7 @@ import {
 import { EntityTypes } from "../../../shared/audit/entity-types.js";
 import { ADMIN_MODULE_REFERENCE } from "../../auth/default-permissions.js";
 import { insertMemberModuleWithPermissions } from "../../memberships/member-module-ops.js";
+import { resolveMemberCode } from "../../memberships/member-code.js";
 import { enterpriseParameterCatalog } from "../../enterprises/parameters/catalog.js";
 import { enterpriseParametersService } from "../../enterprises/parameters/service.js";
 import type { CreateEnterpriseInput } from "./schema.js";
@@ -101,6 +102,7 @@ export class MaintainerEnterprisesService {
         const [member] = await tx
           .insert(enterprisesMembers)
           .values({
+            code: await resolveMemberCode(created.id, null, tx),
             userId: actorUserId,
             enterpriseId: created.id,
             class: "ADMINISTRADOR",

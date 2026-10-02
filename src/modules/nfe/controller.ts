@@ -17,10 +17,11 @@ import { nfeParametersService } from "./parameters/service.js";
 import { nfeConfiguracaoService } from "./configuracao/service.js";
 import type { PatchNfeConfiguracaoInput } from "./configuracao/schema.js";
 import { nfeCertificadoUploadSchema } from "./configuracao/schema.js";
-import type { StatusServicoQuery } from "./schema.js";
+import type { ConsultaCadastroQuery, StatusServicoQuery } from "./schema.js";
 import { nfeService } from "./service.js";
 import { nfeCatalogsService } from "./catalogs/service.js";
 import { nfeDocumentService } from "./document/service.js";
+import { nfeDanfeService } from "./danfe/service.js";
 import { nfeFromSalesService } from "./from-sales.js";
 import { nfeOperationsService } from "./operations/catalog-service.js";
 import { nfeOperationsStatesService } from "./operations/service.js";
@@ -56,8 +57,10 @@ import type {
   LinkCfopEnterpriseInput,
   ListNfeQuery,
   PatchNfeInput,
+  RecalculateNfeItemsInput,
   ReplaceNfeItemsInput,
   ReplaceNfePaymentsInput,
+  ReplaceNfeTransportInput,
 } from "./document/schema.js";
 
 const requireEnterpriseId = (req: Request): string => {
@@ -84,6 +87,19 @@ export class NfeController {
     );
     sendSuccessResponse(res, HttpStatus.OK, {
       message: "Status do servico da SEFAZ consultado com sucesso.",
+      data,
+    });
+  };
+
+  public consultaCadastro = async (req: Request, res: Response): Promise<void> => {
+    const query = (req as RequestWithValidatedQuery<ConsultaCadastroQuery>)
+      .validatedQuery;
+    const data = await nfeService.consultarCadastro(
+      query,
+      requireEnterpriseId(req),
+    );
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Cadastro do contribuinte consultado na SEFAZ.",
       data,
     });
   };
@@ -443,6 +459,32 @@ export class NfeController {
     });
   };
 
+  public replaceTransport = async (req: Request, res: Response): Promise<void> => {
+    const data = await nfeDocumentService.replaceTransport(
+      requireEnterpriseId(req),
+      req.params["nfeId"] as string,
+      req.body as ReplaceNfeTransportInput,
+      auditFor(req, "PUT nfe.document.service.replaceTransport"),
+    );
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Transporte da nota fiscal gravado com sucesso.",
+      data,
+    });
+  };
+
+  public recalculateItems = async (req: Request, res: Response): Promise<void> => {
+    const data = await nfeDocumentService.recalculateItems(
+      requireEnterpriseId(req),
+      req.params["nfeId"] as string,
+      req.body as RecalculateNfeItemsInput,
+      auditFor(req, withPostAuditSource("nfe.document.service.recalculateItems")),
+    );
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Produtos da nota fiscal recalculados com sucesso.",
+      data,
+    });
+  };
+
   public replaceItems = async (req: Request, res: Response): Promise<void> => {
     const data = await nfeDocumentService.replaceItems(
       requireEnterpriseId(req),
@@ -789,6 +831,22 @@ export class NfeController {
     sendSuccessResponse(res, HttpStatus.OK, {
       message: "Beneficio por estado e produto excluido com sucesso.",
     });
+  };
+
+  public danfe = async (req: Request, res: Response): Promise<void> => {
+    const { pdf, filename } = await nfeDanfeService.pdf(
+      requireEnterpriseId(req),
+      req.params["nfeId"] as string,
+    );
+    res
+      .status(HttpStatus.OK)
+      .set({
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Length": String(pdf.length),
+        "Cache-Control": "no-store",
+      })
+      .send(pdf);
   };
 
   public xml = async (req: Request, res: Response): Promise<void> => {

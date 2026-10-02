@@ -9,10 +9,13 @@ import {
 import type {
   ListEnterprisesQuery,
   PatchEnterpriseInput,
+  PatchEnterpriseSequenceInput,
 } from "./schema.js";
+import type { SequenceType } from "../../db/enums.js";
 import { auditContextFromRequest } from "../../shared/audit/request-meta.js";
 import { enterprisesService } from "./service.js";
 import { enterpriseParametersService } from "./parameters/service.js";
+import { enterpriseSequencesService } from "./sequences/service.js";
 
 export class EnterprisesController {
   //Listagem de empresas
@@ -62,6 +65,31 @@ export class EnterprisesController {
     const data = await enterpriseParametersService.getForEnterprise(id);
     sendSuccessResponse(res, HttpStatus.OK, {
       message: "Parametros da empresa recuperados com sucesso.",
+      data,
+    });
+  };
+
+  public listSequences = async (req: Request, res: Response): Promise<void> => {
+    const id = req.params["enterpriseId"] as string;
+    const data = await enterpriseSequencesService.list(id);
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Sequencias da empresa recuperadas com sucesso.",
+      data,
+    });
+  };
+
+  public patchSequence = async (req: Request, res: Response): Promise<void> => {
+    const id = req.params["enterpriseId"] as string;
+    const type = req.params["type"] as SequenceType;
+    const body = req.body as PatchEnterpriseSequenceInput;
+    const data = await enterpriseSequencesService.update(
+      id,
+      type,
+      body.sequence,
+      auditContextFromRequest(req, "enterprises.sequences.service.update", { enterpriseId: id }),
+    );
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Sequencia atualizada com sucesso.",
       data,
     });
   };

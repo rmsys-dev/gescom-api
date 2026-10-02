@@ -146,6 +146,64 @@ export const replaceNfeItemsSchema = z
   .object({ items: z.array(itemSchema).min(1) })
   .strict();
 
+export const recalculateNfeItemsSchema = z
+  .object({
+    items: z
+      .array(
+        z
+          .object({
+            productsEnterprisesId: uuidSchema("productsEnterprisesId"),
+            qCom: money.positive(),
+            vUnCom: money.positive().optional(),
+            vDesc: money.nonnegative().optional(),
+            vFrete: money.nonnegative().optional(),
+            vSeg: money.nonnegative().optional(),
+            vOutro: money.nonnegative().optional(),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(990),
+    nfeOperationsId: uuidSchema("nfeOperationsId").optional(),
+  })
+  .strict();
+
+const uf = z.string().trim().regex(/^[A-Z]{2}$/, "UF deve ter 2 letras");
+
+export const replaceNfeTransportSchema = z
+  .object({
+    modFrete: z.enum(["0", "1", "2", "3", "4", "9"]),
+    cnpj: z.string().regex(/^[0-9]{14}$/).optional(),
+    cpf: z.string().regex(/^[0-9]{11}$/).optional(),
+    xNome: z.string().trim().max(60).optional(),
+    ie: z.string().regex(/^[0-9]{2,14}$/, "IE do transportador deve ter de 2 a 14 digitos").optional(),
+    xEnder: z.string().trim().max(60).optional(),
+    xMun: z.string().trim().max(60).optional(),
+    uf: uf.optional(),
+    veicPlaca: z.string().regex(/^[A-Z0-9]{7}$/, "Placa deve ter 7 letras ou numeros").optional(),
+    veicUf: uf.optional(),
+    veicRntc: z.string().trim().max(20).optional(),
+    volumes: z
+      .array(
+        z
+          .object({
+            qVol: z.number().int().min(0).max(999999999999999).optional(),
+            esp: z.string().trim().max(60).optional(),
+            marca: z.string().trim().max(60).optional(),
+            nVol: z.string().trim().max(60).optional(),
+            pesoL: money.nonnegative().optional(),
+            pesoB: money.nonnegative().optional(),
+          })
+          .strict(),
+      )
+      .max(10)
+      .default([]),
+  })
+  .strict()
+  .refine((data) => !(data.cnpj && data.cpf), {
+    message: "Informe CNPJ ou CPF do transportador, nao ambos",
+  });
+
 const paymentSchema = z
   .object({
     paymentTypeId: uuidSchema("paymentTypeId"),
@@ -174,6 +232,7 @@ export const createNfeSchema = nfeHeaderSchema
 
 export const patchNfeSchema = nfeHeaderSchema
   .partial()
+  .extend({ dhSaiEnt: z.string().min(1).nullable().optional() })
   .strict()
   .refine((data) => Object.values(data).some((value) => value !== undefined), {
     message: "Deve haver ao menos um campo para atualizar",
@@ -211,5 +270,7 @@ export type CreateNfeInput = z.infer<typeof createNfeSchema>;
 export type CreateNfeFromSalesInput = z.infer<typeof createNfeFromSalesSchema>;
 export type PatchNfeInput = z.infer<typeof patchNfeSchema>;
 export type ReplaceNfeItemsInput = z.infer<typeof replaceNfeItemsSchema>;
+export type RecalculateNfeItemsInput = z.infer<typeof recalculateNfeItemsSchema>;
+export type ReplaceNfeTransportInput = z.infer<typeof replaceNfeTransportSchema>;
 export type ReplaceNfePaymentsInput = z.infer<typeof replaceNfePaymentsSchema>;
 export type LinkCfopEnterpriseInput = z.infer<typeof linkCfopEnterpriseSchema>;

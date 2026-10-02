@@ -18,6 +18,24 @@ import {
 import { ceps } from "../entities/addresses.js";
 import { tz } from "../functions.js";
 
+//Tabela de grupos de empresas (lojas de um mesmo cliente)
+export const enterpriseGroups = pgTable(
+  "enterprise_groups",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    name: varchar("name", { length: 255 }).notNull(), // Nome do grupo
+    status: statusEnum("status").default("ATIVO").notNull(), // Status
+    createdAt: tz("created_at").defaultNow().notNull(), // Data de criação
+    updatedAt: tz("updated_at"), // Data de atualização
+    deletedAt: tz("deleted_at"), // Data de exclusão
+  },
+  (t) => [
+    uniqueIndex("enterprise_groups_name_active_unique")
+      .on(t.name)
+      .where(sql`${t.deletedAt} is null`),
+  ],
+);
+
 //Tabela de empresas
 export const enterprises = pgTable(
   "enterprises",
@@ -34,6 +52,9 @@ export const enterprises = pgTable(
     municipalRegistration: varchar("municipal_registration", { length: 15 }), // Inscrição Municipal
     suframaRegistration: varchar("suframa_registration", { length: 9 }), // Inscrição SUFRAMA
     crt: regimeTributarioEnum("crt"), // CRT: 1 Simples Nacional, 2 excesso sublimite, 3 Regime Normal, 4 MEI
+    groupId: uuid("group_id").references(() => enterpriseGroups.id, {
+      onDelete: "set null",
+    }), // Grupo de empresas (opcional)
     registeredOn: date("registered_on", { mode: "date" }) // Data de registro
       .default(sql`CURRENT_DATE`)
       .notNull(),
@@ -50,6 +71,9 @@ export const enterprises = pgTable(
       .where(sql`${t.deletedAt} is null`),
     uniqueIndex("enterprises_trade_name_active_unique")
       .on(t.tradeName)
+      .where(sql`${t.deletedAt} is null`),
+    index("enterprises_group_idx")
+      .on(t.groupId)
       .where(sql`${t.deletedAt} is null`),
   ],
 );

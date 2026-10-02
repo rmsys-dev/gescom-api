@@ -1,6 +1,8 @@
-import { and, asc, count, eq, ilike, or, sql } from "drizzle-orm";
+import { and, asc, count, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { db } from "../../../db/index.js";
-import { prices, productsEnterprises } from "../../../db/schema.js";
+import { prices, products, productsEnterprises } from "../../../db/schema.js";
+import { productsEnterprisesService } from "../products-enterprises/service.js";
+import type { ListProductsEnterprisesQuery } from "../products-enterprises/schema.js";
 import {
   ConflictError,
   NotFoundError,
@@ -16,10 +18,11 @@ import {
 import { toAuditRecord } from "../../../shared/audit/build-field-diff.js";
 import { EntityTypes } from "../../../shared/audit/entity-types.js";
 import { getProductEnterpriseForStock } from "../../stock/balance.js";
-import type {
-  CreatePriceInput,
-  ListPricesQuery,
-  PatchPriceInput,
+import {
+  PRICE_PRODUCT_FILTER_KEYS,
+  type CreatePriceInput,
+  type ListPricesQuery,
+  type PatchPriceInput,
 } from "./schema.js";
 
 export class PricesService {
@@ -38,9 +41,29 @@ export class PricesService {
     return and(...base);
   }
 
+  private productFilter(enterpriseId: string, query: ListPricesQuery) {
+    const filters = Object.fromEntries(
+      PRICE_PRODUCT_FILTER_KEYS.flatMap((key) =>
+        query[key] !== undefined ? [[key, query[key]]] : [],
+      ),
+    ) as ListProductsEnterprisesQuery;
+    if (Object.keys(filters).length === 0) return undefined;
+    return inArray(
+      prices.productsEnterprisesId,
+      db
+        .select({ id: productsEnterprises.id })
+        .from(productsEnterprises)
+        .innerJoin(products, eq(products.id, productsEnterprises.productId))
+        .where(productsEnterprisesService.buildListConditions(enterpriseId, filters)),
+    );
+  }
+
   public async list(enterpriseId: string, query: ListPricesQuery = {}) {
     const { limit, offset } = resolveListPagination(query);
-    const where = this.scope(enterpriseId, undefined, query.search);
+    const where = and(
+      this.scope(enterpriseId, undefined, query.search),
+      this.productFilter(enterpriseId, query),
+    );
     const [items, totalRows] = await Promise.all([
       db
         .select({

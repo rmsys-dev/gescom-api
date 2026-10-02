@@ -156,6 +156,7 @@ const envSchema = z.object({
     .min(1)
     .optional()
     .default("storage/nfe"),
+  PHOTOS_DIR: z.string().trim().min(1).optional().default("fotos"),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);

@@ -6,14 +6,17 @@ import { isPostgresUniqueViolation } from "../../shared/db/postgres-errors.js";
 import { resolveListPagination } from "../../shared/pagination/pagination-params.js";
 import {
   recordCreateAudit,
+  recordEntityAudit,
   withEnterpriseAuditContext,
   type EntityAuditContext,
 } from "../../shared/audit/entity-audit.js";
 import { EntityTypes } from "../../shared/audit/entity-types.js";
 import { productsEnterprisesService } from "./products-enterprises/service.js";
 import type {
+  CreateProductInput,
   CreateProductWithEnterpriseInput,
   ListProductsQuery,
+  PatchProductInput,
 } from "./schema.js";
 
 type ProductRow = typeof products.$inferSelect;
@@ -192,6 +195,115 @@ export class ProductsService {
       }
       throw err;
     }
+  }
+
+  private conflict(err: unknown): never {
+    if (isPostgresUniqueViolation(err)) {
+      throw new ConflictError(
+        "Ja existe produto base com este codigo de barras ou descricao",
+        "PRODUCT_CONFLICT",
+      );
+    }
+    throw err;
+  }
+
+  public async createBase(input: CreateProductInput, audit: EntityAuditContext) {
+    const description = input.description.trim();
+    const barCode = input.barCode?.trim() || undefined;
+    if (await this.findExistingProduct(description, barCode)) {
+      throw new ConflictError(
+        "Ja existe produto base com este codigo de barras ou descricao",
+        "PRODUCT_CONFLICT",
+      );
+    }
+    try {
+      return await db.transaction(async (tx) => {
+        const [product] = await tx
+          .insert(products)
+          .values({
+            status: input.status ?? "ATIVO",
+            description,
+            ...(barCode !== undefined ? { barCode } : {}),
+          })
+          .returning();
+        if (!product) throw new Error("Falha ao criar produto");
+        await recordCreateAudit({
+          entityType: EntityTypes.PRODUCTS,
+          entityId: product.id,
+          after: product,
+          ctx: audit,
+          tx,
+        });
+        return product;
+      });
+    } catch (err) {
+      return this.conflict(err);
+    }
+  }
+
+  public async patch(id: string, input: PatchProductInput, audit: EntityAuditContext) {
+    const before = await this.getById(id);
+    const barCode =
+      input.barCode === undefined ? undefined : input.barCode?.trim() || null;
+    try {
+      return await db.transaction(async (tx) => {
+        const [after] = await tx
+          .update(products)
+          .set({
+            ...(input.status !== undefined ? { status: input.status } : {}),
+            ...(input.description !== undefined
+              ? { description: input.description.trim() }
+              : {}),
+            ...(barCode !== undefined ? { barCode } : {}),
+            updatedAt: new Date(),
+          })
+          .where(eq(products.id, id))
+          .returning();
+        if (!after) {
+          throw new NotFoundError("Produto nao encontrado", "PRODUCT_NOT_FOUND");
+        }
+        await recordEntityAudit({
+          entityType: EntityTypes.PRODUCTS,
+          entityId: id,
+          action: "UPDATE",
+          before,
+          after,
+          ctx: audit,
+          tx,
+        });
+        return after;
+      });
+    } catch (err) {
+      return this.conflict(err);
+    }
+  }
+
+  public async remove(id: string, audit: EntityAuditContext) {
+    const before = await this.getById(id);
+    const [linked] = await db
+      .select({ id: productsEnterprises.id })
+      .from(productsEnterprises)
+      .where(eq(productsEnterprises.productId, id))
+      .limit(1);
+    if (linked) {
+      throw new ConflictError(
+        "Produto base em uso por produto de empresa. Inative-o em vez de excluir.",
+        "PRODUCT_IN_USE",
+      );
+    }
+    await db.transaction(async (tx) => {
+      await tx.delete(products).where(eq(products.id, id));
+      await recordEntityAudit({
+        entityType: EntityTypes.PRODUCTS,
+        entityId: id,
+        action: "DELETE",
+        before,
+        after: {},
+        ctx: audit,
+        tx,
+      });
+    });
+    return { id };
   }
 }
 

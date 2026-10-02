@@ -354,6 +354,7 @@ export const productsEnterprises = pgTable(
       .references(() => classificationIbsCbs.id, { onDelete: "restrict" }),
     controlsBatch: boolean("controls_batch").notNull().default(false), // controla lote do produto
     controlsRental: boolean("controls_rental").notNull().default(false), // controla locacao do produto
+    photoUrl: varchar("photo_url", { length: 500 }), // URL da foto do produto
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
   },
@@ -363,6 +364,9 @@ export const productsEnterprises = pgTable(
       t.enterprisesId,
       t.code,
     ),
+    uniqueIndex("products_enterprises_enterprise_code_unique")
+      .on(t.enterprisesId, t.code)
+      .where(sql`${t.code} is not null`),
     check(
       "products_enterprises_stock_balance_non_negative",
       sql`${t.stockBalance} >= 0`,

@@ -6,8 +6,10 @@ import { tenantMiddleware } from "../../shared/middleware/tenant-middleware.js";
 import { emptyQuerySchema } from "../../shared/validation/common-schemas.js";
 import { productsController } from "./controller.js";
 import {
+  createProductSchema,
   createProductWithEnterpriseSchema,
   listProductsQuerySchema,
+  patchProductSchema,
   productParamsSchema,
 } from "./schema.js";
 
@@ -30,8 +32,34 @@ productsRouter.get(
   productsController.getById,
 );
 
+productsRouter.post(
+  "/base",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("incluir_produtos"),
+  validateSchema({ body: createProductSchema, query: emptyQuerySchema }),
+  productsController.createBase,
+);
+
+productsRouter.patch(
+  "/:productId",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("alterar_produtos"),
+  validateSchema({ params: productParamsSchema, body: patchProductSchema, query: emptyQuerySchema }),
+  productsController.patch,
+);
+
+productsRouter.delete(
+  "/:productId",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("excluir_produtos"),
+  validateSchema({ params: productParamsSchema, query: emptyQuerySchema }),
+  productsController.remove,
+);
+
 // Cria produto+vínculo ou, se barCode (ou description sem barCode) já existir, só o snapshot em products-enterprises.
-// Mutações posteriores são só em /products-enterprises — a raiz products é imutável após o POST.
 productsRouter.post(
   "/",
   authMiddleware,

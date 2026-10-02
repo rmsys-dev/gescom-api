@@ -1,4 +1,5 @@
 import { and, asc, count, desc, eq, ilike, inArray, isNull, or } from "drizzle-orm";
+import { isValidGtin } from "../../../shared/validation/data-normalizers.js";
 import {
   cfopsEnterprises,
   classificationIbsCbs,
@@ -12,8 +13,14 @@ import {
   nfeTransports,
   paymentTypes,
   sales,
+  measurementUnits,
+  nfeOperations,
+  nfeTransportVolumes,
+  prices,
   productTypes,
+  products,
   productsEnterprises,
+  productsNcm,
   states,
 } from "../../../db/schema.js";
 import { EntityTypes } from "../../../shared/audit/entity-types.js";
@@ -66,8 +73,10 @@ import type {
   LinkCfopEnterpriseInput,
   ListNfeQuery,
   PatchNfeInput,
+  RecalculateNfeItemsInput,
   ReplaceNfeItemsInput,
   ReplaceNfePaymentsInput,
+  ReplaceNfeTransportInput,
 } from "./schema.js";
 
 const money = (value: number | null | undefined): string | null =>
@@ -98,6 +107,26 @@ const emitParty = (input?: CreateNfeInput["emit"]) =>
         emitFone: input.fone,
       }
     : {};
+
+const numericStateRegistration = (value: string | null | undefined) => {
+  const digits = (value ?? "").replace(/\D/g, "");
+  return /^\d{2,14}$/.test(digits) ? digits : "";
+};
+
+const destinationIe = (
+  mod: string | null | undefined,
+  rawIe: string | null | undefined,
+  storedIndicator: string | null | undefined,
+) => {
+  if (mod === "65") return { indIeDest: "9", ie: undefined };
+  const ie = numericStateRegistration(rawIe);
+  if (ie) return { indIeDest: "1", ie };
+  const text = (rawIe ?? "").trim().toUpperCase();
+  if (text.startsWith("ISENT") || storedIndicator === "2") {
+    return { indIeDest: "2", ie: undefined };
+  }
+  return { indIeDest: "9", ie: undefined };
+};
 
 const destParty = (input?: CreateNfeInput["dest"]) =>
   input
@@ -268,9 +297,9 @@ export class NfeDocumentService {
     if (!header) {
       throw new NotFoundError("Nota fiscal nao encontrada", "NFE_NOT_FOUND");
     }
-    if (header.status !== "PENDENTE") {
+    if (header.status !== "PENDENTE" && header.status !== "REJEITADA") {
       throw new BadRequestError(
-        "Somente nota pendente pode ser alterada",
+        "Somente nota pendente ou rejeitada pode ser alterada",
         "NFE_NOT_PENDING",
       );
     }
@@ -684,6 +713,8 @@ export class NfeDocumentService {
           destXNome: nfeHeaders.destXNome,
           emitXNome: nfeHeaders.emitXNome,
           vNf: nfeHeaders.vNf,
+          cStat: nfeHeaders.cStat,
+          xMotivo: nfeHeaders.xMotivo,
         })
         .from(nfeHeaders)
         .where(where)
@@ -755,6 +786,14 @@ export class NfeDocumentService {
           )
       : [];
     const taxByItem = new Map(taxes.map((tax) => [tax.nfeItemId, tax]));
+    const transportRow = transport[0];
+    const volumes = transportRow
+      ? await db
+          .select()
+          .from(nfeTransportVolumes)
+          .where(eq(nfeTransportVolumes.nfeTransportId, transportRow.id))
+          .orderBy(asc(nfeTransportVolumes.nSeq))
+      : [];
     return {
       ...header,
       items: items.map((item) => ({
@@ -762,7 +801,7 @@ export class NfeDocumentService {
         tax: taxByItem.get(item.id) ?? null,
       })),
       payments,
-      transport: transport[0] ?? null,
+      transport: transportRow ? { ...transportRow, volumes } : null,
       sales: linkedSales,
     };
   }
@@ -775,13 +814,18 @@ export class NfeDocumentService {
   ) {
     const existing = await this.loadDraft(enterpriseId, nfeId);
     const issuanceType = input.issuanceType ?? existing.issuanceType;
-    const { emit, dest, dhEmi, nNf, ...rest } = input;
+    const { emit, dest, dhEmi, dhSaiEnt, nNf, nfeOperationsId: _operation, ...rest } = input;
+    const exitDate = dhSaiEnt ? new Date(dhSaiEnt) : null;
+    if (exitDate && Number.isNaN(exitDate.getTime())) {
+      throw new BadRequestError("Data de saida invalida", "NFE_EXIT_DATE_INVALID");
+    }
     const [row] = await db
       .update(nfeHeaders)
       .set({
         ...rest,
         ...(issuanceType === "TERCEIRO" && nNf !== undefined ? { nNf } : {}),
         ...(dhEmi !== undefined ? { dhEmi: new Date(dhEmi) } : {}),
+        ...(dhSaiEnt !== undefined ? { dhSaiEnt: exitDate } : {}),
         ...emitParty(emit),
         ...destParty(dest),
         updatedAt: new Date(),
@@ -998,6 +1042,258 @@ export class NfeDocumentService {
       );
     });
     return this.auditDocumentChange(enterpriseId, nfeId, before, audit);
+  }
+
+  public async replaceTransport(
+    enterpriseId: string,
+    nfeId: string,
+    input: ReplaceNfeTransportInput,
+    audit: EntityAuditContext,
+  ) {
+    const header = await this.loadDraft(enterpriseId, nfeId);
+    if (header.mod === "65" && input.modFrete !== "9") {
+      throw new BadRequestError(
+        "NFC-e deve usar frete 9 - sem transporte",
+        "NFE_TRANSPORT_NFCE",
+      );
+    }
+    const before = await this.get(enterpriseId, nfeId);
+    const volumes = input.volumes.filter((volume) =>
+      Object.values(volume).some((value) => value !== undefined && value !== ""),
+    );
+    await db.transaction(async (tx) => {
+      await tx.delete(nfeTransports).where(eq(nfeTransports.nfeHeaderId, nfeId));
+      const [transport] = await tx
+        .insert(nfeTransports)
+        .values({
+          nfeHeaderId: nfeId,
+          modFrete: input.modFrete,
+          transpCnpj: input.cnpj ?? null,
+          transpCpf: input.cpf ?? null,
+          transpXNome: input.xNome || null,
+          transpIe: input.ie ?? null,
+          transpXEnder: input.xEnder || null,
+          transpXMun: input.xMun || null,
+          transpUf: input.uf ?? null,
+          veicPlaca: input.veicPlaca ?? null,
+          veicUf: input.veicUf ?? null,
+          veicRntc: input.veicRntc || null,
+        })
+        .returning({ id: nfeTransports.id });
+      if (!transport) throw new Error("Falha ao gravar transporte da nota");
+      if (volumes.length) {
+        await tx.insert(nfeTransportVolumes).values(
+          volumes.map((volume, index) => ({
+            nfeTransportId: transport.id,
+            nSeq: index + 1,
+            qVol: volume.qVol ?? null,
+            esp: volume.esp || null,
+            marca: volume.marca || null,
+            nVol: volume.nVol || null,
+            pesoL: volume.pesoL === undefined ? null : volume.pesoL.toFixed(3),
+            pesoB: volume.pesoB === undefined ? null : volume.pesoB.toFixed(3),
+          })),
+        );
+      }
+    });
+    return this.auditDocumentChange(enterpriseId, nfeId, before, audit);
+  }
+
+  public async recalculateItems(
+    enterpriseId: string,
+    nfeId: string,
+    input: RecalculateNfeItemsInput,
+    audit: EntityAuditContext,
+  ) {
+    const header = await this.loadDraft(enterpriseId, nfeId);
+    if (header.mod !== "55" && header.mod !== "65") {
+      throw new BadRequestError("Modelo da nota fiscal invalido", "NFE_MODEL_INVALID");
+    }
+    const currentItems = await db
+      .select()
+      .from(nfeItems)
+      .where(eq(nfeItems.nfeHeaderId, nfeId))
+      .orderBy(asc(nfeItems.nItem));
+    const [chosenOperation] = input.nfeOperationsId
+      ? await db
+          .select({ id: nfeOperations.id, description: nfeOperations.description })
+          .from(nfeOperations)
+          .where(and(eq(nfeOperations.id, input.nfeOperationsId), eq(nfeOperations.status, true)))
+          .limit(1)
+      : header.natOp?.trim()
+        ? await db
+            .select({ id: nfeOperations.id, description: nfeOperations.description })
+            .from(nfeOperations)
+            .where(and(eq(nfeOperations.description, header.natOp.trim()), eq(nfeOperations.status, true)))
+            .limit(1)
+        : [];
+    if (input.nfeOperationsId && !chosenOperation) {
+      throw new NotFoundError("Operacao fiscal nao encontrada", "NFE_OPERATION_NOT_FOUND");
+    }
+    const natOp = input.nfeOperationsId && chosenOperation
+      ? chosenOperation.description.slice(0, 60)
+      : header.natOp ?? undefined;
+    const productIds = [...new Set(input.items.map((item) => item.productsEnterprisesId))];
+    const productRows = await db
+      .select({
+        id: productsEnterprises.id,
+        code: productsEnterprises.code,
+        description: productsEnterprises.description,
+        barCode: products.barCode,
+        ncm: productsNcm.ncm,
+        unit: measurementUnits.unit,
+        type: productTypes.type,
+        price: prices.price,
+      })
+      .from(productsEnterprises)
+      .innerJoin(products, eq(products.id, productsEnterprises.productId))
+      .innerJoin(productTypes, eq(productTypes.id, productsEnterprises.productTypeId))
+      .innerJoin(measurementUnits, eq(measurementUnits.id, productsEnterprises.measurementUnitId))
+      .leftJoin(productsNcm, eq(productsNcm.id, productsEnterprises.productNcmId))
+      .leftJoin(prices, eq(prices.productsEnterprisesId, productsEnterprises.id))
+      .where(
+        and(
+          eq(productsEnterprises.enterprisesId, enterpriseId),
+          inArray(productsEnterprises.id, productIds),
+        ),
+      );
+    const productById = new Map(productRows.map((row) => [row.id, row]));
+    const digits = (value: string | null | undefined) => (value ?? "").replace(/\D/g, "");
+    const amount = (value: number | undefined) =>
+      value !== undefined && value > 0 ? Math.round(value * 100) / 100 : undefined;
+    const items = input.items.map((item, index) => {
+      const product = productById.get(item.productsEnterprisesId);
+      if (!product) {
+        throw new NotFoundError(
+          "Produto da empresa nao encontrado",
+          "PRODUCT_ENTERPRISE_NOT_FOUND",
+        );
+      }
+      if (product.type === PRODUCT_TYPE_SERVICE_CODE) {
+        throw new BadRequestError(
+          "Produto de servico nao pode substituir item da nota",
+          "NFE_ITEM_SERVICE",
+        );
+      }
+      const current = currentItems[index];
+      const sameProduct = current?.productsEnterprisesId === item.productsEnterprisesId;
+      const catalogPrice = product.price == null || product.price === "" ? NaN : Number(product.price);
+      const currentUnit = sameProduct ? Number(current?.vUnCom ?? NaN) : NaN;
+      const unit = item.vUnCom
+        ?? (Number.isFinite(catalogPrice) && catalogPrice > 0
+          ? catalogPrice
+          : Number.isFinite(currentUnit) && currentUnit > 0 ? currentUnit : NaN);
+      if (!Number.isFinite(unit) || unit <= 0) {
+        throw new BadRequestError(
+          `Informe o valor unitario do item ${index + 1} (${product.description})`,
+          "NFE_ITEM_PRICE_REQUIRED",
+        );
+      }
+      const quantity = item.qCom;
+      const gross = Math.round(quantity * unit * 100) / 100;
+      if ((item.vDesc ?? 0) > gross) {
+        throw new BadRequestError(
+          `O desconto do item ${index + 1} e maior que o valor do produto`,
+          "NFE_ITEM_DISCOUNT",
+        );
+      }
+      const ncm = digits(product.ncm).slice(0, 8);
+      const ean = digits(product.barCode);
+      const description = product.description.trim().slice(0, 120) || "PRODUTO";
+      return {
+        productsEnterprisesId: item.productsEnterprisesId,
+        nItem: index + 1,
+        cProd: product.code == null ? undefined : String(product.code).slice(0, 60),
+        cEan: isValidGtin(ean) ? ean : undefined,
+        xProd: description,
+        ncm: ncm.length > 0 ? ncm : undefined,
+        uCom: (product.unit || "UN").slice(0, 6),
+        qCom: quantity,
+        vUnCom: unit,
+        vProd: gross,
+        uTrib: (product.unit || "UN").slice(0, 6),
+        qTrib: quantity,
+        vUnTrib: unit,
+        vFrete: amount(item.vFrete),
+        vSeg: amount(item.vSeg),
+        vDesc: amount(item.vDesc),
+        vOutro: amount(item.vOutro),
+        indTot: current?.indTot ?? "1",
+      };
+    });
+    const filled = await applyStateOperationToNote(
+      enterpriseId,
+      {
+        chave: header.chave,
+        cUf: header.cUf,
+        cNf: header.cNf,
+        natOp,
+        nfeOperationsId: chosenOperation?.id,
+        mod: header.mod,
+        serie: header.serie,
+        nNf: header.nNf,
+        dhEmi: header.dhEmi.toISOString(),
+        tpNf: header.tpNf ?? undefined,
+        cMunFg: header.cMunFg,
+        tpImp: header.tpImp ?? undefined,
+        tpEmis: header.tpEmis,
+        cDv: header.cDv ?? undefined,
+        tpAmb: header.tpAmb === 1 ? 1 : 2,
+        finNfe: header.finNfe ?? undefined,
+        indFinal: header.indFinal ?? undefined,
+        indPres: header.indPres ?? undefined,
+        procEmi: header.procEmi ?? undefined,
+        verProc: header.verProc ?? undefined,
+        moviments: header.moviments,
+        issuanceType: header.issuanceType,
+        dest: {
+          uf: header.destUf ?? undefined,
+          cmun: header.destCmun ?? undefined,
+          indIeDest: header.destIndIeDest ?? undefined,
+          isuf: header.destIsuf ?? undefined,
+        },
+        items,
+        payments: [],
+      },
+      header.destMemberId ?? undefined,
+    );
+    if (filled.natOp !== header.natOp || filled.idDest !== header.idDest) {
+      await db
+        .update(nfeHeaders)
+        .set({ natOp: filled.natOp ?? header.natOp, idDest: filled.idDest ?? header.idDest, updatedAt: new Date() })
+        .where(eq(nfeHeaders.id, nfeId));
+    }
+    await this.replaceItems(enterpriseId, nfeId, { items: filled.items }, audit);
+    const calculated = await this.calculate(enterpriseId, nfeId, audit);
+    const payments = calculated.payments ?? [];
+    const total = Number(calculated.vNf ?? 0);
+    const payment = payments.length === 1 ? payments[0] : undefined;
+    if (!payment?.paymentTypeId || !(total > 0) || Number(payment.vPag ?? 0) === total) {
+      return calculated;
+    }
+    const textOrUndefined = (value: string | null | undefined) => {
+      const text = value?.trim();
+      return text ? text : undefined;
+    };
+    return this.replacePayments(
+      enterpriseId,
+      nfeId,
+      {
+        payments: [{
+          paymentTypeId: payment.paymentTypeId,
+          nSeq: payment.nSeq || 1,
+          indPag: textOrUndefined(payment.indPag),
+          tPag: textOrUndefined(payment.tPag),
+          xPag: textOrUndefined(payment.xPag),
+          vPag: total,
+          cardTpIntegra: textOrUndefined(payment.cardTpIntegra),
+          cardCnpj: textOrUndefined(payment.cardCnpj),
+          cardTBand: textOrUndefined(payment.cardTBand),
+          cardCAut: textOrUndefined(payment.cardCAut),
+        }],
+      },
+      audit,
+    );
   }
 
   public async calculate(
@@ -1320,6 +1616,12 @@ export class NfeDocumentService {
   private unsignedXml(
     document: Awaited<ReturnType<NfeDocumentService["get"]>>,
   ) {
+    if (!numericStateRegistration(document.emitIe)) {
+      throw new BadRequestError(
+        "A inscrição estadual do emitente deve conter apenas números. O texto ISENTO não entra na NF-e.",
+        "NFE_EMIT_IE_INVALID",
+      );
+    }
     return buildNfeXml({
       chave: document.chave,
       cUf: document.cUf,
@@ -1329,6 +1631,7 @@ export class NfeDocumentService {
       serie: document.serie,
       nNf: document.nNf,
       dhEmi: document.dhEmi.toISOString(),
+      dhSaiEnt: document.dhSaiEnt ? document.dhSaiEnt.toISOString() : null,
       tpNf: document.tpNf,
       idDest: document.idDest,
       cMunFg: document.cMunFg,
@@ -1346,7 +1649,7 @@ export class NfeDocumentService {
         cpf: document.emitCpf,
         xNome: document.emitXNome,
         xFant: document.emitXFant,
-        ie: document.emitIe,
+        ie: numericStateRegistration(document.emitIe) || undefined,
         crt: document.emitCrt,
         xlgr: document.emitXlgr,
         nro: document.emitNro,
@@ -1365,8 +1668,7 @@ export class NfeDocumentService {
             cnpj: document.destCnpj,
             cpf: document.destCpf,
             xNome: document.destXNome,
-            indIeDest: document.destIndIeDest,
-            ie: document.destIe,
+            ...destinationIe(document.mod, document.destIe, document.destIndIeDest),
             isuf: document.destIsuf,
             email: document.destEmail,
             xlgr: document.destXlgr,
@@ -1383,7 +1685,7 @@ export class NfeDocumentService {
       items: document.items.map((item) => ({
         nItem: item.nItem,
         cProd: item.cProd,
-        cEan: item.cEan,
+        cEan: item.cEan && isValidGtin(item.cEan) ? item.cEan : null,
         xProd: item.xProd,
         ncm: item.ncm,
         cBenef: item.cBenef,
@@ -1395,6 +1697,8 @@ export class NfeDocumentService {
         uTrib: item.uTrib,
         qTrib: item.qTrib,
         vUnTrib: item.vUnTrib,
+        vFrete: item.vFrete,
+        vSeg: item.vSeg,
         vDesc: item.vDesc,
         vOutro: item.vOutro,
         indTot: item.indTot,
@@ -1509,7 +1813,24 @@ export class NfeDocumentService {
       transport: document.transport
         ? {
             modFrete: document.transport.modFrete,
+            cnpj: document.transport.transpCnpj,
+            cpf: document.transport.transpCpf,
             xNome: document.transport.transpXNome,
+            ie: document.transport.transpIe,
+            xEnder: document.transport.transpXEnder,
+            xMun: document.transport.transpXMun,
+            uf: document.transport.transpUf,
+            veicPlaca: document.idDest === "2" ? null : document.transport.veicPlaca,
+            veicUf: document.idDest === "2" ? null : document.transport.veicUf,
+            veicRntc: document.idDest === "2" ? null : document.transport.veicRntc,
+            volumes: document.transport.volumes.map((volume) => ({
+              qVol: volume.qVol,
+              esp: volume.esp,
+              marca: volume.marca,
+              nVol: volume.nVol,
+              pesoL: volume.pesoL,
+              pesoB: volume.pesoB,
+            })),
           }
         : document.mod === "55"
           ? { modFrete: "9" }

@@ -24,6 +24,7 @@ import {
   patchMembershipSchema,
 } from "./schema.js";
 import { PERM } from "../auth/default-permissions.js";
+import { photoUpload } from "../../shared/photos/photo-storage.js";
 import {
   emptyBodySchema,
   emptyQuerySchema,
@@ -162,6 +163,25 @@ membershipsRouter.patch(
     body: patchMembershipSchema,
   }),
   membershipsController.patch,
+);
+
+membershipsRouter.put(
+  "/:memberId/photo",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("alterar_membros"),
+  photoUpload,
+  validateSchema({ params: membershipPatchParamsSchema }),
+  membershipsController.setPhoto,
+);
+
+membershipsRouter.delete(
+  "/:memberId/photo",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("alterar_membros"),
+  validateSchema({ params: membershipPatchParamsSchema, query: emptyQuerySchema }),
+  membershipsController.removePhoto,
 );
 
 export { membershipsRouter };

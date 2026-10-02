@@ -1,6 +1,6 @@
 import { pgEnum } from "drizzle-orm/pg-core";
 
-// Tipo de sequência (VENDA, NFE, NFSE, NFCE, MDFE, CTE)
+// Tipo de sequência (VENDA, NFE, NFSE, NFCE, MDFE, CTE, MEMBRO, PRODUTO)
 export const sequenceTypeEnum = pgEnum("sequence_type", [
   "VENDA",
   "NFE",
@@ -8,6 +8,8 @@ export const sequenceTypeEnum = pgEnum("sequence_type", [
   "NFCE",
   "MDFE",
   "CTE",
+  "MEMBRO",
+  "PRODUTO",
 ]);
 
 export type SequenceType = (typeof sequenceTypeEnum.enumValues)[number];
@@ -278,6 +280,7 @@ export const entityTypeEnum = pgEnum("entity_type", [
   "BENEFIT_CODE_BY_STATE_AND_PRODUCTS",
   "STATES_DIVISIONS",
   "PRESUMED_CREDIT",
+  "ENTERPRISE_GROUPS",
 ]);
 
 export const stockMovementTypeEnum = pgEnum("stock_movement_type", [

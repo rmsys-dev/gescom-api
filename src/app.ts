@@ -1,7 +1,9 @@
+import path from "node:path";
 import express from "express";
 import compression from "compression";
 import helmet from "helmet";
 import { appInfo } from "./config/app-info.js";
+import { env } from "./config/env.js";
 import { corsMiddleware, jsonBodyParser } from "./config/http.js";
 import { errorHandler } from "./shared/errors/error-handler.js";
 import { notFoundHandler } from "./shared/errors/not-found-handler.js";
@@ -33,6 +35,12 @@ app.get("/health", (_req, res) => {
     },
   });
 });
+
+app.use(
+  "/fotos",
+  helmet.crossOriginResourcePolicy({ policy: "cross-origin" }),
+  express.static(path.resolve(env.PHOTOS_DIR), { maxAge: "1d", index: false }),
+);
 
 app.use("/api", apiRateLimit, apiRouter);
 app.use(notFoundHandler);

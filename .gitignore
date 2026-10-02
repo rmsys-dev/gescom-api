@@ -35,6 +35,9 @@ temp/
 # XML fiscal das notas (NFE_XML_DIR)
 storage/
 
+# Fotos de membros e produtos (PHOTOS_DIR)
+fotos/
+
 # Chaves e certificados (não versionar material criptográfico local)
 *.pem
 *.p12

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { regimeTributarioEnum } from "../../db/enums.js";
+import { regimeTributarioEnum, sequenceTypeEnum } from "../../db/enums.js";
 import {
   cpfCnpjSchema,
   createPaginationQuerySchema,
@@ -96,6 +96,21 @@ export type PatchEnterpriseInput = z.infer<typeof patchEnterpriseSchema>;
 
 //Tipo de parâmetros de empresa
 export type EnterpriseParams = z.infer<typeof enterpriseParamsSchema>;
+
+export const enterpriseSequenceParamsSchema = z
+  .object({
+    enterpriseId: uuidSchema("enterpriseId"),
+    type: z.enum(sequenceTypeEnum.enumValues),
+  })
+  .strict();
+
+export const patchEnterpriseSequenceSchema = z
+  .object({
+    sequence: z.number().int().min(0).max(999_999_999),
+  })
+  .strict();
+
+export type PatchEnterpriseSequenceInput = z.infer<typeof patchEnterpriseSequenceSchema>;
 
 export const listEnterprisesQuerySchema = createPaginationQuerySchema(100);
 

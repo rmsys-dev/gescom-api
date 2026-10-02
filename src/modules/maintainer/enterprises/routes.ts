@@ -9,6 +9,8 @@ import { patchEnterpriseParametersSchema } from "../../enterprises/parameters/sc
 import { maintainerEnterprisesController } from "./controller.js";
 import { requireMaintainerApiKey } from "../require-maintainer-api-key.js";
 import { createEnterpriseSchema, enterpriseParamsSchema } from "./schema.js";
+import { maintainerEnterpriseGroupsController } from "../enterprise-groups/controller.js";
+import { setEnterpriseGroupSchema } from "../enterprise-groups/schema.js";
 
 const maintainerEnterprisesRouter = Router();
 
@@ -29,6 +31,18 @@ maintainerEnterprisesRouter.patch(
     query: emptyQuerySchema,
   }),
   maintainerEnterprisesController.patchParameters,
+);
+
+maintainerEnterprisesRouter.patch(
+  "/:enterpriseId/group",
+  requireMaintainerApiKey,
+  authMiddleware,
+  validateSchema({
+    params: enterpriseParamsSchema,
+    body: setEnterpriseGroupSchema,
+    query: emptyQuerySchema,
+  }),
+  maintainerEnterpriseGroupsController.setEnterpriseGroup,
 );
 
 maintainerEnterprisesRouter.delete(

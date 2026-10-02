@@ -6,6 +6,7 @@ import {
   ilike,
   inArray,
   isNull,
+  ne,
 } from "drizzle-orm";
 import { db, typeNetworks, typeSupplierCustomers } from "../../db/schema.js";
 import {
@@ -42,11 +43,21 @@ import {
 import { toAuditRecord } from "../../shared/audit/build-field-diff.js";
 import { EntityTypes } from "../../shared/audit/entity-types.js";
 import {
+  removePhoto as removeStoredPhoto,
+  savePhoto,
+  type PhotoFile,
+} from "../../shared/photos/photo-storage.js";
+import {
   memberModuleSoftDeleteValues,
   membershipSoftDeleteValues,
   touchUpdatedAt,
 } from "../../shared/db/record-lifecycle.js";
-import { isPostgresUniqueViolation } from "../../shared/db/postgres-errors.js";
+import {
+  isPostgresUniqueViolation,
+  postgresConstraint,
+} from "../../shared/db/postgres-errors.js";
+import { syncEnterpriseSequenceFloor } from "../../shared/sequences/enterprise-sequence.js";
+import { isMemberCodeTaken, resolveMemberCode } from "./member-code.js";
 import {
   invalidateMemberPermissions,
 } from "../../shared/cache/auth-cache-invalidation.js";
@@ -364,6 +375,7 @@ const mapMemberWithUser = ({
   enterpriseId: member.enterpriseId,
   class: member.class,
   observations: member.observations,
+  photoUrl: member.photoUrl,
   saleLimit: member.saleLimit,
   exceedDiscountSale: member.exceedDiscountSale,
   receiptLimitDiscount: member.receiptLimitDiscount,
@@ -727,6 +739,34 @@ export class MembershipsService {
     }
   }
 
+  private async assertMemberCodeAvailable(
+    client: typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0],
+    enterpriseId: string,
+    code: number | null | undefined,
+    exceptMemberId?: string,
+  ): Promise<void> {
+    if (code === null || code === undefined) return;
+    if (await isMemberCodeTaken(client, enterpriseId, code, exceptMemberId)) {
+      throw new ConflictError(
+        "Ja existe membro com este codigo nesta empresa",
+        "MEMBERSHIP_CODE_DUPLICATE",
+      );
+    }
+  }
+
+  private memberCodeConflict(error: unknown): unknown {
+    if (
+      isPostgresUniqueViolation(error) &&
+      postgresConstraint(error) === "enterprises_members_enterprise_code_active_unique"
+    ) {
+      return new ConflictError(
+        "Ja existe membro com este codigo nesta empresa",
+        "MEMBERSHIP_CODE_DUPLICATE",
+      );
+    }
+    return error;
+  }
+
   //Cria a estrutura de membro (vínculo + módulos com snapshot de permissões no save)
   private async createMembershipStructure(
     input: {
@@ -752,10 +792,12 @@ export class MembershipsService {
     },
     tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   ) {
+    await this.assertMemberCodeAvailable(tx, input.enterpriseId, input.code);
+    const code = await resolveMemberCode(input.enterpriseId, input.code, tx);
     const [member] = await tx
       .insert(enterprisesMembers)
       .values({
-        code: input.code ?? null,
+        code,
         userId: input.userId,
         enterpriseId: input.enterpriseId,
         class: input.class,
@@ -767,7 +809,10 @@ export class MembershipsService {
           ? mapMembershipSalesFieldsToInsert(input.salesFields)
           : {}),
       })
-      .returning();
+      .returning()
+      .catch((error: unknown) => {
+        throw this.memberCodeConflict(error);
+      });
 
     if (!member) {
       throw new InternalServerError(
@@ -1247,6 +1292,9 @@ export class MembershipsService {
     }
 
     await this.assertMembershipTypeReferences(enterpriseId, input);
+    if (typeof input.code === "number" && input.softDelete !== true) {
+      await this.assertMemberCodeAvailable(db, enterpriseId, input.code, memberId);
+    }
 
     const auditCtx: EntityAuditContext = {
       ...audit,
@@ -1351,17 +1399,27 @@ export class MembershipsService {
       return row;
     }
 
-    const [row] = await db
-      .update(enterprisesMembers)
-      .set(setValues)
-      .where(
-        and(
-          eq(enterprisesMembers.id, memberId),
-          eq(enterprisesMembers.enterpriseId, enterpriseId),
-          isNull(enterprisesMembers.deletedAt),
-        ),
-      )
-      .returning();
+    const row = await db
+      .transaction(async (tx) => {
+        const [updated] = await tx
+          .update(enterprisesMembers)
+          .set(setValues)
+          .where(
+            and(
+              eq(enterprisesMembers.id, memberId),
+              eq(enterprisesMembers.enterpriseId, enterpriseId),
+              isNull(enterprisesMembers.deletedAt),
+            ),
+          )
+          .returning();
+        if (updated && typeof input.code === "number") {
+          await syncEnterpriseSequenceFloor(enterpriseId, "MEMBRO", input.code, tx);
+        }
+        return updated;
+      })
+      .catch((error: unknown) => {
+        throw this.memberCodeConflict(error);
+      });
 
     if (!row) {
       throw new NotFoundError("Membro nao encontrado", "MEMBERSHIP_NOT_FOUND");
@@ -1688,6 +1746,112 @@ export class MembershipsService {
 
     invalidateMemberPermissions(memberId);
     return updated;
+  }
+
+  private async activeMemberWithName(enterpriseId: string, memberId: string) {
+    const [member] = await db
+      .select({
+        id: enterprisesMembers.id,
+        photoUrl: enterprisesMembers.photoUrl,
+        userName: users.userName,
+      })
+      .from(enterprisesMembers)
+      .innerJoin(users, eq(users.id, enterprisesMembers.userId))
+      .where(
+        and(
+          eq(enterprisesMembers.id, memberId),
+          eq(enterprisesMembers.enterpriseId, enterpriseId),
+          isNull(enterprisesMembers.deletedAt),
+        ),
+      )
+      .limit(1);
+    if (!member) {
+      throw new NotFoundError("Membro nao encontrado", "MEMBERSHIP_NOT_FOUND");
+    }
+    return member;
+  }
+
+  public async setPhoto(
+    enterpriseId: string,
+    memberId: string,
+    file: PhotoFile,
+    audit: EntityAuditContext,
+  ) {
+    const member = await this.activeMemberWithName(enterpriseId, memberId);
+    const photoUrl = await savePhoto({
+      folder: "membros",
+      id: memberId,
+      name: member.userName,
+      file,
+    });
+    let updated: { id: string; photoUrl: string | null } | undefined;
+    try {
+      [updated] = await db
+        .update(enterprisesMembers)
+        .set({ photoUrl, updatedAt: new Date() })
+        .where(
+          and(
+            eq(enterprisesMembers.id, memberId),
+            eq(enterprisesMembers.enterpriseId, enterpriseId),
+            isNull(enterprisesMembers.deletedAt),
+          ),
+        )
+        .returning({
+          id: enterprisesMembers.id,
+          photoUrl: enterprisesMembers.photoUrl,
+        });
+    } catch (error) {
+      await removeStoredPhoto(photoUrl);
+      throw error;
+    }
+    if (!updated) {
+      await removeStoredPhoto(photoUrl);
+      throw new NotFoundError("Membro nao encontrado", "MEMBERSHIP_NOT_FOUND");
+    }
+    await recordEntityAudit({
+      entityType: EntityTypes.ENTERPRISES_MEMBERS,
+      entityId: memberId,
+      action: "UPDATE",
+      before: { photoUrl: member.photoUrl },
+      after: { photoUrl },
+      ctx: { ...audit, enterpriseId: audit.enterpriseId ?? enterpriseId },
+    });
+    if (member.photoUrl && member.photoUrl !== photoUrl) {
+      await removeStoredPhoto(member.photoUrl);
+    }
+    return { photoUrl };
+  }
+
+  public async removePhoto(
+    enterpriseId: string,
+    memberId: string,
+    audit: EntityAuditContext,
+  ) {
+    const member = await this.activeMemberWithName(enterpriseId, memberId);
+    const [updated] = await db
+      .update(enterprisesMembers)
+      .set({ photoUrl: null, updatedAt: new Date() })
+      .where(
+        and(
+          eq(enterprisesMembers.id, memberId),
+          eq(enterprisesMembers.enterpriseId, enterpriseId),
+          isNull(enterprisesMembers.deletedAt),
+        ),
+      )
+      .returning({ id: enterprisesMembers.id });
+    if (!updated) {
+      throw new NotFoundError("Membro nao encontrado", "MEMBERSHIP_NOT_FOUND");
+    }
+    await recordEntityAudit({
+      entityType: EntityTypes.ENTERPRISES_MEMBERS,
+      entityId: memberId,
+      action: "UPDATE",
+      before: { photoUrl: member.photoUrl },
+      after: { photoUrl: null },
+      ctx: { ...audit, enterpriseId: audit.enterpriseId ?? enterpriseId },
+    });
+    await removeStoredPhoto(member.photoUrl);
+    return { photoUrl: null };
   }
 
 }

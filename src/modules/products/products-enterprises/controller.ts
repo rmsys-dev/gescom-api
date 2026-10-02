@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { BadRequestError } from "../../../shared/errors/app-error.js";
 import type { RequestWithAuth } from "../../../shared/middleware/auth-middleware.js";
 import { requireTenantEnterpriseId } from "../../../shared/controllers/tenant-context.js";
 import {
@@ -91,6 +92,44 @@ export class ProductsEnterprisesController {
     sendSuccessResponse(res, HttpStatus.OK, {
       message: "Produto da empresa atualizado com sucesso.",
       data: row,
+    });
+  };
+
+  public setPhoto = async (req: Request, res: Response): Promise<void> => {
+    const file = (req as Request & { file?: { buffer: Buffer; mimetype: string } })
+      .file;
+    if (!file) {
+      throw new BadRequestError("Foto obrigatoria", "PHOTO_REQUIRED");
+    }
+    const reqAuth = req as RequestWithAuth;
+    const auth = reqAuth.auth!;
+    const enterpriseId = requireTenantEnterpriseId(auth);
+    const productEnterpriseId = req.params["productEnterpriseId"] as string;
+    const data = await productsEnterprisesService.setPhoto(
+      enterpriseId,
+      productEnterpriseId,
+      file,
+      auditContextFromPatchAuth(auth, req, "products.products-enterprises.service.setPhoto", { enterpriseId }),
+    );
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Foto do produto gravada com sucesso.",
+      data,
+    });
+  };
+
+  public removePhoto = async (req: Request, res: Response): Promise<void> => {
+    const reqAuth = req as RequestWithAuth;
+    const auth = reqAuth.auth!;
+    const enterpriseId = requireTenantEnterpriseId(auth);
+    const productEnterpriseId = req.params["productEnterpriseId"] as string;
+    const data = await productsEnterprisesService.removePhoto(
+      enterpriseId,
+      productEnterpriseId,
+      auditContextFromPatchAuth(auth, req, "products.products-enterprises.service.removePhoto", { enterpriseId }),
+    );
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Foto do produto removida com sucesso.",
+      data,
     });
   };
 

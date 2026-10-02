@@ -1,4 +1,4 @@
-import { and, asc, count, eq, exists, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, asc, count, eq, exists, ilike, inArray, ne, or, sql } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import {
   measurementUnits,
@@ -28,8 +28,18 @@ import {
   NotFoundError,
   ValidationError,
 } from "../../../shared/errors/app-error.js";
-import { isPostgresUniqueViolation } from "../../../shared/db/postgres-errors.js";
+import {
+  isPostgresUniqueViolation,
+  postgresConstraint,
+} from "../../../shared/db/postgres-errors.js";
 import { resolveListPagination } from "../../../shared/pagination/pagination-params.js";
+import { syncEnterpriseSequenceFloor } from "../../../shared/sequences/enterprise-sequence.js";
+import { resolveEntityCode } from "../../../shared/sequences/entity-code.js";
+import {
+  removePhoto as removeStoredPhoto,
+  savePhoto,
+  type PhotoFile,
+} from "../../../shared/photos/photo-storage.js";
 import {
   recordCreateAudit,
   recordEntityAudit,
@@ -74,6 +84,7 @@ const productEnterpriseSelectFields = {
   controlsBatch: productsEnterprises.controlsBatch,
   controlsRental: productsEnterprises.controlsRental,
   stockBalance: productsEnterprises.stockBalance,
+  photoUrl: productsEnterprises.photoUrl,
   status: products.status,
   barCode: products.barCode,
   createdAt: productsEnterprises.createdAt,
@@ -403,16 +414,80 @@ export class ProductsEnterprisesService {
     await this.validateProductFks(enterpriseId, input);
   }
 
-  private async insertEnterpriseLink(
+  private enterpriseLinkConflict(err: unknown): never {
+    if (
+      isPostgresUniqueViolation(err) &&
+      postgresConstraint(err) === "products_enterprises_enterprise_code_unique"
+    ) {
+      throw new ConflictError(
+        "Ja existe produto com este codigo nesta empresa",
+        "PRODUCT_ENTERPRISE_CODE_DUPLICATE",
+      );
+    }
+    if (isPostgresUniqueViolation(err)) {
+      throw new ConflictError(
+        "Produto ja vinculado a esta empresa ou codigo duplicado",
+        "PRODUCT_ENTERPRISE_CONFLICT",
+      );
+    }
+    throw err;
+  }
+
+  private async isEnterpriseCodeTaken(
     client: DbClient,
+    enterpriseId: string,
+    code: number,
+    exceptId?: string,
+  ): Promise<boolean> {
+    const filters = [
+      eq(productsEnterprises.enterprisesId, enterpriseId),
+      eq(productsEnterprises.code, code),
+    ];
+    if (exceptId) {
+      filters.push(ne(productsEnterprises.id, exceptId));
+    }
+    const [found] = await client
+      .select({ id: productsEnterprises.id })
+      .from(productsEnterprises)
+      .where(and(...filters))
+      .limit(1);
+    return Boolean(found);
+  }
+
+  private async assertEnterpriseCodeAvailable(
+    client: DbClient,
+    enterpriseId: string,
+    code: number | null | undefined,
+    exceptId?: string,
+  ) {
+    if (code === null || code === undefined) return;
+    if (await this.isEnterpriseCodeTaken(client, enterpriseId, code, exceptId)) {
+      throw new ConflictError(
+        "Ja existe produto com este codigo nesta empresa",
+        "PRODUCT_ENTERPRISE_CODE_DUPLICATE",
+      );
+    }
+  }
+
+  private async insertEnterpriseLink(
+    tx: Tx,
     enterpriseId: string,
     productId: string,
     input: CreateProductEnterprisePayloadInput,
   ) {
-    const [row] = await client
+    await this.assertEnterpriseCodeAvailable(tx, enterpriseId, input.code);
+    const code = await resolveEntityCode({
+      enterpriseId,
+      type: "PRODUTO",
+      informed: input.code,
+      isTaken: (candidate) =>
+        this.isEnterpriseCodeTaken(tx, enterpriseId, candidate),
+      tx,
+    });
+    const [row] = await tx
       .insert(productsEnterprises)
       .values({
-        code: input.code ?? null,
+        code,
         description: input.description.trim(),
         origin: input.origin?.trim() ?? null,
         manufacturer: input.manufacturer?.trim() ?? null,
@@ -466,8 +541,7 @@ export class ProductsEnterprisesService {
     tx?: Tx,
     audit?: EntityAuditContext,
   ) {
-    const client = tx ?? db;
-    try {
+    const run = async (client: Tx) => {
       const linkId = await this.insertEnterpriseLink(
         client,
         enterpriseId,
@@ -481,22 +555,20 @@ export class ProductsEnterprisesService {
           entityId: row.id,
           after: row,
           ctx: audit,
-          tx,
+          tx: client,
         });
       }
       return row;
+    };
+    try {
+      return tx ? await run(tx) : await db.transaction(run);
     } catch (err) {
-      if (isPostgresUniqueViolation(err)) {
-        throw new ConflictError(
-          "Produto ja vinculado a esta empresa ou codigo duplicado",
-          "PRODUCT_ENTERPRISE_CONFLICT",
-        );
-      }
-      throw err;
+      throw this.enterpriseLinkConflict(err);
     }
   }
 
-  private buildListConditions(
+  /** Condições da listagem; exigem `products_enterprises` com join em `products`. */
+  public buildListConditions(
     enterpriseId: string,
     query: ListProductsEnterprisesQuery,
   ) {
@@ -522,7 +594,9 @@ export class ProductsEnterprisesService {
 
     if (query.code) {
       conditions.push(
-        sql`cast(${productsEnterprises.code} as text) ilike ${`%${query.code}%`}`,
+        /^\d+$/.test(query.code)
+          ? eq(productsEnterprises.code, Number(query.code))
+          : sql`cast(${productsEnterprises.code} as text) ilike ${`%${query.code}%`}`,
       );
     }
 
@@ -1015,6 +1089,14 @@ export class ProductsEnterprisesService {
     ) {
       await this.validateProductFks(enterpriseId, merged);
     }
+    if (typeof input.code === "number") {
+      await this.assertEnterpriseCodeAvailable(
+        db,
+        enterpriseId,
+        input.code,
+        id,
+      );
+    }
     try {
       const [row] = await db
         .update(productsEnterprises)
@@ -1085,6 +1167,12 @@ export class ProductsEnterprisesService {
           "PRODUCT_ENTERPRISE_NOT_FOUND",
         );
       }
+      if (typeof input.code === "number") {
+        const code = input.code;
+        await db.transaction((tx) =>
+          syncEnterpriseSequenceFloor(enterpriseId, "PRODUTO", code, tx),
+        );
+      }
       const updated = await this.getLinkedRow(enterpriseId, row.id);
       await recordEntityAudit({
         entityType: EntityTypes.PRODUCTS_ENTERPRISES,
@@ -1096,14 +1184,84 @@ export class ProductsEnterprisesService {
       });
       return updated;
     } catch (err) {
-      if (isPostgresUniqueViolation(err)) {
-        throw new ConflictError(
-          "Produto ja vinculado a esta empresa ou codigo duplicado",
-          "PRODUCT_ENTERPRISE_CONFLICT",
-        );
-      }
-      throw err;
+      throw this.enterpriseLinkConflict(err);
     }
+  }
+
+  public async setPhoto(
+    enterpriseId: string,
+    id: string,
+    file: PhotoFile,
+    audit: EntityAuditContext,
+  ) {
+    const existing = await this.getLinkedRow(enterpriseId, id);
+    const photoUrl = await savePhoto({
+      folder: "produtos",
+      id,
+      name: existing.description,
+      file,
+    });
+    let row: { id: string } | undefined;
+    try {
+      [row] = await db
+        .update(productsEnterprises)
+        .set({ photoUrl, updatedAt: new Date() })
+        .where(this.scope(enterpriseId, id))
+        .returning({ id: productsEnterprises.id });
+    } catch (error) {
+      await removeStoredPhoto(photoUrl);
+      throw error;
+    }
+    if (!row) {
+      await removeStoredPhoto(photoUrl);
+      throw new NotFoundError(
+        "Vinculo produto/empresa nao encontrado",
+        "PRODUCT_ENTERPRISE_NOT_FOUND",
+      );
+    }
+    const updated = await this.getLinkedRow(enterpriseId, id);
+    await recordEntityAudit({
+      entityType: EntityTypes.PRODUCTS_ENTERPRISES,
+      entityId: id,
+      action: "UPDATE",
+      before: toAuditRecord(existing),
+      after: toAuditRecord(updated),
+      ctx: withEnterpriseAuditContext(audit, enterpriseId),
+    });
+    if (existing.photoUrl && existing.photoUrl !== photoUrl) {
+      await removeStoredPhoto(existing.photoUrl);
+    }
+    return { photoUrl };
+  }
+
+  public async removePhoto(
+    enterpriseId: string,
+    id: string,
+    audit: EntityAuditContext,
+  ) {
+    const existing = await this.getLinkedRow(enterpriseId, id);
+    const [row] = await db
+      .update(productsEnterprises)
+      .set({ photoUrl: null, updatedAt: new Date() })
+      .where(this.scope(enterpriseId, id))
+      .returning({ id: productsEnterprises.id });
+    if (!row) {
+      throw new NotFoundError(
+        "Vinculo produto/empresa nao encontrado",
+        "PRODUCT_ENTERPRISE_NOT_FOUND",
+      );
+    }
+    const updated = await this.getLinkedRow(enterpriseId, id);
+    await recordEntityAudit({
+      entityType: EntityTypes.PRODUCTS_ENTERPRISES,
+      entityId: id,
+      action: "UPDATE",
+      before: toAuditRecord(existing),
+      after: toAuditRecord(updated),
+      ctx: withEnterpriseAuditContext(audit, enterpriseId),
+    });
+    await removeStoredPhoto(existing.photoUrl);
+    return { photoUrl: null };
   }
 
   public async delete(

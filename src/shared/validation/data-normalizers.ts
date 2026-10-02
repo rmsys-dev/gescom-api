@@ -6,6 +6,20 @@ const BRAZIL_E164_REGEX = /^\+55\d{10,11}$/;
 export const stripNonDigits = (value: string): string =>
   value.replace(/\D/g, "");
 
+/** GTIN-8, GTIN-12 (UPC), GTIN-13 (EAN) ou GTIN-14 com dígito verificador módulo 10. */
+export const isValidGtin = (value: string): boolean => {
+  if (!/^(\d{8}|\d{12,14})$/.test(value) || /^0+$/.test(value)) {
+    return false;
+  }
+  const body = value.slice(0, -1);
+  let sum = 0;
+  for (let index = 0; index < body.length; index += 1) {
+    const digit = Number(body[body.length - 1 - index]);
+    sum += digit * (index % 2 === 0 ? 3 : 1);
+  }
+  return (10 - (sum % 10)) % 10 === Number(value[value.length - 1]);
+};
+
 export const isValidCpf = (digits: string): boolean => {
   if (digits.length !== 11 || /^(\d)\1{10}$/.test(digits)) {
     return false;

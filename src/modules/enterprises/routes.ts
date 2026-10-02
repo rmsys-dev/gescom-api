@@ -13,8 +13,10 @@ import { enterpriseProductSubgroupsRouter } from "../products/product-subgroups/
 import { enterprisesController } from "./controller.js";
 import {
   enterpriseParamsSchema,
+  enterpriseSequenceParamsSchema,
   listEnterprisesQuerySchema,
   patchEnterpriseSchema,
+  patchEnterpriseSequenceSchema,
 } from "./schema.js";
 
 const enterprisesRouter = Router();
@@ -60,6 +62,30 @@ enterprisesRouter.get(
   requirePermission("consultar_empresas"),
   validateSchema({ params: enterpriseParamsSchema, query: emptyQuerySchema }),
   enterprisesController.getParameters,
+);
+
+//*** SEQUÊNCIAS DA EMPRESA ***
+
+enterprisesRouter.get(
+  "/:enterpriseId/sequences",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("consultar_empresas"),
+  validateSchema({ params: enterpriseParamsSchema, query: emptyQuerySchema }),
+  enterprisesController.listSequences,
+);
+
+enterprisesRouter.patch(
+  "/:enterpriseId/sequences/:type",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("alterar_empresas"),
+  validateSchema({
+    params: enterpriseSequenceParamsSchema,
+    body: patchEnterpriseSequenceSchema,
+    query: emptyQuerySchema,
+  }),
+  enterprisesController.patchSequence,
 );
 
 //***ROTA DO MÓDULO DE ENDEREÇOS DA EMPRESA ***

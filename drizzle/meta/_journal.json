@@ -260,6 +260,55 @@
       "when": 1791890800000,
       "tag": "0113_nfe_headers_xml_arquivo",
       "breakpoints": true
+    },
+    {
+      "idx": 114,
+      "version": "7",
+      "when": 1791977200000,
+      "tag": "0114_products_enterprises_code_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 115,
+      "version": "7",
+      "when": 1792063600000,
+      "tag": "0115_enterprises_members_code_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 116,
+      "version": "7",
+      "when": 1792150000000,
+      "tag": "0116_sequence_type_membro_produto",
+      "breakpoints": true
+    },
+    {
+      "idx": 117,
+      "version": "7",
+      "when": 1792236400000,
+      "tag": "0117_seed_member_product_sequences",
+      "breakpoints": true
+    },
+    {
+      "idx": 118,
+      "version": "7",
+      "when": 1792322800000,
+      "tag": "0118_members_products_photo_url",
+      "breakpoints": true
+    },
+    {
+      "idx": 119,
+      "version": "7",
+      "when": 1792409200000,
+      "tag": "0119_enterprise_groups",
+      "breakpoints": true
+    },
+    {
+      "idx": 120,
+      "version": "7",
+      "when": 1792495600000,
+      "tag": "0120_enterprise_groups_audit_and_stock_permission",
+      "breakpoints": true
     }
   ]
 }

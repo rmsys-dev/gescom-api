@@ -304,3 +304,96 @@ export const AUTORIZACAO_SOAP_ACTION =
 
 export const AUTORIZACAO_SOAP_NAMESPACE =
   "http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4";
+
+type ConsultaCadastroUrls = { producao: string; homologacao: string };
+
+const SVRS_CONSULTA_CADASTRO: ConsultaCadastroUrls = {
+  homologacao:
+    "https://cad.svrs.rs.gov.br/ws/cadconsultacadastro/cadconsultacadastro4.asmx",
+  producao:
+    "https://cad.svrs.rs.gov.br/ws/cadconsultacadastro/cadconsultacadastro4.asmx",
+};
+
+/** Só as UFs que oferecem o CadConsultaCadastro4; a consulta vai na SEFAZ da UF pesquisada. */
+const CONSULTA_CADASTRO_URLS: Partial<Record<UfSigla, ConsultaCadastroUrls>> = {
+  AM: {
+    homologacao:
+      "https://homnfe.sefaz.am.gov.br/services2/services/CadConsultaCadastro4",
+    producao: "https://nfe.sefaz.am.gov.br/services2/services/CadConsultaCadastro4",
+  },
+  BA: {
+    homologacao:
+      "https://hnfe.sefaz.ba.gov.br/webservices/CadConsultaCadastro4/CadConsultaCadastro4.asmx",
+    producao:
+      "https://nfe.sefaz.ba.gov.br/webservices/CadConsultaCadastro4/CadConsultaCadastro4.asmx",
+  },
+  CE: {
+    homologacao: "https://nfeh.sefaz.ce.gov.br/nfe4/services/CadConsultaCadastro4",
+    producao: "https://nfe.sefaz.ce.gov.br/nfe4/services/CadConsultaCadastro4",
+  },
+  GO: {
+    homologacao:
+      "https://homolog.sefaz.go.gov.br/nfe/services/CadConsultaCadastro4",
+    producao: "https://nfe.sefaz.go.gov.br/nfe/services/CadConsultaCadastro4",
+  },
+  MG: {
+    homologacao:
+      "https://hnfe.fazenda.mg.gov.br/nfe2/services/CadConsultaCadastro4",
+    producao: "https://nfe.fazenda.mg.gov.br/nfe2/services/CadConsultaCadastro4",
+  },
+  MS: {
+    homologacao: "https://hom.nfe.sefaz.ms.gov.br/ws/CadConsultaCadastro4",
+    producao: "https://nfe.sefaz.ms.gov.br/ws/CadConsultaCadastro4",
+  },
+  MT: {
+    homologacao:
+      "https://homologacao.sefaz.mt.gov.br/nfews/v2/services/CadConsultaCadastro4",
+    producao:
+      "https://nfe.sefaz.mt.gov.br/nfews/v2/services/CadConsultaCadastro4",
+  },
+  PE: {
+    homologacao:
+      "https://nfehomolog.sefaz.pe.gov.br/nfe-service/services/CadConsultaCadastro4",
+    producao:
+      "https://nfe.sefaz.pe.gov.br/nfe-service/services/CadConsultaCadastro4",
+  },
+  PR: {
+    homologacao:
+      "https://homologacao.nfe.sefa.pr.gov.br/nfe/CadConsultaCadastro4",
+    producao: "https://nfe.sefa.pr.gov.br/nfe/CadConsultaCadastro4",
+  },
+  RS: {
+    homologacao:
+      "https://cad.sefazrs.rs.gov.br/ws/cadconsultacadastro/cadconsultacadastro4.asmx",
+    producao:
+      "https://cad.sefazrs.rs.gov.br/ws/cadconsultacadastro/cadconsultacadastro4.asmx",
+  },
+  SP: {
+    homologacao:
+      "https://homologacao.nfe.fazenda.sp.gov.br/ws/cadconsultacadastro4.asmx",
+    producao: "https://nfe.fazenda.sp.gov.br/ws/cadconsultacadastro4.asmx",
+  },
+  AC: SVRS_CONSULTA_CADASTRO,
+  PB: SVRS_CONSULTA_CADASTRO,
+  RN: SVRS_CONSULTA_CADASTRO,
+  SC: SVRS_CONSULTA_CADASTRO,
+};
+
+export const resolveConsultaCadastroUrl = (input: {
+  uf: UfSigla;
+  ambiente: SefazAmbiente;
+}): string => {
+  const urls = CONSULTA_CADASTRO_URLS[input.uf];
+  if (!urls) {
+    throw nfeEndpointNotFoundError(
+      `A UF ${input.uf} nao oferece consulta cadastro`,
+    );
+  }
+  return urls[ambienteKey(input.ambiente)];
+};
+
+export const CONSULTA_CADASTRO_SOAP_ACTION =
+  "http://www.portalfiscal.inf.br/nfe/wsdl/CadConsultaCadastro4/consultaCadastro";
+
+export const CONSULTA_CADASTRO_SOAP_NAMESPACE =
+  "http://www.portalfiscal.inf.br/nfe/wsdl/CadConsultaCadastro4";

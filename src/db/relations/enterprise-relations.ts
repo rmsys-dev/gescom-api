@@ -1,5 +1,6 @@
 import { relations } from "drizzle-orm";
 import {
+  enterpriseGroups,
   enterprises,
   enterprisesAddress,
   enterpriseParameters,
@@ -40,8 +41,17 @@ export const enterprisesAddressRelations = relations(
   }),
 );
 
+//**RELAÇÕES DE GRUPOS DE EMPRESAS**//
+export const enterpriseGroupsRelations = relations(enterpriseGroups, ({ many }) => ({
+  enterprises: many(enterprises),
+}));
+
 //**RELAÇÕES DE EMPRESAS**//
-export const enterprisesRelations = relations(enterprises, ({ many }) => ({
+export const enterprisesRelations = relations(enterprises, ({ one, many }) => ({
+  group: one(enterpriseGroups, {
+    fields: [enterprises.groupId],
+    references: [enterpriseGroups.id],
+  }),
   members: many(enterprisesMembers),
   addresses: many(enterprisesAddress),
   sequences: many(enterprisesSequences),

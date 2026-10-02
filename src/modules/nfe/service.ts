@@ -4,7 +4,9 @@ import {
   statusServicoCacheKey,
   writeStatusServicoCache,
 } from "./sefaz/status-servico-cache.js";
-import type { StatusServicoQuery } from "./schema.js";
+import { consultarCadastro } from "./sefaz/consulta-cadastro.js";
+import type { ConsultaCadastroDocumento } from "./sefaz/consulta-cadastro-xml.js";
+import type { ConsultaCadastroQuery, StatusServicoQuery } from "./schema.js";
 import { nfeConfiguracaoService } from "./configuracao/service.js";
 
 export class NfeService {
@@ -35,6 +37,25 @@ export class NfeService {
     });
     writeStatusServicoCache(cacheKey, payload);
     return payload;
+  };
+
+  public consultarCadastro = async (
+    query: ConsultaCadastroQuery,
+    enterpriseId: string,
+  ) => {
+    const documento: ConsultaCadastroDocumento = query.cnpj
+      ? { tipo: "cnpj", valor: query.cnpj }
+      : query.cpf
+        ? { tipo: "cpf", valor: query.cpf }
+        : { tipo: "ie", valor: query.ie ?? "" };
+    const credentials =
+      await nfeConfiguracaoService.loadCredentials(enterpriseId);
+    return consultarCadastro({
+      uf: query.uf,
+      documento,
+      ambiente: credentials.ambiente,
+      certificate: credentials.certificate,
+    });
   };
 }
 

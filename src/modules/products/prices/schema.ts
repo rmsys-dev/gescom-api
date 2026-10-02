@@ -3,9 +3,42 @@ import {
   createPaginationQuerySchema,
   optionalTrimmedStringSchema,
 } from "../../../shared/validation/common-schemas.js";
+import { listProductsEnterprisesQuerySchema } from "../products-enterprises/schema.js";
+
+/** Mesmos filtros da listagem de produtos da empresa, aplicados ao produto do preço. */
+export const PRICE_PRODUCT_FILTER_KEYS = [
+  "description",
+  "code",
+  "barCode",
+  "manufacturer",
+  "origin",
+  "group",
+  "groupDescription",
+  "subgroup",
+  "brand",
+  "application",
+  "location",
+  "status",
+] as const;
+
+const productFilterShape = listProductsEnterprisesQuerySchema.pick({
+  description: true,
+  code: true,
+  barCode: true,
+  manufacturer: true,
+  origin: true,
+  group: true,
+  groupDescription: true,
+  subgroup: true,
+  brand: true,
+  application: true,
+  location: true,
+  status: true,
+}).shape;
 
 export const listPricesQuerySchema = createPaginationQuerySchema(100).extend({
   search: optionalTrimmedStringSchema("search", 255).optional(),
+  ...productFilterShape,
 });
 
 export const createPriceSchema = z

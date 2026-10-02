@@ -72,6 +72,8 @@ export type NfeXmlItem = {
   uTrib?: string | null;
   qTrib?: TaxNumber;
   vUnTrib?: TaxNumber;
+  vFrete?: TaxNumber;
+  vSeg?: TaxNumber;
   vDesc?: TaxNumber;
   vOutro?: TaxNumber;
   indTot?: string | null;
@@ -146,6 +148,28 @@ export type NfeXmlPayment = {
   cardCAut?: string | null;
 };
 
+export type NfeXmlTransport = {
+  modFrete: string;
+  cnpj?: string | null;
+  cpf?: string | null;
+  xNome?: string | null;
+  ie?: string | null;
+  xEnder?: string | null;
+  xMun?: string | null;
+  uf?: string | null;
+  veicPlaca?: string | null;
+  veicUf?: string | null;
+  veicRntc?: string | null;
+  volumes?: Array<{
+    qVol?: number | null;
+    esp?: string | null;
+    marca?: string | null;
+    nVol?: string | null;
+    pesoL?: TaxNumber;
+    pesoB?: TaxNumber;
+  }>;
+};
+
 export type NfeXmlDocument = {
   chave: string;
   cUf: string;
@@ -155,6 +179,7 @@ export type NfeXmlDocument = {
   serie: string;
   nNf: number;
   dhEmi: string;
+  dhSaiEnt?: string | null;
   tpNf?: string | null;
   idDest?: string | null;
   cMunFg: number | string;
@@ -200,7 +225,7 @@ export type NfeXmlDocument = {
   vIbs?: TaxNumber;
   vCbs?: TaxNumber;
   vNfTot?: TaxNumber;
-  transport?: { modFrete: string; xNome?: string | null } | null;
+  transport?: NfeXmlTransport | null;
   infCpl?: string | null;
   respTec?: {
     cnpj: string;
@@ -527,6 +552,8 @@ const itemXml = (item: NfeXmlItem): string =>
   tag("uTrib", item.uTrib ?? item.uCom) +
   qtyTag("qTrib", item.qTrib ?? item.qCom) +
   tag("vUnTrib", item.vUnTrib === undefined || item.vUnTrib === null ? asNumber(item.vUnCom).toFixed(10) : asNumber(item.vUnTrib).toFixed(10)) +
+  positiveMoneyTag("vFrete", item.vFrete) +
+  positiveMoneyTag("vSeg", item.vSeg) +
   positiveMoneyTag("vDesc", item.vDesc) +
   positiveMoneyTag("vOutro", item.vOutro) +
   tag("indTot", item.indTot ?? "1") +
@@ -559,6 +586,44 @@ const paymentXml = (payment: NfeXmlPayment): string =>
     : "") +
   `</detPag>`;
 
+const weightTag = (name: string, value: TaxNumber): string => {
+  if (value === null || value === undefined || value === "") return "";
+  return tag(name, asNumber(value).toFixed(3));
+};
+
+const transportXml = (transport: NfeXmlTransport): string => {
+  const carrier =
+    tag("CNPJ", transport.cnpj) +
+    (transport.cnpj ? "" : tag("CPF", transport.cpf)) +
+    tag("xNome", transport.xNome) +
+    tag("IE", transport.ie) +
+    tag("xEnder", transport.xEnder) +
+    tag("xMun", transport.xMun) +
+    tag("UF", transport.uf);
+  const vehicle = transport.veicPlaca && transport.veicUf
+    ? `<veicTransp>${tag("placa", transport.veicPlaca)}${tag("UF", transport.veicUf)}${tag("RNTC", transport.veicRntc)}</veicTransp>`
+    : "";
+  const volumes = (transport.volumes ?? [])
+    .map((volume) => {
+      const body =
+        tag("qVol", volume.qVol) +
+        tag("esp", volume.esp) +
+        tag("marca", volume.marca) +
+        tag("nVol", volume.nVol) +
+        weightTag("pesoL", volume.pesoL) +
+        weightTag("pesoB", volume.pesoB);
+      return body ? `<vol>${body}</vol>` : "";
+    })
+    .join("");
+  return (
+    `<transp>${tag("modFrete", transport.modFrete)}` +
+    (carrier ? `<transporta>${carrier}</transporta>` : "") +
+    vehicle +
+    volumes +
+    `</transp>`
+  );
+};
+
 export const buildNfeXml = (input: NfeXmlDocument): string => {
   const source = applySefazHomologation(input);
   const informTotTrib =
@@ -581,11 +646,7 @@ export const buildNfeXml = (input: NfeXmlDocument): string => {
       ? `<transp>${tag("modFrete", "9")}</transp>`
       : !document.transport
         ? ""
-        : `<transp>${tag("modFrete", document.transport.modFrete)}${
-            document.transport.xNome
-              ? `<transporta>${tag("xNome", document.transport.xNome)}</transporta>`
-              : ""
-          }</transp>`;
+        : transportXml(document.transport);
 
   return (
     `<?xml version="1.0" encoding="UTF-8"?>` +
@@ -599,6 +660,9 @@ export const buildNfeXml = (input: NfeXmlDocument): string => {
     tag("serie", document.serie) +
     tag("nNF", document.nNf) +
     tag("dhEmi", formatSefazDateTime(document.dhEmi)) +
+    (document.mod === "55" && document.dhSaiEnt
+      ? tag("dhSaiEnt", formatSefazDateTime(document.dhSaiEnt))
+      : "") +
     tag("tpNF", document.tpNf) +
     tag("idDest", document.idDest) +
     tag("cMunFG", document.cMunFg) +

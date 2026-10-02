@@ -4,6 +4,7 @@ import { requirePermission } from "../../../shared/middleware/permission-middlew
 import { tenantMiddleware } from "../../../shared/middleware/tenant-middleware.js";
 import { validateSchema } from "../../../shared/middleware/validate-schema.js";
 import { emptyQuerySchema } from "../../../shared/validation/common-schemas.js";
+import { photoUpload } from "../../../shared/photos/photo-storage.js";
 import { productsEnterprisesController } from "./controller.js";
 import {
   createProductEnterpriseSchema,
@@ -65,6 +66,25 @@ productsEnterprisesRouter.patch(
     body: patchProductEnterpriseSchema,
   }),
   productsEnterprisesController.patch,
+);
+
+productsEnterprisesRouter.put(
+  "/:productEnterpriseId/photo",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("alterar_produtos"),
+  photoUpload,
+  validateSchema({ params: productEnterpriseParamsSchema, query: emptyQuerySchema }),
+  productsEnterprisesController.setPhoto,
+);
+
+productsEnterprisesRouter.delete(
+  "/:productEnterpriseId/photo",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("alterar_produtos"),
+  validateSchema({ params: productEnterpriseParamsSchema, query: emptyQuerySchema }),
+  productsEnterprisesController.removePhoto,
 );
 
 productsEnterprisesRouter.delete(

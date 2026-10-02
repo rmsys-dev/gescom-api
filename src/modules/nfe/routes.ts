@@ -7,7 +7,10 @@ import { emptyQuerySchema } from "../../shared/validation/common-schemas.js";
 import { nfeController } from "./controller.js";
 import { patchNfeConfiguracaoSchema } from "./configuracao/schema.js";
 import { nfePfxUpload } from "./configuracao/upload.js";
-import { statusServicoQuerySchema } from "./schema.js";
+import {
+  consultaCadastroQuerySchema,
+  statusServicoQuerySchema,
+} from "./schema.js";
 import {
   listBenefitCodesQuerySchema,
   listNfeCatalogQuerySchema,
@@ -20,8 +23,10 @@ import {
   linkCfopEnterpriseSchema,
   nfeIdParamsSchema,
   patchNfeSchema,
+  recalculateNfeItemsSchema,
   replaceNfeItemsSchema,
   replaceNfePaymentsSchema,
+  replaceNfeTransportSchema,
 } from "./document/schema.js";
 import {
   createNfeOperationSchema,
@@ -211,6 +216,15 @@ nfeRouter.get(
   requirePermission("consultar_status_sefaz"),
   validateSchema({ query: statusServicoQuerySchema }),
   nfeController.statusServico,
+);
+
+nfeRouter.get(
+  "/consulta-cadastro",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("consultar_status_sefaz"),
+  validateSchema({ query: consultaCadastroQuerySchema }),
+  nfeController.consultaCadastro,
 );
 
 nfeRouter.get(
@@ -468,6 +482,18 @@ nfeRouter.patch(
   }),
   nfeController.patchNfe,
 );
+nfeRouter.post(
+  "/:nfeId/items/recalculate",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("alterar_nfe"),
+  validateSchema({
+    params: nfeIdParamsSchema,
+    body: recalculateNfeItemsSchema,
+    query: emptyQuerySchema,
+  }),
+  nfeController.recalculateItems,
+);
 nfeRouter.put(
   "/:nfeId/items",
   authMiddleware,
@@ -479,6 +505,18 @@ nfeRouter.put(
     query: emptyQuerySchema,
   }),
   nfeController.replaceItems,
+);
+nfeRouter.put(
+  "/:nfeId/transport",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("alterar_nfe"),
+  validateSchema({
+    params: nfeIdParamsSchema,
+    body: replaceNfeTransportSchema,
+    query: emptyQuerySchema,
+  }),
+  nfeController.replaceTransport,
 );
 nfeRouter.put(
   "/:nfeId/payments",
@@ -503,6 +541,17 @@ nfeRouter.post(
     query: emptyQuerySchema,
   }),
   nfeController.calculate,
+);
+nfeRouter.get(
+  "/:nfeId/danfe",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("consultar_nfe"),
+  validateSchema({
+    params: nfeIdParamsSchema,
+    query: emptyQuerySchema,
+  }),
+  nfeController.danfe,
 );
 nfeRouter.post(
   "/:nfeId/xml",

@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { BadRequestError } from "../../shared/errors/app-error.js";
 import { HttpStatus } from "../../shared/http/http-status.js";
 import type { RequestWithAuth } from "../../shared/middleware/auth-middleware.js";
 import type { RequestWithId } from "../../shared/middleware/request-id.js";
@@ -157,6 +158,40 @@ export class MembershipsController {
     sendSuccessResponse(res, HttpStatus.OK, {
       message: "Membro atualizado com sucesso.",
       data: row,
+    });
+  };
+
+  public setPhoto = async (req: Request, res: Response): Promise<void> => {
+    const file = (req as Request & { file?: { buffer: Buffer; mimetype: string } })
+      .file;
+    if (!file) {
+      throw new BadRequestError("Foto obrigatoria", "PHOTO_REQUIRED");
+    }
+    const enterpriseId = req.params["enterpriseId"] as string;
+    const memberId = req.params["memberId"] as string;
+    const data = await membershipsService.setPhoto(
+      enterpriseId,
+      memberId,
+      file,
+      membershipPatchAudit(req, enterpriseId, "memberships.service.setPhoto"),
+    );
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Foto do membro gravada com sucesso.",
+      data,
+    });
+  };
+
+  public removePhoto = async (req: Request, res: Response): Promise<void> => {
+    const enterpriseId = req.params["enterpriseId"] as string;
+    const memberId = req.params["memberId"] as string;
+    const data = await membershipsService.removePhoto(
+      enterpriseId,
+      memberId,
+      membershipPatchAudit(req, enterpriseId, "memberships.service.removePhoto"),
+    );
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Foto do membro removida com sucesso.",
+      data,
     });
   };
 

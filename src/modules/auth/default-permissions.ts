@@ -336,7 +336,7 @@ export const defaultModules = {
     name: "Gerenciamento de estoque",
     description: "Lotes, saldos, mínimo/máximo e movimentos",
     permissions: {
-      N1: ["consultar_saldos_estoque"],
+      N1: ["consultar_saldos_estoque", "consultar_estoque_grupo"],
       N2: [],
       N3: ["incluir_saldos_estoque"],
       N4: ["alterar_saldos_estoque"],

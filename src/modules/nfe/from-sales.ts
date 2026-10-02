@@ -121,10 +121,47 @@ export class NfeFromSalesService {
       input.nfeOperationsId,
       input.paymentTypeId,
     );
-    return nfeDocumentService.create(enterpriseId, payload, audit, {
+    const created = await nfeDocumentService.create(enterpriseId, payload, audit, {
       saleIds,
       destMemberId: input.memberId,
     });
+    return this.fitPaymentsToTotal(enterpriseId, created, audit);
+  }
+
+  /** Itens não faturados (serviço, devolvido) e impostos somados mudam o vNF; o vPag tem que acompanhar. */
+  private async fitPaymentsToTotal(
+    enterpriseId: string,
+    created: Awaited<ReturnType<typeof nfeDocumentService.create>>,
+    audit: EntityAuditContext,
+  ) {
+    const payments = created.payments ?? [];
+    const total = roundMoney(asNumber(created.vNf));
+    const paid = roundMoney(payments.reduce((sum, payment) => sum + asNumber(payment.vPag), 0));
+    if (payments.length === 0 || total <= 0 || paid === total) return created;
+    const shares = allocateShares(
+      payments.map((payment) => asNumber(payment.vPag)),
+      total,
+    );
+    const text = (value: string | null | undefined) => value?.trim() || undefined;
+    return nfeDocumentService.replacePayments(
+      enterpriseId,
+      created.id,
+      {
+        payments: payments.map((payment, index) => ({
+          paymentTypeId: payment.paymentTypeId,
+          nSeq: payment.nSeq || index + 1,
+          indPag: text(payment.indPag),
+          tPag: text(payment.tPag),
+          xPag: text(payment.xPag),
+          vPag: shares[index] ?? 0,
+          cardTpIntegra: text(payment.cardTpIntegra),
+          cardCnpj: text(payment.cardCnpj),
+          cardTBand: text(payment.cardTBand),
+          cardCAut: text(payment.cardCAut),
+        })),
+      },
+      audit,
+    );
   }
 
   private async buildInput(

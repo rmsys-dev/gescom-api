@@ -34,3 +34,23 @@ export const isPostgresUniqueViolation = (err: unknown): boolean =>
 
 export const isPostgresForeignKeyViolation = (err: unknown): boolean =>
   hasPostgresCode(err, POSTGRES_FOREIGN_KEY_VIOLATION);
+
+export const postgresConstraint = (err: unknown): string | undefined => {
+  let current: unknown = err;
+  for (
+    let depth = 0;
+    depth < MAX_CAUSE_DEPTH && current !== undefined && current !== null;
+    depth++
+  ) {
+    if (typeof current !== "object") return undefined;
+    const record = current as {
+      constraint?: unknown;
+      constraint_name?: unknown;
+      cause?: unknown;
+    };
+    if (typeof record.constraint_name === "string") return record.constraint_name;
+    if (typeof record.constraint === "string") return record.constraint;
+    current = record.cause;
+  }
+  return undefined;
+};

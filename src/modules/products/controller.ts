@@ -1,7 +1,11 @@
 import type { Request, Response } from "express";
 import type { RequestWithAuth } from "../../shared/middleware/auth-middleware.js";
 import { requireTenantEnterpriseId } from "../../shared/controllers/tenant-context.js";
-import { auditContextFromPostAuth } from "../../shared/audit/request-meta.js";
+import {
+  auditContextFromDeleteAuth,
+  auditContextFromPatchAuth,
+  auditContextFromPostAuth,
+} from "../../shared/audit/request-meta.js";
 import { HttpStatus } from "../../shared/http/http-status.js";
 import type { RequestWithValidatedQuery } from "../../shared/middleware/validate-schema.js";
 import {
@@ -9,8 +13,10 @@ import {
   sendSuccessResponse,
 } from "../../shared/responses/send-success-response.js";
 import type {
+  CreateProductInput,
   CreateProductWithEnterpriseInput,
   ListProductsQuery,
+  PatchProductInput,
 } from "./schema.js";
 import { productsService } from "./service.js";
 
@@ -57,6 +63,46 @@ export class ProductsController {
       message: row.linkedExistingProduct
         ? "Produto encontrado. Vinculo com a empresa criado com sucesso."
         : "Produto e vinculo com a empresa criados com sucesso.",
+      data: row,
+    });
+  };
+
+  public createBase = async (req: Request, res: Response): Promise<void> => {
+    const auth = (req as RequestWithAuth).auth!;
+    const enterpriseId = requireTenantEnterpriseId(auth);
+    const row = await productsService.createBase(
+      req.body as CreateProductInput,
+      auditContextFromPostAuth(auth, req, "products.service.createBase", { enterpriseId }),
+    );
+    sendSuccessResponse(res, HttpStatus.CREATED, {
+      message: "Produto base criado com sucesso.",
+      data: row,
+    });
+  };
+
+  public patch = async (req: Request, res: Response): Promise<void> => {
+    const auth = (req as RequestWithAuth).auth!;
+    const enterpriseId = requireTenantEnterpriseId(auth);
+    const row = await productsService.patch(
+      req.params["productId"] as string,
+      req.body as PatchProductInput,
+      auditContextFromPatchAuth(auth, req, "products.service.patch", { enterpriseId }),
+    );
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Produto base atualizado com sucesso.",
+      data: row,
+    });
+  };
+
+  public remove = async (req: Request, res: Response): Promise<void> => {
+    const auth = (req as RequestWithAuth).auth!;
+    const enterpriseId = requireTenantEnterpriseId(auth);
+    const row = await productsService.remove(
+      req.params["productId"] as string,
+      auditContextFromDeleteAuth(auth, req, "products.service.remove", { enterpriseId }),
+    );
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Produto base excluído com sucesso.",
       data: row,
     });
   };

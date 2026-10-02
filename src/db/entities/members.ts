@@ -37,6 +37,7 @@ export const enterprisesMembers = pgTable(
       .notNull(), // Status pós-venda
     class: memberClassEnum("class").notNull(), // Classe
     observations: varchar("observations", { length: 500 }), // Observações
+    photoUrl: varchar("photo_url", { length: 500 }), // URL da foto do membro
     registeredOn: date("registered_on", { mode: "date" })
       .default(sql`CURRENT_DATE`)
       .notNull(), // data de registro do membro
@@ -90,6 +91,9 @@ export const enterprisesMembers = pgTable(
     uniqueIndex("enterprises_members_user_enterprise_class_active_unique")
       .on(t.userId, t.enterpriseId, t.class)
       .where(sql`${t.deletedAt} is null`),
+    uniqueIndex("enterprises_members_enterprise_code_active_unique")
+      .on(t.enterpriseId, t.code)
+      .where(sql`${t.code} is not null and ${t.deletedAt} is null`),
     index("enterprises_members_user_enterprise_active_idx").on(
       t.enterpriseId,
       t.deletedAt,

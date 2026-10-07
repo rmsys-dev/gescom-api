@@ -19,6 +19,15 @@ export class AddressesCepsController {
     sendPageFromService(res, HttpStatus.OK, "CEPs listados com sucesso.", page);
   };
 
+  public lookup = async (req: Request, res: Response): Promise<void> => {
+    const cepNumber = req.params["cepNumber"] as string;
+    const data = await addressesCepsService.lookup(cepNumber);
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "CEP consultado com sucesso.",
+      data,
+    });
+  };
+
   public create = async (req: Request, res: Response): Promise<void> => {
     const body = req.body as CreateCepInput;
     const row = await addressesCepsService.create(

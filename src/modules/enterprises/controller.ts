@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { BadRequestError } from "../../shared/errors/app-error.js";
 import { HttpStatus } from "../../shared/http/http-status.js";
 import type { RequestWithAuth } from "../../shared/middleware/auth-middleware.js";
 import type { RequestWithValidatedQuery } from "../../shared/middleware/validate-schema.js";
@@ -54,6 +55,40 @@ export class EnterprisesController {
     sendSuccessResponse(res, HttpStatus.OK, {
       message: "Empresa atualizada com sucesso.",
       data: row,
+    });
+  };
+
+  public setLogo = async (req: Request, res: Response): Promise<void> => {
+    const file = (req as Request & { file?: { buffer: Buffer; mimetype: string } })
+      .file;
+    if (!file) {
+      throw new BadRequestError("Logo obrigatorio", "PHOTO_REQUIRED");
+    }
+    const id = req.params["enterpriseId"] as string;
+    const data = await enterprisesService.setLogo(
+      id,
+      file,
+      auditContextFromRequest(req, "enterprises.service.setLogo", {
+        enterpriseId: id,
+      }),
+    );
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Logo da empresa gravado com sucesso.",
+      data,
+    });
+  };
+
+  public removeLogo = async (req: Request, res: Response): Promise<void> => {
+    const id = req.params["enterpriseId"] as string;
+    const data = await enterprisesService.removeLogo(
+      id,
+      auditContextFromRequest(req, "enterprises.service.removeLogo", {
+        enterpriseId: id,
+      }),
+    );
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Logo da empresa removido com sucesso.",
+      data,
     });
   };
 

@@ -228,6 +228,7 @@ export const salePaymentInputSchema = z
   .object({
     valueTotal: z.number().positive(),
     paymentTypeId: z.string().uuid(),
+    paymentTypesMethodsFlagsId: z.string().uuid().nullable().optional(),
     dues: z.array(saleDueInputSchema).min(1),
   })
   .strict();

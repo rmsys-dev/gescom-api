@@ -24,6 +24,8 @@ export type DanfeParty = {
   cep: string;
   phone: string;
   email: string;
+  crt: string;
+  im: string;
 };
 
 export type DanfeItem = {
@@ -42,10 +44,29 @@ export type DanfeItem = {
   vBc: string;
   vIcms: string;
   pIcms: string;
+  vBcIpi: string;
   vIpi: string;
   pIpi: string;
   vIbs: string;
   vCbs: string;
+  infAdProd: string;
+  cstIbsCbs: string;
+  cClassTrib: string;
+  vBcIbsCbs: string;
+  pIbsUf: string;
+  vIbsUf: string;
+  pIbsMun: string;
+  vIbsMun: string;
+  pCbs: string;
+  vBcIs: string;
+  pIs: string;
+  vIs: string;
+};
+
+export type DanfeIssqn = {
+  vServ: string;
+  vBc: string;
+  vIss: string;
 };
 
 export type DanfeDuplicate = {
@@ -64,6 +85,7 @@ export type DanfeVolume = {
 };
 
 export type DanfePayment = {
+  indPag: string;
   tPag: string;
   xPag: string;
   vPag: string;
@@ -74,6 +96,12 @@ export type DanfeModel = {
   chave: string;
   protocol: string;
   receivedAt: string;
+  /** Conteúdo de infNFeSupl/qrCode, quando a nota traz o grupo. */
+  qrCode: string;
+  /** infNFeSupl/urlChave (NFC-e): endereço de consulta pela chave. */
+  urlChave: string;
+  mod: string;
+  tpEmis: string;
   natOp: string;
   serie: string;
   nNf: string;
@@ -99,9 +127,27 @@ export type DanfeModel = {
     vIpi: string;
     vNf: string;
     vFcp: string;
+    vFcpSt: string;
+    vIcmsUfDest: string;
+    vFcpUfDest: string;
+    qBcMono: string;
+    vIcmsMono: string;
+    qBcMonoReten: string;
+    vIcmsMonoReten: string;
     vTotTrib: string;
     vIbs: string;
+    vIbsUf: string;
+    vIbsMun: string;
     vCbs: string;
+    vIs: string;
+    hasIbsCbs: boolean;
+    mono: {
+      vIbsMono: string;
+      vCbsMono: string;
+      vIbsMonoReten: string;
+      vCbsMonoReten: string;
+    } | null;
+    issqn: DanfeIssqn | null;
   };
   modFrete: string;
   carrierName: string;
@@ -119,6 +165,7 @@ export type DanfeModel = {
   invoiceNet: string;
   duplicates: DanfeDuplicate[];
   payments: DanfePayment[];
+  vTroco: string;
   infCpl: string;
   infAdFisco: string;
 };
@@ -139,6 +186,8 @@ const emptyParty = (): DanfeParty => ({
   cep: "",
   phone: "",
   email: "",
+  crt: "",
+  im: "",
 });
 
 const asRecord = (value: unknown): Record<string, unknown> | null => {
@@ -174,6 +223,16 @@ const findInfNFe = (node: unknown): Record<string, unknown> | null => {
   return null;
 };
 
+const findSupl = (node: unknown): Record<string, unknown> | null => {
+  const root = asRecord(node);
+  if (!root) return null;
+  const supl = asRecord(root.infNFeSupl);
+  if (supl) return supl;
+  if (root.NFe) return findSupl(root.NFe);
+  if (root.nfeProc) return findSupl(root.nfeProc);
+  return null;
+};
+
 const findProtocol = (node: unknown): Record<string, unknown> | null => {
   const root = asRecord(node);
   if (!root) return null;
@@ -202,6 +261,8 @@ const partyFrom = (node: unknown, addressKey?: string): DanfeParty | null => {
   party.cep = text(place.CEP);
   party.phone = text(place.fone) || text(row.fone);
   party.email = text(row.email);
+  party.crt = text(row.CRT);
+  party.im = text(row.IM);
   const filled = Object.values(party).some((value) => value !== "");
   return filled ? party : null;
 };
@@ -220,15 +281,38 @@ const icmsOf = (imposto: Record<string, unknown> | null) => {
 
 const ipiOf = (imposto: Record<string, unknown> | null) => {
   const trib = asRecord(asRecord(imposto?.IPI)?.IPITrib);
-  return { vIpi: text(trib?.vIPI), pIpi: text(trib?.pIPI) };
+  return { vBcIpi: text(trib?.vBC), vIpi: text(trib?.vIPI), pIpi: text(trib?.pIPI) };
+};
+
+/** Com gRed (redução ou compra governamental) a NT 2026.010 manda imprimir a alíquota efetiva. */
+const rateOf = (group: Record<string, unknown> | null, rateName: string) => {
+  const reduction = asRecord(group?.gRed);
+  return reduction ? text(reduction.pAliqEfet) : text(group?.[rateName]);
 };
 
 const ibsOf = (imposto: Record<string, unknown> | null) => {
-  const group = asRecord(asRecord(imposto?.IBSCBS)?.gIBSCBS);
+  const root = asRecord(imposto?.IBSCBS);
+  const group = asRecord(root?.gIBSCBS);
+  const uf = asRecord(group?.gIBSUF);
+  const mun = asRecord(group?.gIBSMun);
+  const cbs = asRecord(group?.gCBS);
   return {
+    cstIbsCbs: text(root?.CST),
+    cClassTrib: text(root?.cClassTrib),
+    vBcIbsCbs: text(group?.vBC),
     vIbs: text(group?.vIBS),
-    vCbs: text(asRecord(group?.gCBS)?.vCBS),
+    pIbsUf: rateOf(uf, "pIBSUF"),
+    vIbsUf: text(uf?.vIBSUF),
+    pIbsMun: rateOf(mun, "pIBSMun"),
+    vIbsMun: text(mun?.vIBSMun),
+    pCbs: rateOf(cbs, "pCBS"),
+    vCbs: text(cbs?.vCBS),
   };
+};
+
+const isOf = (imposto: Record<string, unknown> | null) => {
+  const group = asRecord(imposto?.IS);
+  return { vBcIs: text(group?.vBCIS), pIs: text(group?.pIS), vIs: text(group?.vIS) };
 };
 
 const itemFrom = (det: Record<string, unknown>): DanfeItem => {
@@ -237,6 +321,7 @@ const itemFrom = (det: Record<string, unknown>): DanfeItem => {
   const icms = icmsOf(imposto);
   const ipi = ipiOf(imposto);
   const ibs = ibsOf(imposto);
+  const is = isOf(imposto);
   return {
     nItem: text(det["@_nItem"]),
     cProd: text(prod?.cProd),
@@ -253,10 +338,10 @@ const itemFrom = (det: Record<string, unknown>): DanfeItem => {
     vBc: icms.vBc,
     vIcms: icms.vIcms,
     pIcms: icms.pIcms,
-    vIpi: ipi.vIpi,
-    pIpi: ipi.pIpi,
-    vIbs: ibs.vIbs,
-    vCbs: ibs.vCbs,
+    ...ipi,
+    ...ibs,
+    ...is,
+    infAdProd: text(det.infAdProd),
   };
 };
 
@@ -283,6 +368,9 @@ export const parseDanfeXml = (xml: string): DanfeModel => {
   const total = asRecord(inf.total);
   const icmsTot = asRecord(total?.ICMSTot);
   const ibsTot = asRecord(total?.IBSCBSTot);
+  const gIbs = asRecord(ibsTot?.gIBS);
+  const mono = asRecord(ibsTot?.gMono);
+  const issqnTot = asRecord(total?.ISSQNtot);
   const transp = asRecord(inf.transp);
   const carrier = asRecord(transp?.transporta);
   const vehicle = asRecord(transp?.veicTransp);
@@ -295,6 +383,10 @@ export const parseDanfeXml = (xml: string): DanfeModel => {
     chave,
     protocol: text(protocol?.nProt),
     receivedAt: text(protocol?.dhRecbto),
+    qrCode: text(findSupl(parsed)?.qrCode),
+    urlChave: text(findSupl(parsed)?.urlChave),
+    mod: text(ide?.mod),
+    tpEmis: text(ide?.tpEmis),
     natOp: text(ide?.natOp),
     serie: text(ide?.serie),
     nNf: text(ide?.nNF),
@@ -320,9 +412,31 @@ export const parseDanfeXml = (xml: string): DanfeModel => {
       vIpi: text(icmsTot?.vIPI),
       vNf: text(icmsTot?.vNF),
       vFcp: text(icmsTot?.vFCP),
+      vFcpSt: text(icmsTot?.vFCPST),
+      vIcmsUfDest: text(icmsTot?.vICMSUFDest),
+      vFcpUfDest: text(icmsTot?.vFCPUFDest),
+      qBcMono: text(icmsTot?.qBCMono),
+      vIcmsMono: text(icmsTot?.vICMSMono),
+      qBcMonoReten: text(icmsTot?.qBCMonoReten),
+      vIcmsMonoReten: text(icmsTot?.vICMSMonoReten),
       vTotTrib: text(icmsTot?.vTotTrib),
-      vIbs: text(asRecord(ibsTot?.gIBS)?.vIBS),
+      vIbs: text(gIbs?.vIBS),
+      vIbsUf: text(asRecord(gIbs?.gIBSUF)?.vIBSUF),
+      vIbsMun: text(asRecord(gIbs?.gIBSMun)?.vIBSMun),
       vCbs: text(asRecord(ibsTot?.gCBS)?.vCBS),
+      vIs: text(asRecord(total?.ISTot)?.vIS),
+      hasIbsCbs: Boolean(ibsTot || asRecord(total?.ISTot)),
+      mono: mono
+        ? {
+            vIbsMono: text(mono.vIBSMono),
+            vCbsMono: text(mono.vCBSMono),
+            vIbsMonoReten: text(mono.vIBSMonoReten),
+            vCbsMonoReten: text(mono.vCBSMonoReten),
+          }
+        : null,
+      issqn: issqnTot
+        ? { vServ: text(issqnTot.vServ), vBc: text(issqnTot.vBC), vIss: text(issqnTot.vISS) }
+        : null,
     },
     modFrete: text(transp?.modFrete),
     carrierName: text(carrier?.xNome),
@@ -344,10 +458,12 @@ export const parseDanfeXml = (xml: string): DanfeModel => {
       vDup: text(row.vDup),
     })),
     payments: asList(asRecord(inf.pag)?.detPag).map((row) => ({
+      indPag: text(row.indPag),
       tPag: text(row.tPag),
       xPag: text(row.xPag),
       vPag: text(row.vPag),
     })),
+    vTroco: text(asRecord(inf.pag)?.vTroco),
     infCpl: text(extra?.infCpl),
     infAdFisco: text(extra?.infAdFisco),
   };

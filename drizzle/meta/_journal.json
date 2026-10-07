@@ -309,6 +309,76 @@
       "when": 1792495600000,
       "tag": "0120_enterprise_groups_audit_and_stock_permission",
       "breakpoints": true
+    },
+    {
+      "idx": 121,
+      "version": "7",
+      "when": 1792582000000,
+      "tag": "0121_payment_methods_and_type_flags",
+      "breakpoints": true
+    },
+    {
+      "idx": 122,
+      "version": "7",
+      "when": 1792668400000,
+      "tag": "0122_reform_rates_nullable_inherit",
+      "breakpoints": true
+    },
+    {
+      "idx": 123,
+      "version": "7",
+      "when": 1792754800000,
+      "tag": "0123_revert_reform_rates_nullable_inherit",
+      "breakpoints": true
+    },
+    {
+      "idx": 124,
+      "version": "7",
+      "when": 1792841200000,
+      "tag": "0124_enterprises_logo_url",
+      "breakpoints": true
+    },
+    {
+      "idx": 125,
+      "version": "7",
+      "when": 1792927600000,
+      "tag": "0125_fiscal_document_models",
+      "breakpoints": true
+    },
+    {
+      "idx": 126,
+      "version": "7",
+      "when": 1793014000000,
+      "tag": "0126_fiscal_document_models_audit",
+      "breakpoints": true
+    },
+    {
+      "idx": 127,
+      "version": "7",
+      "when": 1793100400000,
+      "tag": "0127_enterprises_pdf_folder_print_models",
+      "breakpoints": true
+    },
+    {
+      "idx": 128,
+      "version": "7",
+      "when": 1793186800000,
+      "tag": "0128_nfe_cancel_inut",
+      "breakpoints": true
+    },
+    {
+      "idx": 129,
+      "version": "7",
+      "when": 1793273200000,
+      "tag": "0129_nfe_events_constraints",
+      "breakpoints": true
+    },
+    {
+      "idx": 130,
+      "version": "7",
+      "when": 1793359600000,
+      "tag": "0130_printers",
+      "breakpoints": true
     }
   ]
 }

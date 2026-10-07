@@ -33,16 +33,16 @@ import { enterprises } from "./enterprises.js";
 import { enterprisesMembers, typeSupplierCustomers } from "./members.js";
 import { icmsTaxation, products, productsEnterprises } from "./products.js";
 import { productsNcm } from "./products.js";
-import { paymentTypes, sales } from "./sales.js";
+import { paymentTypes, paymentTypesMethodsFlags, sales } from "./sales.js";
 import { states } from "./addresses.js";
 
-/** Parametros globais de NF-e (EAV, sem empresa). */
+// TABELA DE PARÂMETROS GLOBAIS DA NF-E.
 export const nfeParameters = pgTable(
   "nfe_parameters",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    parameter: varchar("parameter", { length: 255 }).notNull(),
-    value: varchar("value", { length: 500 }).notNull(),
+    parameter: varchar("parameter", { length: 255 }).notNull(), // parâmetro da NF-e
+    value: varchar("value", { length: 500 }).notNull(), // valor do parâmetro da NF-e
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
     deletedAt: tz("deleted_at"),
@@ -54,7 +54,7 @@ export const nfeParameters = pgTable(
   ],
 );
 
-/** Configuracao fiscal de NF-e/NFC-e por empresa. */
+// TABELA DE CONFIGURAÇÃO FISCAL DE NF-E/NFC-E POR EMPRESA.
 export const enterprisesNfe = pgTable(
   "enterprises_nfe",
   {
@@ -97,7 +97,7 @@ export const enterprisesNfe = pgTable(
   ],
 );
 
-/** Historico de certificados A1 por empresa. */
+// TABELA DE CERTIFICADOS A1 POR EMPRESA.
 export const enterprisesNfeCertificates = pgTable(
   "enterprises_nfe_certificates",
   {
@@ -125,6 +125,8 @@ export const enterprisesNfeCertificates = pgTable(
   ],
 );
 
+
+// TABELA DE NOTAS FISCAIS ( CABEÇALHO )
 export const nfeHeaders = pgTable( // Tabela de notas fiscais ( cabeçalho )
   "nfe_headers",
   {
@@ -140,7 +142,9 @@ export const nfeHeaders = pgTable( // Tabela de notas fiscais ( cabeçalho )
     cNf: varchar("c_nf", { length: 8 }).notNull(), // código numérico que compõe a chave
     versao: varchar("versao", { length: 10 }), // versão da nota fiscal
     natOp: varchar("nat_op", { length: 60 }), // natureza da operação
-    mod: varchar("mod", { length: 2 }).notNull(), // modelo: 55 NF-e ou 65 NFC-e
+    mod: varchar("mod", { length: 2 }) // modelo: 55 NF-e ou 65 NFC-e
+      .notNull()
+      .references(() => fiscalDocumentModels.code, { onDelete: "restrict" }),
     serie: varchar("serie", { length: 3 }).notNull(), // série da nota fiscal
     nNf: integer("n_nf").notNull(), // número da nota fiscal
     entryDate: tz("entry_date"), // data de entrada da nota fiscal (entrada de terceiro)
@@ -358,7 +362,7 @@ export const nfeHeaders = pgTable( // Tabela de notas fiscais ( cabeçalho )
   ],
 );
 
-/** Pedidos de venda que originaram a nota. Um pedido ativo só entra em uma nota. */
+// TABELA DE PEDIDOS DE VENDA QUE ORIGINARAM A NF-e. UM PEDIDO ATIVO SÓ ENTRA EM UMA NF-e.
 export const nfeSales = pgTable(
   "nfe_sales",
   {
@@ -380,6 +384,7 @@ export const nfeSales = pgTable(
   ],
 );
 
+// TABELA DE ITENS DA NF-e
 export const nfeItems = pgTable(
   "nfe_items",
   {
@@ -430,6 +435,7 @@ export const nfeItems = pgTable(
   ],
 );
 
+// TABELA DE IMPOSTOS DO ITEM DA NF-e
 export const nfeItemTaxes = pgTable(
   "nfe_item_taxes",
   {
@@ -648,7 +654,7 @@ export const nfeItemTaxes = pgTable(
   (t) => [uniqueIndex("nfe_item_taxes_item_unique").on(t.nfeItemId)],
 );
 
-
+// TABELA DE PAGAMENTOS DA NF-e
 export const nfePayments = pgTable(
   "nfe_payments",
   {
@@ -659,6 +665,10 @@ export const nfePayments = pgTable(
     paymentTypeId: uuid("payment_type_id")
       .notNull()
       .references(() => paymentTypes.id, { onDelete: "cascade" }),
+    paymentTypesMethodsFlagsId: uuid("payment_types_methods_flags_id").references(
+      () => paymentTypesMethodsFlags.id,
+      { onDelete: "restrict" },
+    ), // configuração de pagamento da empresa
     nSeq: integer("n_seq").notNull(),
     indPag: varchar("ind_pag", { length: 1 }),
     tPag: varchar("t_pag", { length: 2 }),
@@ -696,6 +706,38 @@ export const cfops = pgTable(
     check("cfops_issued_nfce_chk", sql`${t.issuedNfce} = true or ${t.issuedNfce} = false`),
     check("cfops_moviment_type_chk", sql`${t.movimentType} in ('ENTRADA', 'SAIDA', 'TRANSFERENCIA', 'DEVOLUCAO')`),
     check("cfops_cfop_for_fuels_chk", sql`${t.cfopForFuels} = true or ${t.cfopForFuels} = false`),
+  ],
+);
+
+// modelos de documento fiscal - tabela 4.1.1 do SPED ( global para todas as empresas )
+export const fiscalDocumentModels = pgTable(
+  "fiscal_document_models",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    code: varchar("code", { length: 2 }).notNull(), // código do modelo: 01, 1B, 04, 55, 57, 65...
+    description: varchar("description", { length: 255 }).notNull(), // descrição do modelo
+    electronic: boolean("electronic").notNull().default(false), // documento eletrônico (55, 57, 59, 65...)
+    createdAt: tz("created_at").defaultNow().notNull(),
+    updatedAt: tz("updated_at"),
+  },
+  (t) => [uniqueIndex("fiscal_document_models_code_unique").on(t.code)],
+);
+
+// modelos de nota cujo PDF a empresa grava/imprime ( por empresa )
+export const enterprisesPrintModels = pgTable(
+  "enterprises_print_models",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    enterpriseId: uuid("enterprise_id")
+      .notNull()
+      .references(() => enterprises.id, { onDelete: "cascade" }),
+    documentModelCode: varchar("document_model_code", { length: 2 })
+      .notNull()
+      .references(() => fiscalDocumentModels.code, { onDelete: "restrict" }),
+    createdAt: tz("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("enterprises_print_models_unique").on(t.enterpriseId, t.documentModelCode),
   ],
 );
 
@@ -1272,7 +1314,9 @@ export const nfeReferences = pgTable(
     cnpj: varchar("cnpj", { length: 14 }),
     cpf: varchar("cpf", { length: 11 }),
     ie: varchar("ie", { length: 14 }),
-    mod: varchar("mod", { length: 2 }),
+    mod: varchar("mod", { length: 2 }).references(() => fiscalDocumentModels.code, {
+      onDelete: "restrict",
+    }),
     serie: varchar("serie", { length: 3 }),
     nNf: integer("n_nf"),
     nEcf: varchar("n_ecf", { length: 3 }),
@@ -1349,7 +1393,9 @@ export const nfeEvents = pgTable(
     cStat: varchar("c_stat", { length: 3 }),
     xMotivo: varchar("x_motivo", { length: 255 }),
     xmlEvento: text("xml_evento"),
-    mod: varchar("mod", { length: 2 }),
+    mod: varchar("mod", { length: 2 }).references(() => fiscalDocumentModels.code, {
+      onDelete: "restrict",
+    }),
     serie: varchar("serie", { length: 3 }),
     ano: varchar("ano", { length: 2 }),
     nNfIni: integer("n_nf_ini"),

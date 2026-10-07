@@ -1,5 +1,5 @@
 import { and, asc, eq, isNull } from "drizzle-orm";
-import { db, ceps } from "../../../db/schema.js";
+import { db, ceps, cities } from "../../../db/schema.js";
 import {
   recordCreateAudit,
   recordEntityAudit,
@@ -24,6 +24,7 @@ import {
   requireActiveCity,
 } from "../shared/address-helpers.js";
 import type { CreateCepInput, ListCepsQuery, PatchCepInput } from "./schema.js";
+import { fetchViaCep } from "./viacep-client.js";
 
 export class AddressesCepsService {
   public async list(query: ListCepsQuery) {
@@ -55,6 +56,36 @@ export class AddressesCepsService {
       total,
       limit,
       offset,
+    };
+  }
+
+  public async lookup(cepNumber: string) {
+    const [viaCep, existingCep] = await Promise.all([
+      fetchViaCep(cepNumber),
+      db.query.ceps.findFirst({
+        where: and(eq(ceps.cepNumber, cepNumber), isNull(ceps.deletedAt)),
+      }),
+    ]);
+
+    const ibgeCode = Number.parseInt(viaCep.ibge, 10);
+    const city = Number.isInteger(ibgeCode)
+      ? await db.query.cities.findFirst({
+          where: and(eq(cities.ibgeCode, ibgeCode), isNull(cities.deletedAt)),
+          columns: { id: true },
+        })
+      : undefined;
+
+    return {
+      cepNumber: viaCep.cep.replace(/\D/g, ""),
+      address: viaCep.logradouro,
+      complement: viaCep.complemento,
+      neighborhood: viaCep.bairro,
+      cityName: viaCep.localidade,
+      uf: viaCep.uf,
+      ibgeCode: Number.isInteger(ibgeCode) ? ibgeCode : null,
+      cityId: city?.id ?? null,
+      existingCep: existingCep ?? null,
+      raw: viaCep,
     };
   }
 

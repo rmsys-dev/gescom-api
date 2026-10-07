@@ -208,6 +208,15 @@ export class NfeConfiguracaoService {
     return settings.ambiente;
   };
 
+  /** ID do CSC e CSC em texto, usados no QR Code da NFC-e. */
+  public getCsc = async (enterpriseId: string) => {
+    const settings = (await getSettingsRow(enterpriseId)) ?? defaultSettings;
+    return {
+      idCsc: settings.idCsc,
+      csc: settings.cscEncrypted ? decryptSecret(settings.cscEncrypted) : null,
+    };
+  };
+
   public getEmissionSettings = async (enterpriseId: string) => {
     await assertEnterprise(enterpriseId);
     const settings = (await getSettingsRow(enterpriseId)) ?? defaultSettings;

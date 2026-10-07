@@ -124,5 +124,29 @@ describe("autorizacao da NF-e", () => {
       payments: [],
     });
     assert.match(withoutDest, new RegExp(`<xProd>${HOMOLOGATION_ITEM_NAME}</xProd>`));
+
+    const nfceWithDest = buildNfeXml({
+      chave: "5".repeat(44),
+      cUf: "52",
+      cNf: "12345678",
+      mod: "65",
+      serie: "1",
+      nNf: 1,
+      dhEmi: "2026-09-30T10:00:00-03:00",
+      cMunFg: 5208707,
+      tpEmis: 1,
+      tpAmb: 2,
+      emit: { cnpj: "00000000000191", xNome: "Loja" },
+      dest: { cpf: "12345678909", xNome: "Consumidor" },
+      items: [
+        { nItem: 1, xProd: "Produto", vProd: 10 },
+        { nItem: 2, xProd: "Outro", vProd: 5 },
+      ],
+      payments: [],
+    });
+    assert.match(nfceWithDest, new RegExp(`<xProd>${HOMOLOGATION_ITEM_NAME}</xProd>`));
+    assert.match(nfceWithDest, /<xProd>Outro<\/xProd>/);
+    assert.match(nfceWithDest, new RegExp(`<xNome>${HOMOLOGATION_DEST_NAME}</xNome>`));
+    assert.equal(nfceWithDest.includes("<xNome>Consumidor</xNome>"), false);
   });
 });

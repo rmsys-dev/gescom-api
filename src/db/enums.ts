@@ -281,6 +281,11 @@ export const entityTypeEnum = pgEnum("entity_type", [
   "STATES_DIVISIONS",
   "PRESUMED_CREDIT",
   "ENTERPRISE_GROUPS",
+  "PAYMENT_METHODS",
+  "TYPE_FLAGS",
+  "PAYMENT_TYPES_METHODS_FLAGS",
+  "FISCAL_DOCUMENT_MODELS",
+  "PRINTERS",
 ]);
 
 export const stockMovementTypeEnum = pgEnum("stock_movement_type", [
@@ -472,6 +477,7 @@ export const nfeInvoiceStatusEnum = pgEnum("nfe_invoice_status", [
   "REJEITADA",
   "CANCELADA",
   "DENEGADA",
+  "INUTILIZADA",
 ]);
 export type NfeInvoiceStatus =
   (typeof nfeInvoiceStatusEnum.enumValues)[number];
@@ -492,6 +498,7 @@ export const nfeEventTypeEnum = pgEnum("nfe_event_type", [
   "CANCELAMENTO",
   "CARTA_CORRECAO",
   "INUTILIZACAO",
+  "CANCELAMENTO_SUBSTITUICAO",
 ]);
 export type NfeEventType = (typeof nfeEventTypeEnum.enumValues)[number];
 
@@ -563,3 +570,22 @@ export const difalCalculationEnum = pgEnum("difal_calculation", [
   "2", // DIFAL por Dentro ( Base Dupla )
 ]);
 export type DifalCalculation = (typeof difalCalculationEnum.enumValues)[number];
+
+// tipo de meio de pagamento ( comanda, outros )
+export const paymentMethodTypeEnum = pgEnum("payment_method_type", [
+  "1", // DEBITO
+  "2", // CREDITO
+  "3", // PIX
+  "4", // VOUCHER
+  "5", // OUTROS
+
+]); 
+export type PaymentMethodType = (typeof paymentMethodTypeEnum.enumValues)[number];
+
+// integração do meio de pagamento ( manual, api, etc. )
+export const paymentMethodIntegrationEnum = pgEnum("payment_method_integration", [
+  "0", // SEM INTEGRAÇÃO
+  "1", // INTEGRAÇÃO
+  "2", // NÃO INTEGRADO
+]);
+export type PaymentMethodIntegration = (typeof paymentMethodIntegrationEnum.enumValues)[number];

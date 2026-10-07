@@ -4,6 +4,7 @@ import { requirePermission } from "../../shared/middleware/permission-middleware
 import { tenantMiddleware } from "../../shared/middleware/tenant-middleware.js";
 import { validateSchema } from "../../shared/middleware/validate-schema.js";
 import { emptyQuerySchema } from "../../shared/validation/common-schemas.js";
+import { photoUpload } from "../../shared/photos/photo-storage.js";
 import { enterpriseAddressesRouter } from "./enterprise-addresses/routes.js";
 import { membershipsRouter } from "../memberships/routes.js";
 import { usersRouter } from "../users/routes.js";
@@ -51,6 +52,26 @@ enterprisesRouter.patch(
     body: patchEnterpriseSchema,
   }),
   enterprisesController.patch,
+);
+
+//Logo da empresa (impressões e DANFE); campo multipart "foto"
+enterprisesRouter.put(
+  "/:enterpriseId/logo",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("alterar_empresas"),
+  photoUpload,
+  validateSchema({ params: enterpriseParamsSchema, query: emptyQuerySchema }),
+  enterprisesController.setLogo,
+);
+
+enterprisesRouter.delete(
+  "/:enterpriseId/logo",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("alterar_empresas"),
+  validateSchema({ params: enterpriseParamsSchema, query: emptyQuerySchema }),
+  enterprisesController.removeLogo,
 );
 
 //*** PARÂMETROS DA EMPRESA (somente leitura; alteração via maintainer) ***

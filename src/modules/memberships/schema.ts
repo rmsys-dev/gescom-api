@@ -11,8 +11,6 @@ import {
   uuidSchema,
 } from "../../shared/validation/common-schemas.js";
 
-const registrationSchema = cpfCnpjSchema("registration");
-
 export const listMembersQuerySchema = createPaginationQuerySchema(100)
   .extend({
     userId: uuidSchema("userId").optional(),
@@ -21,7 +19,17 @@ export const listMembersQuerySchema = createPaginationQuerySchema(100)
     status: z.enum(statusEnum.enumValues).optional(),
     postSalesStatus: z.enum(statusEnum.enumValues).optional(),
     name: optionalTrimmedStringSchema("name", 255).optional(),
-    registration: registrationSchema.optional(),
+    registration: z
+      .string()
+      .trim()
+      .transform((value) => value.replace(/\D/g, ""))
+      .pipe(
+        z
+          .string()
+          .min(1, "Campo 'registration' deve conter digitos")
+          .max(14, "Campo 'registration' deve ter no maximo 14 digitos"),
+      )
+      .optional(),
     email: emailSchema("email").optional(),
     phone: phoneSchema("phone").optional(),
   })

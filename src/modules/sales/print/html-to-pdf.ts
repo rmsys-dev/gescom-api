@@ -67,14 +67,37 @@ export const closePdfBrowser = async (): Promise<void> => {
   }
 };
 
-export const htmlToPdf = async (html: string): Promise<Buffer> => {
+const MM_TO_PX = 96 / 25.4;
+
+/** `rollWidthMm` gera bobina (ex.: 80 mm) com a altura do conteúdo; sem ele, A4. */
+export const htmlToPdf = async (
+  html: string,
+  options: { rollWidthMm?: number } = {},
+): Promise<Buffer> => {
   const instance = await getBrowser();
   const page = await instance.newPage();
   try {
+    if (options.rollWidthMm) {
+      await page.setViewportSize({ width: Math.ceil(options.rollWidthMm * MM_TO_PX), height: 1 });
+    }
     await page.setContent(html, {
       waitUntil: "load",
       timeout: 15_000,
     });
+    if (options.rollWidthMm) {
+      await page.emulateMedia({ media: "print" });
+      // A altura do documento nunca fica abaixo da do viewport; mede-se o body para a bobina não sobrar papel.
+      const height = await page.evaluate(() =>
+        Math.max(document.body.scrollHeight, document.body.getBoundingClientRect().height),
+      );
+      const pdf = await page.pdf({
+        width: `${options.rollWidthMm}mm`,
+        height: `${Math.ceil(height) + 4}px`,
+        printBackground: true,
+        margin: { top: "0", right: "0", bottom: "0", left: "0" },
+      });
+      return Buffer.from(pdf);
+    }
     const pdf = await page.pdf({
       format: "A4",
       printBackground: true,

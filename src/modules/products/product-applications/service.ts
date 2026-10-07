@@ -41,6 +41,8 @@ export class ProductApplicationsService {
           id: productApplication.id,
           description: productApplication.description,
           productsEnterprisesId: productApplication.productsEnterprisesId,
+          productCode: productsEnterprises.code,
+          productDescription: productsEnterprises.description,
           createdAt: productApplication.createdAt,
           updatedAt: productApplication.updatedAt,
         })
@@ -76,6 +78,8 @@ export class ProductApplicationsService {
           id: productApplication.id,
           description: productApplication.description,
           productsEnterprisesId: productApplication.productsEnterprisesId,
+          productCode: productsEnterprises.code,
+          productDescription: productsEnterprises.description,
           createdAt: productApplication.createdAt,
           updatedAt: productApplication.updatedAt,
         })

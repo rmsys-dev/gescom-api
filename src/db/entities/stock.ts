@@ -18,6 +18,8 @@ import { users } from "./users.js";
 import { tz, valorQuatroCasasDecimais } from "../functions.js";
 import { sectors } from "./sector.js";
 import { locations } from "./sector.js";
+
+
 // LOTE (cadastro mestre por produto-empresa).
 export const stockBatches = pgTable(
   "stock_batches",

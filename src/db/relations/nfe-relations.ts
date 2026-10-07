@@ -6,7 +6,11 @@ import {
   typeSupplierCustomers,
 } from "../entities/members.js";
 import { icmsTaxation, productsEnterprises, productsNcm } from "../entities/products.js";
-import { paymentTypes, sales } from "../entities/sales.js";
+import {
+  paymentTypes,
+  paymentTypesMethodsFlags,
+  sales,
+} from "../entities/sales.js";
 import {
   anexosRt,
   benefitCode,
@@ -20,6 +24,8 @@ import {
   cstIbsCbs,
   enterprisesNfe,
   enterprisesNfeCertificates,
+  enterprisesPrintModels,
+  fiscalDocumentModels,
   nfeAdditionalNotes,
   nfeAdvancePayments,
   nfeDuplicates,
@@ -87,6 +93,10 @@ export const nfeHeadersRelations = relations(nfeHeaders, ({ one, many }) => ({
     references: [enterprisesMembers.id],
     relationName: "nfeDestMember",
   }),
+  documentModel: one(fiscalDocumentModels, {
+    fields: [nfeHeaders.mod],
+    references: [fiscalDocumentModels.code],
+  }),
   items: many(nfeItems),
   payments: many(nfePayments),
   sales: many(nfeSales),
@@ -105,6 +115,25 @@ export const nfeHeadersRelations = relations(nfeHeaders, ({ one, many }) => ({
   advancePayments: many(nfeAdvancePayments),
   additionalNotes: many(nfeAdditionalNotes),
   referencedProcesses: many(nfeReferencedProcesses),
+}));
+
+export const fiscalDocumentModelsRelations = relations(
+  fiscalDocumentModels,
+  ({ many }) => ({
+    nfeHeaders: many(nfeHeaders),
+    printModels: many(enterprisesPrintModels),
+  }),
+);
+
+export const enterprisesPrintModelsRelations = relations(enterprisesPrintModels, ({ one }) => ({
+  enterprise: one(enterprises, {
+    fields: [enterprisesPrintModels.enterpriseId],
+    references: [enterprises.id],
+  }),
+  documentModel: one(fiscalDocumentModels, {
+    fields: [enterprisesPrintModels.documentModelCode],
+    references: [fiscalDocumentModels.code],
+  }),
 }));
 
 export const nfeSalesRelations = relations(nfeSales, ({ one }) => ({
@@ -299,6 +328,10 @@ export const nfePaymentsRelations = relations(nfePayments, ({ one }) => ({
   paymentType: one(paymentTypes, {
     fields: [nfePayments.paymentTypeId],
     references: [paymentTypes.id],
+  }),
+  paymentConfig: one(paymentTypesMethodsFlags, {
+    fields: [nfePayments.paymentTypesMethodsFlagsId],
+    references: [paymentTypesMethodsFlags.id],
   }),
 }));
 

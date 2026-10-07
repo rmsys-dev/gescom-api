@@ -1,3 +1,25 @@
+import QRCode from "qrcode";
+
+/** QR Code em SVG; módulos escuros como retângulos de 1x1 sobre a grade. */
+export const qrCodeSvg = (content: string): string => {
+  if (!content) return "";
+  const { modules } = QRCode.create(content, { errorCorrectionLevel: "M" });
+  const size = modules.size;
+  const rects: string[] = [];
+  for (let row = 0; row < size; row += 1) {
+    let start = -1;
+    for (let col = 0; col <= size; col += 1) {
+      const dark = col < size && modules.get(row, col) === 1;
+      if (dark && start < 0) start = col;
+      if (!dark && start >= 0) {
+        rects.push(`<rect x="${start}" y="${row}" width="${col - start}" height="1"/>`);
+        start = -1;
+      }
+    }
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 ${size + 4} ${size + 4}" shape-rendering="crispEdges"><g fill="#000">${rects.join("")}</g></svg>`;
+};
+
 const BARS = [
   "212222", "222122", "222221", "121223", "121322", "131222", "122213", "122312", "132212", "221213",
   "221312", "231212", "112232", "122132", "122231", "113222", "123122", "123221", "223211", "221132",

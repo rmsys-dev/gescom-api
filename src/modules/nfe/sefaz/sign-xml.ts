@@ -12,20 +12,23 @@ export type NfeSigningKey = {
   certificatePem: string;
 };
 
-const infNfeId = (xml: string): string => {
-  const match = xml.match(/\bId="(NFe\d{44})"/);
+const elementId = (xml: string, pattern: RegExp, label: string): string => {
+  const match = xml.match(pattern);
   if (!match?.[1]) {
     throw new BadRequestError(
-      "XML da nota fiscal sem infNFe identificavel para assinatura",
+      `XML sem ${label} identificavel para assinatura`,
       "NFE_XML_SIGN_TARGET",
     );
   }
   return match[1];
 };
 
-/** Assinatura envelopada do infNFe: RSA-SHA1, digest SHA-1 e certificado do titular. */
-export const signNfeXml = (xml: string, key: NfeSigningKey): string => {
-  const id = infNfeId(xml);
+/** Assinatura envelopada do elemento com o Id informado: RSA-SHA1, digest SHA-1 e certificado do titular. */
+export const signXmlElement = (
+  xml: string,
+  id: string,
+  key: NfeSigningKey,
+): string => {
   const signer = new SignedXml({
     privateKey: key.privateKeyPem,
     publicCert: key.certificatePem,
@@ -45,3 +48,26 @@ export const signNfeXml = (xml: string, key: NfeSigningKey): string => {
   });
   return signer.getSignedXml();
 };
+
+export const signNfeXml = (xml: string, key: NfeSigningKey): string =>
+  signXmlElement(
+    xml,
+    elementId(xml, /\bId="(NFe\d{44})"/, "infNFe"),
+    key,
+  );
+
+/** infEvento: Id `ID{tpEvento}{chave}{nSeqEvento}`. */
+export const signEventoXml = (xml: string, key: NfeSigningKey): string =>
+  signXmlElement(
+    xml,
+    elementId(xml, /<infEvento\b[^>]*\bId="(ID\d{52})"/, "infEvento"),
+    key,
+  );
+
+/** infInut: Id `ID{cUF}{AA}{CNPJ}{mod}{serie}{nNFIni}{nNFFin}`. */
+export const signInutXml = (xml: string, key: NfeSigningKey): string =>
+  signXmlElement(
+    xml,
+    elementId(xml, /<infInut\b[^>]*\bId="(ID\d{41})"/, "infInut"),
+    key,
+  );

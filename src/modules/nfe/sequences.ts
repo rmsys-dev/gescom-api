@@ -1,7 +1,7 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, gte, isNull, lte } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import type { SequenceType } from "../../db/enums.js";
-import { nfeHeaders } from "../../db/schema.js";
+import { nfeEvents, nfeHeaders } from "../../db/schema.js";
 import { ConflictError } from "../../shared/errors/app-error.js";
 import {
   nextEnterpriseSequence,
@@ -16,13 +16,46 @@ export type NfeSequenceModel = "55" | "65";
 export const nfeSequenceType = (mod: NfeSequenceModel): SequenceType =>
   mod === "65" ? "NFCE" : "NFE";
 
-/** Próximo número da nota própria em enterprises_sequences. */
+/** Faixa homologada na SEFAZ (cStat 102) que contém o número. */
+async function inutilizedRangeCovering(
+  enterpriseId: string,
+  mod: NfeSequenceModel,
+  serie: string,
+  nNf: number,
+  tx: Tx,
+) {
+  const [range] = await tx
+    .select({ nNfIni: nfeEvents.nNfIni, nNfFin: nfeEvents.nNfFin })
+    .from(nfeEvents)
+    .where(
+      and(
+        eq(nfeEvents.enterpriseId, enterpriseId),
+        eq(nfeEvents.eventType, "INUTILIZACAO"),
+        eq(nfeEvents.cStat, "102"),
+        eq(nfeEvents.mod, mod),
+        eq(nfeEvents.serie, serie),
+        lte(nfeEvents.nNfIni, nNf),
+        gte(nfeEvents.nNfFin, nNf),
+      ),
+    )
+    .limit(1);
+  return range;
+}
+
+/** Próximo número da nota própria em enterprises_sequences, pulando faixas inutilizadas da série. */
 export async function nextNfeNumber(
   enterpriseId: string,
   mod: NfeSequenceModel,
   tx: Tx,
+  serie?: string,
 ): Promise<number> {
-  return nextEnterpriseSequence(enterpriseId, nfeSequenceType(mod), tx);
+  for (;;) {
+    const nNf = await nextEnterpriseSequence(enterpriseId, nfeSequenceType(mod), tx);
+    if (serie === undefined) return nNf;
+    const range = await inutilizedRangeCovering(enterpriseId, mod, serie, nNf, tx);
+    if (!range?.nNfFin) return nNf;
+    await syncNfeSequenceFloor(enterpriseId, mod, range.nNfFin, tx);
+  }
 }
 
 export async function assertNfeNumberAvailable(
@@ -30,6 +63,7 @@ export async function assertNfeNumberAvailable(
   mod: NfeSequenceModel,
   nNf: number,
   tx: Tx,
+  serie?: string,
 ): Promise<void> {
   const existing = await tx
     .select({ id: nfeHeaders.id })
@@ -50,6 +84,16 @@ export async function assertNfeNumberAvailable(
       "Nota fiscal em conflito (numero da nota)",
       "NFE_NUMBER_CONFLICT",
     );
+  }
+
+  if (serie !== undefined) {
+    const range = await inutilizedRangeCovering(enterpriseId, mod, serie, nNf, tx);
+    if (range) {
+      throw new ConflictError(
+        `O numero ${nNf} esta na faixa inutilizada ${range.nNfIni}-${range.nNfFin}`,
+        "NFE_NUMBER_INUTILIZED",
+      );
+    }
   }
 }
 

@@ -21,8 +21,8 @@ export const countries = pgTable(
     countryName: varchar("country_name", { length: 255 }).notNull(), //Nome do país
     cbsTax: decimal("cbs_tax", percentageDecimal).notNull(), //Alíquota CBS
     isTax: decimal("is_tax", percentageDecimal).notNull(), //Alíquota IS
-    ibs_uf_tax: decimal("ibs_uf_tax", percentageDecimal).notNull(), //Alíquota UF IB
-    ibs_municipal_tax: decimal("ibs_municipal_tax", percentageDecimal).notNull(), //Alíquota municipal IB
+    ibs_uf_tax: decimal("ibs_uf_tax", percentageDecimal).notNull(), //Alíquota UF IBS
+    ibs_municipal_tax: decimal("ibs_municipal_tax", percentageDecimal).notNull(), //Alíquota municipal IBS
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
     deletedAt: tz("deleted_at"),
@@ -59,8 +59,8 @@ export const states = pgTable(
     fcpAliquot: decimal("fcp_aliquot", percentageDecimal).notNull(), //Alíquota FCP
     generate_st: boolean("generate_st").notNull().default(false), // Gerar st
     difalCalculation: difalCalculationEnum("difal_calculation").default("0"), // Tipo de cálculo de DIFAL
-    ibs_uf_tax: decimal("ibs_uf_tax", percentageDecimal).notNull(), //Alíquota UF IBS
-    ibs_municipal_tax: decimal("ibs_municipal_tax", percentageDecimal).notNull(), //Alíquota municipal IBS
+    ibs_uf_tax: decimal("ibs_uf_tax", percentageDecimal).notNull(), //Alíquota UF IBS (0 = usa a do país)
+    ibs_municipal_tax: decimal("ibs_municipal_tax", percentageDecimal).notNull(), //Alíquota municipal IBS (0 = usa a do país)
     countryId: uuid("country_id") 
       .notNull()
       .references(() => countries.id, { onDelete: "restrict" }), // país do estado
@@ -115,9 +115,6 @@ export const statesDivisions = pgTable(
   ],
 );
 
-
-
-
 //Tabela de CEPs
 export const ceps = pgTable(
   "ceps",
@@ -147,8 +144,7 @@ export const cities = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     ibgeCode: integer("ibge_code").notNull(), //Código IBGE
     citieName: varchar("city_name", { length: 255 }).notNull(), //Nome da cidade
-    ibs_municipal_tax: decimal("ibs_municipal_tax", percentageDecimal).notNull(), //Alíquota municipal IB
-
+    ibs_municipal_tax: decimal("ibs_municipal_tax", percentageDecimal).notNull(), //Alíquota municipal IBS (0 = usa a do estado/país)
     stateId: uuid("state_id")
       .notNull()
       .references(() => states.id, { onDelete: "restrict" }), 

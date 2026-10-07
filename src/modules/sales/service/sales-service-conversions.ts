@@ -403,7 +403,12 @@ export class SalesServiceConversions extends SalesServiceCore {
             memberId,
             input.payments,
           );
-          await this.insertSalePayments(tx, generatedSale.id, input.payments);
+          await this.insertSalePayments(
+            tx,
+            enterpriseId,
+            generatedSale.id,
+            input.payments,
+          );
           await this.recalculateSaleItemsCommission(
             tx,
             generatedSale.id,
@@ -1221,7 +1226,12 @@ export class SalesServiceConversions extends SalesServiceCore {
             memberId,
             input.payments,
           );
-          await this.insertSalePayments(tx, generatedSale.id, input.payments);
+          await this.insertSalePayments(
+            tx,
+            enterpriseId,
+            generatedSale.id,
+            input.payments,
+          );
           await this.recalculateSaleItemsCommission(
             tx,
             generatedSale.id,

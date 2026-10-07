@@ -430,7 +430,12 @@ export class MembershipsService {
       memberFilters.push(ilike(users.userName, `%${filters.name}%`));
     }
     if (filters.registration !== undefined) {
-      memberFilters.push(eq(users.userRegistration, filters.registration));
+      const registration = filters.registration;
+      memberFilters.push(
+        registration.length === 11 || registration.length === 14
+          ? eq(users.userRegistration, registration)
+          : ilike(users.userRegistration, `%${registration}%`),
+      );
     }
     if (filters.email !== undefined) {
       memberFilters.push(eq(users.userEmail, filters.email));

@@ -38,7 +38,10 @@ const testKey = () => {
   };
 };
 
-const signedSale = (mod: "55" | "65" = "55") =>
+const signedSale = (
+  mod: "55" | "65" = "55",
+  invoice: Parameters<typeof buildNfeXml>[0]["invoice"] = null,
+) =>
   signNfeXml(
     buildNfeXml({
       chave: "5".repeat(44),
@@ -130,7 +133,8 @@ const signedSale = (mod: "55" | "65" = "55") =>
           vTotTrib: 27.25,
         },
       ],
-      payments: [{ indPag: "0", tPag: "01", vPag: 100 }],
+      invoice,
+      payments: [{ indPag: invoice ? "1" : "0", tPag: invoice ? "15" : "01", vPag: 100 }],
       vBc: 100,
       vIcms: 18,
       vProd: 100,
@@ -165,6 +169,23 @@ describe("schema da NF-e", () => {
 
   it("aceita uma saida modelo 55 assinada", async () => {
     const errors = await validateNfeXml(signedSale());
+    assert.deepEqual(errors, []);
+  });
+
+  it("aceita uma NF-e com fatura e duplicatas", async () => {
+    const errors = await validateNfeXml(
+      signedSale("55", {
+        nFat: "10",
+        vOrig: 100,
+        vDesc: 0,
+        vLiq: 100,
+        duplicates: [
+          { nDup: "001", dVenc: "2026-10-24", vDup: 33.33 },
+          { nDup: "002", dVenc: "2026-11-23", vDup: 33.33 },
+          { nDup: "003", dVenc: "2026-12-23", vDup: 33.34 },
+        ],
+      }),
+    );
     assert.deepEqual(errors, []);
   });
 

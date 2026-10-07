@@ -54,11 +54,13 @@ import type {
 import type {
   CreateNfeFromSalesInput,
   CreateNfeInput,
+  DanfePrintQuery,
   LinkCfopEnterpriseInput,
   ListNfeQuery,
   PatchNfeInput,
   RecalculateNfeItemsInput,
   ReplaceNfeItemsInput,
+  ReplaceNfeDuplicatesInput,
   ReplaceNfePaymentsInput,
   ReplaceNfeTransportInput,
 } from "./document/schema.js";
@@ -217,6 +219,24 @@ export class NfeController {
     sendSuccessResponse(res, HttpStatus.OK, {
       message: "CFOP recuperado com sucesso.",
       data: await nfeCatalogsService.getCfop(req.params["catalogId"] as string),
+    });
+  };
+
+  public listDocumentModels = async (req: Request, res: Response): Promise<void> => {
+    const query = (req as RequestWithValidatedQuery<ListNfeCatalogQuery>)
+      .validatedQuery;
+    sendPageFromService(
+      res,
+      HttpStatus.OK,
+      "Modelos de documento fiscal listados com sucesso.",
+      await nfeCatalogsService.listDocumentModels(query),
+    );
+  };
+
+  public getDocumentModel = async (req: Request, res: Response): Promise<void> => {
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Modelo de documento fiscal recuperado com sucesso.",
+      data: await nfeCatalogsService.getDocumentModel(req.params["catalogId"] as string),
     });
   };
 
@@ -510,6 +530,22 @@ export class NfeController {
     );
     sendSuccessResponse(res, HttpStatus.OK, {
       message: "Pagamentos da nota fiscal gravados com sucesso.",
+      data,
+    });
+  };
+
+  public replaceDuplicates = async (
+    req: Request,
+    res: Response,
+  ): Promise<void> => {
+    const data = await nfeDocumentService.replaceDuplicates(
+      requireEnterpriseId(req),
+      req.params["nfeId"] as string,
+      req.body as ReplaceNfeDuplicatesInput,
+      auditFor(req, "PUT nfe.document.service.replaceDuplicates"),
+    );
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Fatura da nota fiscal gravada com sucesso.",
       data,
     });
   };
@@ -834,10 +870,27 @@ export class NfeController {
   };
 
   public danfe = async (req: Request, res: Response): Promise<void> => {
-    const { pdf, filename } = await nfeDanfeService.pdf(
-      requireEnterpriseId(req),
-      req.params["nfeId"] as string,
-    );
+    const enterpriseId = requireEnterpriseId(req);
+    const nfeId = req.params["nfeId"] as string;
+    const query = (req as RequestWithValidatedQuery<DanfePrintQuery>).validatedQuery;
+
+    if (query.format === "html") {
+      const { html } = await nfeDanfeService.html(enterpriseId, nfeId, {
+        autoPrint: query.autoPrint === "1",
+      });
+      res
+        .status(HttpStatus.OK)
+        .set({
+          "Content-Security-Policy":
+            "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data: https:; base-uri 'none'; form-action 'none'",
+          "Cache-Control": "no-store",
+        })
+        .type("html")
+        .send(html);
+      return;
+    }
+
+    const { pdf, filename } = await nfeDanfeService.pdf(enterpriseId, nfeId);
     res
       .status(HttpStatus.OK)
       .set({

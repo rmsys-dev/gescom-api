@@ -19,12 +19,14 @@ import {
 import {
   createNfeFromSalesSchema,
   createNfeSchema,
+  danfePrintQuerySchema,
   listNfeQuerySchema,
   linkCfopEnterpriseSchema,
   nfeIdParamsSchema,
   patchNfeSchema,
   recalculateNfeItemsSchema,
   replaceNfeItemsSchema,
+  replaceNfeDuplicatesSchema,
   replaceNfePaymentsSchema,
   replaceNfeTransportSchema,
 } from "./document/schema.js";
@@ -51,6 +53,15 @@ import {
   patchBenefitStateProductSchema,
 } from "./benefits/schema.js";
 import { emptyBodySchema } from "../../shared/validation/common-schemas.js";
+import { nfeEventsController } from "./events/controller.js";
+import {
+  cancelNfeBySubstitutionSchema,
+  cancelNfeSchema,
+  inutilizeNfeNoteSchema,
+  inutilizeNfeRangeSchema,
+  listInutilizationsQuerySchema,
+  listNfeEventsQuerySchema,
+} from "./events/schema.js";
 
 const nfeRouter = Router();
 
@@ -119,6 +130,18 @@ nfeRouter.get(
   ...catalogRead,
   validateSchema({ params: nfeCatalogIdParamsSchema, query: emptyQuerySchema }),
   nfeController.getCfop,
+);
+nfeRouter.get(
+  "/document-models",
+  ...catalogRead,
+  validateSchema({ query: listNfeCatalogQuerySchema }),
+  nfeController.listDocumentModels,
+);
+nfeRouter.get(
+  "/document-models/:catalogId",
+  ...catalogRead,
+  validateSchema({ params: nfeCatalogIdParamsSchema, query: emptyQuerySchema }),
+  nfeController.getDocumentModel,
 );
 nfeRouter.get(
   "/cst",
@@ -446,6 +469,30 @@ nfeRouter.post(
   validateSchema({ body: createNfeFromSalesSchema, query: emptyQuerySchema }),
   nfeController.createNfeFromSales,
 );
+nfeRouter.post(
+  "/inutilizar",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("inutilizar_nfe"),
+  validateSchema({ body: inutilizeNfeRangeSchema, query: emptyQuerySchema }),
+  nfeEventsController.inutilizeRange,
+);
+nfeRouter.get(
+  "/eventos",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("consultar_nfe"),
+  validateSchema({ query: listNfeEventsQuerySchema }),
+  nfeEventsController.listEvents,
+);
+nfeRouter.get(
+  "/inutilizacoes",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("consultar_nfe"),
+  validateSchema({ query: listInutilizationsQuerySchema }),
+  nfeEventsController.listInutilizations,
+);
 nfeRouter.get(
   "/",
   authMiddleware,
@@ -530,6 +577,18 @@ nfeRouter.put(
   }),
   nfeController.replacePayments,
 );
+nfeRouter.put(
+  "/:nfeId/duplicates",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("alterar_nfe"),
+  validateSchema({
+    params: nfeIdParamsSchema,
+    body: replaceNfeDuplicatesSchema,
+    query: emptyQuerySchema,
+  }),
+  nfeController.replaceDuplicates,
+);
 nfeRouter.post(
   "/:nfeId/calcular",
   authMiddleware,
@@ -549,7 +608,7 @@ nfeRouter.get(
   requirePermission("consultar_nfe"),
   validateSchema({
     params: nfeIdParamsSchema,
-    query: emptyQuerySchema,
+    query: danfePrintQuerySchema,
   }),
   nfeController.danfe,
 );
@@ -588,6 +647,50 @@ nfeRouter.post(
     query: emptyQuerySchema,
   }),
   nfeController.authorize,
+);
+nfeRouter.post(
+  "/:nfeId/cancelar",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("cancelar_nfe"),
+  validateSchema({
+    params: nfeIdParamsSchema,
+    body: cancelNfeSchema,
+    query: emptyQuerySchema,
+  }),
+  nfeEventsController.cancel,
+);
+nfeRouter.post(
+  "/:nfeId/cancelar-substituicao",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("cancelar_nfe"),
+  validateSchema({
+    params: nfeIdParamsSchema,
+    body: cancelNfeBySubstitutionSchema,
+    query: emptyQuerySchema,
+  }),
+  nfeEventsController.cancelBySubstitution,
+);
+nfeRouter.post(
+  "/:nfeId/inutilizar",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("inutilizar_nfe"),
+  validateSchema({
+    params: nfeIdParamsSchema,
+    body: inutilizeNfeNoteSchema,
+    query: emptyQuerySchema,
+  }),
+  nfeEventsController.inutilizeNote,
+);
+nfeRouter.get(
+  "/:nfeId/eventos",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("consultar_nfe"),
+  validateSchema({ params: nfeIdParamsSchema, query: emptyQuerySchema }),
+  nfeEventsController.listByNfe,
 );
 
 export { nfeRouter };

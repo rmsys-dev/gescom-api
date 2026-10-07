@@ -54,6 +54,12 @@ export const cepParamsSchema = z
   })
   .strict();
 
+export const cepLookupParamsSchema = z
+  .object({
+    cepNumber: cepNumberSchema,
+  })
+  .strict();
+
 export type ListCepsQuery = z.infer<typeof listCepsQuerySchema>;
 export type CreateCepInput = z.infer<typeof createCepSchema>;
 export type PatchCepInput = z.infer<typeof patchCepSchema>;

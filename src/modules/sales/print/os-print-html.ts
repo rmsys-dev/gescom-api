@@ -118,6 +118,7 @@ export type WorkOrderPrintEnterprise = {
   phone?: string | null;
   email?: string | null;
   whatsapp?: string | null;
+  logoUrl?: string | null;
   addresses?: Array<{
     adressType?: string | null;
     number?: string | null;
@@ -862,7 +863,7 @@ export const renderWorkOrderPrintHtml = (
   input: WorkOrderPrintInput,
 ): string => {
   const { sale, enterprise, printedAt, mode = "html" } = input;
-  const logoSrc = loadPrintLogoSrc();
+  const logoSrc = loadPrintLogoSrc(enterprise.logoUrl);
   const items = sale.items ?? [];
   const parts = items.filter((item) => !itemIsService(item));
   const services = items.filter(itemIsService);
@@ -996,7 +997,7 @@ export const renderWorkOrderPrintHtml = (
 
 export const renderBudgetPrintHtml = (input: WorkOrderPrintInput): string => {
   const { sale, enterprise, printedAt, mode = "html" } = input;
-  const logoSrc = loadPrintLogoSrc();
+  const logoSrc = loadPrintLogoSrc(enterprise.logoUrl);
   const items = sale.items ?? [];
   const parts = items.filter((item) => !itemIsService(item));
   const services = items.filter(itemIsService);
@@ -1079,7 +1080,7 @@ export const renderBudgetPrintHtml = (input: WorkOrderPrintInput): string => {
 
 export const renderSalePrintHtml = (input: WorkOrderPrintInput): string => {
   const { sale, enterprise, printedAt, mode = "html" } = input;
-  const logoSrc = loadPrintLogoSrc();
+  const logoSrc = loadPrintLogoSrc(enterprise.logoUrl);
   const items = sale.items ?? [];
   const parts = items.filter((item) => !itemIsService(item));
   const services = items.filter(itemIsService);

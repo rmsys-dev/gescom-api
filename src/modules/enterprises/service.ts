@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "../../db/schema.js";
 import {
   ceps,
@@ -7,10 +7,12 @@ import {
   enterprises,
   enterprisesAddress,
   enterprisesMembers,
+  enterprisesPrintModels,
   enterprisesSequences,
+  fiscalDocumentModels,
   states,
 } from "../../db/schema.js";
-import { ConflictError, NotFoundError } from "../../shared/errors/app-error.js";
+import { BadRequestError, ConflictError, NotFoundError } from "../../shared/errors/app-error.js";
 import { isActiveEnterprise, activeUserMembershipWhere } from "../../shared/db/tenant-predicates.js";
 import { resolveListPagination } from "../../shared/pagination/pagination-params.js";
 import type { ListEnterprisesQuery } from "./schema.js";
@@ -32,6 +34,11 @@ import { toAuditRecord } from "../../shared/audit/build-field-diff.js";
 import { EntityTypes } from "../../shared/audit/entity-types.js";
 import { whereActiveById } from "../../shared/db/record-lifecycle.js";
 import type { PatchEnterpriseInput } from "./schema.js";
+import {
+  removePhoto as removeStoredPhoto,
+  savePhoto,
+  type PhotoFile,
+} from "../../shared/photos/photo-storage.js";
 
 const mapMembershipsToListItem = (
   rows: Array<{
@@ -55,6 +62,8 @@ const mapMembershipsToListItem = (
     municipalRegistration: row.enterprise!.municipalRegistration,
     suframaRegistration: row.enterprise!.suframaRegistration,
     crt: row.enterprise!.crt,
+    logoUrl: row.enterprise!.logoUrl,
+    pdfFolder: row.enterprise!.pdfFolder,
     memberId: row.memberId,
     class: row.class,
     parameters: row.parameters,
@@ -218,6 +227,7 @@ export class EnterprisesService {
     const parameters = await resolveEnterpriseParameters(id);
     return {
       ...enterprise,
+      printModels: await this.printModelCodes(id),
       addresses: (addresses as EnterpriseAddressWithDetails[]).map(
         mapEnterpriseAddressDetails,
       ),
@@ -245,44 +255,72 @@ export class EnterprisesService {
     const registration = input.registration
       ? normalizeCpfCnpj(input.registration)
       : undefined;
+    const nextModels = input.printModels ? [...new Set(input.printModels)].sort() : undefined;
+    if (nextModels?.length) {
+      const found = await db
+        .select({ code: fiscalDocumentModels.code })
+        .from(fiscalDocumentModels)
+        .where(inArray(fiscalDocumentModels.code, nextModels));
+      const missing = nextModels.filter((code) => !found.some((item) => item.code === code));
+      if (missing.length) {
+        throw new BadRequestError(
+          `Modelo de nota nao cadastrado: ${missing.join(", ")}`,
+          "ENTERPRISE_PRINT_MODEL_INVALID",
+        );
+      }
+    }
+    const previousModels = nextModels ? await this.printModelCodes(id) : undefined;
     try {
-      const [row] = await db
-        .update(enterprises)
-        .set({
-          ...(registration !== undefined ? { registration } : {}),
-          ...(input.legalName !== undefined
-            ? { legalName: input.legalName.trim() }
-            : {}),
-          ...(input.tradeName !== undefined
-            ? { tradeName: input.tradeName.trim() }
-            : {}),
-          ...(input.phone !== undefined
-            ? { phone: input.phone ? normalizePhone(input.phone) : null }
-            : {}),
-          ...(input.email !== undefined
-            ? { email: input.email ? normalizeEmail(input.email) : null }
-            : {}),
-          ...(input.whatsapp !== undefined
-            ? {
-                whatsapp: input.whatsapp
-                  ? normalizePhone(input.whatsapp)
-                  : null,
-              }
-            : {}),
-          ...(input.stateRegistration !== undefined
-            ? { stateRegistration: input.stateRegistration }
-            : {}),
-          ...(input.municipalRegistration !== undefined
-            ? { municipalRegistration: input.municipalRegistration }
-            : {}),
-          ...(input.suframaRegistration !== undefined
-            ? { suframaRegistration: input.suframaRegistration }
-            : {}),
-          ...(input.crt !== undefined ? { crt: input.crt } : {}),
-          updatedAt: new Date(),
-        })
-        .where(whereActiveById(enterprises, id))
-        .returning();
+      const row = await db.transaction(async (tx) => {
+        const [updated] = await tx
+          .update(enterprises)
+          .set({
+            ...(input.pdfFolder !== undefined ? { pdfFolder: input.pdfFolder } : {}),
+            ...(registration !== undefined ? { registration } : {}),
+            ...(input.legalName !== undefined
+              ? { legalName: input.legalName.trim() }
+              : {}),
+            ...(input.tradeName !== undefined
+              ? { tradeName: input.tradeName.trim() }
+              : {}),
+            ...(input.phone !== undefined
+              ? { phone: input.phone ? normalizePhone(input.phone) : null }
+              : {}),
+            ...(input.email !== undefined
+              ? { email: input.email ? normalizeEmail(input.email) : null }
+              : {}),
+            ...(input.whatsapp !== undefined
+              ? {
+                  whatsapp: input.whatsapp
+                    ? normalizePhone(input.whatsapp)
+                    : null,
+                }
+              : {}),
+            ...(input.stateRegistration !== undefined
+              ? { stateRegistration: input.stateRegistration }
+              : {}),
+            ...(input.municipalRegistration !== undefined
+              ? { municipalRegistration: input.municipalRegistration }
+              : {}),
+            ...(input.suframaRegistration !== undefined
+              ? { suframaRegistration: input.suframaRegistration }
+              : {}),
+            ...(input.crt !== undefined ? { crt: input.crt } : {}),
+            updatedAt: new Date(),
+          })
+          .where(whereActiveById(enterprises, id))
+          .returning();
+        if (!updated) return undefined;
+        if (nextModels) {
+          await tx.delete(enterprisesPrintModels).where(eq(enterprisesPrintModels.enterpriseId, id));
+          if (nextModels.length) {
+            await tx.insert(enterprisesPrintModels).values(
+              nextModels.map((documentModelCode) => ({ enterpriseId: id, documentModelCode })),
+            );
+          }
+        }
+        return updated;
+      });
       if (!row) {
         throw new NotFoundError("Empresa nao encontrada", "ENTERPRISE_NOT_FOUND");
       }
@@ -290,17 +328,98 @@ export class EnterprisesService {
         entityType: EntityTypes.ENTERPRISES,
         entityId: id,
         action: "UPDATE",
-        before: toAuditRecord(existing),
-        after: toAuditRecord(row),
+        before: { ...toAuditRecord(existing), ...(previousModels ? { printModels: previousModels } : {}) },
+        after: { ...toAuditRecord(row), ...(nextModels ? { printModels: nextModels } : {}) },
         ctx: { ...audit, enterpriseId: audit.enterpriseId ?? id },
       });
-      return row;
-    } catch {
+      return { ...row, printModels: nextModels ?? (await this.printModelCodes(id)) };
+    } catch (error) {
+      if (error instanceof NotFoundError) throw error;
       throw new ConflictError(
         "Dados da empresa em conflito com cadastro existente",
         "ENTERPRISE_CONFLICT",
       );
     }
+  }
+
+  private async printModelCodes(id: string) {
+    const rows = await db
+      .select({ code: enterprisesPrintModels.documentModelCode })
+      .from(enterprisesPrintModels)
+      .where(eq(enterprisesPrintModels.enterpriseId, id))
+      .orderBy(asc(enterprisesPrintModels.documentModelCode));
+    return rows.map((item) => item.code);
+  }
+
+  private async findActive(id: string) {
+    const [row] = await db
+      .select()
+      .from(enterprises)
+      .where(whereActiveById(enterprises, id))
+      .limit(1);
+    if (!row) {
+      throw new NotFoundError("Empresa nao encontrada", "ENTERPRISE_NOT_FOUND");
+    }
+    return row;
+  }
+
+  public async setLogo(id: string, file: PhotoFile, audit: EntityAuditContext) {
+    const existing = await this.findActive(id);
+    const logoUrl = await savePhoto({
+      folder: "empresas",
+      id,
+      name: existing.tradeName,
+      file,
+    });
+    let row: typeof enterprises.$inferSelect | undefined;
+    try {
+      [row] = await db
+        .update(enterprises)
+        .set({ logoUrl, updatedAt: new Date() })
+        .where(whereActiveById(enterprises, id))
+        .returning();
+    } catch (error) {
+      await removeStoredPhoto(logoUrl);
+      throw error;
+    }
+    if (!row) {
+      await removeStoredPhoto(logoUrl);
+      throw new NotFoundError("Empresa nao encontrada", "ENTERPRISE_NOT_FOUND");
+    }
+    await recordEntityAudit({
+      entityType: EntityTypes.ENTERPRISES,
+      entityId: id,
+      action: "UPDATE",
+      before: { logoUrl: existing.logoUrl },
+      after: { logoUrl },
+      ctx: { ...audit, enterpriseId: audit.enterpriseId ?? id },
+    });
+    if (existing.logoUrl && existing.logoUrl !== logoUrl) {
+      await removeStoredPhoto(existing.logoUrl);
+    }
+    return { logoUrl };
+  }
+
+  public async removeLogo(id: string, audit: EntityAuditContext) {
+    const existing = await this.findActive(id);
+    const [row] = await db
+      .update(enterprises)
+      .set({ logoUrl: null, updatedAt: new Date() })
+      .where(whereActiveById(enterprises, id))
+      .returning({ id: enterprises.id });
+    if (!row) {
+      throw new NotFoundError("Empresa nao encontrada", "ENTERPRISE_NOT_FOUND");
+    }
+    await recordEntityAudit({
+      entityType: EntityTypes.ENTERPRISES,
+      entityId: id,
+      action: "UPDATE",
+      before: { logoUrl: existing.logoUrl },
+      after: { logoUrl: null },
+      ctx: { ...audit, enterpriseId: audit.enterpriseId ?? id },
+    });
+    await removeStoredPhoto(existing.logoUrl);
+    return { logoUrl: null };
   }
 }
 export const enterprisesService = new EnterprisesService();

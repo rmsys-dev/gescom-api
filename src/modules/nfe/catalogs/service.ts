@@ -8,6 +8,7 @@ import {
   classificationIbsCbs,
   cstIbsCbs,
   db,
+  fiscalDocumentModels,
   presumedCredit,
   situationTributaryCst,
 } from "../../../db/schema.js";
@@ -68,6 +69,26 @@ export class NfeCatalogsService {
 
   public getCfop(id: string) {
     return getCatalog(cfops, cfops.id, id, "CFOP nao encontrado", "CFOP_NOT_FOUND");
+  }
+
+  public listDocumentModels(query: ListNfeCatalogQuery) {
+    return listCatalog(
+      fiscalDocumentModels,
+      fiscalDocumentModels.description,
+      fiscalDocumentModels.code,
+      query,
+      fiscalDocumentModels.id,
+    );
+  }
+
+  public getDocumentModel(id: string) {
+    return getCatalog(
+      fiscalDocumentModels,
+      fiscalDocumentModels.id,
+      id,
+      "Modelo de documento fiscal nao encontrado",
+      "FISCAL_DOCUMENT_MODEL_NOT_FOUND",
+    );
   }
 
   public listCst(query: ListNfeCatalogQuery) {

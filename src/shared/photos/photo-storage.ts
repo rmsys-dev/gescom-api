@@ -13,7 +13,7 @@ const PHOTO_EXTENSIONS: Record<string, string> = {
   "image/webp": "webp",
 };
 
-export type PhotoFolder = "membros" | "produtos";
+export type PhotoFolder = "membros" | "produtos" | "empresas";
 
 export type PhotoFile = {
   buffer: Buffer;
@@ -61,18 +61,28 @@ export const savePhoto = async (input: {
   return `/fotos/${input.folder}/${fileName}`;
 };
 
+/** Caminho do arquivo da URL, só quando ele está dentro da pasta de fotos. */
+export const photoFilePath = (
+  url: string | null | undefined,
+  rootDir?: string,
+): string | null => {
+  if (!url || !url.startsWith("/fotos/")) return null;
+  const relative = url.slice("/fotos/".length);
+  if (!relative || relative.includes("..")) return null;
+  const root = photosRoot(rootDir);
+  const filePath = path.resolve(root, relative);
+  const fromRoot = path.relative(root, filePath);
+  if (fromRoot.startsWith("..") || path.isAbsolute(fromRoot)) return null;
+  return filePath;
+};
+
 /** Apaga o arquivo da URL, só quando ele está dentro da pasta de fotos. */
 export const removePhoto = async (
   url: string | null | undefined,
   rootDir?: string,
 ): Promise<void> => {
-  if (!url || !url.startsWith("/fotos/")) return;
-  const relative = url.slice("/fotos/".length);
-  if (!relative || relative.includes("..")) return;
-  const root = photosRoot(rootDir);
-  const filePath = path.resolve(root, relative);
-  const fromRoot = path.relative(root, filePath);
-  if (fromRoot.startsWith("..") || path.isAbsolute(fromRoot)) return;
+  const filePath = photoFilePath(url, rootDir);
+  if (!filePath) return;
   await rm(filePath, { force: true });
 };
 

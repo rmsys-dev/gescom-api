@@ -1,6 +1,9 @@
 import { relations } from "drizzle-orm";
 import {
   paymentTypes,
+  paymentMethods,
+  typeFlags,
+  paymentTypesMethodsFlags,
   salesPayments,
   sales,
   salesItems,
@@ -35,7 +38,53 @@ import { nfePayments } from "../entities/nfe.js";
 export const paymentTypesRelations = relations(paymentTypes, ({ many }) => ({
   salesPayments: many(salesPayments),
   nfePayments: many(nfePayments),
+  paymentTypesMethodsFlags: many(paymentTypesMethodsFlags),
 }));
+
+// relações da tabela de MEIOS DE PAGAMENTO.
+export const paymentMethodsRelations = relations(paymentMethods, ({ many }) => ({
+  paymentTypesMethodsFlags: many(paymentTypesMethodsFlags),
+}));
+
+// relações da tabela de TIPOS DE BANDEIRA.
+export const typeFlagsRelations = relations(typeFlags, ({ many }) => ({
+  paymentTypesMethodsFlags: many(paymentTypesMethodsFlags),
+}));
+
+// relações da tabela de CONFIGURAÇÃO DE PAGAMENTO POR EMPRESA.
+export const paymentTypesMethodsFlagsRelations = relations(
+  paymentTypesMethodsFlags,
+  ({ one, many }) => ({
+    enterprise: one(enterprises, {
+      fields: [paymentTypesMethodsFlags.enterprisesId],
+      references: [enterprises.id],
+    }),
+    paymentType: one(paymentTypes, {
+      fields: [paymentTypesMethodsFlags.paymentTypesId],
+      references: [paymentTypes.id],
+    }),
+    paymentMethod: one(paymentMethods, {
+      fields: [paymentTypesMethodsFlags.paymentMethodsId],
+      references: [paymentMethods.id],
+    }),
+    typeFlag: one(typeFlags, {
+      fields: [paymentTypesMethodsFlags.typeFlagsId],
+      references: [typeFlags.id],
+    }),
+    bandMember: one(enterprisesMembers, {
+      fields: [paymentTypesMethodsFlags.bandMemberId],
+      references: [enterprisesMembers.id],
+      relationName: "paymentConfigBandMember",
+    }),
+    intermediaryMember: one(enterprisesMembers, {
+      fields: [paymentTypesMethodsFlags.intermediaryMemberId],
+      references: [enterprisesMembers.id],
+      relationName: "paymentConfigIntermediaryMember",
+    }),
+    salesPayments: many(salesPayments),
+    nfePayments: many(nfePayments),
+  }),
+);
 
 // relações da tabela de VENDAS.
 export const salesRelations = relations(sales, ({ one, many }) => ({
@@ -254,6 +303,10 @@ export const salesPaymentsRelations = relations(
     paymentType: one(paymentTypes, {
       fields: [salesPayments.paymentTypeId],
       references: [paymentTypes.id],
+    }),
+    paymentConfig: one(paymentTypesMethodsFlags, {
+      fields: [salesPayments.paymentTypesMethodsFlagsId],
+      references: [paymentTypesMethodsFlags.id],
     }),
     sales: one(sales, {
       fields: [salesPayments.salesId],

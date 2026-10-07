@@ -4,6 +4,7 @@ import { requirePermission } from "../../../shared/middleware/permission-middlew
 import { validateSchema } from "../../../shared/middleware/validate-schema.js";
 import { addressesCepsController } from "./controller.js";
 import {
+  cepLookupParamsSchema,
   cepParamsSchema,
   createCepSchema,
   listCepsQuerySchema,
@@ -17,6 +18,13 @@ addressesCepsRouter.get(
   authMiddleware,
   validateSchema({ query: listCepsQuerySchema }),
   addressesCepsController.list,
+);
+
+addressesCepsRouter.get(
+  "/lookup/:cepNumber",
+  authMiddleware,
+  validateSchema({ params: cepLookupParamsSchema }),
+  addressesCepsController.lookup,
 );
 
 addressesCepsRouter.post(

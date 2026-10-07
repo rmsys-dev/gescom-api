@@ -21,6 +21,7 @@ import {
   measurementUnits,
   mechanicSalesItems,
   paymentTypes,
+  paymentTypesMethodsFlags,
   productTypes,
   productsEnterprises,
   promotionalPrices,
@@ -1615,18 +1616,72 @@ export class SalesServiceCore {
     }
   }
 
+  protected async assertSalePaymentConfigs(
+    // Verifica se a configuracao de pagamento e da empresa e do mesmo tipo de pagamento
+    tx: Tx | typeof db,
+    enterpriseId: string,
+    payments: SalePaymentInput[],
+  ) {
+    const configIds = [
+      ...new Set(
+        payments
+          .map((payment) => payment.paymentTypesMethodsFlagsId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    if (configIds.length === 0) return;
+    const rows = await tx
+      .select({
+        id: paymentTypesMethodsFlags.id,
+        paymentTypesId: paymentTypesMethodsFlags.paymentTypesId,
+      })
+      .from(paymentTypesMethodsFlags)
+      .where(
+        and(
+          inArray(paymentTypesMethodsFlags.id, configIds),
+          eq(paymentTypesMethodsFlags.enterprisesId, enterpriseId),
+          eq(paymentTypesMethodsFlags.status, "ATIVO"),
+        ),
+      );
+    const typeByConfig = new Map(rows.map((row) => [row.id, row.paymentTypesId]));
+    const issues: { path: string; message: string }[] = [];
+    payments.forEach((payment, index) => {
+      const configId = payment.paymentTypesMethodsFlagsId;
+      if (!configId) return;
+      const path = `body.payments.${index}.paymentTypesMethodsFlagsId`;
+      const paymentTypeId = typeByConfig.get(configId);
+      if (!paymentTypeId) {
+        issues.push({
+          path,
+          message: "Configuracao de pagamento nao encontrada ou inativa na empresa",
+        });
+      } else if (paymentTypeId !== payment.paymentTypeId) {
+        issues.push({
+          path,
+          message: "Configuracao de pagamento pertence a outro tipo de pagamento",
+        });
+      }
+    });
+    if (issues.length > 0) {
+      throw new ValidationError(issues, "Pagamentos invalidos");
+    }
+  }
+
   protected async insertSalePayments(
     // Insere os pagamentos na venda
     tx: Tx,
+    enterpriseId: string,
     saleId: string,
     payments: SalePaymentInput[],
   ) {
+    await this.assertSalePaymentConfigs(tx, enterpriseId, payments);
     for (const payment of payments) {
       const [pay] = await tx
         .insert(salesPayments)
         .values({
           valueTotal: payment.valueTotal.toString(),
           paymentTypeId: payment.paymentTypeId,
+          paymentTypesMethodsFlagsId: payment.paymentTypesMethodsFlagsId ?? null,
           salesId: saleId,
         })
         .returning();
@@ -3565,7 +3620,7 @@ export class SalesServiceCore {
             input.memberId,
             input.payments,
           );
-          await this.insertSalePayments(tx, sale.id, input.payments);
+          await this.insertSalePayments(tx, enterpriseId, sale.id, input.payments);
           await this.recalculateSaleItemsCommission(
             tx,
             sale.id,
@@ -3935,7 +3990,7 @@ export class SalesServiceCore {
             row.memberId,
             input.payments!,
           );
-          await this.insertSalePayments(tx, id, input.payments!);
+          await this.insertSalePayments(tx, enterpriseId, id, input.payments!);
           await this.recalculateSaleItemsCommission(
             tx,
             id,

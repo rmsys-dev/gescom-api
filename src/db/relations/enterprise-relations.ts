@@ -25,6 +25,7 @@ import {
   nfeEvents,
   nfeHeaders,
 } from "../entities/nfe.js";
+import { printers } from "../entities/printers.js";
 
 //**RELAÇÕES DE ENDEREÇOS DE EMPRESAS**//
 export const enterprisesAddressRelations = relations(
@@ -67,6 +68,7 @@ export const enterprisesRelations = relations(enterprises, ({ one, many }) => ({
   cfops: many(cfopsEnterprises),
   typeSupplierCustomers: many(typeSupplierCustomers),
   typeNetworks: many(typeNetworks),
+  printers: many(printers),
 }));
 
 //**RELAÇÕES DE SEQUÊNCIAS**//
@@ -79,6 +81,14 @@ export const enterprisesSequencesRelations = relations(
     }),
   }),
 );
+
+//**RELAÇÕES DE IMPRESSORAS**//
+export const printersRelations = relations(printers, ({ one }) => ({
+  enterprise: one(enterprises, {
+    fields: [printers.enterprisesId],
+    references: [enterprises.id],
+  }),
+}));
 
 //**RELAÇÕES DE PARÂMETROS DE EMPRESAS**//
 export const enterpriseParametersRelations = relations(

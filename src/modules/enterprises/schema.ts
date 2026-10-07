@@ -65,9 +65,20 @@ export const createEnterpriseSchema = z
   })
   .strict();
 
+const printModelCode = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(/^[0-9A-Z]{2}$/, "Modelo deve ter 2 caracteres (ex.: 55, 65)");
+
 //Esquema de alteração de empresa
-export const patchEnterpriseSchema = createEnterpriseSchema.partial().refine(
+export const patchEnterpriseSchema = createEnterpriseSchema.partial().extend({
+  pdfFolder: optionalFiscalText("pdfFolder", 500),
+  printModels: z.array(printModelCode).max(20).optional(),
+}).refine(
   (data) =>
+    data.pdfFolder !== undefined ||
+    data.printModels !== undefined ||
     data.registration !== undefined ||
     data.legalName !== undefined ||
     data.tradeName !== undefined ||

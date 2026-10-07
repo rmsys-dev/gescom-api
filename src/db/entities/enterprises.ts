@@ -52,6 +52,8 @@ export const enterprises = pgTable(
     municipalRegistration: varchar("municipal_registration", { length: 15 }), // Inscrição Municipal
     suframaRegistration: varchar("suframa_registration", { length: 9 }), // Inscrição SUFRAMA
     crt: regimeTributarioEnum("crt"), // CRT: 1 Simples Nacional, 2 excesso sublimite, 3 Regime Normal, 4 MEI
+    logoUrl: varchar("logo_url", { length: 500 }), // URL do logo da empresa (impressões e DANFE)
+    pdfFolder: varchar("pdf_folder", { length: 500 }), // pasta onde o app grava os PDFs das notas (ANO/MES)
     groupId: uuid("group_id").references(() => enterpriseGroups.id, {
       onDelete: "set null",
     }), // Grupo de empresas (opcional)

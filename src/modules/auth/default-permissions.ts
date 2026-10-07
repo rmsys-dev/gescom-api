@@ -144,6 +144,19 @@ export const defaultModules = {
       N5: [],
       N6: ["gerenciais_auditoria"],
     },
+    children: {
+      impressoras: {
+        name: "Cadastro de impressoras compartilhadas",
+        permissions: {
+          N1: ["consultar_impressoras"],
+          N2: [],
+          N3: ["incluir_impressoras"],
+          N4: ["alterar_impressoras"],
+          N5: ["excluir_impressoras"],
+          N6: [],
+        },
+      },
+    },
   },
 
   produtos: {
@@ -292,7 +305,7 @@ export const defaultModules = {
         },
       },
       tipos_pagamento: {
-        name: "Gerenciamento de tipos de pagamentos",
+        name: "Gerenciamento de tipos de pagamentos, meios de pagamento, bandeiras e configuracao por empresa",
         permissions: {
           N1: ["consultar_tipos_pagamento"],
           N2: [],
@@ -404,7 +417,12 @@ export const defaultModules = {
       ],
       N2: [],
       N3: ["incluir_nfe"],
-      N4: ["alterar_configuracao_nfe", "alterar_nfe"],
+      N4: [
+        "alterar_configuracao_nfe",
+        "alterar_nfe",
+        "cancelar_nfe",
+        "inutilizar_nfe",
+      ],
       N5: [],
       N6: [],
     },
@@ -663,6 +681,8 @@ export const PERM = {
   consultar_nfe: "consultar_nfe",
   incluir_nfe: "incluir_nfe",
   alterar_nfe: "alterar_nfe",
+  cancelar_nfe: "cancelar_nfe",
+  inutilizar_nfe: "inutilizar_nfe",
 } as const satisfies Record<string, PermissionSlug>;
 
 export const isPermissionSlug = (v: string): v is PermissionSlug =>

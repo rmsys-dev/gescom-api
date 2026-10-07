@@ -7,6 +7,7 @@ import {
   varchar,
   decimal,
   integer,
+  boolean,
   type AnyPgColumn,
   date,
 } from "drizzle-orm/pg-core";
@@ -30,6 +31,8 @@ import {
   saleConversionClosureKindEnum,
   harbourSaleSyncEventTypeEnum,
   harbourSaleSyncStatusEnum,
+  paymentMethodTypeEnum,
+  paymentMethodIntegrationEnum,
 } from "../enums.js";
 import { users } from "./users.js";
 import { enterprisesMembers } from "./members.js";
@@ -50,19 +53,92 @@ import {
   valorQuatroCasasDecimais,
 } from "../functions.js";
 
-// TIPOS DE PAGAMENTO.
+// TIPOS DE PAGAMENTO( global )
 export const paymentTypes = pgTable(
   "payment_types",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    description: varchar("description", { length: 255 }).notNull(),
-    status: statusEnum("status").notNull().default("ATIVO"),
-    paymentType: paymentTypeEnum("payment_type").notNull(),
+    status: statusEnum("status").notNull().default("ATIVO"), // status do tipo de pagamento
+    description: varchar("description", { length: 255 }).notNull(), // descrição do tipo de pagamento
+    paymentType: paymentTypeEnum("payment_type").notNull(), // tipo de pagamento
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
   },
   (t) => [
     uniqueIndex("payment_types_description_active_unique").on(t.description),
+  ],
+);
+
+// MEIO DE PAGAMENTO( global)
+export const paymentMethods = pgTable(
+  "payment_methods",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    status: statusEnum("status").notNull().default("ATIVO"), // status do meio de pagamento
+    paymentCode: varchar("payment_code", { length: 255 }).notNull(), // código do meio de pagamento
+    description: varchar("description", { length: 255 }).notNull(), // descrição do meio de pagamento
+    type: paymentMethodTypeEnum("type").notNull(), // tipo de meio de pagamento ( comanda )
+    createdAt: tz("created_at").defaultNow().notNull(),
+    updatedAt: tz("updated_at"),
+  },
+  (t) => [
+    uniqueIndex("payment_methods_payment_code_unique").on(t.paymentCode),
+  ],
+);
+
+// TABELA DE TIPOS DE BANDEIRA( GLOBAL )
+export const typeFlags = pgTable(  
+  "type_flags",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    status: statusEnum("status").notNull().default("ATIVO"), // status da bandeira
+    flagCode: varchar("flag_code", { length: 255 }).notNull(), // código da bandeira
+    description: varchar("description", { length: 255 }).notNull(), // descrição da bandeira
+    createdAt: tz("created_at").defaultNow().notNull(),
+    updatedAt: tz("updated_at"),
+  },
+  (t) => [
+    uniqueIndex("type_flags_flag_code_unique").on(t.flagCode),
+  ],
+);
+
+// TABELA DE TIPO PAGAMENTO C/ MEIO DE PAGAMENTO E BANDEIRA( Por empresa )
+export const paymentTypesMethodsFlags = pgTable(
+  "payment_types_methods_flags",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    status: statusEnum("status").notNull().default("ATIVO"), // status da configuração
+    enterprisesId: uuid("enterprises_id")
+      .notNull()
+      .references(() => enterprises.id, { onDelete: "cascade" }), // empresa associada ao tipo de pagamento
+    paymentMethodsId: uuid("payment_methods_id")
+      .notNull()
+      .references(() => paymentMethods.id, { onDelete: "restrict" }), // meio de pagamento
+    paymentTypesId: uuid("payment_types_id")
+      .notNull()
+      .references(() => paymentTypes.id, { onDelete: "restrict" }), // tipo de pagamento
+    typeFlagsId: uuid("type_flags_id")
+      .references(() => typeFlags.id, { onDelete: "restrict" }), // tipo de bandeira (opcional: dinheiro/PIX)
+    sped1601: boolean("sped1601").notNull().default(false), // se é um tipo de pagamento para o sped 1601
+    generateCharge: boolean("generate_charge").notNull().default(false), // se gera cobranca
+    integration: paymentMethodIntegrationEnum("integration").notNull(), // integração do tipo de pagamento
+    bandMemberId: uuid("band_member_id")
+      .references(() => enterprisesMembers.id, { onDelete: "restrict" }), // membro da bandeira (CNPJ vem do usuário)
+    intermediaryMemberId: uuid("intermediary_member_id")
+      .references(() => enterprisesMembers.id, { onDelete: "restrict" }), // membro intermediador (CNPJ vem do usuário)
+    createdAt: tz("created_at").defaultNow().notNull(),
+    updatedAt: tz("updated_at"),
+  },
+  (t) => [
+    uniqueIndex("ptmf_enterprise_combo_flag_unique")
+      .on(t.enterprisesId, t.paymentTypesId, t.paymentMethodsId, t.typeFlagsId)
+      .where(sql`${t.typeFlagsId} is not null`),
+    uniqueIndex("ptmf_enterprise_combo_no_flag_unique")
+      .on(t.enterprisesId, t.paymentTypesId, t.paymentMethodsId)
+      .where(sql`${t.typeFlagsId} is null`),
+    index("ptmf_enterprises_id_idx").on(t.enterprisesId),
+    index("ptmf_band_member_id_idx").on(t.bandMemberId),
+    index("ptmf_intermediary_member_id_idx").on(t.intermediaryMemberId),
   ],
 );
 
@@ -452,6 +528,10 @@ export const salesPayments = pgTable(
     paymentTypeId: uuid("payment_type_id")
       .notNull()
       .references(() => paymentTypes.id, { onDelete: "restrict" }), // TIPO DE PAGAMENTO
+    paymentTypesMethodsFlagsId: uuid("payment_types_methods_flags_id").references(
+      () => paymentTypesMethodsFlags.id,
+      { onDelete: "restrict" },
+    ), // CONFIGURAÇÃO DE PAGAMENTO DA EMPRESA
     salesId: uuid("sales_id")
       .notNull()
       .references(() => sales.id, { onDelete: "cascade" }), // VENDA

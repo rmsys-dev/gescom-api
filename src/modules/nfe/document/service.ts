@@ -1,10 +1,12 @@
-import { and, asc, count, desc, eq, ilike, inArray, isNull, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, ilike, inArray, isNull, lte, or } from "drizzle-orm";
 import { isValidGtin } from "../../../shared/validation/data-normalizers.js";
 import {
   cfopsEnterprises,
   classificationIbsCbs,
   cstIbsCbs,
   db,
+  enterprisesPrintModels,
+  nfeDuplicates,
   nfeHeaders,
   nfeItems,
   nfeItemTaxes,
@@ -48,13 +50,19 @@ import {
   accessKeyWithInvoiceNumber,
   accessKeyWithSerie,
 } from "../sefaz/access-key.js";
-import { sefazPaymentCode } from "../sefaz/payment-code.js";
-import { buildNfeXml } from "../sefaz/nfe-xml.js";
+import { resolveNfePayment } from "../sefaz/payment-detpag.js";
+import {
+  assertPaymentConfigsMatch,
+  loadPaymentConfigCatalog,
+} from "../../sales/payment-types-methods-flags/service.js";
+import { buildNfeXml, formatSefazDateTime, infAdProdText } from "../sefaz/nfe-xml.js";
 import { autorizarNfe } from "../sefaz/autorizacao.js";
 import { buildProcNFeXml } from "../sefaz/autorizacao-xml.js";
 import { signNfeXml } from "../sefaz/sign-xml.js";
+import { buildNfceSupl, insertNfceSupl, type NfceSupl } from "../sefaz/nfce-qrcode.js";
 import { assertNfeXmlSchema } from "../sefaz/validate-xml.js";
-import { isUfSigla, getUfFromCuf, type UfSigla } from "../sefaz/uf.js";
+import type { UfSigla } from "../sefaz/uf.js";
+import { resolveEmitUf } from "./emit-uf.js";
 import {
   nfeProcXmlRelativePath,
   nfeSignedXmlRelativePath,
@@ -75,6 +83,7 @@ import type {
   PatchNfeInput,
   RecalculateNfeItemsInput,
   ReplaceNfeItemsInput,
+  ReplaceNfeDuplicatesInput,
   ReplaceNfePaymentsInput,
   ReplaceNfeTransportInput,
 } from "./schema.js";
@@ -151,6 +160,23 @@ const destParty = (input?: CreateNfeInput["dest"]) =>
         destFone: input.fone,
       }
     : {};
+
+const NFCE_EMISSION_FRESH_MS = 60_000;
+
+/** A empresa só emite os modelos parametrizados no cadastro dela. */
+const assertEnterpriseEmitsModel = async (enterpriseId: string, mod: string) => {
+  const rows = await db
+    .select({ code: enterprisesPrintModels.documentModelCode })
+    .from(enterprisesPrintModels)
+    .where(eq(enterprisesPrintModels.enterpriseId, enterpriseId));
+  if (rows.some((row) => row.code === mod)) return;
+  throw new BadRequestError(
+    rows.length
+      ? `A empresa nao emite o modelo ${mod}. Modelos habilitados: ${rows.map((row) => row.code).sort().join(", ")}.`
+      : "Nenhum modelo de nota parametrizado na empresa. Informe os modelos em Empresas > Alterar.",
+    "NFE_MODEL_NOT_ENABLED",
+  );
+};
 
 const assertUniqueNumbers = (
   values: number[],
@@ -376,6 +402,7 @@ export class NfeDocumentService {
         "PAYMENT_TYPE_NOT_FOUND",
       );
     }
+    await assertPaymentConfigsMatch(enterpriseId, input.payments);
 
     const classificationIds = [
       ...new Set(
@@ -458,6 +485,7 @@ export class NfeDocumentService {
         "NFE_NUMBER_REQUIRED",
       );
     }
+    if (issuanceType === "PROPRIA") await assertEnterpriseEmitsModel(enterpriseId, input.mod);
 
     const emission =
       issuanceType === "PROPRIA"
@@ -465,6 +493,9 @@ export class NfeDocumentService {
         : null;
     const tpAmb = emission ? emission.ambiente : input.tpAmb;
     const prepared = await this.prepareNfeDocument(enterpriseId, input);
+    const ownSerie = emission
+      ? String(input.mod === "65" ? emission.serieNfce : emission.serieNfe)
+      : undefined;
 
     try {
       const createdId = await db.transaction(async (tx) => {
@@ -476,11 +507,12 @@ export class NfeDocumentService {
               input.mod,
               input.nNf,
               tx,
+              ownSerie,
             );
             await syncNfeSequenceFloor(enterpriseId, input.mod, input.nNf, tx);
             nNf = input.nNf;
           } else {
-            nNf = await nextNfeNumber(enterpriseId, input.mod, tx);
+            nNf = await nextNfeNumber(enterpriseId, input.mod, tx, ownSerie);
           }
         } else {
           nNf = input.nNf!;
@@ -509,10 +541,8 @@ export class NfeDocumentService {
           ? accessKeyWithInvoiceNumber(input.chave, nNf)
           : input.chave;
         let serie = input.serie;
-        if (emission) {
-          serie = String(
-            input.mod === "65" ? emission.serieNfce : emission.serieNfe,
-          );
+        if (ownSerie !== undefined) {
+          serie = ownSerie;
           chave = accessKeyWithSerie(chave, serie);
         }
 
@@ -582,6 +612,7 @@ export class NfeDocumentService {
               vDesc: money(item.vDesc),
               vOutro: money(item.vOutro),
               indTot: item.indTot ?? "1",
+              infAdProd: infAdProdText(item.infAdProd) ?? null,
             })
             .returning();
           if (!created) {
@@ -646,6 +677,7 @@ export class NfeDocumentService {
           input.payments.map((payment) => ({
             nfeHeaderId: row.id,
             paymentTypeId: payment.paymentTypeId,
+            paymentTypesMethodsFlagsId: payment.paymentTypesMethodsFlagsId ?? null,
             nSeq: payment.nSeq,
             indPag: payment.indPag,
             tPag: payment.tPag,
@@ -687,6 +719,8 @@ export class NfeDocumentService {
     ];
     if (query.mod) filters.push(eq(nfeHeaders.mod, query.mod));
     if (query.status) filters.push(eq(nfeHeaders.status, query.status));
+    if (query.from) filters.push(gte(nfeHeaders.dhEmi, query.from));
+    if (query.to) filters.push(lte(nfeHeaders.dhEmi, query.to));
     const term = query.search?.trim();
     if (term) {
       const parts = [
@@ -708,6 +742,7 @@ export class NfeDocumentService {
           serie: nfeHeaders.serie,
           nNf: nfeHeaders.nNf,
           dhEmi: nfeHeaders.dhEmi,
+          dhRecbto: nfeHeaders.dhRecbto,
           natOp: nfeHeaders.natOp,
           status: nfeHeaders.status,
           destXNome: nfeHeaders.destXNome,
@@ -733,7 +768,7 @@ export class NfeDocumentService {
 
   public async get(enterpriseId: string, nfeId: string) {
     const header = await this.loadHeader(enterpriseId, nfeId);
-    const [items, payments, transport, linkedSales] = await Promise.all([
+    const [items, payments, transport, linkedSales, duplicates] = await Promise.all([
       db
         .select()
         .from(nfeItems)
@@ -744,6 +779,7 @@ export class NfeDocumentService {
           id: nfePayments.id,
           nfeHeaderId: nfePayments.nfeHeaderId,
           paymentTypeId: nfePayments.paymentTypeId,
+          paymentTypesMethodsFlagsId: nfePayments.paymentTypesMethodsFlagsId,
           nSeq: nfePayments.nSeq,
           indPag: nfePayments.indPag,
           tPag: nfePayments.tPag,
@@ -773,6 +809,16 @@ export class NfeDocumentService {
         .innerJoin(sales, eq(sales.id, nfeSales.salesId))
         .where(and(eq(nfeSales.nfeHeaderId, nfeId), isNull(nfeSales.deletedAt)))
         .orderBy(asc(sales.orderNumber)),
+      db
+        .select({
+          id: nfeDuplicates.id,
+          nDup: nfeDuplicates.nDup,
+          dVenc: nfeDuplicates.dVenc,
+          vDup: nfeDuplicates.vDup,
+        })
+        .from(nfeDuplicates)
+        .where(eq(nfeDuplicates.nfeHeaderId, nfeId))
+        .orderBy(asc(nfeDuplicates.nDup)),
     ]);
     const taxes = items.length
       ? await db
@@ -794,15 +840,34 @@ export class NfeDocumentService {
           .where(eq(nfeTransportVolumes.nfeTransportId, transportRow.id))
           .orderBy(asc(nfeTransportVolumes.nSeq))
       : [];
+    const paymentCatalog = await loadPaymentConfigCatalog(
+      enterpriseId,
+      payments.flatMap((payment) =>
+        payment.paymentTypesMethodsFlagsId ? [payment.paymentTypesMethodsFlagsId] : [],
+      ),
+    );
     return {
       ...header,
       items: items.map((item) => ({
         ...item,
         tax: taxByItem.get(item.id) ?? null,
       })),
-      payments,
+      payments: payments.map((payment) => {
+        const config = payment.paymentTypesMethodsFlagsId
+          ? paymentCatalog.get(payment.paymentTypesMethodsFlagsId)
+          : undefined;
+        return {
+          ...payment,
+          paymentCode: config?.paymentCode ?? null,
+          paymentIntegration: config?.integration ?? null,
+          flagCode: config?.flagCode ?? null,
+          flagDescription: config?.flagDescription ?? null,
+          paymentConfigCnpj: config?.cnpj ?? null,
+        };
+      }),
       transport: transportRow ? { ...transportRow, volumes } : null,
       sales: linkedSales,
+      duplicates,
     };
   }
 
@@ -930,6 +995,7 @@ export class NfeDocumentService {
             vDesc: money(item.vDesc),
             vOutro: money(item.vOutro),
             indTot: item.indTot ?? "1",
+            infAdProd: infAdProdText(item.infAdProd) ?? null,
           })
           .returning();
         if (!created) {
@@ -1021,6 +1087,7 @@ export class NfeDocumentService {
     audit: EntityAuditContext,
   ) {
     await this.loadDraft(enterpriseId, nfeId);
+    await assertPaymentConfigsMatch(enterpriseId, input.payments);
     const before = await this.get(enterpriseId, nfeId);
     await db.transaction(async (tx) => {
       await tx.delete(nfePayments).where(eq(nfePayments.nfeHeaderId, nfeId));
@@ -1029,6 +1096,7 @@ export class NfeDocumentService {
         input.payments.map((payment) => ({
           nfeHeaderId: nfeId,
           paymentTypeId: payment.paymentTypeId,
+          paymentTypesMethodsFlagsId: payment.paymentTypesMethodsFlagsId ?? null,
           nSeq: payment.nSeq,
           indPag: payment.indPag,
           tPag: payment.tPag,
@@ -1040,6 +1108,86 @@ export class NfeDocumentService {
           cardCAut: payment.cardCAut,
         })),
       );
+    });
+    return this.auditDocumentChange(enterpriseId, nfeId, before, audit);
+  }
+
+  public async replaceDuplicates(
+    enterpriseId: string,
+    nfeId: string,
+    input: ReplaceNfeDuplicatesInput,
+    audit: EntityAuditContext,
+  ) {
+    const header = await this.loadDraft(enterpriseId, nfeId);
+    const duplicates = input.duplicates;
+    if (duplicates.length && header.mod === "65") {
+      throw new BadRequestError("NFC-e nao aceita fatura nem duplicatas", "NFE_DUPLICATES_NFCE");
+    }
+    const cents = (value: number) => Math.round(value * 100);
+    if (duplicates.length) {
+      const total = duplicates.reduce((sum, row) => sum + cents(row.vDup), 0);
+      if (total !== cents(input.vLiq)) {
+        throw new BadRequestError(
+          "A soma das duplicatas precisa ser igual ao valor liquido da fatura",
+          "NFE_DUPLICATES_TOTAL",
+        );
+      }
+      if (cents(input.vOrig) - cents(input.vDesc) !== cents(input.vLiq)) {
+        throw new BadRequestError(
+          "Valor liquido da fatura deve ser o original menos o desconto",
+          "NFE_INVOICE_NET",
+        );
+      }
+      const issued = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(
+        header.dhEmi ?? new Date(),
+      );
+      let previous = "";
+      for (const row of duplicates) {
+        if (Number.isNaN(new Date(`${row.dVenc}T00:00:00Z`).getTime())) {
+          throw new BadRequestError("Vencimento invalido", "NFE_DUPLICATE_DATE_INVALID");
+        }
+        if (row.dVenc < issued) {
+          throw new BadRequestError(
+            "Vencimento da duplicata nao pode ser anterior a emissao da nota",
+            "NFE_DUPLICATE_DATE_BEFORE_ISSUE",
+          );
+        }
+        if (row.dVenc < previous) {
+          throw new BadRequestError(
+            "Vencimentos das duplicatas devem estar em ordem crescente",
+            "NFE_DUPLICATE_DATE_ORDER",
+          );
+        }
+        previous = row.dVenc;
+      }
+    }
+    const before = await this.get(enterpriseId, nfeId);
+    await db.transaction(async (tx) => {
+      await tx.delete(nfeDuplicates).where(eq(nfeDuplicates.nfeHeaderId, nfeId));
+      if (duplicates.length) {
+        await tx.insert(nfeDuplicates).values(
+          duplicates.map((row, index) => ({
+            nfeHeaderId: nfeId,
+            nDup: String(index + 1).padStart(3, "0"),
+            dVenc: row.dVenc,
+            vDup: money(row.vDup)!,
+          })),
+        );
+      }
+      await tx
+        .update(nfeHeaders)
+        .set(
+          duplicates.length
+            ? {
+                nFat: input.nFat || (header.nNf == null ? null : String(header.nNf)),
+                vOrig: money(input.vOrig),
+                cobrVDesc: money(input.vDesc),
+                vLiq: money(input.vLiq),
+                updatedAt: new Date(),
+              }
+            : { nFat: null, vOrig: null, cobrVDesc: null, vLiq: null, updatedAt: new Date() },
+        )
+        .where(eq(nfeHeaders.id, nfeId));
     });
     return this.auditDocumentChange(enterpriseId, nfeId, before, audit);
   }
@@ -1139,6 +1287,7 @@ export class NfeDocumentService {
         id: productsEnterprises.id,
         code: productsEnterprises.code,
         description: productsEnterprises.description,
+        additionalProduct: productsEnterprises.additionalProduct,
         barCode: products.barCode,
         ncm: productsNcm.ncm,
         unit: measurementUnits.unit,
@@ -1219,6 +1368,7 @@ export class NfeDocumentService {
         vDesc: amount(item.vDesc),
         vOutro: amount(item.vOutro),
         indTot: current?.indTot ?? "1",
+        infAdProd: infAdProdText(product.additionalProduct),
       };
     });
     const filled = await applyStateOperationToNote(
@@ -1281,6 +1431,7 @@ export class NfeDocumentService {
       {
         payments: [{
           paymentTypeId: payment.paymentTypeId,
+          paymentTypesMethodsFlagsId: payment.paymentTypesMethodsFlagsId,
           nSeq: payment.nSeq || 1,
           indPag: textOrUndefined(payment.indPag),
           tPag: textOrUndefined(payment.tPag),
@@ -1496,7 +1647,7 @@ export class NfeDocumentService {
     }
     const { signed, certificate } = await this.persistSignedXml(
       enterpriseId,
-      before,
+      await this.refreshNfceEmission(before),
     );
     const result = await autorizarNfe({
       uf: this.emitUf(before),
@@ -1550,6 +1701,31 @@ export class NfeDocumentService {
     return this.auditDocumentChange(enterpriseId, nfeId, before, audit);
   }
 
+  /**
+   * NFC-e on-line precisa chegar a SEFAZ logo apos o dhEmi (rejeicao 704); no envio a data
+   * passa a ser a do momento, desde que no mesmo AAMM da chave de acesso.
+   */
+  private async refreshNfceEmission(
+    document: Awaited<ReturnType<NfeDocumentService["get"]>>,
+  ) {
+    if (document.mod !== "65") return document;
+    const now = new Date();
+    if (now.getTime() - document.dhEmi.getTime() < NFCE_EMISSION_FRESH_MS) return document;
+    const local = formatSefazDateTime(now);
+    const yearMonth = `${local.slice(2, 4)}${local.slice(5, 7)}`;
+    if (document.chave.slice(2, 6) !== yearMonth) {
+      throw new BadRequestError(
+        "A NFC-e foi gerada em outro mes e nao pode mais ser enviada; gere uma nova nota.",
+        "NFCE_EMISSION_MONTH",
+      );
+    }
+    await db
+      .update(nfeHeaders)
+      .set({ dhEmi: now, updatedAt: now })
+      .where(eq(nfeHeaders.id, document.id));
+    return { ...document, dhEmi: now };
+  }
+
   private assertSendable(
     document: Awaited<ReturnType<NfeDocumentService["get"]>>,
   ) {
@@ -1574,18 +1750,7 @@ export class NfeDocumentService {
   private emitUf(
     document: Awaited<ReturnType<NfeDocumentService["get"]>>,
   ): UfSigla {
-    const uf = (document.emitUf ?? "").toUpperCase();
-    if (isUfSigla(uf)) {
-      return uf;
-    }
-    const fromCode = getUfFromCuf(document.cUf);
-    if (fromCode) {
-      return fromCode;
-    }
-    throw new BadRequestError(
-      "UF do emitente invalida para autorizar a nota",
-      "NFE_EMIT_UF_INVALID",
-    );
+    return resolveEmitUf(document);
   }
 
   private async persistSignedXml(
@@ -1595,10 +1760,23 @@ export class NfeDocumentService {
     const { certificate } = await nfeConfiguracaoService.loadCredentials(
       enterpriseId,
     );
-    const signed = signNfeXml(this.unsignedXml(document), {
+    let signed = signNfeXml(this.unsignedXml(document), {
       privateKeyPem: certificate.key,
       certificatePem: certificate.leafCert,
     });
+    let supl: NfceSupl | null = null;
+    if (document.mod === "65") {
+      const { idCsc, csc } = await nfeConfiguracaoService.getCsc(enterpriseId);
+      supl = buildNfceSupl({
+        uf: this.emitUf(document),
+        chave: document.chave,
+        tpAmb: document.tpAmb === 1 ? 1 : 2,
+        tpEmis: Number(document.tpEmis),
+        idCsc,
+        csc,
+      });
+      signed = insertNfceSupl(signed, supl);
+    }
     await assertNfeXmlSchema(signed);
     const xmlArquivo = nfeSignedXmlRelativePath({
       cnpj: document.emitCnpj ?? "",
@@ -1608,7 +1786,12 @@ export class NfeDocumentService {
     await writeNfeXmlFile(xmlArquivo, signed);
     await db
       .update(nfeHeaders)
-      .set({ xmlArquivo, status: "ASSINADA", updatedAt: new Date() })
+      .set({
+        xmlArquivo,
+        status: "ASSINADA",
+        ...(supl ? { qrCode: supl.qrCode, urlChave: supl.urlChave } : {}),
+        updatedAt: new Date(),
+      })
       .where(eq(nfeHeaders.id, document.id));
     return { signed, certificate };
   }
@@ -1702,6 +1885,7 @@ export class NfeDocumentService {
         vDesc: item.vDesc,
         vOutro: item.vOutro,
         indTot: item.indTot,
+        infAdProd: item.infAdProd,
         icmsOrig: item.tax?.icmsOrig,
         icmsCst: item.tax?.icmsCst,
         icmsCsosn: item.tax?.icmsCsosn,
@@ -1761,24 +1945,42 @@ export class NfeDocumentService {
         cbsVCbs: item.tax?.cbsVCbs,
         vTotTrib: item.tax?.vTotTrib,
       })),
+      invoice: document.duplicates.length
+        ? {
+            nFat: document.nFat,
+            vOrig: document.vOrig,
+            vDesc: document.cobrVDesc,
+            vLiq: document.vLiq,
+            duplicates: document.duplicates.map((row) => ({
+              nDup: row.nDup,
+              dVenc: String(row.dVenc),
+              vDup: row.vDup,
+            })),
+          }
+        : null,
       payments: document.payments.map((payment) => {
-        const stored = payment.tPag?.trim() ?? "";
-        const resolved = /^\d{2}$/.test(stored)
-          ? { tPag: stored, xPag: payment.xPag ?? undefined }
-          : sefazPaymentCode(payment.paymentDescription);
-        const xPag =
-          resolved.tPag === "99"
-            ? payment.xPag?.trim() || resolved.xPag
-            : payment.xPag ?? undefined;
+        const resolved = resolveNfePayment(
+          {
+            tPag: payment.tPag,
+            xPag: payment.xPag,
+            cardTpIntegra: payment.cardTpIntegra,
+            cardTBand: payment.cardTBand,
+            cardCnpj: payment.cardCnpj,
+            cardCAut: payment.cardCAut,
+          },
+          {
+            paymentCode: payment.paymentCode,
+            integration: payment.paymentIntegration,
+            flagCode: payment.flagCode,
+            flagDescription: payment.flagDescription,
+            paymentDescription: payment.paymentDescription,
+            cnpj: payment.paymentConfigCnpj,
+          },
+        );
         return {
           indPag: payment.indPag,
-          tPag: resolved.tPag,
-          xPag,
           vPag: payment.vPag,
-          cardTpIntegra: payment.cardTpIntegra,
-          cardCnpj: payment.cardCnpj,
-          cardTBand: payment.cardTBand,
-          cardCAut: payment.cardCAut,
+          ...resolved,
         };
       }),
       vBc: document.vBc,

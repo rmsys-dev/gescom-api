@@ -1,4 +1,5 @@
 import { asNumber, type TaxNumber } from "../tax/calculate.js";
+import { harbourNumber } from "./payment-detpag.js";
 
 const NFE_XMLNS = "http://www.portalfiscal.inf.br/nfe";
 const NFE_LAYOUT_VERSION = "4.00";
@@ -8,26 +9,28 @@ export const HOMOLOGATION_DEST_NAME =
 export const HOMOLOGATION_ITEM_NAME =
   "NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL";
 
-/** Em homologacao a SEFAZ exige o texto fixo no destinatario ou no primeiro item. */
+/**
+ * Em homologacao a SEFAZ exige o texto fixo: na NF-e (55) no destinatario, ou no primeiro item
+ * quando nao ha destinatario; na NFC-e (65) sempre no primeiro item (rejeicao 373) e tambem
+ * no destinatario, quando informado.
+ */
 export const applySefazHomologation = (
   document: NfeXmlDocument,
 ): NfeXmlDocument => {
   if (document.tpAmb !== 2) {
     return document;
   }
-  if (document.dest) {
-    return {
-      ...document,
-      dest: { ...document.dest, xNome: HOMOLOGATION_DEST_NAME },
-    };
+  const dest = document.dest
+    ? { ...document.dest, xNome: HOMOLOGATION_DEST_NAME }
+    : document.dest;
+  if (document.dest && document.mod !== "65") {
+    return { ...document, dest };
   }
   const [first, ...rest] = document.items;
-  if (!first) {
-    return document;
-  }
   return {
     ...document,
-    items: [{ ...first, xProd: HOMOLOGATION_ITEM_NAME }, ...rest],
+    dest,
+    items: first ? [{ ...first, xProd: HOMOLOGATION_ITEM_NAME }, ...rest] : document.items,
   };
 };
 
@@ -77,6 +80,7 @@ export type NfeXmlItem = {
   vDesc?: TaxNumber;
   vOutro?: TaxNumber;
   indTot?: string | null;
+  infAdProd?: string | null;
   icmsOrig?: string | null;
   icmsCst?: string | null;
   icmsCsosn?: string | null;
@@ -148,6 +152,14 @@ export type NfeXmlPayment = {
   cardCAut?: string | null;
 };
 
+export type NfeXmlInvoice = {
+  nFat?: string | null;
+  vOrig?: TaxNumber;
+  vDesc?: TaxNumber;
+  vLiq?: TaxNumber;
+  duplicates: Array<{ nDup: string; dVenc: string; vDup: TaxNumber }>;
+};
+
 export type NfeXmlTransport = {
   modFrete: string;
   cnpj?: string | null;
@@ -195,6 +207,7 @@ export type NfeXmlDocument = {
   emit: NfeXmlParty;
   dest?: NfeXmlParty | null;
   items: NfeXmlItem[];
+  invoice?: NfeXmlInvoice | null;
   payments: NfeXmlPayment[];
   vBc?: TaxNumber;
   vIcms?: TaxNumber;
@@ -264,6 +277,10 @@ export const formatSefazDateTime = (value: string | Date): string => {
   const hour = pick("hour") === "24" ? "00" : pick("hour");
   return `${pick("year")}-${pick("month")}-${pick("day")}T${hour}:${pick("minute")}:${pick("second")}-03:00`;
 };
+
+/** `infAdProd`: uma linha só, sem espaços nas pontas, até 500 caracteres. */
+export const infAdProdText = (value: string | null | undefined): string | undefined =>
+  value?.replace(/\s+/g, " ").trim().slice(0, 500).trim() || undefined;
 
 const tag = (name: string, value: string | number | null | undefined): string => {
   if (value === null || value === undefined || value === "") return "";
@@ -573,18 +590,59 @@ const itemXml = (item: NfeXmlItem): string =>
   difalXml(item) +
   ibsCbsXml(item) +
   `</imposto>` +
+  tag("infAdProd", infAdProdText(item.infAdProd)) +
   `</det>`;
 
-const paymentXml = (payment: NfeXmlPayment): string =>
-  `<detPag>` +
-  tag("indPag", payment.indPag) +
-  tag("tPag", payment.tPag) +
-  tag("xPag", payment.xPag) +
-  moneyTag("vPag", payment.vPag) +
-  (payment.cardTpIntegra
-    ? `<card>${tag("tpIntegra", payment.cardTpIntegra)}${tag("CNPJ", payment.cardCnpj)}${tag("tBand", payment.cardTBand)}${tag("cAut", payment.cardCAut)}</card>`
-    : "") +
-  `</detPag>`;
+const cardXml = (payment: NfeXmlPayment): string => {
+  const band = harbourNumber(payment.cardTBand);
+  const integration = harbourNumber(payment.cardTpIntegra);
+  if (band > 0) {
+    return (
+      `<card>` +
+      tag("tpIntegra", payment.cardTpIntegra) +
+      tag("CNPJ", payment.cardCnpj) +
+      tag("tBand", payment.cardTBand) +
+      tag("cAut", payment.cardCAut) +
+      `</card>`
+    );
+  }
+  if (integration > 0) {
+    const integrated =
+      integration === 1
+        ? tag("CNPJ", payment.cardCnpj) + tag("cAut", payment.cardCAut)
+        : "";
+    return `<card>${tag("tpIntegra", payment.cardTpIntegra)}${integrated}</card>`;
+  }
+  return "";
+};
+
+const paymentXml = (payment: NfeXmlPayment): string => {
+  const tPag = payment.tPag?.trim() ?? "";
+  const xPag =
+    tPag === "99" ? (payment.xPag?.trim().slice(0, 60) || "OUTROS") : undefined;
+  return (
+    `<detPag>` +
+    tag("indPag", payment.indPag) +
+    tag("tPag", payment.tPag) +
+    tag("xPag", xPag) +
+    moneyTag("vPag", payment.vPag) +
+    cardXml(payment) +
+    `</detPag>`
+  );
+};
+
+const cobrXml = (invoice: NfeXmlInvoice | null | undefined): string => {
+  if (!invoice?.duplicates.length) return "";
+  const fat =
+    tag("nFat", invoice.nFat?.trim().slice(0, 60)) +
+    moneyTag("vOrig", invoice.vOrig) +
+    moneyTag("vDesc", invoice.vDesc ?? 0) +
+    moneyTag("vLiq", invoice.vLiq);
+  const dups = invoice.duplicates
+    .map((row) => `<dup>${tag("nDup", row.nDup)}${tag("dVenc", row.dVenc)}${moneyTag("vDup", row.vDup)}</dup>`)
+    .join("");
+  return `<cobr><fat>${fat}</fat>${dups}</cobr>`;
+};
 
 const weightTag = (name: string, value: TaxNumber): string => {
   if (value === null || value === undefined || value === "") return "";
@@ -719,6 +777,7 @@ export const buildNfeXml = (input: NfeXmlDocument): string => {
     ibsCbsTotXml(document) +
     `</total>` +
     transport +
+    (document.mod === "55" ? cobrXml(document.invoice) : "") +
     `<pag>${document.payments.map(paymentXml).join("")}</pag>` +
     (document.infCpl ? `<infAdic>${tag("infCpl", document.infCpl)}</infAdic>` : "") +
     (document.respTec

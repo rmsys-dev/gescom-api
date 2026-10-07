@@ -58,6 +58,42 @@ export const nfeProcXmlRelativePath = (input: {
 }): string =>
   nfeSignedXmlRelativePath(input).replace(/-nfe\.xml$/, "-procNFe.xml");
 
+/** Mesma pasta da nota: `{chave}-{tpEvento}-{seq}-procEventoNFe.xml`. */
+export const nfeEventXmlRelativePath = (input: {
+  cnpj: string;
+  dhEmi: Date;
+  chave: string;
+  tpEvento: string;
+  nSeqEvento: number;
+}): string =>
+  nfeSignedXmlRelativePath(input).replace(
+    /-nfe\.xml$/,
+    `-${input.tpEvento}-${String(input.nSeqEvento).padStart(2, "0")}-procEventoNFe.xml`,
+  );
+
+/** `{cnpj}/{ano}/{mes}/{Id}-procInutNFe.xml`, ano e mes da data do pedido. */
+export const nfeInutXmlRelativePath = (input: {
+  cnpj: string;
+  requestedAt: Date;
+  id: string;
+}): string => {
+  const cnpj = input.cnpj.replace(/\D/g, "");
+  if (!/^\d{14}$/.test(cnpj)) {
+    throw new BadRequestError(
+      "A empresa precisa de CNPJ para gravar o XML da inutilizacao",
+      "NFE_EMIT_CNPJ_REQUIRED",
+    );
+  }
+  if (!/^ID\d{41}$/.test(input.id)) {
+    throw new BadRequestError(
+      "Identificador da inutilizacao invalido",
+      "NFE_INUT_ID_INVALID",
+    );
+  }
+  const { year, month } = emissionYearMonth(input.requestedAt);
+  return `${cnpj}/${year}/${month}/${input.id}-procInutNFe.xml`;
+};
+
 export const resolveNfeXmlFile = (
   relativePath: string,
   baseDir: string,

@@ -1,6 +1,5 @@
 import { enterprisesMembers } from "../../db/schema.js";
 import {
-  normalizeCpfCnpj,
   normalizeEmail,
   normalizePhone,
 } from "../../shared/validation/data-normalizers.js";
@@ -23,7 +22,7 @@ export const normalizeMemberListFilters = (query: {
   postSalesStatus: query.postSalesStatus,
   name: query.name?.trim() || undefined,
   registration: query.registration
-    ? normalizeCpfCnpj(query.registration)
+    ? query.registration.replace(/\D/g, "") || undefined
     : undefined,
   email: query.email ? normalizeEmail(query.email) : undefined,
   phone: query.phone ? normalizePhone(query.phone) : undefined,

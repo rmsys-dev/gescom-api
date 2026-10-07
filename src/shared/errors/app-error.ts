@@ -151,3 +151,16 @@ export class InternalServerError extends AppError {
     });
   }
 }
+
+export class BadGatewayError extends AppError {
+  public constructor(
+    message = "Falha ao comunicar com servico externo",
+    code = "BAD_GATEWAY",
+  ) {
+    super({
+      statusCode: 502,
+      code,
+      message,
+    });
+  }
+}

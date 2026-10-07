@@ -21,6 +21,7 @@ import {
   usersAddress,
   usersTaxInfos,
   paymentTypes,
+  paymentTypesMethodsFlags,
 } from "../../db/schema.js";
 import {
   BadRequestError,
@@ -29,7 +30,9 @@ import {
 } from "../../shared/errors/app-error.js";
 import type { EntityAuditContext } from "../../shared/audit/entity-audit.js";
 import { buildNfeAccessKey } from "./sefaz/access-key.js";
-import { sefazPaymentCode } from "./sefaz/payment-code.js";
+import { infAdProdText } from "./sefaz/nfe-xml.js";
+import { resolveNfePayment } from "./sefaz/payment-detpag.js";
+import { loadPaymentConfigCatalog } from "../sales/payment-types-methods-flags/service.js";
 import { getCufFromUf, UF_SIGLAS, type UfSigla } from "./sefaz/uf.js";
 import type { CreateNfeFromSalesInput, CreateNfeInput } from "./document/schema.js";
 import { nfeDocumentService } from "./document/service.js";
@@ -120,6 +123,7 @@ export class NfeFromSalesService {
       input.mod,
       input.nfeOperationsId,
       input.paymentTypeId,
+      input.paymentTypesMethodsFlagsId,
     );
     const created = await nfeDocumentService.create(enterpriseId, payload, audit, {
       saleIds,
@@ -149,6 +153,7 @@ export class NfeFromSalesService {
       {
         payments: payments.map((payment, index) => ({
           paymentTypeId: payment.paymentTypeId,
+          paymentTypesMethodsFlagsId: payment.paymentTypesMethodsFlagsId,
           nSeq: payment.nSeq || index + 1,
           indPag: text(payment.indPag),
           tPag: text(payment.tPag),
@@ -171,6 +176,7 @@ export class NfeFromSalesService {
     mod: "55" | "65",
     nfeOperationsId?: string,
     paymentTypeId?: string,
+    paymentTypesMethodsFlagsId?: string,
   ): Promise<CreateNfeInput> {
     const [enterprise] = await db
       .select({
@@ -333,6 +339,7 @@ export class NfeFromSalesService {
         valueTotal: salesItems.valueTotal,
         itemDescription: salesItems.description,
         productDescription: productsEnterprises.description,
+        productAdditional: productsEnterprises.additionalProduct,
         productCode: productsEnterprises.code,
         productType: productTypes.type,
         ncm: productsNcm.ncm,
@@ -414,6 +421,7 @@ export class NfeFromSalesService {
     const paymentRows = await db
       .select({
         paymentTypeId: salesPayments.paymentTypeId,
+        paymentTypesMethodsFlagsId: salesPayments.paymentTypesMethodsFlagsId,
         valueTotal: salesPayments.valueTotal,
         paymentType: paymentTypes.paymentType,
         description: paymentTypes.description,
@@ -428,36 +436,65 @@ export class NfeFromSalesService {
       );
     }
 
+    const indPagOf = (kind: string) =>
+      kind === "A_VISTA" ? "0" : kind === "A_PRAZO" ? "1" : undefined;
+
     const paymentByType = new Map<
       string,
       {
         paymentTypeId: string;
+        paymentTypesMethodsFlagsId: string | null;
         vPag: number;
         indPag?: "0" | "1";
         description: string;
       }
     >();
     for (const payment of paymentRows) {
-      const current = paymentByType.get(payment.paymentTypeId);
-      const indPag =
-        payment.paymentType === "A_VISTA"
-          ? "0"
-          : payment.paymentType === "A_PRAZO"
-            ? "1"
-            : undefined;
+      const key = `${payment.paymentTypeId}:${payment.paymentTypesMethodsFlagsId ?? ""}`;
+      const current = paymentByType.get(key);
       if (current) {
         current.vPag += asNumber(payment.valueTotal);
       } else {
-        paymentByType.set(payment.paymentTypeId, {
+        paymentByType.set(key, {
           paymentTypeId: payment.paymentTypeId,
+          paymentTypesMethodsFlagsId: payment.paymentTypesMethodsFlagsId,
           vPag: asNumber(payment.valueTotal),
-          indPag,
+          indPag: indPagOf(payment.paymentType),
           description: payment.description,
         });
       }
     }
 
-    if (paymentTypeId) {
+    if (paymentTypeId || paymentTypesMethodsFlagsId) {
+      let chosenTypeId = paymentTypeId;
+      if (paymentTypesMethodsFlagsId) {
+        const [config] = await db
+          .select({
+            paymentTypesId: paymentTypesMethodsFlags.paymentTypesId,
+            status: paymentTypesMethodsFlags.status,
+          })
+          .from(paymentTypesMethodsFlags)
+          .where(
+            and(
+              eq(paymentTypesMethodsFlags.id, paymentTypesMethodsFlagsId),
+              eq(paymentTypesMethodsFlags.enterprisesId, enterpriseId),
+            ),
+          )
+          .limit(1);
+        if (!config || config.status !== "ATIVO") {
+          throw new NotFoundError(
+            "Configuracao de pagamento nao encontrada",
+            "PAYMENT_CONFIG_NOT_FOUND",
+          );
+        }
+        if (paymentTypeId && paymentTypeId !== config.paymentTypesId) {
+          throw new BadRequestError(
+            "Configuracao de pagamento pertence a outro tipo de pagamento",
+            "PAYMENT_CONFIG_TYPE_MISMATCH",
+          );
+        }
+        chosenTypeId = config.paymentTypesId;
+      }
       const [chosen] = await db
         .select({
           id: paymentTypes.id,
@@ -466,7 +503,7 @@ export class NfeFromSalesService {
           description: paymentTypes.description,
         })
         .from(paymentTypes)
-        .where(eq(paymentTypes.id, paymentTypeId))
+        .where(eq(paymentTypes.id, chosenTypeId!))
         .limit(1);
       if (!chosen || chosen.status !== "ATIVO") {
         throw new NotFoundError(
@@ -477,20 +514,22 @@ export class NfeFromSalesService {
       const total = roundMoney(
         [...paymentByType.values()].reduce((sum, payment) => sum + payment.vPag, 0),
       );
-      const chosenIndPag =
-        chosen.paymentType === "A_VISTA"
-          ? "0"
-          : chosen.paymentType === "A_PRAZO"
-            ? "1"
-            : undefined;
       paymentByType.clear();
       paymentByType.set(chosen.id, {
         paymentTypeId: chosen.id,
+        paymentTypesMethodsFlagsId: paymentTypesMethodsFlagsId ?? null,
         vPag: total,
-        indPag: chosenIndPag,
+        indPag: indPagOf(chosen.paymentType),
         description: chosen.description,
       });
     }
+
+    const paymentCatalog = await loadPaymentConfigCatalog(
+      enterpriseId,
+      [...paymentByType.values()].flatMap((payment) =>
+        payment.paymentTypesMethodsFlagsId ? [payment.paymentTypesMethodsFlagsId] : [],
+      ),
+    );
 
     const serie = String(mod === "65" ? settings.serieNfce : settings.serieNfe);
     const cNf = randomCnf();
@@ -600,17 +639,31 @@ export class NfeFromSalesService {
           vProd: item.grossTotal,
           vDesc: item.discount > 0 ? item.discount : undefined,
           vOutro: item.increase > 0 ? item.increase : undefined,
+          infAdProd: infAdProdText(item.productAdditional),
         };
       }),
       payments: [...paymentByType.values()].map((payment, index) => {
-        const code = sefazPaymentCode(payment.description);
+        const config = payment.paymentTypesMethodsFlagsId
+          ? paymentCatalog.get(payment.paymentTypesMethodsFlagsId)
+          : undefined;
+        const resolved = resolveNfePayment(
+          {},
+          {
+            paymentCode: config?.paymentCode,
+            integration: config?.integration,
+            flagCode: config?.flagCode,
+            flagDescription: config?.flagDescription,
+            paymentDescription: payment.description,
+            cnpj: config?.cnpj,
+          },
+        );
         return {
           paymentTypeId: payment.paymentTypeId,
+          paymentTypesMethodsFlagsId: payment.paymentTypesMethodsFlagsId,
           nSeq: index + 1,
           indPag: payment.indPag,
-          tPag: code.tPag,
-          xPag: code.xPag,
           vPag: payment.vPag,
+          ...resolved,
         };
       }),
     };

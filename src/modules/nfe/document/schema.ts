@@ -13,6 +13,14 @@ export const nfeIdParamsSchema = z
   .object({ nfeId: uuidSchema("nfeId") })
   .strict();
 
+export const danfePrintQuerySchema = z
+  .object({
+    format: z.enum(["pdf", "html"]).optional(),
+    autoPrint: z.enum(["0", "1"]).optional(),
+  })
+  .strict();
+export type DanfePrintQuery = z.infer<typeof danfePrintQuerySchema>;
+
 const partyFields = {
   cnpj: z.string().trim().max(14).optional(),
   cpf: z.string().trim().max(11).optional(),
@@ -138,6 +146,7 @@ const itemSchema = z
     vDesc: optionalMoney,
     vOutro: optionalMoney,
     indTot: z.string().max(1).optional(),
+    infAdProd: z.string().trim().max(500).optional(),
     tax: taxSchema.optional(),
   })
   .strict();
@@ -207,6 +216,9 @@ export const replaceNfeTransportSchema = z
 const paymentSchema = z
   .object({
     paymentTypeId: uuidSchema("paymentTypeId"),
+    paymentTypesMethodsFlagsId: uuidSchema("paymentTypesMethodsFlagsId")
+      .nullable()
+      .optional(),
     nSeq: z.number().int().min(1),
     indPag: z.string().max(1).optional(),
     tPag: z.string().max(2).optional(),
@@ -221,6 +233,25 @@ const paymentSchema = z
 
 export const replaceNfePaymentsSchema = z
   .object({ payments: z.array(paymentSchema).min(1) })
+  .strict();
+
+export const replaceNfeDuplicatesSchema = z
+  .object({
+    nFat: z.string().trim().max(60).optional(),
+    vOrig: money.nonnegative(),
+    vDesc: money.nonnegative().default(0),
+    vLiq: money.nonnegative(),
+    duplicates: z
+      .array(
+        z
+          .object({
+            dVenc: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Vencimento deve estar no formato AAAA-MM-DD"),
+            vDup: money.positive(),
+          })
+          .strict(),
+      )
+      .max(120),
+  })
   .strict();
 
 export const createNfeSchema = nfeHeaderSchema
@@ -254,6 +285,7 @@ export const createNfeFromSalesSchema = z
     saleIds: z.array(uuidSchema("saleId")).min(1),
     nfeOperationsId: uuidSchema("nfeOperationsId").optional(),
     paymentTypeId: uuidSchema("paymentTypeId").optional(),
+    paymentTypesMethodsFlagsId: uuidSchema("paymentTypesMethodsFlagsId").optional(),
   })
   .strict();
 
@@ -263,6 +295,9 @@ export const listNfeQuerySchema = createPaginationQuerySchema(100).extend({
   status: z
     .enum(["PENDENTE", "ASSINADA", "AUTORIZADA", "REJEITADA", "CANCELADA", "DENEGADA"])
     .optional(),
+  /** Período da data de emissão (dhEmi), limites inclusivos. */
+  from: z.coerce.date().optional(),
+  to: z.coerce.date().optional(),
 });
 
 export type ListNfeQuery = z.infer<typeof listNfeQuerySchema>;
@@ -273,4 +308,5 @@ export type ReplaceNfeItemsInput = z.infer<typeof replaceNfeItemsSchema>;
 export type RecalculateNfeItemsInput = z.infer<typeof recalculateNfeItemsSchema>;
 export type ReplaceNfeTransportInput = z.infer<typeof replaceNfeTransportSchema>;
 export type ReplaceNfePaymentsInput = z.infer<typeof replaceNfePaymentsSchema>;
+export type ReplaceNfeDuplicatesInput = z.infer<typeof replaceNfeDuplicatesSchema>;
 export type LinkCfopEnterpriseInput = z.infer<typeof linkCfopEnterpriseSchema>;

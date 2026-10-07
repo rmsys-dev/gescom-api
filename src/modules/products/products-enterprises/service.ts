@@ -70,6 +70,7 @@ const productEnterpriseSelectFields = {
   description: productsEnterprises.description,
   origin: productsEnterprises.origin,
   manufacturer: productsEnterprises.manufacturer,
+  additionalProduct: productsEnterprises.additionalProduct,
   measurementUnitId: productsEnterprises.measurementUnitId,
   productTypeId: productsEnterprises.productTypeId,
   productNcmId: productsEnterprises.productNcmId,
@@ -491,6 +492,7 @@ export class ProductsEnterprisesService {
         description: input.description.trim(),
         origin: input.origin?.trim() ?? null,
         manufacturer: input.manufacturer?.trim() ?? null,
+        additionalProduct: input.additionalProduct?.trim() || null,
         productId,
         enterprisesId: enterpriseId,
         measurementUnitId: input.measurementUnitId,
@@ -1117,6 +1119,9 @@ export class ProductsEnterprisesService {
                     ? null
                     : input.manufacturer.trim(),
               }
+            : {}),
+          ...(input.additionalProduct !== undefined
+            ? { additionalProduct: input.additionalProduct?.trim() || null }
             : {}),
           ...(input.measurementUnitId !== undefined
             ? { measurementUnitId: input.measurementUnitId }

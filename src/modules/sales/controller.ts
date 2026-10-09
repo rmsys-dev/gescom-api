@@ -20,12 +20,14 @@ import type {
   ConvertOsToSaleInput,
   CreateSaleInput,
   CreateSaleItemInput,
+  ListSaleSellersQuery,
   ListSalesQuery,
   PatchSaleInput,
   PatchSaleItemInput,
   PrintSaleQuery,
 } from "./schema.js";
 import { salesService, type SaleAuthContext } from "./service.js";
+import { listSaleSellers } from "./sellers.js";
 
 const saleAuthFromRequest = (
   auth: RequestWithAuth["auth"],
@@ -54,6 +56,32 @@ export class SalesController {
       "Vendas listadas com sucesso.",
       page,
     );
+  };
+
+  public summary = async (req: Request, res: Response): Promise<void> => {
+    const auth = (req as RequestWithAuth).auth!;
+    const enterpriseId = requireTenantEnterpriseId(auth);
+    const query = (req as RequestWithValidatedQuery<ListSalesQuery>)
+      .validatedQuery;
+
+    if (query.sellerId && auth.userId && query.sellerId !== auth.userId) {
+      throw new ForbiddenError(
+        "Nao e permitido totalizar vendas de outro vendedor",
+      );
+    }
+
+    const data = await salesService.summary(enterpriseId, query);
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Totais das vendas",
+      data,
+    });
+  };
+
+  public listSellers = async (req: Request, res: Response): Promise<void> => {
+    const enterpriseId = requireTenantEnterpriseId((req as RequestWithAuth).auth!);
+    const query = (req as RequestWithValidatedQuery<ListSaleSellersQuery>).validatedQuery;
+    const page = await listSaleSellers(enterpriseId, query);
+    sendPageFromService(res, HttpStatus.OK, "Vendedores listados com sucesso.", page);
   };
 
   public getById = async (req: Request, res: Response): Promise<void> => {

@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, ilike, inArray, isNull, lte, or, sql, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, gte, ilike, inArray, isNull, lte, max, or, sql, type SQL } from "drizzle-orm";
 import {
   ceps,
   cities,
@@ -30,9 +30,11 @@ import { enviarEvento } from "../sefaz/evento.js";
 import {
   TP_EVENTO_CANCELAMENTO,
   TP_EVENTO_CANCELAMENTO_SUBSTITUICAO,
+  TP_EVENTO_CARTA_CORRECAO,
   buildEventoXml,
   buildProcEventoNFeXml,
   type EventoDetalhe,
+  type EventoParsed,
 } from "../sefaz/evento-xml.js";
 import { inutilizarNumeracao } from "../sefaz/inutilizacao.js";
 import {
@@ -47,10 +49,11 @@ import {
   nfeEventXmlRelativePath,
   nfeInutXmlRelativePath,
 } from "../sefaz/xml-path.js";
-import { writeNfeXmlFile } from "../sefaz/xml-store.js";
+import { readStoredNfeXml, writeNfeXmlFile } from "../sefaz/xml-store.js";
 import type {
   CancelNfeInput,
   CancelNfeBySubstitutionInput,
+  CorrectNfeInput,
   InutilizeNfeNoteInput,
   InutilizeNfeRangeInput,
   ListInutilizationsQuery,
@@ -59,8 +62,12 @@ import type {
 
 type Header = typeof nfeHeaders.$inferSelect;
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+type NfeEventRow = typeof nfeEvents.$inferSelect;
+type OnEventRegistered = (tx: Tx, result: EventoParsed, now: Date) => Promise<void>;
 
 const MAX_INUT_RANGE = 10_000;
+const MAX_CCE_SEQ = 20;
+const REGISTERED_EVENT_CSTATS = ["135", "136"];
 const VER_APLIC_DEFAULT = "gescom";
 const CLOSED_STATUSES: NfeInvoiceStatus[] = ["AUTORIZADA", "CANCELADA", "DENEGADA"];
 const INUTILIZABLE_STATUSES: NfeInvoiceStatus[] = ["PENDENTE", "ASSINADA", "REJEITADA"];
@@ -79,6 +86,9 @@ const tpAmbOf = (value: number): 1 | 2 => {
 };
 
 const modeloOf = (mod: string): "55" | "65" => (mod === "65" ? "65" : "55");
+
+const descricaoOf = (detalhe: EventoDetalhe): string =>
+  detalhe.tpEvento === TP_EVENTO_CARTA_CORRECAO ? detalhe.xCorrecao : detalhe.xJust;
 
 const releaseSales = (tx: Tx, nfeHeaderIds: string[], now: Date) =>
   nfeHeaderIds.length === 0
@@ -102,13 +112,113 @@ export class NfeEventsService {
   ) {
     const header = await this.loadHeader(enterpriseId, nfeId);
     const nProt = this.assertCancelable(header);
-    return this.sendCancelEvent(
+    return this.sendEvent(
       enterpriseId,
       header,
       "CANCELAMENTO",
       { tpEvento: TP_EVENTO_CANCELAMENTO, nProt, xJust: input.xJust },
-      audit,
+      1,
+      this.markCancelled(enterpriseId, header, audit),
     );
+  }
+
+  public async correct(
+    enterpriseId: string,
+    nfeId: string,
+    input: CorrectNfeInput,
+    audit: EntityAuditContext,
+  ) {
+    const header = await this.loadHeader(enterpriseId, nfeId);
+    if (header.mod !== "55") {
+      throw new BadRequestError(
+        "Carta de correcao vale apenas para NF-e (modelo 55)",
+        "NFE_CCE_MODEL",
+      );
+    }
+    if (header.issuanceType !== "PROPRIA") {
+      throw new BadRequestError(
+        "Nota de terceiro nao pode receber carta de correcao nesta API",
+        "NFE_THIRD_PARTY",
+      );
+    }
+    if (header.status !== "AUTORIZADA" || !header.nProt) {
+      throw new ConflictError(
+        "Apenas notas autorizadas, com protocolo, podem receber carta de correcao",
+        "NFE_NOT_AUTHORIZED",
+      );
+    }
+    const [last] = await db
+      .select({ seq: max(nfeEvents.nSeqEvento) })
+      .from(nfeEvents)
+      .where(
+        and(
+          eq(nfeEvents.nfeHeaderId, header.id),
+          eq(nfeEvents.eventType, "CARTA_CORRECAO"),
+          inArray(nfeEvents.cStat, REGISTERED_EVENT_CSTATS),
+        ),
+      );
+    const nSeqEvento = (last?.seq ?? 0) + 1;
+    if (nSeqEvento > MAX_CCE_SEQ) {
+      throw new ConflictError(
+        `A nota ja atingiu o limite de ${MAX_CCE_SEQ} cartas de correcao`,
+        "NFE_CCE_LIMIT",
+      );
+    }
+    return this.sendEvent(
+      enterpriseId,
+      header,
+      "CARTA_CORRECAO",
+      { tpEvento: TP_EVENTO_CARTA_CORRECAO, xCorrecao: input.xCorrecao },
+      nSeqEvento,
+      async (tx) => {
+        await recordEntityAudit({
+          entityType: EntityTypes.NFE_HEADERS,
+          entityId: header.id,
+          action: "UPDATE",
+          before: toAuditRecord({ cartaCorrecaoSeq: last?.seq ?? null }),
+          after: toAuditRecord({
+            cartaCorrecaoSeq: nSeqEvento,
+            cartaCorrecao: input.xCorrecao,
+          }),
+          ctx: { ...audit, enterpriseId },
+          tx,
+        });
+      },
+    );
+  }
+
+  public async eventXml(enterpriseId: string, nfeId: string, eventId: string) {
+    const event = await this.loadEvent(enterpriseId, nfeId, eventId);
+    const xml = await readStoredNfeXml(event.xmlEvento);
+    if (!xml) {
+      throw new NotFoundError(
+        "XML do evento nao encontrado (evento nao registrado na SEFAZ)",
+        "NFE_EVENT_XML_NOT_FOUND",
+      );
+    }
+    return { xml, event };
+  }
+
+  public async loadEvent(
+    enterpriseId: string,
+    nfeId: string,
+    eventId: string,
+  ): Promise<NfeEventRow> {
+    const [event] = await db
+      .select()
+      .from(nfeEvents)
+      .where(
+        and(
+          eq(nfeEvents.id, eventId),
+          eq(nfeEvents.enterpriseId, enterpriseId),
+          eq(nfeEvents.nfeHeaderId, nfeId),
+        ),
+      )
+      .limit(1);
+    if (!event) {
+      throw new NotFoundError("Evento da nota fiscal nao encontrado", "NFE_EVENT_NOT_FOUND");
+    }
+    return event;
   }
 
   public async cancelBySubstitution(
@@ -138,7 +248,7 @@ export class NfeEventsService {
         "NFE_SUBSTITUTION_INVALID",
       );
     }
-    return this.sendCancelEvent(
+    return this.sendEvent(
       enterpriseId,
       header,
       "CANCELAMENTO_SUBSTITUICAO",
@@ -150,7 +260,8 @@ export class NfeEventsService {
         xJust: input.xJust,
         chNFeRef: substitute.chave,
       },
-      audit,
+      1,
+      this.markCancelled(enterpriseId, header, audit),
     );
   }
 
@@ -485,12 +596,13 @@ export class NfeEventsService {
     };
   }
 
-  private async sendCancelEvent(
+  private async sendEvent(
     enterpriseId: string,
     header: Header,
-    eventType: Extract<NfeEventType, "CANCELAMENTO" | "CANCELAMENTO_SUBSTITUICAO">,
+    eventType: Exclude<NfeEventType, "INUTILIZACAO">,
     detalhe: EventoDetalhe,
-    audit: EntityAuditContext,
+    nSeqEvento: number,
+    onRegistered: OnEventRegistered,
   ) {
     const cnpj = digits(header.emitCnpj);
     if (cnpj.length !== 14) {
@@ -505,7 +617,6 @@ export class NfeEventsService {
     const { certificate } = await nfeConfiguracaoService.loadCredentials(
       enterpriseId,
     );
-    const nSeqEvento = 1;
     const now = new Date();
     const signed = signEventoXml(
       buildEventoXml({
@@ -550,7 +661,7 @@ export class NfeEventsService {
       tpEvento: detalhe.tpEvento,
       nSeqEvento,
       dhEvento: now,
-      descricao: detalhe.xJust,
+      descricao: descricaoOf(detalhe),
       nProt: result.nProt ?? null,
       cStat: result.cStat,
       xMotivo: result.xMotivo.slice(0, 255),
@@ -570,9 +681,27 @@ export class NfeEventsService {
           set: { ...eventValues, updatedAt: now },
         })
         .returning();
-      if (!result.registered) {
-        return row;
+      if (result.registered) {
+        await onRegistered(tx, result, now);
       }
+      return row;
+    });
+
+    if (!result.registered) {
+      throw new BadRequestError(
+        `SEFAZ rejeitou o evento: ${result.cStat} - ${result.xMotivo}`,
+        "NFE_EVENT_REJECTED",
+      );
+    }
+    return event;
+  }
+
+  private markCancelled(
+    enterpriseId: string,
+    header: Header,
+    audit: EntityAuditContext,
+  ): OnEventRegistered {
+    return async (tx, result, now) => {
       const [after] = await tx
         .update(nfeHeaders)
         .set({
@@ -595,16 +724,7 @@ export class NfeEventsService {
           tx,
         });
       }
-      return row;
-    });
-
-    if (!result.registered) {
-      throw new BadRequestError(
-        `SEFAZ rejeitou o evento: ${result.cStat} - ${result.xMotivo}`,
-        "NFE_EVENT_REJECTED",
-      );
-    }
-    return event;
+    };
   }
 
   /** Numero ja inutilizado na SEFAZ: so encerra a nota local e libera as vendas. */

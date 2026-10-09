@@ -9,6 +9,7 @@ import {
   assertSufficientStock,
   getLocationSectorId,
   getProductEnterpriseForStock,
+  resolveDefaultSaleItemStockRefs,
 } from "../stock/balance.js";
 import { productRequiresStockLocation } from "../stock/stock-location.js";
 import {
@@ -201,6 +202,62 @@ function assertLocationNotAllowed(
       "Locacao nao permitida",
     );
   }
+}
+
+type SaleItemStockRefs = {
+  productsEnterprisesId: string;
+  productTypeId: string;
+  sectorId?: string;
+  locationsId?: string;
+  stockBatchId?: string | null;
+};
+
+/**
+ * Preenche setor/locacao/lote ausentes de produtos com controle de locacao ou
+ * lote usando a referencia padrao do estoque (mesma regra da conversao de orcamento).
+ */
+export async function fillDefaultSaleItemStockRefs<T extends SaleItemStockRefs>(
+  enterpriseId: string,
+  item: T,
+  pathPrefix = "items",
+  tx?: Tx,
+): Promise<T> {
+  if (item.sectorId && item.locationsId) return item;
+  if (await isServiceProductTypeById(item.productTypeId)) return item;
+
+  const pe = await getProductEnterpriseForStock(
+    enterpriseId,
+    item.productsEnterprisesId,
+    tx,
+  );
+  if (!productRequiresStockLocation(pe)) return item;
+
+  const defaults = await resolveDefaultSaleItemStockRefs(
+    enterpriseId,
+    item.productsEnterprisesId,
+    tx,
+    pathPrefix,
+  );
+  if (pe.controlsBatch && !item.stockBatchId && !defaults.stockBatchId) {
+    throw new ValidationError(
+      [
+        {
+          path: `${pathPrefix}.stockBatchId`,
+          message:
+            "Produto com controle de lote sem lote com saldo em estoque; informe o lote",
+        },
+      ],
+      "Lote obrigatorio",
+    );
+  }
+  return {
+    ...item,
+    sectorId: item.sectorId ?? defaults.sectorId,
+    locationsId: item.locationsId ?? defaults.locationsId,
+    stockBatchId:
+      item.stockBatchId ??
+      (pe.controlsBatch ? (defaults.stockBatchId ?? undefined) : undefined),
+  };
 }
 
 export async function validateSaleItemStock(

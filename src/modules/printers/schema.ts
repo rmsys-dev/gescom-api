@@ -28,6 +28,13 @@ export const shareNameSchema = z
   .max(255)
   .regex(/^[^\\/:*?"<>|]+$/, 'Compartilhamento nao pode conter \\ / : * ? " < > |');
 
+/** Margem extra da bobina em mm (uma casa decimal). */
+const marginSchema = z
+  .number()
+  .min(0, "Margem nao pode ser negativa")
+  .max(20, "Margem deve ser de no maximo 20 mm")
+  .transform((value) => Math.round(value * 10) / 10);
+
 export const listPrintersQuerySchema = createPaginationQuerySchema(100)
   .extend({ status: statusSchema.optional() })
   .strict();
@@ -40,6 +47,10 @@ export const createPrinterSchema = z
     paperType: paperTypeSchema.default("A4"),
     isDefault: z.boolean().default(false),
     status: statusSchema.default("ATIVO"),
+    marginTop: marginSchema.default(0),
+    marginBottom: marginSchema.default(0),
+    marginLeft: marginSchema.default(0),
+    marginRight: marginSchema.default(0),
   })
   .strict();
 
@@ -51,6 +62,10 @@ export const patchPrinterSchema = z
     paperType: paperTypeSchema.optional(),
     isDefault: z.boolean().optional(),
     status: statusSchema.optional(),
+    marginTop: marginSchema.optional(),
+    marginBottom: marginSchema.optional(),
+    marginLeft: marginSchema.optional(),
+    marginRight: marginSchema.optional(),
   })
   .strict()
   .refine(

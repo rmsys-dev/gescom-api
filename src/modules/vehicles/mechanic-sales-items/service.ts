@@ -1,11 +1,16 @@
-import { and, asc, count, eq, isNull } from "drizzle-orm";
+import { and, asc, count, eq, gte, isNull, lte, sql } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import {
   enterprisesMembers,
   mechanicSalesItems,
+  productTypes,
+  productsEnterprises,
   sales,
   salesItems,
+  users,
 } from "../../../db/schema.js";
+import { effectiveCompletionDateSql } from "../../sales/analytics/scope.js";
+import { PRODUCT_TYPE_SERVICE_CODE } from "../../../shared/products/product-type-service.js";
 import {
   ConflictError,
   NotFoundError,
@@ -44,7 +49,10 @@ export class MechanicSalesItemsService {
   ) {
     const row = (
       await db
-        .select({ id: enterprisesMembers.id })
+        .select({
+          id: enterprisesMembers.id,
+          comissionService: enterprisesMembers.comissionService,
+        })
         .from(enterprisesMembers)
         .where(
           and(
@@ -61,6 +69,19 @@ export class MechanicSalesItemsService {
           {
             path: "body.mechanic",
             message: "Mecanico nao encontrado na empresa",
+          },
+        ],
+        "Mecanico invalido",
+      );
+    }
+    const commission = Number(row.comissionService);
+    if (!(Number.isFinite(commission) && commission > 0)) {
+      throw new ValidationError(
+        [
+          {
+            path: "body.mechanic",
+            message:
+              "Membro com comissao de servico zerada nao pode ser incluido na ordem de servico",
           },
         ],
         "Mecanico invalido",
@@ -116,9 +137,24 @@ export class MechanicSalesItemsService {
     if (query.typeService) {
       filters.push(eq(salesItems.typeService, query.typeService));
     }
+    if (query.status) {
+      filters.push(eq(sales.status, query.status));
+    }
+    if (query.servicesOnly === "true") {
+      filters.push(eq(sales.type, "ORDEM DE SERVICO"));
+      filters.push(eq(productTypes.type, PRODUCT_TYPE_SERVICE_CODE));
+    }
+    if (query.dateFrom && query.dateTo) {
+      const effective = effectiveCompletionDateSql("America/Sao_Paulo");
+      filters.push(
+        and(
+          gte(effective, sql`${query.dateFrom}::date`),
+          lte(effective, sql`${query.dateTo}::date`),
+        )!,
+      );
+    }
     const where = and(...filters);
-
-    const [items, totalRows] = await Promise.all([
+    const from = () =>
       db
         .select({
           id: mechanicSalesItems.id,
@@ -131,17 +167,38 @@ export class MechanicSalesItemsService {
           typeService: salesItems.typeService,
           saleOrderNumber: sales.orderNumber,
           saleType: sales.type,
+          saleCreatedAt: sales.createdAt,
+          saleStatus: sales.status,
+          mechanicName: users.userName,
+          itemDescription: salesItems.description,
+          productDescription: productsEnterprises.description,
+          quantity: salesItems.quantity,
+          valueUnit: salesItems.valueUnit,
+          valueDiscount: salesItems.valueDiscount,
+          valueAcresce: salesItems.valueAcresce,
         })
         .from(mechanicSalesItems)
         .innerJoin(
           enterprisesMembers,
           eq(mechanicSalesItems.mechanic, enterprisesMembers.id),
         )
+        .leftJoin(users, eq(enterprisesMembers.userId, users.id))
         .innerJoin(
           salesItems,
           eq(mechanicSalesItems.salesItemsId, salesItems.id),
         )
         .innerJoin(sales, eq(salesItems.salesId, sales.id))
+        .innerJoin(
+          productTypes,
+          eq(salesItems.productTypeId, productTypes.id),
+        )
+        .innerJoin(
+          productsEnterprises,
+          eq(salesItems.productsEnterprisesId, productsEnterprises.id),
+        );
+
+    const [rows, totalRows] = await Promise.all([
+      from()
         .where(where)
         .orderBy(asc(mechanicSalesItems.id))
         .limit(limit)
@@ -158,9 +215,34 @@ export class MechanicSalesItemsService {
           eq(mechanicSalesItems.salesItemsId, salesItems.id),
         )
         .innerJoin(sales, eq(salesItems.salesId, sales.id))
+        .innerJoin(
+          productTypes,
+          eq(salesItems.productTypeId, productTypes.id),
+        )
         .where(where),
     ]);
     const total = Number(totalRows[0]?.c ?? 0);
+    const items = rows.map((row) => {
+      const percent = Number(row.comissionService);
+      const net =
+        Number(row.quantity) * Number(row.valueUnit) -
+        Number(row.valueDiscount) +
+        Number(row.valueAcresce);
+      const commissionValue =
+        Number.isFinite(percent) && Number.isFinite(net)
+          ? Math.round((net * percent) / 100 * 100) / 100
+          : 0;
+      return {
+        ...row,
+        mechanicName: row.mechanicName?.trim() ?? "",
+        date: row.saleCreatedAt,
+        status: row.saleStatus ?? "",
+        serviceDescription:
+          row.itemDescription?.trim() || row.productDescription?.trim() || "",
+        commissionPercent: Number.isFinite(percent) ? percent : 0,
+        commissionValue,
+      };
+    });
     return { items, total, limit, offset };
   }
 

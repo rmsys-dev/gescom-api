@@ -14,6 +14,17 @@ const EVENTO_VERSION = "1.00";
 
 export const TP_EVENTO_CANCELAMENTO = "110111";
 export const TP_EVENTO_CANCELAMENTO_SUBSTITUICAO = "110112";
+export const TP_EVENTO_CARTA_CORRECAO = "110110";
+
+/** Texto fixo exigido pelo leiaute da CC-e; qualquer diferenca gera rejeicao. */
+export const X_COND_USO_CCE =
+  "A Carta de Correcao e disciplinada pelo paragrafo 1o-A do art. 7o do Convenio S/N, " +
+  "de 15 de dezembro de 1970 e pode ser utilizada para regularizacao de erro ocorrido " +
+  "na emissao de documento fiscal, desde que o erro nao esteja relacionado com: " +
+  "I - as variaveis que determinam o valor do imposto tais como: base de calculo, " +
+  "aliquota, diferenca de preco, quantidade, valor da operacao ou da prestacao; " +
+  "II - a correcao de dados cadastrais que implique mudanca do remetente ou do destinatario; " +
+  "III - a data de emissao ou de saida.";
 
 /** 135 vinculado a NF-e, 136 nao vinculado, 155 cancelamento homologado fora de prazo. */
 const REGISTERED = new Set(["135", "136", "155"]);
@@ -31,6 +42,10 @@ export type EventoDetalhe =
       nProt: string;
       xJust: string;
       chNFeRef: string;
+    }
+  | {
+      tpEvento: typeof TP_EVENTO_CARTA_CORRECAO;
+      xCorrecao: string;
     };
 
 export type EventoInput = {
@@ -62,26 +77,36 @@ const tag = (name: string, value: string | number): string =>
   `<${name}>${escapeXmlText(String(value))}</${name}>`;
 
 const detEventoXml = (detalhe: EventoDetalhe): string => {
-  if (detalhe.tpEvento === TP_EVENTO_CANCELAMENTO) {
-    return (
-      `<detEvento versao="${EVENTO_VERSION}">` +
-      tag("descEvento", "Cancelamento") +
-      tag("nProt", detalhe.nProt) +
-      tag("xJust", detalhe.xJust) +
-      `</detEvento>`
-    );
+  switch (detalhe.tpEvento) {
+    case TP_EVENTO_CANCELAMENTO:
+      return (
+        `<detEvento versao="${EVENTO_VERSION}">` +
+        tag("descEvento", "Cancelamento") +
+        tag("nProt", detalhe.nProt) +
+        tag("xJust", detalhe.xJust) +
+        `</detEvento>`
+      );
+    case TP_EVENTO_CANCELAMENTO_SUBSTITUICAO:
+      return (
+        `<detEvento versao="${EVENTO_VERSION}">` +
+        tag("descEvento", "Cancelamento por substituicao") +
+        tag("cOrgaoAutor", detalhe.cOrgaoAutor) +
+        tag("tpAutor", 1) +
+        tag("verAplic", detalhe.verAplic) +
+        tag("nProt", detalhe.nProt) +
+        tag("xJust", detalhe.xJust) +
+        tag("chNFeRef", detalhe.chNFeRef) +
+        `</detEvento>`
+      );
+    case TP_EVENTO_CARTA_CORRECAO:
+      return (
+        `<detEvento versao="${EVENTO_VERSION}">` +
+        tag("descEvento", "Carta de Correcao") +
+        tag("xCorrecao", detalhe.xCorrecao) +
+        tag("xCondUso", X_COND_USO_CCE) +
+        `</detEvento>`
+      );
   }
-  return (
-    `<detEvento versao="${EVENTO_VERSION}">` +
-    tag("descEvento", "Cancelamento por substituicao") +
-    tag("cOrgaoAutor", detalhe.cOrgaoAutor) +
-    tag("tpAutor", 1) +
-    tag("verAplic", detalhe.verAplic) +
-    tag("nProt", detalhe.nProt) +
-    tag("xJust", detalhe.xJust) +
-    tag("chNFeRef", detalhe.chNFeRef) +
-    `</detEvento>`
-  );
 };
 
 /** `evento` ainda sem assinatura; a assinatura entra logo apos o infEvento. */

@@ -433,6 +433,14 @@ export class NfeController {
     );
   };
 
+  public summaryNfe = async (req: Request, res: Response): Promise<void> => {
+    const query = (req as RequestWithValidatedQuery<ListNfeQuery>).validatedQuery;
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Totais das notas fiscais",
+      data: await nfeDocumentService.summary(requireEnterpriseId(req), query),
+    });
+  };
+
   public createNfe = async (req: Request, res: Response): Promise<void> => {
     const enterpriseId = requireEnterpriseId(req);
     const data = await nfeDocumentService.create(

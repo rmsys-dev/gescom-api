@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   check,
+  decimal,
   index,
   pgTable,
   uniqueIndex,
@@ -29,6 +30,11 @@ export const printers = pgTable(
     shareName: varchar("share_name", { length: 255 }).notNull(), // nome do compartilhamento da impressora
     paperType: varchar("paper_type", { length: 20 }).$type<PrinterPaperType>().notNull().default("A4"), // A4 / bobina
     isDefault: boolean("is_default").notNull().default(false), // impressora padrão da empresa
+    // margens extras em mm da impressão em bobina, para ajustar à área útil de cada impressora
+    marginTop: decimal("margin_top", { precision: 4, scale: 1 }).notNull().default("0"),
+    marginBottom: decimal("margin_bottom", { precision: 4, scale: 1 }).notNull().default("0"),
+    marginLeft: decimal("margin_left", { precision: 4, scale: 1 }).notNull().default("0"),
+    marginRight: decimal("margin_right", { precision: 4, scale: 1 }).notNull().default("0"),
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
   },

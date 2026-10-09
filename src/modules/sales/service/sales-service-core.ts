@@ -107,6 +107,7 @@ import {
   applySaleItemStockReturn,
   assertSaleItemStockAvailable,
   assertSaleItemsStockCommitted,
+  fillDefaultSaleItemStockRefs,
   validateSaleItemStock,
 } from "../sale-stock.js";
 import { resolveSaleClosingOrigin, type SaleOrigin } from "../sale-origin.js";
@@ -533,6 +534,13 @@ const saleWithMemberSelect = {
   updatedAt: sales.updatedAt,
 };
 
+const saleListSelect = {
+  ...saleWithMemberSelect,
+  plate: vehicles.plate,
+  model: vehicles.model,
+  fleetNumber: vehicles.fleetNumber,
+};
+
 type SalePaymentTypeSummary = {
   id: string;
   description: string;
@@ -616,8 +624,14 @@ export class SalesServiceCore {
     } else if (options?.excludeWorkOrders) {
       filters.push(ne(sales.type, "ORDEM DE SERVICO"));
     }
+    if (query?.serviceType === "SERVICO" || query?.serviceType === "GARANTIA") {
+      filters.push(eq(sales.serviceType, query.serviceType));
+    }
     if (query?.status) {
       filters.push(eq(sales.status, query.status));
+    }
+    if (query?.origin) {
+      filters.push(eq(sales.origin, query.origin));
     }
     if (query?.sellerId) {
       filters.push(
@@ -641,6 +655,12 @@ export class SalesServiceCore {
         )!,
       );
     }
+    const plate = query?.plate?.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+    if (plate) filters.push(ilike(vehicles.plate, `%${plate}%`));
+    if (query?.fleetNumber) {
+      filters.push(ilike(vehicles.fleetNumber, `%${query.fleetNumber}%`));
+    }
+    if (query?.model) filters.push(ilike(vehicles.model, `%${query.model}%`));
     if (query?.memberId) {
       filters.push(salesOfSameMemberUser(enterpriseId, query.memberId));
     }
@@ -677,11 +697,16 @@ export class SalesServiceCore {
 
   protected listFromWithMemberJoins() {
     return db
-      .select(saleWithMemberSelect)
+      .select(saleListSelect)
       .from(sales)
       .leftJoin(enterprisesMembers, eq(sales.memberId, enterprisesMembers.id))
       .leftJoin(users, eq(enterprisesMembers.userId, users.id))
-      .leftJoin(salesMembers, eq(salesMembers.salesId, sales.id));
+      .leftJoin(salesMembers, eq(salesMembers.salesId, sales.id))
+      .leftJoin(
+        vehiclesEnterprisesMembers,
+        eq(sales.vehiclesEnterprisesMembersId, vehiclesEnterprisesMembers.id),
+      )
+      .leftJoin(vehicles, eq(vehiclesEnterprisesMembers.vehiclesId, vehicles.id));
   }
 
   protected listCountFromWithMemberJoins() {
@@ -690,7 +715,12 @@ export class SalesServiceCore {
       .from(sales)
       .leftJoin(enterprisesMembers, eq(sales.memberId, enterprisesMembers.id))
       .leftJoin(users, eq(enterprisesMembers.userId, users.id))
-      .leftJoin(salesMembers, eq(salesMembers.salesId, sales.id));
+      .leftJoin(salesMembers, eq(salesMembers.salesId, sales.id))
+      .leftJoin(
+        vehiclesEnterprisesMembers,
+        eq(sales.vehiclesEnterprisesMembersId, vehiclesEnterprisesMembers.id),
+      )
+      .leftJoin(vehicles, eq(vehiclesEnterprisesMembers.vehiclesId, vehicles.id));
   }
 
   protected mapSaleItemResponse(
@@ -1020,7 +1050,10 @@ export class SalesServiceCore {
   ) {
     const row = (
       await tx
-        .select({ id: enterprisesMembers.id })
+        .select({
+          id: enterprisesMembers.id,
+          comissionService: enterprisesMembers.comissionService,
+        })
         .from(enterprisesMembers)
         .where(
           and(
@@ -1038,6 +1071,18 @@ export class SalesServiceCore {
           {
             path,
             message: "Mecanico nao encontrado na empresa",
+          },
+        ],
+        "Mecanico invalido",
+      );
+    }
+    if (!(decNum(row.comissionService) > 0)) {
+      throw new ValidationError(
+        [
+          {
+            path,
+            message:
+              "Membro com comissao de servico zerada nao pode ser incluido na ordem de servico",
           },
         ],
         "Mecanico invalido",
@@ -2948,6 +2993,63 @@ export class SalesServiceCore {
     };
   }
 
+  /** Totais de todos os documentos do filtro da listagem (sem paginação). */
+  public async summary(enterpriseId: string, query: ListSalesQuery = {}) {
+    const osEnabled = await this.assertOsQueryAllowed(enterpriseId, query);
+    const where = this.listScope(enterpriseId, query, {
+      excludeWorkOrders: !osEnabled,
+    });
+    const money = (column: SQL) => sql<string>`coalesce(sum(${column}), 0)`;
+    const itemDiscount = (service: boolean) => sql`(
+      select coalesce(sum(${salesItems.valueDiscount}), 0)
+      from ${salesItems}
+      inner join ${productTypes} on ${productTypes.id} = ${salesItems.productTypeId}
+      where ${salesItems.salesId} = ${sales.id}
+        and ${productTypes.type} ${service ? sql`=` : sql`<>`} ${PRODUCT_TYPE_SERVICE_CODE}
+    )`;
+    const [row] = await db
+      .select({
+        count: count(),
+        subTotal: money(sql`${sales.subTotal}`),
+        discounts: money(
+          sql`coalesce(${sales.discountValuetems}, 0) + coalesce(${sales.valueDiscountFinancialProduct}, 0) + coalesce(${sales.valueDiscountFinancialService}, 0)`,
+        ),
+        discountProducts: money(
+          sql`coalesce(${sales.valueDiscountFinancialProduct}, 0) + ${itemDiscount(false)}`,
+        ),
+        discountServices: money(
+          sql`coalesce(${sales.valueDiscountFinancialService}, 0) + ${itemDiscount(true)}`,
+        ),
+        increases: money(
+          sql`coalesce(${sales.valueAcresceItems}, 0) + coalesce(${sales.valueAcresceFinancialProduct}, 0) + coalesce(${sales.valueAcresceFinancialService}, 0)`,
+        ),
+        products: money(sql`${sales.valueProduct}`),
+        services: money(sql`${sales.valueService}`),
+        liquid: money(sql`${sales.valueLiquid}`),
+      })
+      .from(sales)
+      .leftJoin(enterprisesMembers, eq(sales.memberId, enterprisesMembers.id))
+      .leftJoin(users, eq(enterprisesMembers.userId, users.id))
+      .leftJoin(salesMembers, eq(salesMembers.salesId, sales.id))
+      .leftJoin(
+        vehiclesEnterprisesMembers,
+        eq(sales.vehiclesEnterprisesMembersId, vehiclesEnterprisesMembers.id),
+      )
+      .leftJoin(vehicles, eq(vehiclesEnterprisesMembers.vehiclesId, vehicles.id))
+      .where(where);
+    return {
+      count: Number(row?.count ?? 0),
+      subTotal: roundMoney(Number(row?.subTotal ?? 0)),
+      discounts: roundMoney(Number(row?.discounts ?? 0)),
+      discountProducts: roundMoney(Number(row?.discountProducts ?? 0)),
+      discountServices: roundMoney(Number(row?.discountServices ?? 0)),
+      increases: roundMoney(Number(row?.increases ?? 0)),
+      products: roundMoney(Number(row?.products ?? 0)),
+      services: roundMoney(Number(row?.services ?? 0)),
+      liquid: roundMoney(Number(row?.liquid ?? 0)),
+    };
+  }
+
   protected async loadGeneratedSalesSummary(
     // Obtem o resumo das vendas/OS geradas a partir do orcamento
     enterpriseId: string,
@@ -3507,7 +3609,12 @@ export class SalesServiceCore {
         await this.upsertSaleMember(tx, sale.id, memberSnapshot);
 
         for (let i = 0; i < input.items.length; i++) {
-          const itemInput = input.items[i];
+          const itemInput = await fillDefaultSaleItemStockRefs(
+            enterpriseId,
+            input.items[i],
+            `items.${i}`,
+            tx,
+          );
 
           if (this.movesInventory(input.type)) {
             await this.assertVendaDoesNotAcceptService(

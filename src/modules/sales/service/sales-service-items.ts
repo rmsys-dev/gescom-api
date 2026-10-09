@@ -11,6 +11,7 @@ import {
   applySaleItemStockOut,
   applySaleItemStockReturn,
   assertSaleItemStockAvailable,
+  fillDefaultSaleItemStockRefs,
   syncSaleItemStockOnUpdate,
   validateSaleItemStock,
 } from "../sale-stock.js";
@@ -23,7 +24,7 @@ export class SalesService extends SalesServiceConversions {
     enterpriseId: string,
     saleId: string,
     auth: SaleAuthContext | null,
-    input: CreateSaleItemInput,
+    rawInput: CreateSaleItemInput,
     audit: EntityAuditContext,
     gescomClient?: string | string[],
   ) {
@@ -40,6 +41,13 @@ export class SalesService extends SalesServiceConversions {
       const sale = beforeRow;
       await this.assertSaleTypeAllowed(enterpriseId, sale.type);
       this.assertBudgetEditableForItems(sale);
+
+      const input = await fillDefaultSaleItemStockRefs(
+        enterpriseId,
+        rawInput,
+        "body",
+        tx,
+      );
 
       if (this.shouldMoveStock(sale)) {
         await this.assertVendaDoesNotAcceptService(
@@ -244,7 +252,12 @@ export class SalesService extends SalesServiceConversions {
         );
       }
 
-      const merged = this.mergeSaleItemPatch(existing, input);
+      const merged = await fillDefaultSaleItemStockRefs(
+        enterpriseId,
+        this.mergeSaleItemPatch(existing, input),
+        "body",
+        tx,
+      );
       this.assertBudgetItemEditable(sale, existing, merged.quantity);
 
       await this.assertServiceItemDescription(

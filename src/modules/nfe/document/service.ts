@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gte, ilike, inArray, isNull, lte, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, ilike, inArray, isNull, lte, or, sql, type AnyColumn } from "drizzle-orm";
 import { isValidGtin } from "../../../shared/validation/data-normalizers.js";
 import {
   cfopsEnterprises,
@@ -711,8 +711,7 @@ export class NfeDocumentService {
     }
   }
 
-  public async list(enterpriseId: string, query: ListNfeQuery = {}) {
-    const { limit, offset } = resolveListPagination(query);
+  private listWhere(enterpriseId: string, query: ListNfeQuery) {
     const filters = [
       eq(nfeHeaders.enterpriseId, enterpriseId),
       isNull(nfeHeaders.deletedAt),
@@ -732,7 +731,51 @@ export class NfeDocumentService {
       if (/^\d{1,9}$/.test(term)) parts.push(eq(nfeHeaders.nNf, Number(term)));
       filters.push(or(...parts)!);
     }
-    const where = and(...filters);
+    return and(...filters);
+  }
+
+  /** Totais de todas as notas do filtro da listagem (sem paginação). */
+  public async summary(enterpriseId: string, query: ListNfeQuery = {}) {
+    const total = (column: AnyColumn) => sql<string>`coalesce(sum(${column}), 0)`;
+    const [row] = await db
+      .select({
+        count: count(),
+        vProd: total(nfeHeaders.vProd),
+        vFrete: total(nfeHeaders.vFrete),
+        vSeg: total(nfeHeaders.vSeg),
+        vOutro: total(nfeHeaders.vOutro),
+        vDesc: total(nfeHeaders.vDesc),
+        vIcms: total(nfeHeaders.vIcms),
+        vPis: total(nfeHeaders.vPis),
+        vCofins: total(nfeHeaders.vCofins),
+        vIpi: total(nfeHeaders.vIpi),
+        vCbs: total(nfeHeaders.vCbs),
+        vIbs: total(nfeHeaders.vIbs),
+        vNf: total(nfeHeaders.vNf),
+      })
+      .from(nfeHeaders)
+      .where(this.listWhere(enterpriseId, query));
+    const money = (value: string | undefined) => Math.round(Number(value ?? 0) * 100) / 100;
+    return {
+      count: Number(row?.count ?? 0),
+      vProd: money(row?.vProd),
+      vFrete: money(row?.vFrete),
+      vSeg: money(row?.vSeg),
+      vOutro: money(row?.vOutro),
+      vDesc: money(row?.vDesc),
+      vIcms: money(row?.vIcms),
+      vPis: money(row?.vPis),
+      vCofins: money(row?.vCofins),
+      vIpi: money(row?.vIpi),
+      vCbs: money(row?.vCbs),
+      vIbs: money(row?.vIbs),
+      vNf: money(row?.vNf),
+    };
+  }
+
+  public async list(enterpriseId: string, query: ListNfeQuery = {}) {
+    const { limit, offset } = resolveListPagination(query);
+    const where = this.listWhere(enterpriseId, query);
     const [items, totalRows] = await Promise.all([
       db
         .select({

@@ -764,6 +764,8 @@ export class ProductsEnterprisesService {
         ...item,
         productApplicationIds: [] as string[],
         priceId: null as string | null,
+        price: null as string | null,
+        promotionalPrice: null as string | null,
         promotionalPriceIds: [] as string[],
       }));
     }
@@ -784,6 +786,7 @@ export class ProductsEnterprisesService {
       db
         .select({
           id: prices.id,
+          price: prices.price,
           productsEnterprisesId: prices.productsEnterprisesId,
         })
         .from(prices)
@@ -791,6 +794,9 @@ export class ProductsEnterprisesService {
       db
         .select({
           id: promotionalPrices.id,
+          price: promotionalPrices.price,
+          startDate: promotionalPrices.startDate,
+          endDate: promotionalPrices.endDate,
           productsEnterprisesId: promotionalPrices.productsEnterprisesId,
         })
         .from(promotionalPrices)
@@ -805,21 +811,32 @@ export class ProductsEnterprisesService {
       applicationIdsByPe.set(row.productsEnterprisesId, list);
     }
 
-    const priceIdByPe = new Map(
-      priceRows.map((row) => [row.productsEnterprisesId, row.id]),
+    const priceByPe = new Map(
+      priceRows.map((row) => [row.productsEnterprisesId, row]),
     );
 
+    const now = Date.now();
     const promotionalIdsByPe = new Map<string, string[]>();
+    const activePromotionByPe = new Map<string, { price: string; start: number }>();
     for (const row of promotionalRows) {
       const list = promotionalIdsByPe.get(row.productsEnterprisesId) ?? [];
       list.push(row.id);
       promotionalIdsByPe.set(row.productsEnterprisesId, list);
+      const start = new Date(row.startDate).getTime();
+      if (start > now || new Date(row.endDate).getTime() < now) continue;
+      const current = activePromotionByPe.get(row.productsEnterprisesId);
+      if (!current || start > current.start) {
+        activePromotionByPe.set(row.productsEnterprisesId, { price: row.price, start });
+      }
     }
 
     return items.map((item) => ({
       ...item,
       productApplicationIds: applicationIdsByPe.get(item.id) ?? [],
-      priceId: priceIdByPe.get(item.id) ?? null,
+      priceId: priceByPe.get(item.id)?.id ?? null,
+      price: priceByPe.get(item.id)?.price ?? null,
+      /** Preço da promoção vigente agora, quando houver. */
+      promotionalPrice: activePromotionByPe.get(item.id)?.price ?? null,
       promotionalPriceIds: promotionalIdsByPe.get(item.id) ?? [],
     }));
   }

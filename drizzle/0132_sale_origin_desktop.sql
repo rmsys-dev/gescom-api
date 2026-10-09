@@ -1,0 +1,1 @@
+ALTER TYPE "public"."sale_origin" ADD VALUE IF NOT EXISTS 'DESKTOP';

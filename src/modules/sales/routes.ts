@@ -20,6 +20,7 @@ import {
   convertOsToSaleSchema,
   createSaleItemSchema,
   createSaleSchema,
+  listSaleSellersQuerySchema,
   listSalesQuerySchema,
   patchSaleItemSchema,
   patchSaleSchema,
@@ -38,6 +39,24 @@ salesRouter.get(
   requirePermission("consultar_vendas"),
   validateSchema({ query: listSalesQuerySchema }),
   salesController.list,
+);
+
+salesRouter.get(
+  "/summary",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("consultar_vendas"),
+  validateSchema({ query: listSalesQuerySchema }),
+  salesController.summary,
+);
+
+salesRouter.get(
+  "/sellers",
+  authMiddleware,
+  tenantMiddleware,
+  requireAnyPermission(["incluir_vendas", "alterar_vendas"]),
+  validateSchema({ query: listSaleSellersQuerySchema }),
+  salesController.listSellers,
 );
 
 salesRouter.use("/analytics", salesAnalyticsRouter);

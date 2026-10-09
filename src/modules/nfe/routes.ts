@@ -57,6 +57,9 @@ import { nfeEventsController } from "./events/controller.js";
 import {
   cancelNfeBySubstitutionSchema,
   cancelNfeSchema,
+  correctNfeSchema,
+  dacceQuerySchema,
+  nfeEventParamsSchema,
   inutilizeNfeNoteSchema,
   inutilizeNfeRangeSchema,
   listInutilizationsQuerySchema,
@@ -501,6 +504,14 @@ nfeRouter.get(
   validateSchema({ query: listNfeQuerySchema }),
   nfeController.listNfe,
 );
+nfeRouter.get(
+  "/summary",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("consultar_nfe"),
+  validateSchema({ query: listNfeQuerySchema }),
+  nfeController.summaryNfe,
+);
 nfeRouter.post(
   "/",
   authMiddleware,
@@ -691,6 +702,34 @@ nfeRouter.get(
   requirePermission("consultar_nfe"),
   validateSchema({ params: nfeIdParamsSchema, query: emptyQuerySchema }),
   nfeEventsController.listByNfe,
+);
+nfeRouter.post(
+  "/:nfeId/carta-correcao",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("corrigir_nfe"),
+  validateSchema({
+    params: nfeIdParamsSchema,
+    body: correctNfeSchema,
+    query: emptyQuerySchema,
+  }),
+  nfeEventsController.correct,
+);
+nfeRouter.get(
+  "/:nfeId/eventos/:eventId/xml",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("consultar_nfe"),
+  validateSchema({ params: nfeEventParamsSchema, query: emptyQuerySchema }),
+  nfeEventsController.eventXml,
+);
+nfeRouter.get(
+  "/:nfeId/eventos/:eventId/dacce",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("consultar_nfe"),
+  validateSchema({ params: nfeEventParamsSchema, query: dacceQuerySchema }),
+  nfeEventsController.dacce,
 );
 
 export { nfeRouter };

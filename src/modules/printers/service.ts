@@ -98,6 +98,10 @@ export class PrintersService {
             paperType: input.paperType,
             isDefault: input.isDefault,
             status: input.status,
+            marginTop: String(input.marginTop),
+            marginBottom: String(input.marginBottom),
+            marginLeft: String(input.marginLeft),
+            marginRight: String(input.marginRight),
           })
           .returning();
         if (!created) throw new Error("Falha ao criar impressora");
@@ -135,6 +139,10 @@ export class PrintersService {
             ...(input.paperType !== undefined ? { paperType: input.paperType } : {}),
             ...(input.isDefault !== undefined ? { isDefault: input.isDefault } : {}),
             ...(input.status !== undefined ? { status: input.status } : {}),
+            ...(input.marginTop !== undefined ? { marginTop: String(input.marginTop) } : {}),
+            ...(input.marginBottom !== undefined ? { marginBottom: String(input.marginBottom) } : {}),
+            ...(input.marginLeft !== undefined ? { marginLeft: String(input.marginLeft) } : {}),
+            ...(input.marginRight !== undefined ? { marginRight: String(input.marginRight) } : {}),
             updatedAt: new Date(),
           })
           .where(and(eq(printers.id, id), eq(printers.enterprisesId, enterpriseId)))

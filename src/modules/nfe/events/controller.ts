@@ -11,10 +11,13 @@ import {
   auditContextFromRequest,
   withPostAuditSource,
 } from "../../../shared/audit/request-meta.js";
+import { nfeDacceService } from "../danfe/dacce-service.js";
 import { nfeEventsService } from "./service.js";
 import type {
   CancelNfeBySubstitutionInput,
   CancelNfeInput,
+  CorrectNfeInput,
+  DaccePrintQuery,
   InutilizeNfeNoteInput,
   InutilizeNfeRangeInput,
   ListInutilizationsQuery,
@@ -65,6 +68,65 @@ export class NfeEventsController {
       message: "NFC-e cancelada por substituicao na SEFAZ.",
       data,
     });
+  };
+
+  public correct = async (req: Request, res: Response): Promise<void> => {
+    const data = await nfeEventsService.correct(
+      requireEnterpriseId(req),
+      req.params["nfeId"] as string,
+      req.body as CorrectNfeInput,
+      auditFor(req, "nfe.events.service.correct"),
+    );
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Carta de correcao registrada na SEFAZ.",
+      data,
+    });
+  };
+
+  public eventXml = async (req: Request, res: Response): Promise<void> => {
+    const { xml } = await nfeEventsService.eventXml(
+      requireEnterpriseId(req),
+      req.params["nfeId"] as string,
+      req.params["eventId"] as string,
+    );
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "XML do evento carregado com sucesso.",
+      data: { xml },
+    });
+  };
+
+  public dacce = async (req: Request, res: Response): Promise<void> => {
+    const enterpriseId = requireEnterpriseId(req);
+    const nfeId = req.params["nfeId"] as string;
+    const eventId = req.params["eventId"] as string;
+    const query = (req as RequestWithValidatedQuery<DaccePrintQuery>).validatedQuery;
+
+    if (query.format === "html") {
+      const { html } = await nfeDacceService.html(enterpriseId, nfeId, eventId, {
+        autoPrint: query.autoPrint === "1",
+      });
+      res
+        .status(HttpStatus.OK)
+        .set({
+          "Content-Security-Policy":
+            "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data: https:; base-uri 'none'; form-action 'none'",
+          "Cache-Control": "no-store",
+        })
+        .type("html")
+        .send(html);
+      return;
+    }
+
+    const { pdf, filename } = await nfeDacceService.pdf(enterpriseId, nfeId, eventId);
+    res
+      .status(HttpStatus.OK)
+      .set({
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Length": String(pdf.length),
+        "Cache-Control": "no-store",
+      })
+      .send(pdf);
   };
 
   public inutilizeRange = async (req: Request, res: Response): Promise<void> => {

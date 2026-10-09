@@ -422,6 +422,7 @@ export const defaultModules = {
         "alterar_nfe",
         "cancelar_nfe",
         "inutilizar_nfe",
+        "corrigir_nfe",
       ],
       N5: [],
       N6: [],
@@ -683,6 +684,7 @@ export const PERM = {
   alterar_nfe: "alterar_nfe",
   cancelar_nfe: "cancelar_nfe",
   inutilizar_nfe: "inutilizar_nfe",
+  corrigir_nfe: "corrigir_nfe",
 } as const satisfies Record<string, PermissionSlug>;
 
 export const isPermissionSlug = (v: string): v is PermissionSlug =>

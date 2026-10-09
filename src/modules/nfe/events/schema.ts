@@ -15,9 +15,35 @@ const xJustSchema = z
       .max(255, "Justificativa deve ter no maximo 255 caracteres"),
   );
 
+const xCorrecaoSchema = z
+  .string()
+  .transform((value) => value.replace(/\s+/g, " ").trim())
+  .pipe(
+    z
+      .string()
+      .min(15, "Correcao deve ter ao menos 15 caracteres")
+      .max(1000, "Correcao deve ter no maximo 1000 caracteres"),
+  );
+
 const modSchema = z.enum(["55", "65"]);
 
 export const cancelNfeSchema = z.object({ xJust: xJustSchema }).strict();
+
+export const correctNfeSchema = z.object({ xCorrecao: xCorrecaoSchema }).strict();
+
+export const nfeEventParamsSchema = z
+  .object({
+    nfeId: uuidSchema("nfeId"),
+    eventId: uuidSchema("eventId"),
+  })
+  .strict();
+
+export const dacceQuerySchema = z
+  .object({
+    format: z.enum(["pdf", "html"]).optional(),
+    autoPrint: z.enum(["0", "1"]).optional(),
+  })
+  .strict();
 
 export const cancelNfeBySubstitutionSchema = z
   .object({
@@ -65,6 +91,9 @@ export const listNfeEventsQuerySchema = createPaginationQuerySchema(100)
   .strict();
 
 export type CancelNfeInput = z.infer<typeof cancelNfeSchema>;
+export type CorrectNfeInput = z.infer<typeof correctNfeSchema>;
+export type NfeEventParams = z.infer<typeof nfeEventParamsSchema>;
+export type DaccePrintQuery = z.infer<typeof dacceQuerySchema>;
 export type CancelNfeBySubstitutionInput = z.infer<
   typeof cancelNfeBySubstitutionSchema
 >;

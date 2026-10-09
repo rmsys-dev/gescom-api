@@ -22,7 +22,7 @@ const saleStatusSchema = z.enum([
   "INATIVA",
   "PARCIAL",
 ]);
-const saleOriginSchema = z.enum(["WEB", "MOBILE"]);
+const saleOriginSchema = z.enum(["WEB", "MOBILE", "DESKTOP"]);
 const orderServiceModelSchema = z.enum(["VEICULO"]);
 
 const decimalOpt = z.number().optional();
@@ -30,6 +30,8 @@ const percentageOpt = z.number().min(0).max(100).optional();
 const monetaryOpt = z.number().min(0).optional();
 
 const saleServiceTypeSchema = z.enum(["SERVICO", "GARANTIA"]);
+/** Filtro da listagem: TODOS devolve Serviço e Garantia. */
+const listServiceTypeSchema = z.enum(["TODOS", "SERVICO", "GARANTIA"]);
 /** Tipo do serviço no item (PROPRIO / OUTROS); default PROPRIO no banco. */
 const typeServiceSchema = z.enum(["PROPRIO", "OUTROS"]);
 
@@ -271,6 +273,12 @@ export const saleMemberOverrideSchema = z
   })
   .strict();
 
+export const listSaleSellersQuerySchema = createPaginationQuerySchema(100)
+  .extend({ search: optionalTrimmedStringSchema("search", 255).optional() })
+  .strict();
+
+export type ListSaleSellersQuery = z.infer<typeof listSaleSellersQuerySchema>;
+
 const createSaleObjectSchema = z
   .object({
     orderNumber: z.number().int().positive().optional(),
@@ -436,8 +444,12 @@ export const listSalesQuerySchema = createPaginationQuerySchema(100)
   .extend({
     /** Filtra por tipo (`VENDA`, `ORCAMENTO`, `ORDEM DE SERVICO` ou `DEVOLUCAO`). */
     type: listSaleTypeSchema.optional(),
+    /** Tipo da ordem de serviço. `TODOS` não restringe. */
+    serviceType: listServiceTypeSchema.optional(),
     /** Inclui PARCIAL para orçamentos parcialmente convertidos. */
     status: saleStatusSchema.optional(),
+    /** Canal em que a venda foi finalizada (`WEB`, `MOBILE` ou `DESKTOP`). */
+    origin: saleOriginSchema.optional(),
     userId: z.string().uuid().optional(),
     sellerId: z.string().uuid().optional(),
     memberId: z.string().uuid().optional(),
@@ -445,6 +457,10 @@ export const listSalesQuerySchema = createPaginationQuerySchema(100)
     orderNumber: z.coerce.number().int().positive().optional(),
     seller: optionalTrimmedStringSchema("seller", 255).optional(),
     client: optionalTrimmedStringSchema("client", 255).optional(),
+    /** Placa do veículo da O.S. (sem máscara). */
+    plate: optionalTrimmedStringSchema("plate", 20).optional(),
+    fleetNumber: optionalTrimmedStringSchema("fleetNumber", 255).optional(),
+    model: optionalTrimmedStringSchema("model", 255).optional(),
     dateFrom: dateOnlyIsoSchema("dateFrom").optional(),
     dateTo: dateOnlyIsoSchema("dateTo").optional(),
     /** Exclui pedidos que já têm vínculo ativo em nfe_sales. */

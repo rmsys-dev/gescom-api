@@ -331,7 +331,7 @@ export const typeClassificationCustomersEnum = pgEnum(
   ["TODOS", "CLIENTE", "FORNECEDOR"],
 );
 
-export const saleOriginEnum = pgEnum("sale_origin", ["WEB", "MOBILE"]);
+export const saleOriginEnum = pgEnum("sale_origin", ["WEB", "MOBILE", "DESKTOP"]);
 
 // tipo de combustiveis
 export const fuelTypeEnum = pgEnum("fuel_type", [

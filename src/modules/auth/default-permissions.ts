@@ -264,6 +264,21 @@ export const defaultModules = {
           N6: [],
         },
       },
+      marketplace: {
+        name: "Gerenciamento de produtos do marketplace",
+        permissions: {
+          N1: ["consultar_marketplace_produtos"],
+          N2: [],
+          N3: ["incluir_marketplace_produtos"],
+          N4: [
+            "alterar_marketplace_produtos",
+            "alterar_marketplace_avaliacoes",
+            "alterar_marketplace_perguntas",
+          ],
+          N5: ["excluir_marketplace_produtos"],
+          N6: [],
+        },
+      },
     },
   },
 

@@ -26,7 +26,9 @@
     "db:seed:admin": "tsx scripts/db/seed-base-admin.ts",
     "db:seed:test-user": "tsx scripts/db/seed-test-user.ts",
     "db:sync:permissions": "tsx scripts/db/sync-module-permissions.ts",
-    "postman:generate": "node postman-collections/generate-complete-collection.mjs"
+    "postman:generate": "node postman-collections/generate-complete-collection.mjs",
+    "docker:build": "docker build -t gescom-api:latest .",
+    "docker:run": "docker run --rm -p 3000:3000 --shm-size=1g -v gescom-fotos:/app/fotos -v gescom-storage:/app/storage --env-file .env.docker gescom-api:latest"
   },
   "dependencies": {
     "axios": "^1.15.1",

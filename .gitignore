@@ -2,7 +2,8 @@ node_modules/
 coverage/
 
 # Pastas locais (não versionar)
-docs/
+docs/*
+!docs/docker.md
 scripts/
 postman-collections/
 performance/
@@ -13,6 +14,7 @@ performance/
 .env.docker*
 .env*
 !.env.example
+!.env.docker.example
 
 # TypeScript
 *.tsbuildinfo

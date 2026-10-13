@@ -10,7 +10,11 @@ import {
   touchUpdatedAt,
 } from "../../../shared/db/record-lifecycle.js";
 import { resolveListPagination } from "../../../shared/pagination/pagination-params.js";
-import { assertActiveCep } from "./enterprise-address-validation.js";
+import {
+  assertActiveCep,
+  assertEnterpriseRegistrationForUf,
+  ufFromCepId,
+} from "./enterprise-address-validation.js";
 import {
   recordEntityAudit,
   recordSoftDeleteAudit,
@@ -61,6 +65,7 @@ export class EnterpriseAddressesService {
     input: CreateEnterpriseAddressInput,
   ) {
     await assertActiveCep(input.cepId);
+    await assertEnterpriseRegistrationForUf(enterpriseId, await ufFromCepId(input.cepId));
 
     const [row] = await db
       .insert(enterprisesAddress)
@@ -140,6 +145,7 @@ export class EnterpriseAddressesService {
 
     if (input.cepId !== undefined) {
       await assertActiveCep(input.cepId);
+      await assertEnterpriseRegistrationForUf(enterpriseId, await ufFromCepId(input.cepId));
     }
 
     const [row] = await db

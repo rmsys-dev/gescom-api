@@ -21,7 +21,9 @@ import {
   createNfeSchema,
   danfePrintQuerySchema,
   listNfeQuerySchema,
+  cfopEnterpriseIdParamsSchema,
   linkCfopEnterpriseSchema,
+  patchCfopEnterpriseSchema,
   nfeIdParamsSchema,
   patchNfeSchema,
   recalculateNfeItemsSchema,
@@ -233,6 +235,26 @@ nfeRouter.post(
   requirePermission("alterar_nfe"),
   validateSchema({ body: linkCfopEnterpriseSchema, query: emptyQuerySchema }),
   nfeController.linkCfopEnterprise,
+);
+nfeRouter.patch(
+  "/cfops-enterprises/:cfopEnterpriseId",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("alterar_nfe"),
+  validateSchema({
+    params: cfopEnterpriseIdParamsSchema,
+    body: patchCfopEnterpriseSchema,
+    query: emptyQuerySchema,
+  }),
+  nfeController.patchCfopEnterprise,
+);
+nfeRouter.delete(
+  "/cfops-enterprises/:cfopEnterpriseId",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("alterar_nfe"),
+  validateSchema({ params: cfopEnterpriseIdParamsSchema, query: emptyQuerySchema }),
+  nfeController.deleteCfopEnterprise,
 );
 
 nfeRouter.get(

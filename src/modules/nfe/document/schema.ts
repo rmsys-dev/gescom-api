@@ -174,6 +174,7 @@ export const recalculateNfeItemsSchema = z
       .min(1)
       .max(990),
     nfeOperationsId: uuidSchema("nfeOperationsId").optional(),
+    natOp: z.string().trim().min(1).max(60).optional(),
   })
   .strict();
 
@@ -269,14 +270,30 @@ export const patchNfeSchema = nfeHeaderSchema
     message: "Deve haver ao menos um campo para atualizar",
   });
 
+export const cfopEnterpriseIdParamsSchema = z
+  .object({ cfopEnterpriseId: uuidSchema("cfopEnterpriseId") })
+  .strict();
+
 export const linkCfopEnterpriseSchema = z
   .object({
     cfopId: uuidSchema("cfopId"),
-    additionCfop: z.string().trim().optional(),
+    additionCfop: z.string().trim().nullable().optional(),
     editDescription: z.boolean().default(false),
     calculatesDifal: z.boolean().default(false),
   })
   .strict();
+
+export const patchCfopEnterpriseSchema = z
+  .object({
+    cfopId: uuidSchema("cfopId").optional(),
+    additionCfop: z.string().trim().nullable().optional(),
+    editDescription: z.boolean().optional(),
+    calculatesDifal: z.boolean().optional(),
+  })
+  .strict()
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: "Deve haver ao menos um campo para atualizar",
+  });
 
 export const createNfeFromSalesSchema = z
   .object({
@@ -284,6 +301,7 @@ export const createNfeFromSalesSchema = z
     memberId: uuidSchema("memberId"),
     saleIds: z.array(uuidSchema("saleId")).min(1),
     nfeOperationsId: uuidSchema("nfeOperationsId").optional(),
+    natOp: z.string().trim().min(1).max(60).optional(),
     paymentTypeId: uuidSchema("paymentTypeId").optional(),
     paymentTypesMethodsFlagsId: uuidSchema("paymentTypesMethodsFlagsId").optional(),
   })
@@ -310,3 +328,4 @@ export type ReplaceNfeTransportInput = z.infer<typeof replaceNfeTransportSchema>
 export type ReplaceNfePaymentsInput = z.infer<typeof replaceNfePaymentsSchema>;
 export type ReplaceNfeDuplicatesInput = z.infer<typeof replaceNfeDuplicatesSchema>;
 export type LinkCfopEnterpriseInput = z.infer<typeof linkCfopEnterpriseSchema>;
+export type PatchCfopEnterpriseInput = z.infer<typeof patchCfopEnterpriseSchema>;

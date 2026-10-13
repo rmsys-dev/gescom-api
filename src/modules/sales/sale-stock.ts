@@ -425,9 +425,10 @@ export async function applySaleItemStockReturn(
     saleId: string;
     orderNumber: number;
     item: SaleItemRow;
+    notes?: string;
   },
 ) {
-  const { enterpriseId, userId, saleId, orderNumber, item } = params;
+  const { enterpriseId, userId, saleId, orderNumber, item, notes } = params;
   if (await isServiceProductTypeById(item.productTypeId)) {
     return;
   }
@@ -452,7 +453,7 @@ export async function applySaleItemStockReturn(
       toLocationsId: item.locationsId ?? undefined,
       toStockBatchId: item.stockBatchId,
       documentRef,
-      notes: `Estorno venda pedido ${orderNumber}`,
+      notes: notes ?? `Estorno venda pedido ${orderNumber}`,
     },
   });
 }

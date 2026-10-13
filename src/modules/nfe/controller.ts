@@ -56,6 +56,7 @@ import type {
   CreateNfeInput,
   DanfePrintQuery,
   LinkCfopEnterpriseInput,
+  PatchCfopEnterpriseInput,
   ListNfeQuery,
   PatchNfeInput,
   RecalculateNfeItemsInput,
@@ -400,6 +401,32 @@ export class NfeController {
     sendSuccessResponse(res, HttpStatus.CREATED, {
       message: "CFOP vinculado a empresa com sucesso.",
       data,
+    });
+  };
+
+  public patchCfopEnterprise = async (req: Request, res: Response): Promise<void> => {
+    const enterpriseId = requireEnterpriseId(req);
+    const data = await nfeDocumentService.patchCfop(
+      enterpriseId,
+      req.params["cfopEnterpriseId"] as string,
+      req.body as PatchCfopEnterpriseInput,
+      auditFor(req, withPatchAuditSource("nfe.document.service.patchCfop")),
+    );
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "CFOP da empresa atualizado com sucesso.",
+      data,
+    });
+  };
+
+  public deleteCfopEnterprise = async (req: Request, res: Response): Promise<void> => {
+    const enterpriseId = requireEnterpriseId(req);
+    await nfeDocumentService.removeCfop(
+      enterpriseId,
+      req.params["cfopEnterpriseId"] as string,
+      auditFor(req, withDeleteAuditSource("nfe.document.service.removeCfop")),
+    );
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "CFOP da empresa excluido com sucesso.",
     });
   };
 

@@ -1,6 +1,10 @@
 import { and, asc, count, desc, eq, gte, ilike, inArray, isNull, lte, or, sql, type AnyColumn } from "drizzle-orm";
 import { isValidGtin } from "../../../shared/validation/data-normalizers.js";
 import {
+  isStateRegistrationUf,
+  requireStateRegistration,
+} from "../../../shared/validation/state-registration.js";
+import {
   cfopsEnterprises,
   classificationIbsCbs,
   cstIbsCbs,
@@ -32,7 +36,10 @@ import {
   type EntityAuditContext,
 } from "../../../shared/audit/entity-audit.js";
 import { toAuditRecord } from "../../../shared/audit/build-field-diff.js";
-import { isPostgresUniqueViolation } from "../../../shared/db/postgres-errors.js";
+import {
+  isPostgresForeignKeyViolation,
+  isPostgresUniqueViolation,
+} from "../../../shared/db/postgres-errors.js";
 import { resolveListPagination } from "../../../shared/pagination/pagination-params.js";
 import {
   BadRequestError,
@@ -79,6 +86,7 @@ import {
 import type {
   CreateNfeInput,
   LinkCfopEnterpriseInput,
+  PatchCfopEnterpriseInput,
   ListNfeQuery,
   PatchNfeInput,
   RecalculateNfeItemsInput,
@@ -1321,9 +1329,11 @@ export class NfeDocumentService {
     if (input.nfeOperationsId && !chosenOperation) {
       throw new NotFoundError("Operacao fiscal nao encontrada", "NFE_OPERATION_NOT_FOUND");
     }
-    const natOp = input.nfeOperationsId && chosenOperation
-      ? chosenOperation.description.slice(0, 60)
-      : header.natOp ?? undefined;
+    const natOp = input.natOp?.trim()
+      ? input.natOp.trim().slice(0, 60)
+      : input.nfeOperationsId && chosenOperation
+        ? chosenOperation.description.slice(0, 60)
+        : header.natOp ?? undefined;
     const productIds = [...new Set(input.items.map((item) => item.productsEnterprisesId))];
     const productRows = await db
       .select({
@@ -1842,11 +1852,28 @@ export class NfeDocumentService {
   private unsignedXml(
     document: Awaited<ReturnType<NfeDocumentService["get"]>>,
   ) {
-    if (!numericStateRegistration(document.emitIe)) {
+    const emitUf = this.emitUf(document);
+    const emitIe = requireStateRegistration(emitUf, document.emitIe, {
+      code: "NFE_EMIT_IE_INVALID",
+    });
+    if (!emitIe) {
       throw new BadRequestError(
         "A inscrição estadual do emitente deve conter apenas números. O texto ISENTO não entra na NF-e.",
         "NFE_EMIT_IE_INVALID",
       );
+    }
+    const destIe = document.destXNome || document.destCnpj || document.destCpf
+      ? destinationIe(document.mod, document.destIe, document.destIndIeDest)
+      : null;
+    if (destIe?.indIeDest === "1") {
+      const destUf = (document.destUf ?? "").trim().toUpperCase();
+      if (!isStateRegistrationUf(destUf)) {
+        throw new BadRequestError(
+          "UF do destinatário inválida para validar a inscrição estadual.",
+          "NFE_DEST_IE_INVALID",
+        );
+      }
+      requireStateRegistration(destUf, destIe.ie, { code: "NFE_DEST_IE_INVALID" });
     }
     return buildNfeXml({
       chave: document.chave,
@@ -1875,7 +1902,7 @@ export class NfeDocumentService {
         cpf: document.emitCpf,
         xNome: document.emitXNome,
         xFant: document.emitXFant,
-        ie: numericStateRegistration(document.emitIe) || undefined,
+        ie: emitIe,
         crt: document.emitCrt,
         xlgr: document.emitXlgr,
         nro: document.emitNro,
@@ -1889,12 +1916,12 @@ export class NfeDocumentService {
         xpais: document.emitXpais,
         fone: document.emitFone,
       },
-      dest: document.destXNome || document.destCnpj || document.destCpf
+      dest: destIe
         ? {
             cnpj: document.destCnpj,
             cpf: document.destCpf,
             xNome: document.destXNome,
-            ...destinationIe(document.mod, document.destIe, document.destIndIeDest),
+            ...destIe,
             isuf: document.destIsuf,
             email: document.destEmail,
             xlgr: document.destXlgr,
@@ -2095,7 +2122,7 @@ export class NfeDocumentService {
         .values({
           enterprisesId: enterpriseId,
           cfopId: input.cfopId,
-          additionCfop: input.additionCfop,
+          additionCfop: input.additionCfop || null,
           editDescription: input.editDescription,
           calculatesDifal: input.calculatesDifal,
         })
@@ -2117,8 +2144,117 @@ export class NfeDocumentService {
           "CFOP_ENTERPRISE_CONFLICT",
         );
       }
+      if (isPostgresForeignKeyViolation(err)) {
+        throw new NotFoundError("CFOP nao encontrado", "CFOP_NOT_FOUND");
+      }
       throw err;
     }
+  }
+
+  public async patchCfop(
+    enterpriseId: string,
+    cfopEnterpriseId: string,
+    input: PatchCfopEnterpriseInput,
+    audit: EntityAuditContext,
+  ) {
+    const current = await this.loadCfopEnterprise(enterpriseId, cfopEnterpriseId);
+    try {
+      const [after] = await db
+        .update(cfopsEnterprises)
+        .set({
+          cfopId: input.cfopId ?? current.cfopId,
+          additionCfop:
+            input.additionCfop === undefined ? current.additionCfop : input.additionCfop || null,
+          editDescription: input.editDescription ?? current.editDescription,
+          calculatesDifal: input.calculatesDifal ?? current.calculatesDifal,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(cfopsEnterprises.id, cfopEnterpriseId),
+            eq(cfopsEnterprises.enterprisesId, enterpriseId),
+          ),
+        )
+        .returning();
+      if (!after) {
+        throw new NotFoundError("CFOP da empresa nao encontrado", "CFOP_ENTERPRISE_NOT_FOUND");
+      }
+      await recordEntityAudit({
+        entityType: EntityTypes.CFOPS_ENTERPRISES,
+        entityId: cfopEnterpriseId,
+        action: "UPDATE",
+        before: toAuditRecord(current),
+        after: toAuditRecord(after),
+        ctx: { ...audit, enterpriseId },
+      });
+      return after;
+    } catch (err) {
+      if (err instanceof NotFoundError || err instanceof ConflictError) throw err;
+      if (isPostgresUniqueViolation(err)) {
+        throw new ConflictError(
+          "CFOP ja vinculado a esta empresa",
+          "CFOP_ENTERPRISE_CONFLICT",
+        );
+      }
+      if (isPostgresForeignKeyViolation(err)) {
+        throw new NotFoundError("CFOP nao encontrado", "CFOP_NOT_FOUND");
+      }
+      throw err;
+    }
+  }
+
+  public async removeCfop(
+    enterpriseId: string,
+    cfopEnterpriseId: string,
+    audit: EntityAuditContext,
+  ) {
+    await this.loadCfopEnterprise(enterpriseId, cfopEnterpriseId);
+    try {
+      const [deleted] = await db
+        .delete(cfopsEnterprises)
+        .where(
+          and(
+            eq(cfopsEnterprises.id, cfopEnterpriseId),
+            eq(cfopsEnterprises.enterprisesId, enterpriseId),
+          ),
+        )
+        .returning();
+      if (deleted) {
+        await recordEntityAudit({
+          entityType: EntityTypes.CFOPS_ENTERPRISES,
+          entityId: cfopEnterpriseId,
+          action: "DELETE",
+          before: toAuditRecord(deleted),
+          after: {},
+          ctx: { ...audit, enterpriseId },
+        });
+      }
+    } catch (err) {
+      if (isPostgresForeignKeyViolation(err)) {
+        throw new ConflictError(
+          "Este CFOP da empresa esta em uso numa operacao por UF",
+          "CFOP_ENTERPRISE_IN_USE",
+        );
+      }
+      throw err;
+    }
+  }
+
+  private async loadCfopEnterprise(enterpriseId: string, cfopEnterpriseId: string) {
+    const [row] = await db
+      .select()
+      .from(cfopsEnterprises)
+      .where(
+        and(
+          eq(cfopsEnterprises.id, cfopEnterpriseId),
+          eq(cfopsEnterprises.enterprisesId, enterpriseId),
+        ),
+      )
+      .limit(1);
+    if (!row) {
+      throw new NotFoundError("CFOP da empresa nao encontrado", "CFOP_ENTERPRISE_NOT_FOUND");
+    }
+    return row;
   }
 
   private async loadHeader(enterpriseId: string, nfeId: string) {

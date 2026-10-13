@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gte, inArray, lte } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import {
   productsEnterprises,
@@ -158,6 +158,51 @@ export class StockMovementsService {
       total,
       limit,
       offset,
+    };
+  }
+
+  /** Quantidades de todos os movimentos do filtro da listagem, sem paginação. */
+  public async summary(
+    enterpriseId: string,
+    query: ListStockMovementsQuery = {},
+  ) {
+    const where = this.scopeWhere(enterpriseId, undefined, query);
+    const ofType = (type: string) =>
+      sql<string>`coalesce(sum(case when ${stockMovements.type} = ${type} then ${stockMovements.quantity} else 0 end), 0)`;
+    const [row] = await db
+      .select({
+        count: count(),
+        quantity: sql<string>`coalesce(sum(${stockMovements.quantity}), 0)`,
+        entrada: ofType("ENTRADA"),
+        saida: ofType("SAIDA"),
+        transferencia: ofType("TRANSFERENCIA"),
+        ajuste: ofType("AJUSTE"),
+        perda: ofType("PERDA"),
+        venda: ofType("VENDA"),
+        compra: ofType("COMPRA"),
+        devolucao: ofType("DEVOLUCAO"),
+        cancelamento: ofType("CANCELAMENTO"),
+        outros: ofType("OUTROS"),
+      })
+      .from(stockMovements)
+      .where(where);
+    const qty = (value: unknown) => {
+      const number = Number(value ?? 0);
+      return Number.isFinite(number) ? Math.round(number * 10000) / 10000 : 0;
+    };
+    return {
+      count: Number(row?.count ?? 0),
+      quantity: qty(row?.quantity),
+      entrada: qty(row?.entrada),
+      saida: qty(row?.saida),
+      transferencia: qty(row?.transferencia),
+      ajuste: qty(row?.ajuste),
+      perda: qty(row?.perda),
+      venda: qty(row?.venda),
+      compra: qty(row?.compra),
+      devolucao: qty(row?.devolucao),
+      cancelamento: qty(row?.cancelamento),
+      outros: qty(row?.outros),
     };
   }
 

@@ -33,6 +33,11 @@ import {
 import { toAuditRecord } from "../../shared/audit/build-field-diff.js";
 import { EntityTypes } from "../../shared/audit/entity-types.js";
 import { whereActiveById } from "../../shared/db/record-lifecycle.js";
+import { enterpriseAddressUf } from "./enterprise-addresses/enterprise-address-validation.js";
+import {
+  isExemptStateRegistration,
+  requireStateRegistration,
+} from "../../shared/validation/state-registration.js";
 import type { PatchEnterpriseInput } from "./schema.js";
 import {
   removePhoto as removeStoredPhoto,
@@ -270,6 +275,19 @@ export class EnterprisesService {
       }
     }
     const previousModels = nextModels ? await this.printModelCodes(id) : undefined;
+    let stateRegistration = input.stateRegistration;
+    if (stateRegistration) {
+      if (isExemptStateRegistration(stateRegistration)) {
+        throw new BadRequestError(
+          "A inscrição estadual da empresa não pode ser ISENTO.",
+          "STATE_REGISTRATION_INVALID",
+        );
+      }
+      const uf = await enterpriseAddressUf(id);
+      if (uf) {
+        stateRegistration = requireStateRegistration(uf, stateRegistration);
+      }
+    }
     try {
       const row = await db.transaction(async (tx) => {
         const [updated] = await tx
@@ -296,8 +314,8 @@ export class EnterprisesService {
                     : null,
                 }
               : {}),
-            ...(input.stateRegistration !== undefined
-              ? { stateRegistration: input.stateRegistration }
+            ...(stateRegistration !== undefined
+              ? { stateRegistration }
               : {}),
             ...(input.municipalRegistration !== undefined
               ? { municipalRegistration: input.municipalRegistration }

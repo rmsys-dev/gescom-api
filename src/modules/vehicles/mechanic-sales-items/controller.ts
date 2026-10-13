@@ -36,6 +36,20 @@ export class MechanicSalesItemsController {
     );
   };
 
+  public summary = async (req: Request, res: Response): Promise<void> => {
+    const query = (
+      req as RequestWithValidatedQuery<ListMechanicSalesItemsQuery>
+    ).validatedQuery;
+    const enterpriseId = requireTenantEnterpriseId(
+      (req as RequestWithAuth).auth!,
+    );
+    const data = await mechanicSalesItemsService.summary(enterpriseId, query);
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Totais de comissao de mecanicos recuperados com sucesso.",
+      data,
+    });
+  };
+
   public getById = async (req: Request, res: Response): Promise<void> => {
     const enterpriseId = requireTenantEnterpriseId(
       (req as RequestWithAuth).auth!,

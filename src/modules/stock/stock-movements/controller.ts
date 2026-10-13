@@ -30,6 +30,19 @@ export class StockMovementsController {
     );
   };
 
+  public summary = async (req: Request, res: Response): Promise<void> => {
+    const query = (req as RequestWithValidatedQuery<ListStockMovementsQuery>)
+      .validatedQuery;
+    const enterpriseId = requireTenantEnterpriseId(
+      (req as RequestWithAuth).auth!,
+    );
+    const data = await stockMovementsService.summary(enterpriseId, query);
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Totais dos movimentos de estoque",
+      data,
+    });
+  };
+
   public getById = async (req: Request, res: Response): Promise<void> => {
     const enterpriseId = requireTenantEnterpriseId(
       (req as RequestWithAuth).auth!,

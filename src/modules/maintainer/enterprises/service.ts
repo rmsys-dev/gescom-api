@@ -16,10 +16,12 @@ import {
 } from "../../../shared/validation/data-normalizers.js";
 import {
   AppError,
+  BadRequestError,
   ConflictError,
   InternalServerError,
   NotFoundError,
 } from "../../../shared/errors/app-error.js";
+import { isExemptStateRegistration } from "../../../shared/validation/state-registration.js";
 import {
   recordCreateAudit,
   recordSoftDeleteAudit,
@@ -42,6 +44,12 @@ export class MaintainerEnterprisesService {
     actorUserId: string,
     audit: EntityAuditContext,
   ) {
+    if (input.stateRegistration && isExemptStateRegistration(input.stateRegistration)) {
+      throw new BadRequestError(
+        "A inscrição estadual da empresa não pode ser ISENTO.",
+        "STATE_REGISTRATION_INVALID",
+      );
+    }
     const registration = normalizeCpfCnpj(input.registration);
     try {
       return await db.transaction(async (tx) => {

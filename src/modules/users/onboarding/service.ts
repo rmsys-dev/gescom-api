@@ -35,7 +35,11 @@ import {
 } from "../../../shared/audit/entity-audit.js";
 import { toAuditRecord } from "../../../shared/audit/build-field-diff.js";
 import { EntityTypes } from "../../../shared/audit/entity-types.js";
-import { assertActiveCep } from "../../enterprises/enterprise-addresses/enterprise-address-validation.js";
+import {
+  assertActiveCep,
+  ufFromCepId,
+} from "../../enterprises/enterprise-addresses/enterprise-address-validation.js";
+import { requireStateRegistration } from "../../../shared/validation/state-registration.js";
 import type { UserGetByIdReadMode } from "../../../shared/middleware/user-read-access-middleware.js";
 import type {
   PersonalInfoCreateInput,
@@ -342,6 +346,11 @@ export class UsersOnboardingService {
     await this.assertActiveMembership(userId, enterpriseId);
 
     await assertActiveCep(input.cepId);
+    const stateRegistration = input.stateRegistration === undefined
+      ? undefined
+      : requireStateRegistration(await ufFromCepId(input.cepId), input.stateRegistration, {
+          allowExempt: true,
+        });
 
     return db.transaction(async (tx) => {
       if (input.adressType === "PRINCIPAL") {
@@ -365,14 +374,14 @@ export class UsersOnboardingService {
         }
       }
 
-      if (input.stateRegistration !== undefined) {
+      if (stateRegistration) {
         const conflict = await tx
           .select({ id: usersAddress.id })
           .from(usersAddress)
           .where(
             and(
               eq(usersAddress.userId, userId),
-              eq(usersAddress.stateRegistration, input.stateRegistration),
+              eq(usersAddress.stateRegistration, stateRegistration),
               eq(usersAddress.adressType, input.adressType),
               isNull(usersAddress.deletedAt),
             ),
@@ -394,7 +403,7 @@ export class UsersOnboardingService {
           cepId: input.cepId,
           number: input.number.trim(),
           complement: input.complement?.trim() ?? null,
-          stateRegistration: input.stateRegistration,
+          stateRegistration,
           adressType: input.adressType,
         })
         .returning();
@@ -482,6 +491,19 @@ export class UsersOnboardingService {
       await assertActiveCep(input.cepId);
     }
 
+    const registrationSource = input.stateRegistration !== undefined
+      ? input.stateRegistration
+      : input.cepId !== undefined
+        ? existing.stateRegistration
+        : undefined;
+    const stateRegistration = registrationSource == null
+      ? registrationSource
+      : requireStateRegistration(
+          await ufFromCepId(input.cepId ?? existing.cepId),
+          registrationSource,
+          { allowExempt: true },
+        );
+
     if (effectiveAdressType === "PRINCIPAL") {
       const conflict = await db
         .select({ id: usersAddress.id })
@@ -504,14 +526,14 @@ export class UsersOnboardingService {
       }
     }
 
-    if (input.stateRegistration !== undefined) {
+    if (stateRegistration && stateRegistration !== existing.stateRegistration) {
       const conflict = await db
         .select({ id: usersAddress.id })
         .from(usersAddress)
         .where(
           and(
             eq(usersAddress.userId, userId),
-            eq(usersAddress.stateRegistration, input.stateRegistration),
+            eq(usersAddress.stateRegistration, stateRegistration),
             eq(usersAddress.adressType, effectiveAdressType),
             isNull(usersAddress.deletedAt),
             ne(usersAddress.id, addressId),
@@ -535,8 +557,8 @@ export class UsersOnboardingService {
         ...(input.complement !== undefined
           ? { complement: input.complement?.trim() ?? null }
           : {}),
-        ...(input.stateRegistration !== undefined
-          ? { stateRegistration: input.stateRegistration }
+        ...(stateRegistration !== undefined && stateRegistration !== existing.stateRegistration
+          ? { stateRegistration }
           : {}),
         ...(input.adressType !== undefined
           ? { adressType: input.adressType }

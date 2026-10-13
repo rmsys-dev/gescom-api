@@ -3109,6 +3109,8 @@ export class SalesServiceCore {
           orderNumber: sales.orderNumber,
           type: sales.type,
           status: sales.status,
+          valueLiquid: sales.valueLiquid,
+          createdAt: sales.createdAt,
         })
         .from(sales)
         .where(

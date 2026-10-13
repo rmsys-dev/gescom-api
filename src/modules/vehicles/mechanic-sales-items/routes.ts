@@ -27,6 +27,16 @@ mechanicSalesItemsRouter.get(
 );
 
 mechanicSalesItemsRouter.get(
+  "/summary",
+  authMiddleware,
+  tenantMiddleware,
+  requireOs,
+  requirePermission("consultar_comissoes_itens_venda"),
+  validateSchema({ query: listMechanicSalesItemsQuerySchema }),
+  mechanicSalesItemsController.summary,
+);
+
+mechanicSalesItemsRouter.get(
   "/:mechanicSalesItemId",
   authMiddleware,
   tenantMiddleware,

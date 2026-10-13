@@ -148,6 +148,20 @@ salesRouter.post(
 );
 
 salesRouter.post(
+  "/:saleId/cancel-os",
+  authMiddleware,
+  tenantMiddleware,
+  requireOs,
+  requirePermission("alterar_vendas"),
+  validateSchema({
+    params: saleParamsSchema,
+    body: emptyBodySchema,
+    query: emptyQuerySchema,
+  }),
+  salesController.cancelOs,
+);
+
+salesRouter.post(
   "/:saleId/estorno-os",
   authMiddleware,
   tenantMiddleware,

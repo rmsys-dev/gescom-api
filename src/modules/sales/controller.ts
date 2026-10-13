@@ -313,6 +313,22 @@ export class SalesController {
     });
   };
 
+  public cancelOs = async (req: Request, res: Response): Promise<void> => {
+    const auth = (req as RequestWithAuth).auth!;
+    const enterpriseId = requireTenantEnterpriseId(auth);
+    const saleId = req.params["saleId"] as string;
+    const data = await salesService.cancelOs(
+      enterpriseId,
+      saleId,
+      auth.userId ?? null,
+      auditContextFromPostAuth(auth, req, "sales.service.cancelOs"),
+    );
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Ordem de servico cancelada com sucesso.",
+      data,
+    });
+  };
+
   public estornoOs = async (req: Request, res: Response): Promise<void> => {
     const auth = (req as RequestWithAuth).auth!;
     const enterpriseId = requireTenantEnterpriseId(auth);

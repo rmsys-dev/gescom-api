@@ -12,6 +12,7 @@ import { EntityTypes } from "../../../shared/audit/entity-types.js";
 import {
   assertSaleItemStockAvailable,
   applySaleItemStockOut,
+  applySaleItemStockReturn,
   validateSaleItemStock,
 } from "../sale-stock.js";
 import { resolveSaleClosingOrigin } from "../sale-origin.js";
@@ -1436,6 +1437,129 @@ export class SalesServiceConversions extends SalesServiceCore {
         audit,
       );
 
+      return this.getById(enterpriseId, workOrderSaleId);
+    } catch (err) {
+      const conflict = mapSaleUniqueViolation(err);
+      if (conflict) throw conflict;
+      throw err;
+    }
+  }
+
+  /** Cancela uma O.S. aberta e devolve o estoque baixado na inclusão dos itens. */
+  public async cancelOs(
+    enterpriseId: string,
+    workOrderSaleId: string,
+    userId: string | null,
+    audit: EntityAuditContext,
+  ) {
+    await this.assertTrabalhaOsEnabled(enterpriseId);
+
+    try {
+      let workOrderBefore!: typeof sales.$inferSelect;
+
+      await db.transaction(async (tx) => {
+        workOrderBefore = await this.getSaleRow(
+          tx,
+          enterpriseId,
+          workOrderSaleId,
+        );
+
+        if (workOrderBefore.type !== "ORDEM DE SERVICO") {
+          throw new ValidationError(
+            [
+              {
+                path: "params.saleId",
+                message: "Somente ordens de servico podem ser canceladas",
+              },
+            ],
+            "Tipo invalido",
+          );
+        }
+        if (workOrderBefore.status === "CANCELADA") {
+          throw new ValidationError(
+            [
+              {
+                path: "params.saleId",
+                message: "Ordem de servico ja esta cancelada",
+              },
+            ],
+            "Status invalido",
+          );
+        }
+        if (workOrderBefore.status !== "ABERTA") {
+          throw new ValidationError(
+            [
+              {
+                path: "params.saleId",
+                message:
+                  "Somente ordem de servico aberta pode ser cancelada. Cancele a venda gerada antes, se houver.",
+              },
+            ],
+            "Status invalido",
+          );
+        }
+
+        const generatedSales = await tx
+          .select({ id: sales.id, status: sales.status })
+          .from(sales)
+          .where(
+            and(
+              eq(sales.enterprisesId, enterpriseId),
+              eq(sales.sourceWorkOrderSaleId, workOrderSaleId),
+            ),
+          );
+        if (generatedSales.some((row) => row.status !== "CANCELADA")) {
+          throw new ValidationError(
+            [
+              {
+                path: "params.saleId",
+                message:
+                  "Cancele a venda gerada antes de cancelar a ordem de servico",
+              },
+            ],
+            "Venda vinculada",
+          );
+        }
+
+        const items = await tx
+          .select()
+          .from(salesItems)
+          .where(eq(salesItems.salesId, workOrderSaleId));
+
+        for (const item of items) {
+          await applySaleItemStockReturn(tx, {
+            enterpriseId,
+            userId,
+            saleId: workOrderSaleId,
+            orderNumber: workOrderBefore.orderNumber,
+            item,
+            notes: `Cancelamento O.S. pedido ${workOrderBefore.orderNumber}`,
+          });
+        }
+
+        await tx
+          .update(sales)
+          .set({
+            status: "CANCELADA",
+            completedionDate: null,
+            userClosedServiceId: null,
+            updatedAt: new Date(),
+          })
+          .where(this.scope(enterpriseId, workOrderSaleId));
+
+        await enqueueHarbourSaleSync(tx, {
+          enterprisesId: enterpriseId,
+          saleId: workOrderSaleId,
+          eventType: "OS_CANCELLED",
+        });
+      });
+
+      await this.recordSaleUpdateAudit(
+        enterpriseId,
+        workOrderSaleId,
+        workOrderBefore,
+        audit,
+      );
       return this.getById(enterpriseId, workOrderSaleId);
     } catch (err) {
       const conflict = mapSaleUniqueViolation(err);

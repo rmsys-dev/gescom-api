@@ -21,6 +21,8 @@ import {
   isServiceProductTypeById,
 } from "../../../shared/products/product-type-service.js";
 import { applySaleReturnDocumentItemStockIn } from "../sale-stock.js";
+import { computeBudgetStatus } from "../sale-financials.js";
+import { decNum, formatQuantity } from "../sale-service-shared.js";
 import { enqueueHarbourSaleSync } from "../harbour-sale-sync.js";
 import { nextSaleReturnOrder } from "./sequences.js";
 import { getProductEnterpriseForStock } from "../../stock/balance.js";
@@ -175,6 +177,92 @@ export class SalesReturnsService {
         updatedAt: new Date(),
       })
       .where(eq(sales.id, saleId));
+
+    return status;
+  }
+
+  /**
+   * A OS já baixou o estoque ao incluir o item. Cancelar a venda só reabre a OS
+   * e desfaz a quantidade convertida, sem devolver estoque.
+   */
+  private async reopenLinkedWorkOrder(tx: Tx, saleId: string) {
+    const sale = (
+      await tx.select().from(sales).where(eq(sales.id, saleId)).limit(1)
+    )[0];
+    if (!sale?.sourceWorkOrderSaleId) return;
+
+    const workOrder = (
+      await tx
+        .select()
+        .from(sales)
+        .where(
+          and(
+            eq(sales.id, sale.sourceWorkOrderSaleId),
+            eq(sales.enterprisesId, sale.enterprisesId),
+            eq(sales.type, "ORDEM DE SERVICO"),
+          ),
+        )
+        .limit(1)
+    )[0];
+    if (!workOrder) return;
+
+    const generatedItems = await tx
+      .select()
+      .from(salesItems)
+      .where(eq(salesItems.salesId, saleId));
+
+    for (const item of generatedItems) {
+      if (!item.sourceWorkOrderItemId) continue;
+      const osItem = (
+        await tx
+          .select()
+          .from(salesItems)
+          .where(
+            and(
+              eq(salesItems.id, item.sourceWorkOrderItemId),
+              eq(salesItems.salesId, workOrder.id),
+            ),
+          )
+          .limit(1)
+      )[0];
+      if (!osItem) continue;
+      const next = Math.max(
+        0,
+        decNum(osItem.quantityConverted) - decNum(item.quantity),
+      );
+      await tx
+        .update(salesItems)
+        .set({
+          quantityConverted: formatQuantity(next),
+          updatedAt: new Date(),
+        })
+        .where(eq(salesItems.id, osItem.id));
+    }
+
+    const osItems = await tx
+      .select()
+      .from(salesItems)
+      .where(eq(salesItems.salesId, workOrder.id));
+    const nextStatus = computeBudgetStatus(osItems);
+
+    await tx
+      .update(sales)
+      .set({
+        status: nextStatus,
+        completedionDate: nextStatus === "FINALIZADA" ? workOrder.completedionDate : null,
+        userClosedServiceId:
+          nextStatus === "FINALIZADA" ? workOrder.userClosedServiceId : null,
+        updatedAt: new Date(),
+      })
+      .where(eq(sales.id, workOrder.id));
+
+    if (nextStatus !== "FINALIZADA") {
+      await enqueueHarbourSaleSync(tx, {
+        enterprisesId: sale.enterprisesId,
+        saleId: workOrder.id,
+        eventType: "OS_ESTORNO",
+      });
+    }
   }
 
   private async createReturnLine(
@@ -186,6 +274,8 @@ export class SalesReturnsService {
       userId: string;
       saleItemId: string;
       quantity: number;
+      /** Venda vinda da OS já baixou o estoque na inclusão do item. Não devolve. */
+      moveStock?: boolean;
     },
   ): Promise<SaleReturnRow> {
     const { item, returnable } = await this.getReturnableQuantity(
@@ -240,17 +330,19 @@ export class SalesReturnsService {
       .returning();
     if (!returnRow) throw new Error("Falha ao criar devolucao");
 
-    await applySaleReturnDocumentItemStockIn(tx, {
-      enterpriseId: params.enterpriseId,
-      userId: params.userId,
-      salesReturnId: returnRow.id,
-      returnOrder: returnRow.returnOrder,
-      saleOrderNumber: params.saleOrderNumber,
-      returnItem: {
-        quantity: returnRow.quantity,
-        saleItem: item,
-      },
-    });
+    if (params.moveStock !== false) {
+      await applySaleReturnDocumentItemStockIn(tx, {
+        enterpriseId: params.enterpriseId,
+        userId: params.userId,
+        salesReturnId: returnRow.id,
+        returnOrder: returnRow.returnOrder,
+        saleOrderNumber: params.saleOrderNumber,
+        returnItem: {
+          quantity: returnRow.quantity,
+          saleItem: item,
+        },
+      });
+    }
 
     const returnedAfter = Number(item.quantityReturned) + params.quantity;
     await tx
@@ -324,6 +416,7 @@ export class SalesReturnsService {
           userId,
           saleItemId: line.saleItemId,
           quantity: line.quantity,
+          moveStock: !sale.sourceWorkOrderSaleId,
         });
         rows.push(returnRow);
       }
@@ -375,7 +468,7 @@ export class SalesReturnsService {
         }
       }
 
-      if (linesToReturn.length === 0) {
+      if (linesToReturn.length === 0 && !sale.sourceWorkOrderSaleId) {
         throw new ValidationError(
           [{ path: "params.saleId", message: "Nada a devolver" }],
           "Sem saldo devolvivel",
@@ -391,11 +484,24 @@ export class SalesReturnsService {
           userId,
           saleItemId: line.saleItemId,
           quantity: line.quantity,
+          moveStock: !sale.sourceWorkOrderSaleId,
         });
         rows.push(returnRow);
       }
 
-      await this.syncSaleReturnSituation(tx, saleId);
+      const status = await this.syncSaleReturnSituation(tx, saleId);
+      if (sale.sourceWorkOrderSaleId && (status === "CANCELADA" || linesToReturn.length === 0)) {
+        if (linesToReturn.length === 0) {
+          await tx
+            .update(sales)
+            .set({
+              status: "CANCELADA",
+              updatedAt: new Date(),
+            })
+            .where(eq(sales.id, saleId));
+        }
+        await this.reopenLinkedWorkOrder(tx, saleId);
+      }
       await enqueueHarbourSaleSync(tx, {
         enterprisesId: enterpriseId,
         saleId,

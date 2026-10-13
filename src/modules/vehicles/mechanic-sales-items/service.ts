@@ -119,11 +119,7 @@ export class MechanicSalesItemsService {
     }
   }
 
-  public async list( // lista os itens de venda relacionados a um mecânico
-    enterpriseId: string,
-    query: ListMechanicSalesItemsQuery = {},
-  ) {
-    const { limit, offset } = resolveListPagination(query);
+  private listWhere(enterpriseId: string, query: ListMechanicSalesItemsQuery) {
     const filters = [this.tenantScope(enterpriseId)!];
     if (query.mechanic) {
       filters.push(eq(mechanicSalesItems.mechanic, query.mechanic));
@@ -153,7 +149,35 @@ export class MechanicSalesItemsService {
         )!,
       );
     }
-    const where = and(...filters);
+    return and(...filters);
+  }
+
+  private linkFrom() {
+    return db
+      .select({
+        itemId: salesItems.id,
+        quantity: salesItems.quantity,
+        valueUnit: salesItems.valueUnit,
+        valueDiscount: salesItems.valueDiscount,
+        valueAcresce: salesItems.valueAcresce,
+        percent: mechanicSalesItems.comissionService,
+      })
+      .from(mechanicSalesItems)
+      .innerJoin(
+        enterprisesMembers,
+        eq(mechanicSalesItems.mechanic, enterprisesMembers.id),
+      )
+      .innerJoin(salesItems, eq(mechanicSalesItems.salesItemsId, salesItems.id))
+      .innerJoin(sales, eq(salesItems.salesId, sales.id))
+      .innerJoin(productTypes, eq(salesItems.productTypeId, productTypes.id));
+  }
+
+  public async list( // lista os itens de venda relacionados a um mecânico
+    enterpriseId: string,
+    query: ListMechanicSalesItemsQuery = {},
+  ) {
+    const { limit, offset } = resolveListPagination(query);
+    const where = this.listWhere(enterpriseId, query);
     const from = () =>
       db
         .select({
@@ -228,6 +252,7 @@ export class MechanicSalesItemsService {
         Number(row.quantity) * Number(row.valueUnit) -
         Number(row.valueDiscount) +
         Number(row.valueAcresce);
+      const serviceTotal = Number.isFinite(net) ? Math.round(net * 100) / 100 : 0;
       const commissionValue =
         Number.isFinite(percent) && Number.isFinite(net)
           ? Math.round((net * percent) / 100 * 100) / 100
@@ -239,11 +264,58 @@ export class MechanicSalesItemsService {
         status: row.saleStatus ?? "",
         serviceDescription:
           row.itemDescription?.trim() || row.productDescription?.trim() || "",
+        serviceTotal,
         commissionPercent: Number.isFinite(percent) ? percent : 0,
         commissionValue,
       };
     });
     return { items, total, limit, offset };
+  }
+
+  /** Totais do filtro inteiro. O serviço entra uma vez; a comissão soma cada mecânico. */
+  public async summary(
+    enterpriseId: string,
+    query: ListMechanicSalesItemsQuery = {},
+  ) {
+    const where = this.listWhere(enterpriseId, query);
+    const links = this.linkFrom().where(where).as("mechanic_links");
+    const round = (value: string | number | null | undefined) => {
+      const amount = Number(value ?? 0);
+      return Number.isFinite(amount) ? Math.round(amount * 100) / 100 : 0;
+    };
+    const net = sql`${links.quantity}::numeric * ${links.valueUnit}::numeric - ${links.valueDiscount}::numeric + ${links.valueAcresce}::numeric`;
+    const [commission] = await db
+      .select({
+        count: count(),
+        commission: sql<string>`coalesce(sum((${net}) * ${links.percent}::numeric / 100), 0)`,
+      })
+      .from(links);
+    const items = db
+      .selectDistinct({
+        itemId: links.itemId,
+        quantity: links.quantity,
+        valueUnit: links.valueUnit,
+        valueDiscount: links.valueDiscount,
+        valueAcresce: links.valueAcresce,
+      })
+      .from(links)
+      .as("service_items");
+    const [money] = await db
+      .select({
+        subTotal: sql<string>`coalesce(sum(${items.quantity}::numeric * ${items.valueUnit}::numeric), 0)`,
+        discounts: sql<string>`coalesce(sum(${items.valueDiscount}::numeric), 0)`,
+        increases: sql<string>`coalesce(sum(${items.valueAcresce}::numeric), 0)`,
+        services: sql<string>`coalesce(sum(${items.quantity}::numeric * ${items.valueUnit}::numeric - ${items.valueDiscount}::numeric + ${items.valueAcresce}::numeric), 0)`,
+      })
+      .from(items);
+    return {
+      count: Number(commission?.count ?? 0),
+      subTotal: round(money?.subTotal),
+      discounts: round(money?.discounts),
+      increases: round(money?.increases),
+      services: round(money?.services),
+      commission: round(commission?.commission),
+    };
   }
 
   public async getById(enterpriseId: string, id: string) {

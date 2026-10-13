@@ -23,6 +23,15 @@ stockMovementsRouter.get(
 );
 
 stockMovementsRouter.get(
+  "/summary",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission("consultar_movimentos_estoque"),
+  validateSchema({ query: listStockMovementsQuerySchema }),
+  stockMovementsController.summary,
+);
+
+stockMovementsRouter.get(
   "/:stockMovementId",
   authMiddleware,
   tenantMiddleware,

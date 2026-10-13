@@ -34,6 +34,7 @@ import { infAdProdText } from "./sefaz/nfe-xml.js";
 import { resolveNfePayment } from "./sefaz/payment-detpag.js";
 import { loadPaymentConfigCatalog } from "../sales/payment-types-methods-flags/service.js";
 import { getCufFromUf, UF_SIGLAS, type UfSigla } from "./sefaz/uf.js";
+import { requireStateRegistration } from "../../shared/validation/state-registration.js";
 import type { CreateNfeFromSalesInput, CreateNfeInput } from "./document/schema.js";
 import { nfeDocumentService } from "./document/service.js";
 import { nfeOperationsStatesService } from "./operations/service.js";
@@ -124,6 +125,7 @@ export class NfeFromSalesService {
       input.nfeOperationsId,
       input.paymentTypeId,
       input.paymentTypesMethodsFlagsId,
+      input.natOp,
     );
     const created = await nfeDocumentService.create(enterpriseId, payload, audit, {
       saleIds,
@@ -177,6 +179,7 @@ export class NfeFromSalesService {
     nfeOperationsId?: string,
     paymentTypeId?: string,
     paymentTypesMethodsFlagsId?: string,
+    natOp?: string,
   ): Promise<CreateNfeInput> {
     const [enterprise] = await db
       .select({
@@ -552,6 +555,15 @@ export class NfeFromSalesService {
     const customerIsuf = digits(customer.suframaRegistration);
     const rawIe = customer.stateRegistration?.trim() ?? "";
     const customerIe = digits(rawIe).slice(0, 14);
+    const emitIe = requireStateRegistration(enterprise.uf, enterprise.stateRegistration, {
+      code: "NFE_EMIT_IE_INVALID",
+    });
+    if (!emitIe) {
+      throw new BadRequestError(
+        "A inscrição estadual do emitente deve conter apenas números. O texto ISENTO não entra na NF-e.",
+        "NFE_EMIT_IE_INVALID",
+      );
+    }
     const indIeDest =
       mod === "65"
         ? "9"
@@ -566,12 +578,15 @@ export class NfeFromSalesService {
         : customer.uf && isUf(customer.uf)
           ? customer.uf
           : undefined;
+    const destIe = indIeDest === "1"
+      ? requireStateRegistration(customerUf ?? "", rawIe, { code: "NFE_DEST_IE_INVALID" })
+      : undefined;
 
     return {
       chave,
       cUf,
       cNf,
-      natOp: sharedDescription?.slice(0, 60) ?? saleOperation.description.slice(0, 60),
+      natOp: natOp?.trim().slice(0, 60) || sharedDescription?.slice(0, 60) || saleOperation.description.slice(0, 60),
       nfeOperationsId: saleOperation.id,
       mod,
       serie,
@@ -593,7 +608,7 @@ export class NfeFromSalesService {
         cpf: registration.length === 11 ? registration : undefined,
         xNome: enterprise.legalName.slice(0, 60),
         xFant: enterprise.tradeName.slice(0, 60),
-        ie: enterprise.stateRegistration ?? undefined,
+        ie: emitIe,
         crt: enterprise.crt ?? undefined,
         xlgr: enterprise.street?.slice(0, 60),
         nro: enterprise.number.slice(0, 60),
@@ -610,7 +625,7 @@ export class NfeFromSalesService {
         cpf: customerDocument.length === 11 ? customerDocument : undefined,
         xNome: customer.userName.slice(0, 60),
         indIeDest,
-        ie: indIeDest === "1" ? customerIe : undefined,
+        ie: destIe ?? undefined,
         isuf:
           customerIsuf.length === 8 || customerIsuf.length === 9 ? customerIsuf : undefined,
         email: customer.userEmail?.slice(0, 60),

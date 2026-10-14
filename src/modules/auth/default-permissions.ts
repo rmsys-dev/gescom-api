@@ -700,6 +700,12 @@ export const PERM = {
   cancelar_nfe: "cancelar_nfe",
   inutilizar_nfe: "inutilizar_nfe",
   corrigir_nfe: "corrigir_nfe",
+  consultar_marketplace_produtos: "consultar_marketplace_produtos",
+  incluir_marketplace_produtos: "incluir_marketplace_produtos",
+  alterar_marketplace_produtos: "alterar_marketplace_produtos",
+  excluir_marketplace_produtos: "excluir_marketplace_produtos",
+  alterar_marketplace_avaliacoes: "alterar_marketplace_avaliacoes",
+  alterar_marketplace_perguntas: "alterar_marketplace_perguntas",
 } as const satisfies Record<string, PermissionSlug>;
 
 export const isPermissionSlug = (v: string): v is PermissionSlug =>

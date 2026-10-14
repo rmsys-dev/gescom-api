@@ -32,6 +32,7 @@ import {
   uploadListingPhotoQuerySchema,
   variantIdParamsSchema,
 } from "./schema.js";
+import { PERM } from "../auth/default-permissions.js";
 
 const marketplaceRouter = Router();
 
@@ -41,7 +42,7 @@ marketplaceRouter.get(
   "/listings",
   authMiddleware,
   tenantMiddleware,
-  requirePermission("consultar_marketplace_produtos"),
+  requirePermission(PERM.consultar_marketplace_produtos),
   validateSchema({ query: listListingsQuerySchema }),
   marketplaceController.listListings,
 );
@@ -50,7 +51,7 @@ marketplaceRouter.get(
   "/listings/:listingId",
   authMiddleware,
   tenantMiddleware,
-  requirePermission("consultar_marketplace_produtos"),
+  requirePermission(PERM.consultar_marketplace_produtos),
   validateSchema({
     params: listingIdParamsSchema,
     query: emptyQuerySchema,
@@ -62,7 +63,7 @@ marketplaceRouter.post(
   "/listings",
   authMiddleware,
   tenantMiddleware,
-  requirePermission("incluir_marketplace_produtos"),
+  requirePermission(PERM.incluir_marketplace_produtos),
   validateSchema({ body: createListingSchema }),
   marketplaceController.createListing,
 );
@@ -71,7 +72,7 @@ marketplaceRouter.patch(
   "/listings/:listingId",
   authMiddleware,
   tenantMiddleware,
-  requirePermission("alterar_marketplace_produtos"),
+  requirePermission(PERM.alterar_marketplace_produtos),
   validateSchema({
     params: listingIdParamsSchema,
     body: patchListingSchema,
@@ -83,7 +84,7 @@ marketplaceRouter.delete(
   "/listings/:listingId",
   authMiddleware,
   tenantMiddleware,
-  requirePermission("excluir_marketplace_produtos"),
+  requirePermission(PERM.excluir_marketplace_produtos),
   validateSchema({
     params: listingIdParamsSchema,
     query: emptyQuerySchema,
@@ -97,7 +98,7 @@ marketplaceRouter.put(
   "/listings/:listingId/characteristics",
   authMiddleware,
   tenantMiddleware,
-  requirePermission("alterar_marketplace_produtos"),
+  requirePermission(PERM.alterar_marketplace_produtos),
   validateSchema({
     params: listingIdParamsSchema,
     body: replaceCharacteristicsSchema,
@@ -109,7 +110,7 @@ marketplaceRouter.post(
   "/listings/:listingId/characteristics",
   authMiddleware,
   tenantMiddleware,
-  requirePermission("incluir_marketplace_produtos"),
+  requirePermission(PERM.incluir_marketplace_produtos),
   validateSchema({
     params: listingIdParamsSchema,
     body: createCharacteristicSchema,
@@ -121,7 +122,7 @@ marketplaceRouter.patch(
   "/characteristics/:characteristicId",
   authMiddleware,
   tenantMiddleware,
-  requirePermission("alterar_marketplace_produtos"),
+  requirePermission(PERM.alterar_marketplace_produtos),
   validateSchema({
     params: characteristicIdParamsSchema,
     body: patchCharacteristicSchema,
@@ -133,7 +134,7 @@ marketplaceRouter.delete(
   "/characteristics/:characteristicId",
   authMiddleware,
   tenantMiddleware,
-  requirePermission("excluir_marketplace_produtos"),
+  requirePermission(PERM.excluir_marketplace_produtos),
   validateSchema({
     params: characteristicIdParamsSchema,
     query: emptyQuerySchema,
@@ -147,7 +148,7 @@ marketplaceRouter.post(
   "/listings/:listingId/variant-options",
   authMiddleware,
   tenantMiddleware,
-  requirePermission("incluir_marketplace_produtos"),
+  requirePermission(PERM.incluir_marketplace_produtos),
   validateSchema({
     params: listingIdParamsSchema,
     body: createVariantOptionSchema,
@@ -159,7 +160,7 @@ marketplaceRouter.patch(
   "/variant-options/:optionId",
   authMiddleware,
   tenantMiddleware,
-  requirePermission("alterar_marketplace_produtos"),
+  requirePermission(PERM.alterar_marketplace_produtos),
   validateSchema({
     params: optionIdParamsSchema,
     body: patchVariantOptionSchema,
@@ -171,7 +172,7 @@ marketplaceRouter.delete(
   "/variant-options/:optionId",
   authMiddleware,
   tenantMiddleware,
-  requirePermission("excluir_marketplace_produtos"),
+  requirePermission(PERM.excluir_marketplace_produtos),
   validateSchema({
     params: optionIdParamsSchema,
     query: emptyQuerySchema,
@@ -183,7 +184,7 @@ marketplaceRouter.post(
   "/variant-options/:optionId/values",
   authMiddleware,
   tenantMiddleware,
-  requirePermission("incluir_marketplace_produtos"),
+  requirePermission(PERM.incluir_marketplace_produtos),
   validateSchema({
     params: optionIdParamsSchema,
     body: createVariantOptionValueSchema,
@@ -195,7 +196,7 @@ marketplaceRouter.patch(
   "/variant-option-values/:valueId",
   authMiddleware,
   tenantMiddleware,
-  requirePermission("alterar_marketplace_produtos"),
+  requirePermission(PERM.alterar_marketplace_produtos),
   validateSchema({
     params: optionValueIdParamsSchema,
     body: patchVariantOptionValueSchema,
@@ -207,7 +208,7 @@ marketplaceRouter.delete(
   "/variant-option-values/:valueId",
   authMiddleware,
   tenantMiddleware,
-  requirePermission("excluir_marketplace_produtos"),
+  requirePermission(PERM.excluir_marketplace_produtos),
   validateSchema({
     params: optionValueIdParamsSchema,
     query: emptyQuerySchema,
@@ -219,7 +220,7 @@ marketplaceRouter.post(
   "/listings/:listingId/variants",
   authMiddleware,
   tenantMiddleware,
-  requirePermission("incluir_marketplace_produtos"),
+  requirePermission(PERM.incluir_marketplace_produtos),
   validateSchema({
     params: listingIdParamsSchema,
     body: createVariantSchema,
@@ -231,7 +232,7 @@ marketplaceRouter.patch(
   "/variants/:variantId",
   authMiddleware,
   tenantMiddleware,
-  requirePermission("alterar_marketplace_produtos"),
+  requirePermission(PERM.alterar_marketplace_produtos),
   validateSchema({
     params: variantIdParamsSchema,
     body: patchVariantSchema,
@@ -243,7 +244,7 @@ marketplaceRouter.delete(
   "/variants/:variantId",
   authMiddleware,
   tenantMiddleware,
-  requirePermission("excluir_marketplace_produtos"),
+  requirePermission(PERM.excluir_marketplace_produtos),
   validateSchema({
     params: variantIdParamsSchema,
     query: emptyQuerySchema,
@@ -257,7 +258,7 @@ marketplaceRouter.post(
   "/listings/:listingId/photos",
   authMiddleware,
   tenantMiddleware,
-  requirePermission("alterar_marketplace_produtos"),
+  requirePermission(PERM.alterar_marketplace_produtos),
   photoUpload,
   validateSchema({
     params: listingIdParamsSchema,
@@ -270,7 +271,7 @@ marketplaceRouter.patch(
   "/photos/:photoId",
   authMiddleware,
   tenantMiddleware,
-  requirePermission("alterar_marketplace_produtos"),
+  requirePermission(PERM.alterar_marketplace_produtos),
   validateSchema({
     params: photoIdParamsSchema,
     body: patchListingPhotoSchema,
@@ -282,7 +283,7 @@ marketplaceRouter.delete(
   "/photos/:photoId",
   authMiddleware,
   tenantMiddleware,
-  requirePermission("excluir_marketplace_produtos"),
+  requirePermission(PERM.excluir_marketplace_produtos),
   validateSchema({
     params: photoIdParamsSchema,
     query: emptyQuerySchema,
@@ -296,7 +297,7 @@ marketplaceRouter.get(
   "/listings/:listingId/reviews",
   authMiddleware,
   tenantMiddleware,
-  requirePermission("alterar_marketplace_avaliacoes"),
+  requirePermission(PERM.alterar_marketplace_avaliacoes),
   validateSchema({
     params: listingIdParamsSchema,
     query: emptyQuerySchema,
@@ -308,7 +309,7 @@ marketplaceRouter.patch(
   "/reviews/:reviewId",
   authMiddleware,
   tenantMiddleware,
-  requirePermission("alterar_marketplace_avaliacoes"),
+  requirePermission(PERM.alterar_marketplace_avaliacoes),
   validateSchema({
     params: reviewIdParamsSchema,
     body: patchReviewSchema,
@@ -320,7 +321,7 @@ marketplaceRouter.get(
   "/listings/:listingId/questions",
   authMiddleware,
   tenantMiddleware,
-  requirePermission("alterar_marketplace_perguntas"),
+  requirePermission(PERM.alterar_marketplace_perguntas),
   validateSchema({
     params: listingIdParamsSchema,
     query: emptyQuerySchema,
@@ -332,7 +333,7 @@ marketplaceRouter.patch(
   "/questions/:questionId",
   authMiddleware,
   tenantMiddleware,
-  requirePermission("alterar_marketplace_perguntas"),
+  requirePermission(PERM.alterar_marketplace_perguntas),
   validateSchema({
     params: questionIdParamsSchema,
     body: patchQuestionSchema,

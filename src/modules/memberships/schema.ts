@@ -7,7 +7,6 @@ import {
   cpfCnpjSchema,
   emailSchema,
   optionalTrimmedStringSchema,
-  phoneSchema,
   uuidSchema,
 } from "../../shared/validation/common-schemas.js";
 
@@ -31,7 +30,13 @@ export const listMembersQuerySchema = createPaginationQuerySchema(100)
       )
       .optional(),
     email: emailSchema("email").optional(),
-    phone: phoneSchema("phone").optional(),
+    phone: optionalTrimmedStringSchema("phone", 20).optional(),
+    stateRegistration: optionalTrimmedStringSchema("stateRegistration", 20).optional(),
+    city: optionalTrimmedStringSchema("city", 255).optional(),
+    uf: optionalTrimmedStringSchema("uf", 2).optional(),
+    address: optionalTrimmedStringSchema("address", 255).optional(),
+    neighborhood: optionalTrimmedStringSchema("neighborhood", 255).optional(),
+    cep: optionalTrimmedStringSchema("cep", 9).optional(),
   })
   .strict();
 

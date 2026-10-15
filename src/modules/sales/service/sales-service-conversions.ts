@@ -201,7 +201,7 @@ export class SalesServiceConversions extends SalesServiceCore {
           status === "FINALIZADA" ? input.payments : undefined,
         );
 
-        const vehiclesEnterprisesMembersId =
+        let vehiclesEnterprisesMembersId =
           this.resolveVehiclesEnterprisesMembersId(
             input.vehiclesEnterprisesMembersId,
             budget.vehiclesEnterprisesMembersId,
@@ -209,12 +209,13 @@ export class SalesServiceConversions extends SalesServiceCore {
             false,
           );
         if (vehiclesEnterprisesMembersId) {
-          await this.assertVehiclesEnterprisesMember(
-            tx,
-            enterpriseId,
-            vehiclesEnterprisesMembersId,
-            memberId,
-          );
+          vehiclesEnterprisesMembersId =
+            await this.assertVehiclesEnterprisesMember(
+              tx,
+              enterpriseId,
+              vehiclesEnterprisesMembersId,
+              memberId,
+            );
         }
 
         const orderNumber = await nextSaleOrderNumber(enterpriseId, tx);
@@ -632,16 +633,15 @@ export class SalesServiceConversions extends SalesServiceCore {
         await this.assertClientMember(tx, enterpriseId, memberId);
 
         const vehiclesEnterprisesMembersId =
-          this.resolveVehiclesEnterprisesMembersId(
-            input.vehiclesEnterprisesMembersId,
-            budget.vehiclesEnterprisesMembersId,
+          await this.assertVehiclesEnterprisesMember(
+            tx,
+            enterpriseId,
+            this.resolveVehiclesEnterprisesMembersId(
+              input.vehiclesEnterprisesMembersId,
+              budget.vehiclesEnterprisesMembersId,
+            ),
+            memberId,
           );
-        await this.assertVehiclesEnterprisesMember(
-          tx,
-          enterpriseId,
-          vehiclesEnterprisesMembersId,
-          memberId,
-        );
 
         const orderNumber = await nextSaleOrderNumber(enterpriseId, tx);
 
@@ -1027,16 +1027,15 @@ export class SalesServiceConversions extends SalesServiceCore {
         );
 
         const vehiclesEnterprisesMembersId =
-          this.resolveVehiclesEnterprisesMembersId(
-            input.vehiclesEnterprisesMembersId,
-            workOrder.vehiclesEnterprisesMembersId,
+          await this.assertVehiclesEnterprisesMember(
+            tx,
+            enterpriseId,
+            this.resolveVehiclesEnterprisesMembersId(
+              input.vehiclesEnterprisesMembersId,
+              workOrder.vehiclesEnterprisesMembersId,
+            ),
+            memberId,
           );
-        await this.assertVehiclesEnterprisesMember(
-          tx,
-          enterpriseId,
-          vehiclesEnterprisesMembersId,
-          memberId,
-        );
 
         const orderNumber = await nextSaleOrderNumber(enterpriseId, tx);
 

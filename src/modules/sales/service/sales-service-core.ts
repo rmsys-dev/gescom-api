@@ -2658,11 +2658,12 @@ export class SalesServiceCore {
     vehiclesEnterprisesMembersId: string,
     memberId: string,
     path = "body.vehiclesEnterprisesMembersId",
-  ) {
+  ): Promise<string> {
     const row = (
       await tx
         .select({
           id: vehiclesEnterprisesMembers.id,
+          vehiclesId: vehiclesEnterprisesMembers.vehiclesId,
           enterprisesMembersId: vehiclesEnterprisesMembers.enterprisesMembersId,
           status: vehiclesEnterprisesMembers.status,
         })
@@ -2695,10 +2696,35 @@ export class SalesServiceCore {
       );
     }
     if (row.status !== "ATIVO") {
-      throw new ValidationError(
-        [{ path, message: "Vinculo veiculo/membro esta inativo" }],
-        "Veiculo invalido",
-      );
+      const active = (
+        await tx
+          .select({ id: vehiclesEnterprisesMembers.id })
+          .from(vehiclesEnterprisesMembers)
+          .innerJoin(
+            enterprisesMembers,
+            eq(
+              vehiclesEnterprisesMembers.enterprisesMembersId,
+              enterprisesMembers.id,
+            ),
+          )
+          .where(
+            and(
+              eq(vehiclesEnterprisesMembers.vehiclesId, row.vehiclesId),
+              eq(vehiclesEnterprisesMembers.enterprisesMembersId, memberId),
+              eq(vehiclesEnterprisesMembers.status, "ATIVO"),
+              eq(enterprisesMembers.enterpriseId, enterpriseId),
+              isNull(enterprisesMembers.deletedAt),
+            ),
+          )
+          .limit(1)
+      )[0];
+      if (!active) {
+        throw new ValidationError(
+          [{ path, message: "Vinculo veiculo/membro esta inativo" }],
+          "Veiculo invalido",
+        );
+      }
+      return active.id;
     }
     if (row.enterprisesMembersId !== memberId) {
       throw new ValidationError(
@@ -2712,6 +2738,7 @@ export class SalesServiceCore {
         "Veiculo invalido",
       );
     }
+    return row.id;
   }
 
   protected resolveVehiclesEnterprisesMembersId(
@@ -3529,13 +3556,16 @@ export class SalesServiceCore {
           input.memberId,
           status === "FINALIZADA" ? input.payments : undefined,
         );
-        if (input.vehiclesEnterprisesMembersId) {
-          await this.assertVehiclesEnterprisesMember(
-            tx,
-            enterpriseId,
-            input.vehiclesEnterprisesMembersId,
-            input.memberId,
-          );
+        let vehiclesEnterprisesMembersId =
+          input.vehiclesEnterprisesMembersId ?? null;
+        if (vehiclesEnterprisesMembersId) {
+          vehiclesEnterprisesMembersId =
+            await this.assertVehiclesEnterprisesMember(
+              tx,
+              enterpriseId,
+              vehiclesEnterprisesMembersId,
+              input.memberId,
+            );
         } else if (input.type === "ORDEM DE SERVICO") {
           throw new ValidationError(
             [
@@ -3601,8 +3631,7 @@ export class SalesServiceCore {
             status,
             ...(closingOrigin !== undefined ? { origin: closingOrigin } : {}),
             completedionDate: status === "FINALIZADA" ? new Date() : null,
-            vehiclesEnterprisesMembersId:
-              input.vehiclesEnterprisesMembersId ?? null,
+            vehiclesEnterprisesMembersId,
             enterprisesId: enterpriseId,
           })
           .returning();
@@ -3962,21 +3991,22 @@ export class SalesServiceCore {
         }
 
         const nextMemberId = input.memberId ?? beforeRow.memberId;
-        const nextVehiclesEnterprisesMembersId =
+        let nextVehiclesEnterprisesMembersId =
           input.vehiclesEnterprisesMembersId !== undefined
             ? input.vehiclesEnterprisesMembersId
             : beforeRow.vehiclesEnterprisesMembersId;
+        const vehicleLinkSent = input.vehiclesEnterprisesMembersId !== undefined;
         if (
           nextVehiclesEnterprisesMembersId &&
-          (input.vehiclesEnterprisesMembersId !== undefined ||
-            input.memberId !== undefined)
+          (vehicleLinkSent || input.memberId !== undefined)
         ) {
-          await this.assertVehiclesEnterprisesMember(
-            tx,
-            enterpriseId,
-            nextVehiclesEnterprisesMembersId,
-            nextMemberId,
-          );
+          nextVehiclesEnterprisesMembersId =
+            await this.assertVehiclesEnterprisesMember(
+              tx,
+              enterpriseId,
+              nextVehiclesEnterprisesMembersId,
+              nextMemberId,
+            );
         }
 
         let row = (
@@ -4009,10 +4039,12 @@ export class SalesServiceCore {
                 : {}),
               ...(completedionDate !== undefined ? { completedionDate } : {}),
               ...(closingOrigin !== undefined ? { origin: closingOrigin } : {}),
-              ...(input.vehiclesEnterprisesMembersId !== undefined
+              ...(vehicleLinkSent ||
+              nextVehiclesEnterprisesMembersId !==
+                beforeRow.vehiclesEnterprisesMembersId
                 ? {
                     vehiclesEnterprisesMembersId:
-                      input.vehiclesEnterprisesMembersId,
+                      nextVehiclesEnterprisesMembersId,
                   }
                 : {}),
               updatedAt: new Date(),

@@ -134,6 +134,7 @@ export class VehiclesEnterprisesMembersService {
           fuelType: vehicles.fuelType,
           vehicleYear: vehicles.vehicleYear,
           fleetNumber: vehicles.fleetNumber,
+          memberName: users.userName,
         })
         .from(vehiclesEnterprisesMembers)
         .innerJoin(
@@ -216,6 +217,42 @@ export class VehiclesEnterprisesMembersService {
     return row;
   }
 
+  /** Reaproveita o vínculo do mesmo veículo e membro, reativando o que estava inativo. */
+  private async reusableLink(
+    enterpriseId: string,
+    vehiclesId: string,
+    enterprisesMembersId: string,
+  ) {
+    const rows = await db
+      .select({
+        id: vehiclesEnterprisesMembers.id,
+        status: vehiclesEnterprisesMembers.status,
+      })
+      .from(vehiclesEnterprisesMembers)
+      .innerJoin(
+        enterprisesMembers,
+        eq(
+          vehiclesEnterprisesMembers.enterprisesMembersId,
+          enterprisesMembers.id,
+        ),
+      )
+      .where(
+        and(
+          eq(vehiclesEnterprisesMembers.vehiclesId, vehiclesId),
+          eq(
+            vehiclesEnterprisesMembers.enterprisesMembersId,
+            enterprisesMembersId,
+          ),
+          eq(enterprisesMembers.enterpriseId, enterpriseId),
+          isNull(enterprisesMembers.deletedAt),
+        ),
+      );
+    return {
+      active: rows.find((row) => row.status === "ATIVO") ?? null,
+      inactive: rows.find((row) => row.status === "INATIVO") ?? null,
+    };
+  }
+
   public async create(
     enterpriseId: string,
     input: CreateVehiclesEnterprisesMemberInput,
@@ -226,6 +263,20 @@ export class VehiclesEnterprisesMembersService {
       enterpriseId,
       input.enterprisesMembersId,
     );
+    const reusable = await this.reusableLink(
+      enterpriseId,
+      input.vehiclesId,
+      input.enterprisesMembersId,
+    );
+    if (reusable.active) return this.getById(enterpriseId, reusable.active.id);
+    if (reusable.inactive && input.status !== "INATIVO") {
+      return this.patch(
+        enterpriseId,
+        reusable.inactive.id,
+        { status: "ATIVO" },
+        audit,
+      );
+    }
     const ctx = withEnterpriseAuditContext(audit, enterpriseId);
     try {
       const [row] = await db

@@ -3,10 +3,13 @@ import {
   asc,
   count,
   eq,
+  exists,
   ilike,
   inArray,
   isNull,
   ne,
+  sql,
+  type SQL,
 } from "drizzle-orm";
 import { db, typeNetworks, typeSupplierCustomers } from "../../db/schema.js";
 import {
@@ -441,7 +444,46 @@ export class MembershipsService {
       memberFilters.push(eq(users.userEmail, filters.email));
     }
     if (filters.phone !== undefined) {
-      memberFilters.push(eq(users.userPhone, filters.phone));
+      memberFilters.push(ilike(users.userPhone, `%${filters.phone}%`));
+    }
+    const addressMatch = (condition: SQL) =>
+      exists(
+        db
+          .select({ id: usersAddress.id })
+          .from(usersAddress)
+          .innerJoin(ceps, eq(usersAddress.cepId, ceps.id))
+          .innerJoin(cities, eq(ceps.cityId, cities.id))
+          .innerJoin(states, eq(states.id, cities.stateId))
+          .where(
+            and(
+              eq(usersAddress.userId, users.id),
+              isNull(usersAddress.deletedAt),
+              isNull(ceps.deletedAt),
+              isNull(cities.deletedAt),
+              isNull(states.deletedAt),
+              condition,
+            ),
+          ),
+      );
+    if (filters.stateRegistration) {
+      memberFilters.push(addressMatch(ilike(usersAddress.stateRegistration, `%${filters.stateRegistration}%`)));
+    }
+    if (filters.city) {
+      memberFilters.push(addressMatch(ilike(cities.citieName, `%${filters.city}%`)));
+    }
+    if (filters.uf) {
+      memberFilters.push(addressMatch(ilike(states.acronym, filters.uf)));
+    }
+    if (filters.address) {
+      memberFilters.push(addressMatch(ilike(ceps.address, `%${filters.address}%`)));
+    }
+    if (filters.neighborhood) {
+      memberFilters.push(addressMatch(ilike(ceps.neighborhood, `%${filters.neighborhood}%`)));
+    }
+    if (filters.cep) {
+      memberFilters.push(
+        addressMatch(sql`regexp_replace(${ceps.cepNumber}, '[^0-9]', '', 'g') like ${`%${filters.cep}%`}`),
+      );
     }
 
     const whereClause = and(...memberFilters);

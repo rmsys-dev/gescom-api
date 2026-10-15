@@ -121,9 +121,11 @@ export async function createStockMovementInTx(  // REGISTRA MOVIMENTAÇÃO DE ES
     enterpriseId: string;
     userId: string | null;
     input: CreateStockMovementTxInput;
+    /** Serviço (tipo 09): registra o movimento sem alterar o saldo. */
+    recordOnly?: boolean;
   },
 ) {
-  const { enterpriseId, userId, input } = params;
+  const { enterpriseId, userId, input, recordOnly } = params;
   const productEnterprise = await getProductEnterpriseForStock(
     enterpriseId,
     input.productsEnterprisesId,
@@ -134,6 +136,33 @@ export async function createStockMovementInTx(  // REGISTRA MOVIMENTAÇÃO DE ES
   const transferGroupId = input.transferGroupId ?? randomUUID();
   let fromStockBatchId = input.fromStockBatchId ?? null;
   let toStockBatchId = input.toStockBatchId ?? null;
+
+  if (recordOnly) {
+    const balance = await getStockBalance(tx, {
+      productsEnterprises: productEnterprise,
+      lock: true,
+    });
+    const decrease = DECREASE_TYPES.includes(input.type);
+    const increase = INCREASE_TYPES.includes(input.type);
+    const [logged] = await tx
+      .insert(stockMovements)
+      .values({
+        transferGroupId,
+        type: input.type,
+        productsEnterprisesId: input.productsEnterprisesId,
+        quantity: qty.toString(),
+        fromQuantityBefore: decrease ? balance.toString() : null,
+        fromQuantityAfter: decrease ? balance.toString() : null,
+        toQuantityBefore: increase ? balance.toString() : null,
+        toQuantityAfter: increase ? balance.toString() : null,
+        userId,
+        notes: input.notes ?? null,
+        documentRef: input.documentRef ?? null,
+      })
+      .returning();
+    if (!logged) throw new Error("Falha ao registrar movimento de estoque");
+    return logged;
+  }
 
   assertMovementLocations(productEnterprise, input);
 

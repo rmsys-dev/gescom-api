@@ -50,11 +50,22 @@ const monthNullable = z.number().int().min(1).max(12).nullable().optional();
 const yearNullable = z.number().int().min(1900).max(2100).nullable().optional();
 const uuidNullable = z.string().uuid().nullable().optional();
 
+const optionalYear = z.preprocess(
+  (value) => (value === "" || value == null ? undefined : value),
+  z.coerce.number().int().min(1900).max(2100).optional(),
+);
+
 /** Filtros dedicados combinados com AND; `search` mantém busca ampla (OR). */
 export const listVehiclesQuerySchema = createPaginationQuerySchema(100).extend({
   plate: optionalTrimmedStringSchema("plate", 255).optional(),
   model: optionalTrimmedStringSchema("model", 255).optional(),
+  color: optionalTrimmedStringSchema("color", 255).optional(),
   renavam: optionalTrimmedStringSchema("renavam", 255).optional(),
+  fleetNumber: optionalTrimmedStringSchema("fleetNumber", 255).optional(),
+  vehicleYear: optionalYear,
+  fuelType: fuelTypeSchema.optional(),
+  vehicleType: vehicleTypeSchema.optional(),
+  client: optionalTrimmedStringSchema("client", 255).optional(),
   search: optionalTrimmedStringSchema("search", 255).optional(),
 });
 

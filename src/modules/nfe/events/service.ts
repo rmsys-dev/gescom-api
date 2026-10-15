@@ -370,6 +370,13 @@ export class NfeEventsService {
       );
     }
 
+    if (!result.homologated) {
+      throw new BadRequestError(
+        `SEFAZ rejeitou a inutilizacao: ${result.cStat} - ${result.xMotivo}`,
+        "NFE_INUT_REJECTED",
+      );
+    }
+
     const event = await db.transaction(async (tx) => {
       const [row] = await tx
         .insert(nfeEvents)
@@ -391,9 +398,6 @@ export class NfeEventsService {
           nNfFin: input.nNfFin,
         })
         .returning();
-      if (!result.homologated) {
-        return row;
-      }
       if (input.serie === currentSerie) {
         await syncNfeSequenceFloor(enterpriseId, input.mod, input.nNfFin, tx);
       }
@@ -430,12 +434,6 @@ export class NfeEventsService {
       return row;
     });
 
-    if (!result.homologated) {
-      throw new BadRequestError(
-        `SEFAZ rejeitou a inutilizacao: ${result.cStat} - ${result.xMotivo}`,
-        "NFE_INUT_REJECTED",
-      );
-    }
     return event;
   }
 
@@ -654,6 +652,13 @@ export class NfeEventsService {
       );
     }
 
+    if (!result.registered) {
+      throw new BadRequestError(
+        `SEFAZ rejeitou o evento: ${result.cStat} - ${result.xMotivo}`,
+        "NFE_EVENT_REJECTED",
+      );
+    }
+
     const eventValues = {
       enterpriseId,
       nfeHeaderId: header.id,
@@ -671,7 +676,7 @@ export class NfeEventsService {
       chave: header.chave,
     };
 
-    const event = await db.transaction(async (tx) => {
+    return db.transaction(async (tx) => {
       const [row] = await tx
         .insert(nfeEvents)
         .values(eventValues)
@@ -681,19 +686,9 @@ export class NfeEventsService {
           set: { ...eventValues, updatedAt: now },
         })
         .returning();
-      if (result.registered) {
-        await onRegistered(tx, result, now);
-      }
+      await onRegistered(tx, result, now);
       return row;
     });
-
-    if (!result.registered) {
-      throw new BadRequestError(
-        `SEFAZ rejeitou o evento: ${result.cStat} - ${result.xMotivo}`,
-        "NFE_EVENT_REJECTED",
-      );
-    }
-    return event;
   }
 
   private markCancelled(

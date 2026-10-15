@@ -1,6 +1,6 @@
-import { and, asc, count, eq, ilike, isNull, or, type SQL } from "drizzle-orm";
+import { and, asc, count, eq, exists, ilike, inArray, isNull, or, type SQL } from "drizzle-orm";
 import { db } from "../../../db/index.js";
-import { states, vehicles } from "../../../db/schema.js";
+import { enterprisesMembers, states, users, vehicles, vehiclesEnterprisesMembers } from "../../../db/schema.js";
 import {
   ConflictError,
   NotFoundError,
@@ -52,7 +52,42 @@ export class VehiclesService {
     }
   }
 
-  public async list(query: ListVehiclesQuery = {}) {
+  private async memberNames(enterpriseId: string, vehicleIds: string[]) {
+    const names = new Map<string, string[]>();
+    if (!vehicleIds.length) return names;
+    const rows = await db
+      .select({
+        vehiclesId: vehiclesEnterprisesMembers.vehiclesId,
+        memberName: users.userName,
+      })
+      .from(vehiclesEnterprisesMembers)
+      .innerJoin(
+        enterprisesMembers,
+        eq(vehiclesEnterprisesMembers.enterprisesMembersId, enterprisesMembers.id),
+      )
+      .innerJoin(users, eq(users.id, enterprisesMembers.userId))
+      .where(
+        and(
+          inArray(vehiclesEnterprisesMembers.vehiclesId, vehicleIds),
+          eq(vehiclesEnterprisesMembers.status, "ATIVO"),
+          eq(enterprisesMembers.enterpriseId, enterpriseId),
+          isNull(enterprisesMembers.deletedAt),
+        ),
+      );
+    for (const row of rows) {
+      const name = row.memberName.trim();
+      if (!name) continue;
+      const current = names.get(row.vehiclesId) ?? [];
+      if (!current.includes(name)) current.push(name);
+      names.set(row.vehiclesId, current);
+    }
+    for (const current of names.values()) {
+      current.sort((left, right) => left.localeCompare(right, "pt-BR"));
+    }
+    return names;
+  }
+
+  public async list(enterpriseId: string, query: ListVehiclesQuery = {}) {
     const { limit, offset } = resolveListPagination(query);
     const filters: SQL[] = [];
 
@@ -64,6 +99,45 @@ export class VehiclesService {
     }
     if (query.renavam) {
       filters.push(ilike(vehicles.renavam, `%${query.renavam}%`));
+    }
+    if (query.color) {
+      filters.push(ilike(vehicles.color, `%${query.color}%`));
+    }
+    if (query.fleetNumber) {
+      filters.push(ilike(vehicles.fleetNumber, `%${query.fleetNumber}%`));
+    }
+    if (query.vehicleYear != null) {
+      filters.push(eq(vehicles.vehicleYear, query.vehicleYear));
+    }
+    if (query.fuelType) {
+      filters.push(eq(vehicles.fuelType, query.fuelType));
+    }
+    if (query.vehicleType) {
+      filters.push(eq(vehicles.vehicleType, query.vehicleType));
+    }
+    if (query.client) {
+      const term = `%${query.client}%`;
+      filters.push(
+        exists(
+          db
+            .select({ id: vehiclesEnterprisesMembers.id })
+            .from(vehiclesEnterprisesMembers)
+            .innerJoin(
+              enterprisesMembers,
+              eq(vehiclesEnterprisesMembers.enterprisesMembersId, enterprisesMembers.id),
+            )
+            .innerJoin(users, eq(users.id, enterprisesMembers.userId))
+            .where(
+              and(
+                eq(vehiclesEnterprisesMembers.vehiclesId, vehicles.id),
+                eq(vehiclesEnterprisesMembers.status, "ATIVO"),
+                eq(enterprisesMembers.enterpriseId, enterpriseId),
+                isNull(enterprisesMembers.deletedAt),
+                ilike(users.userName, term),
+              ),
+            ),
+        ),
+      );
     }
     if (query.search) {
       const term = `%${query.search}%`;
@@ -90,7 +164,13 @@ export class VehiclesService {
       db.select({ c: count() }).from(vehicles).where(where),
     ]);
     const total = Number(totalRows[0]?.c ?? 0);
-    return { items, total, limit, offset };
+    const names = await this.memberNames(enterpriseId, items.map((item) => item.id));
+    return {
+      items: items.map((item) => ({ ...item, members: names.get(item.id) ?? [] })),
+      total,
+      limit,
+      offset,
+    };
   }
 
   public async getById(id: string) {

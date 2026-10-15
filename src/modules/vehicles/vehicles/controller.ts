@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import type { RequestWithAuth } from "../../../shared/middleware/auth-middleware.js";
+import { requireTenantEnterpriseId } from "../../../shared/controllers/tenant-context.js";
 import {
   auditContextFromDeleteAuth,
   auditContextFromPatchAuth,
@@ -22,7 +23,10 @@ export class VehiclesController {
   public list = async (req: Request, res: Response): Promise<void> => {
     const query = (req as RequestWithValidatedQuery<ListVehiclesQuery>)
       .validatedQuery;
-    const page = await vehiclesService.list(query);
+    const enterpriseId = requireTenantEnterpriseId(
+      (req as RequestWithAuth).auth!,
+    );
+    const page = await vehiclesService.list(enterpriseId, query);
     sendPageFromService(
       res,
       HttpStatus.OK,

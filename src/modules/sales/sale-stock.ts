@@ -129,15 +129,17 @@ async function applySaleItemStockRevisionReturn(
     return;
   }
 
+  const service = await isServiceProductTypeById(item.productTypeId);
   await createStockMovementInTx(tx, {
     enterpriseId,
     userId,
+    recordOnly: service,
     input: {
       type: "DEVOLUCAO",
       productsEnterprisesId: item.productsEnterprisesId,
       quantity,
-      toLocationsId: item.locationsId ?? undefined,
-      toStockBatchId: item.stockBatchId,
+      toLocationsId: service ? undefined : item.locationsId ?? undefined,
+      toStockBatchId: service ? null : item.stockBatchId,
       documentRef,
       notes: `Estorno revisao ${revision} venda pedido ${orderNumber}`,
     },
@@ -392,9 +394,7 @@ export async function applySaleItemStockOut(
   },
 ) {
   const { enterpriseId, userId, saleId, orderNumber, item } = params;
-  if (await isServiceProductTypeById(item.productTypeId)) {
-    return;
-  }
+  const service = await isServiceProductTypeById(item.productTypeId);
 
   const documentRef = saleItemStockOutRef(saleId, item.id);
   if (await stockMovementExistsByDocumentRef(tx, documentRef)) {
@@ -404,14 +404,17 @@ export async function applySaleItemStockOut(
   await createStockMovementInTx(tx, {
     enterpriseId,
     userId,
+    recordOnly: service,
     input: {
       type: "VENDA",
       productsEnterprisesId: item.productsEnterprisesId,
       quantity: Number(item.quantity),
-      fromLocationsId: item.locationsId ?? undefined,
-      fromStockBatchId: item.stockBatchId,
+      fromLocationsId: service ? undefined : item.locationsId ?? undefined,
+      fromStockBatchId: service ? null : item.stockBatchId,
       documentRef,
-      notes: `Venda pedido ${orderNumber}`,
+      notes: service
+        ? `Servico pedido ${orderNumber}`
+        : `Venda pedido ${orderNumber}`,
     },
   });
 }
@@ -429,9 +432,7 @@ export async function applySaleItemStockReturn(
   },
 ) {
   const { enterpriseId, userId, saleId, orderNumber, item, notes } = params;
-  if (await isServiceProductTypeById(item.productTypeId)) {
-    return;
-  }
+  const service = await isServiceProductTypeById(item.productTypeId);
 
   const outRef = saleItemStockOutRef(saleId, item.id);
   if (!(await stockMovementExistsByDocumentRef(tx, outRef))) {
@@ -446,14 +447,15 @@ export async function applySaleItemStockReturn(
   await createStockMovementInTx(tx, {
     enterpriseId,
     userId,
+    recordOnly: service,
     input: {
       type: "DEVOLUCAO",
       productsEnterprisesId: item.productsEnterprisesId,
       quantity: Number(item.quantity),
-      toLocationsId: item.locationsId ?? undefined,
-      toStockBatchId: item.stockBatchId,
+      toLocationsId: service ? undefined : item.locationsId ?? undefined,
+      toStockBatchId: service ? null : item.stockBatchId,
       documentRef,
-      notes: notes ?? `Estorno venda pedido ${orderNumber}`,
+      notes: notes ?? (service ? `Estorno servico pedido ${orderNumber}` : `Estorno venda pedido ${orderNumber}`),
     },
   });
 }
@@ -465,9 +467,6 @@ export async function assertSaleItemsStockCommitted(
   items: SaleItemRow[],
 ) {
   for (const item of items) {
-    if (await isServiceProductTypeById(item.productTypeId)) {
-      continue;
-    }
     const ref = saleItemStockOutRef(saleId, item.id);
     if (await stockMovementExistsByDocumentRef(tx, ref)) {
       continue;
@@ -508,9 +507,7 @@ export async function applySaleReturnDocumentItemStockIn(
     returnItem,
   } = params;
   const item = returnItem.saleItem;
-  if (await isServiceProductTypeById(item.productTypeId)) {
-    return;
-  }
+  const service = await isServiceProductTypeById(item.productTypeId);
 
   const documentRef = saleReturnDocumentItemRef(salesReturnId);
   if (await stockMovementExistsByDocumentRef(tx, documentRef)) {
@@ -520,14 +517,17 @@ export async function applySaleReturnDocumentItemStockIn(
   await createStockMovementInTx(tx, {
     enterpriseId,
     userId,
+    recordOnly: service,
     input: {
       type: "DEVOLUCAO",
       productsEnterprisesId: item.productsEnterprisesId,
       quantity: Number(returnItem.quantity),
-      toLocationsId: item.locationsId ?? undefined,
-      toStockBatchId: item.stockBatchId,
+      toLocationsId: service ? undefined : item.locationsId ?? undefined,
+      toStockBatchId: service ? null : item.stockBatchId,
       documentRef,
-      notes: `Devolucao ${returnOrder} pedido ${saleOrderNumber}`,
+      notes: service
+        ? `Devolucao servico ${returnOrder} pedido ${saleOrderNumber}`
+        : `Devolucao ${returnOrder} pedido ${saleOrderNumber}`,
     },
   });
 }
@@ -581,10 +581,9 @@ export async function syncSaleItemStockOnUpdate(
   const { enterpriseId, userId, saleId, orderNumber, oldItem, newItem } =
     params;
 
-  if (
-    (await isServiceProductTypeById(oldItem.productTypeId)) ||
-    (await isServiceProductTypeById(newItem.productTypeId))
-  ) {
+  const oldService = await isServiceProductTypeById(oldItem.productTypeId);
+  const newService = await isServiceProductTypeById(newItem.productTypeId);
+  if (oldService !== newService) {
     return;
   }
 
@@ -636,12 +635,13 @@ export async function syncSaleItemStockOnUpdate(
   await createStockMovementInTx(tx, {
     enterpriseId,
     userId,
+    recordOnly: newService,
     input: {
       type: "VENDA",
       productsEnterprisesId: newItem.productsEnterprisesId,
       quantity: newItem.quantity,
-      fromLocationsId: newItem.locationsId ?? undefined,
-      fromStockBatchId: newItem.stockBatchId ?? null,
+      fromLocationsId: newService ? undefined : newItem.locationsId ?? undefined,
+      fromStockBatchId: newService ? null : newItem.stockBatchId ?? null,
       documentRef: revisionOutRef,
       notes: `Venda pedido ${orderNumber} (revisao ${nextRevision})`,
     },

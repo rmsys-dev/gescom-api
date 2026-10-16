@@ -9,6 +9,13 @@ export const activeMembershipForEnterprise = (enterpriseId: string) =>
     isNull(enterprisesMembers.deletedAt),
   );
 
+/** Vínculo da empresa ainda não excluído, em qualquer situação (pendente, inativo, ativo). */
+export const membershipInEnterprise = (enterpriseId: string) =>
+  and(
+    eq(enterprisesMembers.enterpriseId, enterpriseId),
+    isNull(enterprisesMembers.deletedAt),
+  );
+
 /** Predicado SQL para linha de enterprises ativa (status e soft delete). */
 export const activeEnterpriseRow = () =>
   and(eq(enterprises.status, "ATIVO"), isNull(enterprises.deletedAt));

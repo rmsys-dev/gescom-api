@@ -17,7 +17,10 @@ import {
 } from "../sale-stock.js";
 import type { CreateSaleItemInput, PatchSaleItemInput } from "../schema.js";
 import { SalesServiceConversions } from "./sales-service-conversions.js";
-import type { SaleAuthContext } from "./sales-service-core.js";
+import type {
+  SaleAuthContext,
+  SaleDocumentChannel,
+} from "./sales-service-core.js";
 
 export class SalesService extends SalesServiceConversions {
   public async addItem(
@@ -27,6 +30,7 @@ export class SalesService extends SalesServiceConversions {
     rawInput: CreateSaleItemInput,
     audit: EntityAuditContext,
     gescomClient?: string | string[],
+    channel: SaleDocumentChannel = "sales",
   ) {
     if (!auth?.userId) {
       throw new ValidationError(
@@ -38,6 +42,7 @@ export class SalesService extends SalesServiceConversions {
     let beforeRow!: typeof sales.$inferSelect;
     await db.transaction(async (tx) => {
       beforeRow = await this.getSaleRow(tx, enterpriseId, saleId);
+      this.assertDocumentChannel(beforeRow.type, channel);
       const sale = beforeRow;
       await this.assertSaleTypeAllowed(enterpriseId, sale.type);
       this.assertBudgetEditableForItems(sale);
@@ -96,8 +101,11 @@ export class SalesService extends SalesServiceConversions {
           quantity: pricedItem.quantity,
           valueUnit: pricedItem.valueUnit,
           valueDiscount: pricedItem.valueDiscount,
+          priceSale: priceSnapshot?.priceSale != null && priceSnapshot.priceSale !== ""
+            ? Number(priceSnapshot.priceSale)
+            : null,
         },
-        "body.valueDiscount",
+        "body.valueUnit",
       );
 
       const [inserted] = await tx
@@ -157,11 +165,13 @@ export class SalesService extends SalesServiceConversions {
     saleItemId: string,
     userId: string | null,
     audit: EntityAuditContext,
+    channel: SaleDocumentChannel = "sales",
   ) {
     let beforeRow!: typeof sales.$inferSelect;
     await db.transaction(async (tx) => {
       beforeRow = await this.getSaleRow(tx, enterpriseId, saleId);
       const sale = beforeRow;
+      this.assertDocumentChannel(sale.type, channel);
       await this.assertSaleTypeAllowed(enterpriseId, sale.type);
       this.assertBudgetEditableForItems(sale);
 
@@ -228,11 +238,13 @@ export class SalesService extends SalesServiceConversions {
     userId: string | null,
     input: PatchSaleItemInput,
     audit: EntityAuditContext,
+    channel: SaleDocumentChannel = "sales",
   ) {
     let beforeRow!: typeof sales.$inferSelect;
     await db.transaction(async (tx) => {
       beforeRow = await this.getSaleRow(tx, enterpriseId, saleId);
       const sale = beforeRow;
+      this.assertDocumentChannel(sale.type, channel);
       await this.assertSaleTypeAllowed(enterpriseId, sale.type);
       this.assertBudgetEditableForItems(sale);
 
@@ -298,6 +310,9 @@ export class SalesService extends SalesServiceConversions {
           quantity: pricedItem.quantity,
           valueUnit: pricedItem.valueUnit,
           valueDiscount: pricedItem.valueDiscount,
+          priceSale: priceSnapshot?.priceSale != null && priceSnapshot.priceSale !== ""
+            ? Number(priceSnapshot.priceSale)
+            : null,
         },
         "body.valueDiscount",
       );

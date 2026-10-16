@@ -150,11 +150,49 @@ const CREDIT_SALE_ALLOWED_MEMBER_STATUSES = [
   "FUNCIONARIO",
 ] as const;
 
+const MEMBER_STATUS_LABEL: Record<string, string> = {
+  ATIVO: "Ativo",
+  INATIVO: "Inativo",
+  BLOQUEADO: "Bloqueado",
+  PENDENTE: "Pendente",
+  ESPECIAL: "Especial",
+  COBRANCA: "Cobrança",
+  NAO_VENDER: "Não vender",
+  FUNCIONARIO: "Funcionário",
+};
+
+/** Venda a prazo só para ativo, especial ou funcionário. */
+const creditSaleRejectedMessage = (status: string) => {
+  const label = MEMBER_STATUS_LABEL[status] ?? status;
+  return `Cliente está ${label}. Não é permitido vender a prazo. Procure o financeiro.`;
+};
+
 const dec = (v: number | undefined | null) =>
   v !== undefined && v !== null ? v.toString() : null;
 
 const decNum = (v: string | number | null | undefined) =>
   v !== undefined && v !== null && v !== "" ? Number(v) : 0;
+
+/** Unitário abaixo do preço de referência entra no limite de desconto do vendedor. */
+const discountReference = (
+  rows: Array<{
+    quantity: string | number;
+    valueUnit: string | number;
+    priceSale: string | number | null;
+  }>,
+) => {
+  let listSubTotal = 0;
+  let priceReduction = 0;
+  for (const row of rows) {
+    const quantity = Number(row.quantity);
+    const valueUnit = Number(row.valueUnit);
+    const reference = decNum(row.priceSale);
+    const baseUnit = reference > 0 ? reference : valueUnit;
+    listSubTotal += quantity * baseUnit;
+    if (valueUnit < baseUnit) priceReduction += (baseUnit - valueUnit) * quantity;
+  }
+  return { listSubTotal, priceReduction };
+};
 
 const formatQuantity = (value: number) => value.toFixed(4);
 
@@ -553,6 +591,8 @@ type SalePaymentResponse = typeof salesPayments.$inferSelect & {
   dues: (typeof salesDues.$inferSelect)[];
 };
 
+export type SaleDocumentChannel = "sales" | "service_order";
+
 export class SalesServiceCore {
   // Servico de vendas
   protected async recordSaleUpdateAudit(
@@ -589,6 +629,58 @@ export class SalesServiceCore {
     if (saleType === "ORDEM DE SERVICO") {
       await this.assertTrabalhaOsEnabled(enterpriseId);
     }
+  }
+
+  protected assertDocumentChannel(
+    saleType: string,
+    channel: SaleDocumentChannel,
+  ): void {
+    const isWorkOrder = saleType === "ORDEM DE SERVICO";
+    if (channel === "sales" && isWorkOrder) {
+      throw new ValidationError(
+        [
+          {
+            path: "type",
+            message:
+              "Ordem de servico deve ser operada em /api/v1/service-orders",
+          },
+        ],
+        "Use a rota de ordem de servico",
+      );
+    }
+    if (channel === "service_order" && !isWorkOrder) {
+      throw new ValidationError(
+        [
+          {
+            path: "type",
+            message: "Documento nao e uma ordem de servico",
+          },
+        ],
+        "Tipo invalido",
+      );
+    }
+  }
+
+  protected resolveListQuery(
+    query: ListSalesQuery,
+    channel: SaleDocumentChannel,
+  ): ListSalesQuery {
+    if (channel === "service_order") {
+      return { ...query, type: "ORDEM DE SERVICO" };
+    }
+    if (query.type === "ORDEM DE SERVICO") {
+      throw new ValidationError(
+        [
+          {
+            path: "query.type",
+            message:
+              "Ordem de servico deve ser consultada em /api/v1/service-orders",
+          },
+        ],
+        "Use a rota de ordem de servico",
+      );
+    }
+    return query;
   }
 
   protected async assertOsQueryAllowed(
@@ -1773,8 +1865,13 @@ export class SalesServiceCore {
         )
         .limit(1)
     )[0];
+    if (!row) {
+      throw new NotFoundError(
+        "Membro cliente nao encontrado na empresa",
+        "SALE_CLIENT_MEMBER_NOT_FOUND",
+      );
+    }
     if (
-      !row ||
       !(CREDIT_SALE_ALLOWED_MEMBER_STATUSES as readonly string[]).includes(
         row.status,
       )
@@ -1783,8 +1880,7 @@ export class SalesServiceCore {
         [
           {
             path: "body.memberId",
-            message:
-              "Cliente deve estar ATIVO, ESPECIAL ou FUNCIONARIO para venda a prazo",
+            message: creditSaleRejectedMessage(row.status),
           },
         ],
         "Cliente inelegivel para venda a prazo",
@@ -2053,21 +2149,27 @@ export class SalesServiceCore {
       discountValuetems: number;
       valueDiscountFinancialProduct: number;
       valueDiscountFinancialService: number;
+      /** Soma de quantidade × preço de referência (tabela ou promoção). */
+      listSubTotal?: number;
+      /** Quanto o unitário ficou abaixo do preço de referência. */
+      priceReduction?: number;
     },
     path = "body",
   ) {
     if (member.exceedDiscountSale) return;
-    if (totals.subTotal <= 0) return;
 
     const totalDiscount = roundMoney(
       totals.discountValuetems +
+        (totals.priceReduction ?? 0) +
         totals.valueDiscountFinancialProduct +
         totals.valueDiscountFinancialService,
     );
-    const effectivePct = computePercentageFromFinancial(
-      totals.subTotal,
-      totalDiscount,
-    );
+    const base =
+      totals.listSubTotal != null && totals.listSubTotal > 0
+        ? totals.listSubTotal
+        : totals.subTotal;
+    if (base <= 0) return;
+    const effectivePct = computePercentageFromFinancial(base, totalDiscount);
     const limit = decNum(member.saleLimit);
 
     if (effectivePct > limit) {
@@ -2092,6 +2194,8 @@ export class SalesServiceCore {
       discountValuetems: number;
       valueDiscountFinancialProduct: number;
       valueDiscountFinancialService: number;
+      listSubTotal?: number;
+      priceReduction?: number;
     },
     path = "body",
   ) {
@@ -2101,17 +2205,28 @@ export class SalesServiceCore {
 
   protected assertItemLineDiscountWithinMemberLimit(
     member: { saleLimit: string; exceedDiscountSale: boolean },
-    item: { quantity: number; valueUnit: number; valueDiscount: number },
+    item: {
+      quantity: number;
+      valueUnit: number;
+      valueDiscount: number;
+      /** Preço de venda de referência. Unitário abaixo dele conta como desconto. */
+      priceSale?: number | null;
+    },
     path = "body.valueDiscount",
   ) {
     if (member.exceedDiscountSale) return;
 
-    const lineSubTotal = roundMoney(item.quantity * item.valueUnit);
+    const reference =
+      item.priceSale != null && item.priceSale > 0
+        ? item.priceSale
+        : item.valueUnit;
+    const lineSubTotal = item.quantity * reference;
     if (lineSubTotal <= 0) return;
 
+    const priceCut = Math.max(0, reference - item.valueUnit) * item.quantity;
     const linePct = computePercentageFromFinancial(
       lineSubTotal,
-      item.valueDiscount,
+      priceCut + item.valueDiscount,
     );
     const limit = decNum(member.saleLimit);
 
@@ -2132,7 +2247,12 @@ export class SalesServiceCore {
     tx: Tx | typeof db,
     enterpriseId: string,
     sellerUserId: string,
-    item: { quantity: number; valueUnit: number; valueDiscount: number },
+    item: {
+      quantity: number;
+      valueUnit: number;
+      valueDiscount: number;
+      priceSale?: number | null;
+    },
     path = "body.valueDiscount",
   ) {
     const member = await this.loadSellerMember(tx, enterpriseId, sellerUserId);
@@ -2239,6 +2359,7 @@ export class SalesServiceCore {
         valueUnit: salesItems.valueUnit,
         valueDiscount: salesItems.valueDiscount,
         valueAcresce: salesItems.valueAcresce,
+        priceSale: salesItems.priceSale,
         productTypeId: salesItems.productTypeId,
         typeCode: productTypes.type,
       })
@@ -2250,6 +2371,7 @@ export class SalesServiceCore {
       (sum, row) => sum + Number(row.quantity) * Number(row.valueUnit),
       0,
     );
+    const { listSubTotal, priceReduction } = discountReference(itemRows);
     const discountValuetems = itemRows.reduce(
       (sum, row) => sum + Number(row.valueDiscount),
       0,
@@ -2329,6 +2451,8 @@ export class SalesServiceCore {
 
     return {
       subTotal,
+      listSubTotal,
+      priceReduction,
       discountValuetems,
       valueAcresceItems,
       valueDiscountFinancialProduct: financial.valueDiscountFinancialProduct,
@@ -2448,11 +2572,13 @@ export class SalesServiceCore {
     enterpriseId: string,
     saleId: string,
     audit: EntityAuditContext,
+    channel: SaleDocumentChannel = "sales",
   ) {
     let beforeRow!: typeof sales.$inferSelect;
     await db.transaction(async (tx) => {
       beforeRow = await this.getSaleRow(tx, enterpriseId, saleId);
       const sale = beforeRow;
+      this.assertDocumentChannel(sale.type, channel);
       await this.assertSaleTypeAllowed(enterpriseId, sale.type);
       if (sale.status !== "ABERTA") {
         throw new ValidationError(
@@ -2643,8 +2769,7 @@ export class SalesServiceCore {
         [
           {
             path: "body.memberId",
-            message:
-              "Cliente deve estar ATIVO, ESPECIAL ou FUNCIONARIO para venda a prazo",
+            message: creditSaleRejectedMessage(row.status),
           },
         ],
         "Cliente inelegivel para venda a prazo",
@@ -2991,11 +3116,18 @@ export class SalesServiceCore {
     };
   }
 
-  public async list(enterpriseId: string, query: ListSalesQuery = {}) {
-    const osEnabled = await this.assertOsQueryAllowed(enterpriseId, query);
-    const { limit, offset } = resolveListPagination(query);
-    const where = this.listScope(enterpriseId, query, {
-      excludeWorkOrders: !osEnabled,
+  public async list(
+    enterpriseId: string,
+    query: ListSalesQuery = {},
+    channel: SaleDocumentChannel = "sales",
+  ) {
+    const scoped = this.resolveListQuery(query, channel);
+    if (channel === "service_order") {
+      await this.assertTrabalhaOsEnabled(enterpriseId);
+    }
+    const { limit, offset } = resolveListPagination(scoped);
+    const where = this.listScope(enterpriseId, scoped, {
+      excludeWorkOrders: channel === "sales",
     });
     const [items, totalRows] = await Promise.all([
       this.listFromWithMemberJoins()
@@ -3021,10 +3153,17 @@ export class SalesServiceCore {
   }
 
   /** Totais de todos os documentos do filtro da listagem (sem paginação). */
-  public async summary(enterpriseId: string, query: ListSalesQuery = {}) {
-    const osEnabled = await this.assertOsQueryAllowed(enterpriseId, query);
-    const where = this.listScope(enterpriseId, query, {
-      excludeWorkOrders: !osEnabled,
+  public async summary(
+    enterpriseId: string,
+    query: ListSalesQuery = {},
+    channel: SaleDocumentChannel = "sales",
+  ) {
+    const scoped = this.resolveListQuery(query, channel);
+    if (channel === "service_order") {
+      await this.assertTrabalhaOsEnabled(enterpriseId);
+    }
+    const where = this.listScope(enterpriseId, scoped, {
+      excludeWorkOrders: channel === "sales",
     });
     const money = (column: SQL) => sql<string>`coalesce(sum(${column}), 0)`;
     const itemDiscount = (service: boolean) => sql`(
@@ -3284,7 +3423,11 @@ export class SalesServiceCore {
     }));
   }
 
-  public async getById(enterpriseId: string, id: string) {
+  public async getById(
+    enterpriseId: string,
+    id: string,
+    channel?: SaleDocumentChannel,
+  ) {
     // Obtem a venda pelo id
     const sale = (
       await db
@@ -3296,7 +3439,17 @@ export class SalesServiceCore {
         .limit(1)
     )[0];
     if (!sale) {
-      throw new NotFoundError("Venda nao encontrada", "SALE_NOT_FOUND");
+      throw new NotFoundError(
+        channel === "service_order"
+          ? "Ordem de servico nao encontrada"
+          : "Venda nao encontrada",
+        channel === "service_order"
+          ? "SERVICE_ORDER_NOT_FOUND"
+          : "SALE_NOT_FOUND",
+      );
+    }
+    if (channel) {
+      this.assertDocumentChannel(sale.type, channel);
     }
     const osEnabled = await this.isTrabalhaOsEnabled(enterpriseId);
     if (sale.type === "ORDEM DE SERVICO") {
@@ -3400,8 +3553,9 @@ export class SalesServiceCore {
     enterpriseId: string,
     saleId: string,
     mode: "html" | "pdf" = "html",
+    channel: SaleDocumentChannel = "sales",
   ) {
-    const sale = await this.getById(enterpriseId, saleId);
+    const sale = await this.getById(enterpriseId, saleId, channel);
     if (
       sale.type !== "ORDEM DE SERVICO" &&
       sale.type !== "ORCAMENTO" &&
@@ -3475,16 +3629,30 @@ export class SalesServiceCore {
     };
   }
 
-  public async getPrintPdf(enterpriseId: string, saleId: string) {
-    const document = await this.getPrintHtml(enterpriseId, saleId, "pdf");
+  public async getPrintPdf(
+    enterpriseId: string,
+    saleId: string,
+    channel: SaleDocumentChannel = "sales",
+  ) {
+    const document = await this.getPrintHtml(
+      enterpriseId,
+      saleId,
+      "pdf",
+      channel,
+    );
     return {
       pdf: await htmlToPdf(document.html),
       filename: document.filename,
     };
   }
 
-  public async listSaleConversions(enterpriseId: string, saleId: string) {
+  public async listSaleConversions(
+    enterpriseId: string,
+    saleId: string,
+    channel: SaleDocumentChannel = "sales",
+  ) {
     const sale = await this.getSaleRow(db, enterpriseId, saleId);
+    this.assertDocumentChannel(sale.type, channel);
     if (sale.type === "ORDEM DE SERVICO") {
       await this.assertTrabalhaOsEnabled(enterpriseId);
     }
@@ -3519,7 +3687,9 @@ export class SalesServiceCore {
     input: CreateSaleInput,
     audit: EntityAuditContext,
     gescomClient?: string | string[],
+    channel: SaleDocumentChannel = "sales",
   ) {
+    this.assertDocumentChannel(input.type, channel);
     if (!auth?.userId) {
       throw new ValidationError(
         [{ path: "auth", message: "Usuario autenticado obrigatorio" }],
@@ -3692,8 +3862,9 @@ export class SalesServiceCore {
               quantity: pricedItem.quantity,
               valueUnit: pricedItem.valueUnit,
               valueDiscount: pricedItem.valueDiscount,
+              priceSale: decNum(priceSnapshot?.priceSale),
             },
-            `items.${i}.valueDiscount`,
+            `items.${i}.valueUnit`,
           );
 
           const [inserted] = await tx
@@ -3803,8 +3974,10 @@ export class SalesServiceCore {
     input: PatchSaleInput,
     audit: EntityAuditContext,
     gescomClient?: string | string[],
+    channel: SaleDocumentChannel = "sales",
   ) {
     const existing = await this.getById(enterpriseId, id);
+    this.assertDocumentChannel(existing.type, channel);
     await this.assertSaleTypeAllowed(enterpriseId, existing.type);
     if (existing.type === "ORCAMENTO" && existing.status === "FINALIZADA") {
       throw new ValidationError(
@@ -4083,12 +4256,23 @@ export class SalesServiceCore {
         }
 
         if (row.status === "ABERTA") {
+          const pricedItems = await tx
+            .select({
+              quantity: salesItems.quantity,
+              valueUnit: salesItems.valueUnit,
+              priceSale: salesItems.priceSale,
+            })
+            .from(salesItems)
+            .where(eq(salesItems.salesId, id));
+          const listReference = discountReference(pricedItems);
           await this.assertSaleDiscountWithinMemberLimitForSeller(
             tx,
             enterpriseId,
             sellerUpdate?.sellerId ?? row.sellerId,
             {
               subTotal: decNum(row.subTotal),
+              listSubTotal: listReference.listSubTotal,
+              priceReduction: listReference.priceReduction,
               discountValuetems: decNum(row.discountValuetems),
               valueDiscountFinancialProduct: decNum(
                 row.valueDiscountFinancialProduct,

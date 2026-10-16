@@ -4,6 +4,7 @@ import { enterprises, enterprisesMembers, users } from "../../db/schema.js";
 import {
   activeEnterpriseRow,
   activeMembershipForEnterprise,
+  membershipInEnterprise,
 } from "../../shared/db/tenant-predicates.js";
 
 // Indica se o enterprises_members (ator) existe, está ativo nesse tenant e a empresa está ativa
@@ -40,7 +41,7 @@ export const findUserByIdScoped = async (
       and(
         eq(users.id, userId),
         isNull(users.deletedAt),
-        activeMembershipForEnterprise(enterpriseId),
+        membershipInEnterprise(enterpriseId),
         activeEnterpriseRow(),
       ),
     )
@@ -59,7 +60,7 @@ export const findMemberIdForUserInEnterprise = async (
     .where(
       and(
         eq(enterprisesMembers.userId, userId),
-        activeMembershipForEnterprise(enterpriseId),
+        membershipInEnterprise(enterpriseId),
         activeEnterpriseRow(),
       ),
     )

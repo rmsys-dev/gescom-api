@@ -360,6 +360,19 @@ export const defaultModules = {
     },
   },
 
+  ordem_servico: {
+    name: "Gerenciamento de ordem de serviço",
+    description: "Ordens de serviço da empresa",
+    permissions: {
+      N1: ["consultar_ordem_servico"],
+      N2: [],
+      N3: ["incluir_ordem_servico"],
+      N4: ["alterar_ordem_servico"],
+      N5: [],
+      N6: [],
+    },
+  },
+
   estoque: {
     name: "Gerenciamento de estoque",
     description: "Lotes, saldos, mínimo/máximo e movimentos",
@@ -457,6 +470,7 @@ export const domainModuleReferences = [
   "produtos",
   "enderecos",
   "vendas",
+  "ordem_servico",
   "estoque",
   "nfe",
 ] as const satisfies readonly ModuleReference[];
@@ -689,6 +703,9 @@ export const PERM = {
   incluir_vendas: "incluir_vendas",
   alterar_vendas: "alterar_vendas",
   gerenciais_vendas: "gerenciais_vendas",
+  consultar_ordem_servico: "consultar_ordem_servico",
+  incluir_ordem_servico: "incluir_ordem_servico",
+  alterar_ordem_servico: "alterar_ordem_servico",
   consultar_status_sefaz: "consultar_status_sefaz",
   consultar_parametros_nfe: "consultar_parametros_nfe",
   consultar_configuracao_nfe: "consultar_configuracao_nfe",

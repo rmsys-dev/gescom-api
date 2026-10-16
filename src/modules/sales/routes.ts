@@ -1,23 +1,17 @@
 import { Router } from "express";
 import { authMiddleware } from "../../shared/middleware/auth-middleware.js";
-import { requireParameter } from "../../shared/middleware/parameter-middleware.js";
 import {
   requireAnyPermission,
   requirePermission,
 } from "../../shared/middleware/permission-middleware.js";
 import { tenantMiddleware } from "../../shared/middleware/tenant-middleware.js";
 import { validateSchema } from "../../shared/middleware/validate-schema.js";
-import {
-  emptyBodySchema,
-  emptyQuerySchema,
-} from "../../shared/validation/common-schemas.js";
+import { emptyQuerySchema } from "../../shared/validation/common-schemas.js";
 import { salesController } from "./controller.js";
 import { salesAnalyticsRouter } from "./analytics/routes.js";
 import { salesReturnsRouter } from "./returns/routes.js";
 import {
-  convertBudgetToOsSchema,
   convertBudgetToSaleSchema,
-  convertOsToSaleSchema,
   createSaleItemSchema,
   createSaleSchema,
   listSaleSellersQuerySchema,
@@ -30,7 +24,6 @@ import {
 } from "./schema.js";
 
 const salesRouter = Router();
-const requireOs = requireParameter("trabalha_os");
 
 salesRouter.get(
   "/",
@@ -117,62 +110,6 @@ salesRouter.post(
     query: emptyQuerySchema,
   }),
   salesController.convertBudgetToSale,
-);
-
-salesRouter.post(
-  "/:saleId/convert-to-os",
-  authMiddleware,
-  tenantMiddleware,
-  requireOs,
-  requireAnyPermission(["incluir_vendas", "alterar_vendas"]),
-  validateSchema({
-    params: saleParamsSchema,
-    body: convertBudgetToOsSchema,
-    query: emptyQuerySchema,
-  }),
-  salesController.convertBudgetToOs,
-);
-
-salesRouter.post(
-  "/:saleId/convert-os-to-sale",
-  authMiddleware,
-  tenantMiddleware,
-  requireOs,
-  requireAnyPermission(["incluir_vendas", "alterar_vendas"]),
-  validateSchema({
-    params: saleParamsSchema,
-    body: convertOsToSaleSchema,
-    query: emptyQuerySchema,
-  }),
-  salesController.convertOsToSale,
-);
-
-salesRouter.post(
-  "/:saleId/cancel-os",
-  authMiddleware,
-  tenantMiddleware,
-  requireOs,
-  requirePermission("alterar_vendas"),
-  validateSchema({
-    params: saleParamsSchema,
-    body: emptyBodySchema,
-    query: emptyQuerySchema,
-  }),
-  salesController.cancelOs,
-);
-
-salesRouter.post(
-  "/:saleId/estorno-os",
-  authMiddleware,
-  tenantMiddleware,
-  requireOs,
-  requirePermission("alterar_vendas"),
-  validateSchema({
-    params: saleParamsSchema,
-    body: emptyBodySchema,
-    query: emptyQuerySchema,
-  }),
-  salesController.estornoOs,
 );
 
 salesRouter.get(

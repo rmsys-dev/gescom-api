@@ -21,10 +21,13 @@ export const enterpriseParameterDefaults = {
 
 /**
  * Permissões do pacote OS/veículos omitidas em `/auth/me` quando `trabalha_os`
- * está desligado. OS reutiliza slugs de vendas (`consultar/incluir/alterar_vendas`);
- * o bloqueio de OS é por tipo de documento nas rotas/serviço.
+ * está desligado. A ordem de serviço usa slugs próprios; veículos seguem no
+ * módulo de vendas e também ficam ocultos sem o parâmetro.
  */
 export const osPackagePermissionSlugs = [
+  "consultar_ordem_servico",
+  "incluir_ordem_servico",
+  "alterar_ordem_servico",
   "consultar_veiculos",
   "consultar_veiculos_membros",
   "consultar_comissoes_itens_venda",

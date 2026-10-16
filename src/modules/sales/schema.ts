@@ -274,7 +274,10 @@ export const saleMemberOverrideSchema = z
   .strict();
 
 export const listSaleSellersQuerySchema = createPaginationQuerySchema(100)
-  .extend({ search: optionalTrimmedStringSchema("search", 255).optional() })
+  .extend({
+    search: optionalTrimmedStringSchema("search", 255).optional(),
+    userId: z.string().uuid().optional(),
+  })
   .strict();
 
 export type ListSaleSellersQuery = z.infer<typeof listSaleSellersQuerySchema>;
@@ -340,6 +343,15 @@ const createSaleObjectSchema = z
       }
     }
 
+    if (data.type === "ORDEM DE SERVICO") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["type"],
+        message:
+          "Ordem de servico deve ser criada em /api/v1/service-orders",
+      });
+    }
+
     const hasPayments = (data.payments?.length ?? 0) > 0;
     if (data.status === "FINALIZADA") {
       if (!hasPayments) {
@@ -365,6 +377,51 @@ const createSaleObjectSchema = z
 export const createSaleSchema = z.preprocess(
   mapLegacyPieFields,
   createSaleObjectSchema,
+);
+
+const createServiceOrderObjectSchema = z
+  .object({
+    orderNumber: z.number().int().positive().optional(),
+    memberId: z.string().uuid(),
+    sellerId: z.string().uuid().optional(),
+    discountValuetems: decimalOpt,
+    valueAcresceItems: decimalOpt,
+    ...saleFinancialAdjustmentsSchema,
+    ...saleServiceFieldsSchema,
+    vehiclesEnterprisesMembersId: z.string().uuid(),
+    status: saleStatusSchema.default("ABERTA"),
+    origin: saleOriginSchema.optional(),
+    items: z.array(saleItemInputSchema).min(1),
+    payments: z.array(salePaymentInputSchema).optional(),
+    member: saleMemberOverrideSchema.optional(),
+  })
+  .strict()
+  .superRefine((data, ctx) => {
+    const hasPayments = (data.payments?.length ?? 0) > 0;
+    if (data.status === "FINALIZADA") {
+      if (!hasPayments) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["payments"],
+          message:
+            "Pagamentos e parcelas sao obrigatorios ao finalizar a ordem de servico",
+        });
+      }
+      return;
+    }
+    if (hasPayments) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["payments"],
+        message:
+          "Pagamentos e parcelas so podem ser informados ao fechar a ordem de servico (status FINALIZADA)",
+      });
+    }
+  });
+
+export const createServiceOrderSchema = z.preprocess(
+  mapLegacyPieFields,
+  createServiceOrderObjectSchema,
 );
 
 const patchSaleObjectSchema = z
@@ -440,9 +497,9 @@ export const saleItemParamsSchema = z
 
 export const createSaleItemSchema = saleItemInputSchema;
 
-export const listSalesQuerySchema = createPaginationQuerySchema(100)
+const listSalesQueryObject = createPaginationQuerySchema(100)
   .extend({
-    /** Filtra por tipo (`VENDA`, `ORCAMENTO`, `ORDEM DE SERVICO` ou `DEVOLUCAO`). */
+    /** Filtra por tipo (`VENDA`, `ORCAMENTO`, `DEVOLUCAO`). OS fica em /service-orders. */
     type: listSaleTypeSchema.optional(),
     /** Tipo da ordem de serviço. `TODOS` não restringe. */
     serviceType: listServiceTypeSchema.optional(),
@@ -465,28 +522,50 @@ export const listSalesQuerySchema = createPaginationQuerySchema(100)
     dateTo: dateOnlyIsoSchema("dateTo").optional(),
     /** Exclui pedidos que já têm vínculo ativo em nfe_sales. */
     pendingNfe: z.enum(["true", "false"]).optional(),
-  })
-  .superRefine((data, ctx) => {
-    const hasFrom = data.dateFrom !== undefined;
-    const hasTo = data.dateTo !== undefined;
-
-    if (hasFrom !== hasTo) {
-      ctx.addIssue({
-        code: "custom",
-        path: hasFrom ? ["dateTo"] : ["dateFrom"],
-        message: "Informe dateFrom e dateTo juntos",
-      });
-      return;
-    }
-
-    if (data.dateFrom && data.dateTo && data.dateFrom > data.dateTo) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["dateTo"],
-        message: "dateTo deve ser >= dateFrom",
-      });
-    }
   });
+
+const refineListDateRange = (
+  data: { dateFrom?: string; dateTo?: string },
+  ctx: z.RefinementCtx,
+) => {
+  const hasFrom = data.dateFrom !== undefined;
+  const hasTo = data.dateTo !== undefined;
+
+  if (hasFrom !== hasTo) {
+    ctx.addIssue({
+      code: "custom",
+      path: hasFrom ? ["dateTo"] : ["dateFrom"],
+      message: "Informe dateFrom e dateTo juntos",
+    });
+    return;
+  }
+
+  if (data.dateFrom && data.dateTo && data.dateFrom > data.dateTo) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["dateTo"],
+      message: "dateTo deve ser >= dateFrom",
+    });
+  }
+};
+
+export const listSalesQuerySchema = listSalesQueryObject.superRefine(
+  (data, ctx) => {
+    if (data.type === "ORDEM DE SERVICO") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["type"],
+        message:
+          "Ordem de servico deve ser consultada em /api/v1/service-orders",
+      });
+    }
+    refineListDateRange(data, ctx);
+  },
+);
+
+export const listServiceOrdersQuerySchema = listSalesQueryObject
+  .omit({ type: true })
+  .superRefine(refineListDateRange);
 
 export const patchSaleItemSchema = z
   .object({
@@ -702,10 +781,16 @@ export const convertOsToSaleSchema = z.preprocess(
 export type SalePaymentInput = z.infer<typeof salePaymentInputSchema>;
 export type SaleMemberOverrideInput = z.infer<typeof saleMemberOverrideSchema>;
 export type CreateSaleInput = z.infer<typeof createSaleObjectSchema>;
+export type CreateServiceOrderInput = z.infer<
+  typeof createServiceOrderObjectSchema
+>;
 export type PatchSaleInput = z.infer<typeof patchSaleObjectSchema>;
 export type CreateSaleItemInput = z.infer<typeof createSaleItemSchema>;
 export type PatchSaleItemInput = z.infer<typeof patchSaleItemSchema>;
 export type ListSalesQuery = z.infer<typeof listSalesQuerySchema>;
+export type ListServiceOrdersQuery = z.infer<
+  typeof listServiceOrdersQuerySchema
+>;
 export type ConvertBudgetToSaleInput = z.output<
   typeof convertBudgetToSaleSchema
 >;

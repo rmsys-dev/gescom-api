@@ -39,6 +39,7 @@ import { stockMinMaxRouter } from "../../modules/stock/stock-min-max/routes.js";
 import { stockGroupRouter } from "../../modules/stock/stock-group/routes.js";
 import { stockMovementsRouter } from "../../modules/stock/stock-movements/routes.js";
 import { salesRouter } from "../../modules/sales/routes.js";
+import { serviceOrdersRouter } from "../../modules/service-order/routes.js";
 import { typeNetworksRouter } from "../../modules/memberships/type-networks/routes.js";
 import { typeSupplierCustomersRouter } from "../../modules/memberships/type-supplier-customers/routes.js";
 import { vehiclesRouter } from "../../modules/vehicles/vehicles/routes.js";
@@ -46,7 +47,6 @@ import { vehiclesEnterprisesMembersRouter } from "../../modules/vehicles/vehicle
 import { mechanicSalesItemsRouter } from "../../modules/vehicles/mechanic-sales-items/routes.js";
 import { nfeRouter } from "../../modules/nfe/routes.js";
 import { entityAuditLogRouter } from "../../modules/entity-audit-log/routes.js";
-import { marketplaceRouter } from "../../modules/marketplace/routes.js";
 import { maintainerNfeParametersRouter } from "../../modules/maintainer/nfe/parameters/routes.js";
 import { maintainerCfopsRouter } from "../../modules/maintainer/nfe/cfops/routes.js";
 import { maintainerDocumentModelsRouter } from "../../modules/maintainer/nfe/document-models/routes.js";
@@ -112,6 +112,7 @@ v1Router.use("/stock-min-max", stockMinMaxRouter);
 v1Router.use("/stock-group", stockGroupRouter);
 v1Router.use("/stock-movements", stockMovementsRouter);
 v1Router.use("/sales", salesRouter);
+v1Router.use("/service-orders", serviceOrdersRouter);
 v1Router.use("/type-networks", typeNetworksRouter);
 v1Router.use("/type-supplier-customers", typeSupplierCustomersRouter);
 v1Router.use("/vehicles", vehiclesRouter);
@@ -122,6 +123,5 @@ v1Router.use(
 v1Router.use("/mechanic-sales-items", mechanicSalesItemsRouter);
 v1Router.use("/nfe", nfeRouter);
 v1Router.use("/entity-audit-log", entityAuditLogRouter);
-v1Router.use("/marketplace", marketplaceRouter);
 
 export { v1Router };

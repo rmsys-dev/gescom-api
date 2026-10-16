@@ -13,9 +13,9 @@ import {
 } from "../../../db/schema.js";
 import { findMemberIdForUserInEnterprise } from "../repository.js";
 import {
-  activeMembershipForEnterprise,
   hasActiveTenantMembership,
   isActiveEnterprise,
+  membershipInEnterprise,
 } from "../../../shared/db/tenant-predicates.js";
 import {
   ConflictError,
@@ -177,7 +177,7 @@ export class UsersOnboardingService {
     const membership = await db.query.enterprisesMembers.findFirst({
       where: and(
         eq(enterprisesMembers.userId, userId),
-        activeMembershipForEnterprise(enterpriseId),
+        membershipInEnterprise(enterpriseId),
       ),
       with: {
         user: {

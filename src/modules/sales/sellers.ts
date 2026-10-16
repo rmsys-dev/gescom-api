@@ -15,6 +15,7 @@ export async function listSaleSellers(enterpriseId: string, query: ListSaleSelle
     isNull(users.deletedAt),
     notInArray(enterprisesMembers.class, [...SELLER_INELIGIBLE_MEMBER_CLASSES]),
   ];
+  if (query.userId) filters.push(eq(users.id, query.userId));
   if (query.search) {
     const term = `%${query.search}%`;
     filters.push(
@@ -29,6 +30,8 @@ export async function listSaleSellers(enterpriseId: string, query: ListSaleSelle
         userName: users.userName,
         code: enterprisesMembers.code,
         class: enterprisesMembers.class,
+        saleLimit: enterprisesMembers.saleLimit,
+        exceedDiscountSale: enterprisesMembers.exceedDiscountSale,
       })
       .from(enterprisesMembers)
       .innerJoin(users, eq(users.id, enterprisesMembers.userId))

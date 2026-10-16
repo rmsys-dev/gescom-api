@@ -456,6 +456,43 @@ export const defaultModules = {
       N6: [],
     },
   },
+
+  financeiro: {
+    name: "Gerenciamento financeiro",
+    description: "Contas a receber, contas a pagar, faturamento e boleto bancario",
+    permissions: {
+      N1: ["consultar_contas_receber", "consultar_contas_pagar"],
+      N2: [],
+      N3: ["incluir_contas_receber", "incluir_contas_pagar"],
+      N4: ["baixar_contas_receber", "baixar_contas_pagar"],
+      N5: [],
+      N6: [],
+    },
+    children: {
+      faturamento: {
+        name: "Faturamento de pedidos",
+        permissions: {
+          N1: ["consultar_faturamento"],
+          N2: [],
+          N3: ["incluir_faturamento"],
+          N4: [],
+          N5: [],
+          N6: [],
+        },
+      },
+      boleto_bancario: {
+        name: "Boleto bancario",
+        permissions: {
+          N1: ["consultar_boleto_bancario"],
+          N2: [],
+          N3: ["incluir_boleto_bancario"],
+          N4: ["alterar_boleto_bancario"],
+          N5: [],
+          N6: [],
+        },
+      },
+    },
+  },
 } as const;
 
 export type ModuleReference = keyof typeof defaultModules;
@@ -471,6 +508,7 @@ export const domainModuleReferences = [
   "enderecos",
   "vendas",
   "ordem_servico",
+  "financeiro",
   "estoque",
   "nfe",
 ] as const satisfies readonly ModuleReference[];
@@ -723,6 +761,17 @@ export const PERM = {
   excluir_marketplace_produtos: "excluir_marketplace_produtos",
   alterar_marketplace_avaliacoes: "alterar_marketplace_avaliacoes",
   alterar_marketplace_perguntas: "alterar_marketplace_perguntas",
+  consultar_contas_receber: "consultar_contas_receber",
+  consultar_contas_pagar: "consultar_contas_pagar",
+  incluir_contas_receber: "incluir_contas_receber",
+  incluir_contas_pagar: "incluir_contas_pagar",
+  baixar_contas_receber: "baixar_contas_receber",
+  baixar_contas_pagar: "baixar_contas_pagar",
+  consultar_faturamento: "consultar_faturamento",
+  incluir_faturamento: "incluir_faturamento",
+  consultar_boleto_bancario: "consultar_boleto_bancario",
+  incluir_boleto_bancario: "incluir_boleto_bancario",
+  alterar_boleto_bancario: "alterar_boleto_bancario",
 } as const satisfies Record<string, PermissionSlug>;
 
 export const isPermissionSlug = (v: string): v is PermissionSlug =>

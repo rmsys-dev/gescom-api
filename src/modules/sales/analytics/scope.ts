@@ -47,9 +47,12 @@ export const localReturnCreatedDateSql = (timezone: string) =>
 export const dueDateUtcSql = () =>
   sql`DATE(timezone('UTC', ${salesDues.dueDate}))`;
 
-/** Data de reconhecimento financeiro (vencimento da parcela). */
-export const effectiveRecognizedDateSql = (_timezone?: string) =>
-  dueDateUtcSql();
+/**
+ * Dia da venda no dashboard: a mesma data da consulta (finalização, ou criação no fuso).
+ * O vencimento da parcela não entra aqui — uma venda de hoje com prazo futuro conta hoje.
+ */
+export const effectiveRecognizedDateSql = (timezone?: string) =>
+  effectiveCompletionDateSql(timezone ?? "America/Sao_Paulo");
 
 /** Valor reconhecido no dia: valor da parcela. */
 export const recognizedAmountSql = () =>
@@ -111,7 +114,7 @@ export const buildRealizedDateCondition = (
   );
 };
 
-/** Condicao de data de reconhecimento financeiro (vencimento da parcela). */
+/** Condicao de data da venda (finalização ou criação no fuso). */
 export const buildRecognizedDateCondition = (
   period: ResolvedPeriod,
 ): SQL | undefined => {
@@ -282,8 +285,8 @@ export const buildRealizedScope = (
   );
 
 /**
- * Scope financeiro realizado: venda realizada (incl. devolucao parcial/total)
- * cuja parcela vence no periodo. Exige FROM/JOIN em sales_dues.
+ * Venda realizada no período (data de finalização), com as parcelas para somar o valor.
+ * Exige FROM/JOIN em sales_dues.
  */
 export const buildRealizedDueScope = (
   enterpriseId: string,

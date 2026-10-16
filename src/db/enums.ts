@@ -589,3 +589,125 @@ export const paymentMethodIntegrationEnum = pgEnum("payment_method_integration",
   "2", // NÃO INTEGRADO
 ]);
 export type PaymentMethodIntegration = (typeof paymentMethodIntegrationEnum.enumValues)[number];
+
+export const financialDirectionEnum = pgEnum("financial_direction", [
+  "RECEBER",
+  "PAGAR",
+]);
+export type FinancialDirection = (typeof financialDirectionEnum.enumValues)[number];
+
+export const financialSourceEnum = pgEnum("financial_source", [
+  "VENDA",
+  "MANUAL",
+  "COMPRA",
+  "DEVOLUCAO",
+]);
+export type FinancialSource = (typeof financialSourceEnum.enumValues)[number];
+
+export const financialKindEnum = pgEnum("financial_kind", [
+  "PEDIDO",
+  "NFE",
+  "BOLETO",
+  "AVULSO",
+  "COMPRA",
+]);
+export type FinancialKind = (typeof financialKindEnum.enumValues)[number];
+
+export const financialTitleStatusEnum = pgEnum("financial_title_status", [
+  "ABERTO",
+  "PARCIAL",
+  "QUITADO",
+  "CANCELADO",
+  "CONSOLIDADO",
+]);
+export type FinancialTitleStatus = (typeof financialTitleStatusEnum.enumValues)[number];
+
+export const financialInstallmentStatusEnum = pgEnum("financial_installment_status", [
+  "ABERTA",
+  "PARCIAL",
+  "QUITADA",
+  "CANCELADA",
+]);
+export type FinancialInstallmentStatus =
+  (typeof financialInstallmentStatusEnum.enumValues)[number];
+
+export const financialScheduleSourceEnum = pgEnum("financial_schedule_source", [
+  "PEDIDO",
+  "NFE",
+  "BOLETO",
+]);
+export type FinancialScheduleSource =
+  (typeof financialScheduleSourceEnum.enumValues)[number];
+
+export const financialSettlementKindEnum = pgEnum("financial_settlement_kind", [
+  "BAIXA",
+  "ABATIMENTO_DEVOLUCAO",
+  "ABATIMENTO_CREDITO",
+  "ESTORNO",
+]);
+export type FinancialSettlementKind =
+  (typeof financialSettlementKindEnum.enumValues)[number];
+
+export const memberCreditOriginEnum = pgEnum("member_credit_origin", [
+  "DEVOLUCAO",
+  "MANUAL",
+]);
+export type MemberCreditOrigin = (typeof memberCreditOriginEnum.enumValues)[number];
+
+export const memberCreditStatusEnum = pgEnum("member_credit_status", [
+  "ABERTO",
+  "PARCIAL",
+  "UTILIZADO",
+  "CANCELADO",
+]);
+export type MemberCreditStatus = (typeof memberCreditStatusEnum.enumValues)[number];
+
+export const bankChannelEnum = pgEnum("bank_channel", ["API", "CNAB"]);
+export type BankChannel = (typeof bankChannelEnum.enumValues)[number];
+
+export const cnabLayoutEnum = pgEnum("cnab_layout", ["CNAB240", "CNAB400"]);
+export type CnabLayout = (typeof cnabLayoutEnum.enumValues)[number];
+
+export const bankSlipStatusEnum = pgEnum("bank_slip_status", [
+  "RASCUNHO",
+  "AGUARDANDO_REGISTRO",
+  "REGISTRADO",
+  "REJEITADO",
+  "LIQUIDADO",
+  "BAIXADO",
+  "CANCELADO",
+]);
+export type BankSlipStatus = (typeof bankSlipStatusEnum.enumValues)[number];
+
+export const bankSlipEventKindEnum = pgEnum("bank_slip_event_kind", [
+  "EMISSAO",
+  "REGISTRO",
+  "REJEICAO",
+  "ALTERACAO_VENCIMENTO",
+  "LIQUIDACAO",
+  "BAIXA",
+  "WEBHOOK",
+  "RETORNO",
+]);
+export type BankSlipEventKind = (typeof bankSlipEventKindEnum.enumValues)[number];
+
+export const remittanceStatusEnum = pgEnum("remittance_status", [
+  "GERADA",
+  "PROCESSADA",
+]);
+export type RemittanceStatus = (typeof remittanceStatusEnum.enumValues)[number];
+
+export const remittanceMovementEnum = pgEnum("remittance_movement", [
+  "REGISTRO",
+  "ALTERACAO_VENCIMENTO",
+  "PEDIDO_BAIXA",
+]);
+export type RemittanceMovement = (typeof remittanceMovementEnum.enumValues)[number];
+
+export const returnOccurrenceEnum = pgEnum("return_occurrence", [
+  "REGISTRO_CONFIRMADO",
+  "REGISTRO_REJEITADO",
+  "LIQUIDACAO",
+  "BAIXA",
+]);
+export type ReturnOccurrence = (typeof returnOccurrenceEnum.enumValues)[number];

@@ -407,6 +407,27 @@
       "when": 1793533500000,
       "tag": "0134_ordem_servico_admin_permissions",
       "breakpoints": true
+    },
+    {
+      "idx": 135,
+      "version": "7",
+      "when": 1793533600000,
+      "tag": "0135_financial_titles",
+      "breakpoints": true
+    },
+    {
+      "idx": 136,
+      "version": "7",
+      "when": 1793533700000,
+      "tag": "0136_financial_permissions",
+      "breakpoints": true
+    },
+    {
+      "idx": 137,
+      "version": "7",
+      "when": 1793533800000,
+      "tag": "0137_financial_settlement_adjustments",
+      "breakpoints": true
     }
   ]
 }

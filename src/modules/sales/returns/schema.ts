@@ -19,6 +19,8 @@ export const salesReturnIdParamsSchema = z
   })
   .strict();
 
+const financialResolutionSchema = z.enum(["CREDITO", "DEVOLUCAO_DINHEIRO"]);
+
 export const createPartialReturnSchema = z
   .object({
     items: z
@@ -31,10 +33,15 @@ export const createPartialReturnSchema = z
           .strict(),
       )
       .min(1),
+    financialResolution: financialResolutionSchema.optional(),
   })
   .strict();
 
-export const createFullReturnSchema = z.object({}).strict();
+export const createFullReturnSchema = z
+  .object({
+    financialResolution: financialResolutionSchema.optional(),
+  })
+  .strict();
 
 export type CreatePartialReturnInput = z.infer<typeof createPartialReturnSchema>;
 export type CreateFullReturnInput = z.infer<typeof createFullReturnSchema>;

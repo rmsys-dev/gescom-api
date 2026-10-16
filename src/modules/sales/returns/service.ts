@@ -1,12 +1,19 @@
-import { and, asc, count, desc, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq, isNull, notInArray } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import {
+  bankSlips,
+  financialInstallments,
+  financialTitleOrigins,
+  financialTitles,
+  nfeHeaders,
+  nfeSales,
   productTypes,
   sales,
   salesItems,
   salesReturns,
 } from "../../../db/schema.js";
 import {
+  BadRequestError,
   NotFoundError,
   ValidationError,
 } from "../../../shared/errors/app-error.js";
@@ -25,6 +32,7 @@ import { computeBudgetStatus } from "../sale-financials.js";
 import { decNum, formatQuantity } from "../sale-service-shared.js";
 import { enqueueHarbourSaleSync } from "../harbour-sale-sync.js";
 import { nextSaleReturnOrder } from "./sequences.js";
+import { applySaleReturnToReceivable } from "../../financial/apply-return.js";
 import { getProductEnterpriseForStock } from "../../stock/balance.js";
 import { productRequiresStockLocation } from "../../stock/stock-location.js";
 import type {
@@ -96,7 +104,54 @@ export class SalesReturnsService {
   ) {
     const sale = await this.getSaleRow(tx, enterpriseId, saleId);
     this.assertSaleForReturn(sale);
+    await this.assertNoIssuedCharge(tx, enterpriseId, saleId);
     return sale;
+  }
+
+  /** Nota autorizada ou boleto emitido impedem devolver e cancelar o pedido. */
+  private async assertNoIssuedCharge(tx: Tx, enterpriseId: string, saleId: string) {
+    const note = (
+      await tx
+        .select({ id: nfeHeaders.id })
+        .from(nfeSales)
+        .innerJoin(nfeHeaders, eq(nfeSales.nfeHeaderId, nfeHeaders.id))
+        .where(
+          and(
+            eq(nfeSales.salesId, saleId),
+            isNull(nfeSales.deletedAt),
+            eq(nfeHeaders.enterpriseId, enterpriseId),
+            eq(nfeHeaders.status, "AUTORIZADA"),
+          ),
+        )
+        .limit(1)
+    )[0];
+    const slip = (
+      await tx
+        .select({ id: bankSlips.id })
+        .from(financialTitleOrigins)
+        .innerJoin(financialTitles, eq(financialTitleOrigins.titleId, financialTitles.id))
+        .innerJoin(financialInstallments, eq(financialInstallments.titleId, financialTitles.id))
+        .innerJoin(bankSlips, eq(bankSlips.installmentId, financialInstallments.id))
+        .where(
+          and(
+            eq(financialTitleOrigins.salesId, saleId),
+            eq(financialTitleOrigins.live, true),
+            eq(financialTitles.enterpriseId, enterpriseId),
+            notInArray(bankSlips.status, ["CANCELADO", "RASCUNHO"]),
+          ),
+        )
+        .limit(1)
+    )[0];
+    if (!note && !slip) return;
+    const reason = note && slip
+      ? "nota fiscal e boleto bancário"
+      : note
+        ? "nota fiscal"
+        : "boleto bancário";
+    throw new BadRequestError(
+      `Não pode devolver ou cancelar a venda, pois tem ${reason}.`,
+      "SALE_HAS_FISCAL_CHARGE",
+    );
   }
 
   private async getReturnableQuantity(
@@ -422,6 +477,16 @@ export class SalesReturnsService {
       }
 
       await this.syncSaleReturnSituation(tx, saleId);
+      if (rows[0]) {
+        await applySaleReturnToReceivable(tx, {
+          enterpriseId,
+          saleId,
+          userId,
+          returnOrder: rows[0].returnOrder,
+          lines: input.items,
+          resolution: input.financialResolution,
+        });
+      }
       await enqueueHarbourSaleSync(tx, {
         enterprisesId: enterpriseId,
         saleId,
@@ -501,6 +566,16 @@ export class SalesReturnsService {
             .where(eq(sales.id, saleId));
         }
         await this.reopenLinkedWorkOrder(tx, saleId);
+      }
+      if (rows[0]) {
+        await applySaleReturnToReceivable(tx, {
+          enterpriseId,
+          saleId,
+          userId,
+          returnOrder: rows[0].returnOrder,
+          lines: linesToReturn,
+          resolution: _input.financialResolution,
+        });
       }
       await enqueueHarbourSaleSync(tx, {
         enterprisesId: enterpriseId,

@@ -46,6 +46,7 @@ import { vehiclesRouter } from "../../modules/vehicles/vehicles/routes.js";
 import { vehiclesEnterprisesMembersRouter } from "../../modules/vehicles/vehicles-enterprises-members/routes.js";
 import { mechanicSalesItemsRouter } from "../../modules/vehicles/mechanic-sales-items/routes.js";
 import { nfeRouter } from "../../modules/nfe/routes.js";
+import { financialRouter } from "../../modules/financial/routes.js";
 import { entityAuditLogRouter } from "../../modules/entity-audit-log/routes.js";
 import { maintainerNfeParametersRouter } from "../../modules/maintainer/nfe/parameters/routes.js";
 import { maintainerCfopsRouter } from "../../modules/maintainer/nfe/cfops/routes.js";
@@ -122,6 +123,7 @@ v1Router.use(
 );
 v1Router.use("/mechanic-sales-items", mechanicSalesItemsRouter);
 v1Router.use("/nfe", nfeRouter);
+v1Router.use("/financial", financialRouter);
 v1Router.use("/entity-audit-log", entityAuditLogRouter);
 
 export { v1Router };

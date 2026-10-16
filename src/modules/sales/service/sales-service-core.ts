@@ -97,6 +97,7 @@ import {
   enqueueHarbourSaleSync,
   harbourEventForSaleTransition,
 } from "../harbour-sale-sync.js";
+import { createReceivableFromSale } from "../../financial/from-sale.js";
 import {
   assertSaleOrderNumberAvailable,
   nextSaleOrderNumber,
@@ -577,6 +578,27 @@ const saleListSelect = {
   plate: vehicles.plate,
   model: vehicles.model,
   fleetNumber: vehicles.fleetNumber,
+  /** Líquido já devolvido das peças. Serviço não entra. */
+  returnedValue: sql<string>`(
+    select coalesce(sum(
+      case
+        when ${salesItems.quantity} > 0
+          and ${salesItems.quantityReturned} > 0
+          and ${productTypes.type} <> ${PRODUCT_TYPE_SERVICE_CODE}
+        then (
+          case
+            when ${salesItems.valueLiquidItemsHeader} <> 0
+            then ${salesItems.valueLiquidItemsHeader}
+            else ${salesItems.valueTotal}
+          end
+        ) * ${salesItems.quantityReturned} / ${salesItems.quantity}
+        else 0
+      end
+    ), 0)
+    from ${salesItems}
+    inner join ${productTypes} on ${productTypes.id} = ${salesItems.productTypeId}
+    where ${salesItems.salesId} = ${sales.id}
+  )`.as("returnedValue"),
 };
 
 type SalePaymentTypeSummary = {
@@ -1831,6 +1853,16 @@ export class SalesServiceCore {
           dueDate: due.dueDate,
         })),
       );
+    }
+    const sale = (
+      await tx
+        .select({ type: sales.type })
+        .from(sales)
+        .where(eq(sales.id, saleId))
+        .limit(1)
+    )[0];
+    if (sale?.type === "VENDA" || sale?.type === "ORDEM DE SERVICO") {
+      await createReceivableFromSale(tx, { enterpriseId, saleId });
     }
   }
 
@@ -3173,6 +3205,21 @@ export class SalesServiceCore {
       where ${salesItems.salesId} = ${sales.id}
         and ${productTypes.type} ${service ? sql`=` : sql`<>`} ${PRODUCT_TYPE_SERVICE_CODE}
     )`;
+    /** Parte já devolvida da peça, na mesma proporção da quantidade. Serviço não devolve. */
+    const returnedOf = (expression: SQL) => sql`(
+      select coalesce(sum(
+        case
+          when ${salesItems.quantity} > 0
+            and ${salesItems.quantityReturned} > 0
+            and ${productTypes.type} <> ${PRODUCT_TYPE_SERVICE_CODE}
+          then (${expression}) * ${salesItems.quantityReturned} / ${salesItems.quantity}
+          else 0
+        end
+      ), 0)
+      from ${salesItems}
+      inner join ${productTypes} on ${productTypes.id} = ${salesItems.productTypeId}
+      where ${salesItems.salesId} = ${sales.id}
+    )`;
     const [row] = await db
       .select({
         count: count(),
@@ -3192,6 +3239,19 @@ export class SalesServiceCore {
         products: money(sql`${sales.valueProduct}`),
         services: money(sql`${sales.valueService}`),
         liquid: money(sql`${sales.valueLiquid}`),
+        returnedSubTotal: money(returnedOf(sql`${salesItems.quantity} * ${salesItems.valueUnit}`)),
+        returnedItemDiscount: money(returnedOf(sql`${salesItems.valueDiscount}`)),
+        returnedItemIncrease: money(returnedOf(sql`${salesItems.valueAcresce}`)),
+        returnedProducts: money(returnedOf(sql`${salesItems.valueTotal}`)),
+        returnedLiquid: money(
+          returnedOf(
+            sql`case
+              when ${salesItems.valueLiquidItemsHeader} <> 0
+              then ${salesItems.valueLiquidItemsHeader}
+              else ${salesItems.valueTotal}
+            end`,
+          ),
+        ),
       })
       .from(sales)
       .leftJoin(enterprisesMembers, eq(sales.memberId, enterprisesMembers.id))
@@ -3203,16 +3263,27 @@ export class SalesServiceCore {
       )
       .leftJoin(vehicles, eq(vehiclesEnterprisesMembers.vehiclesId, vehicles.id))
       .where(where);
+    const returnedSubTotal = Number(row?.returnedSubTotal ?? 0);
+    const returnedItemDiscount = Number(row?.returnedItemDiscount ?? 0);
+    const returnedItemIncrease = Number(row?.returnedItemIncrease ?? 0);
+    const returnedProducts = Number(row?.returnedProducts ?? 0);
+    const returnedLiquid = Number(row?.returnedLiquid ?? 0);
+    const financialNet = returnedProducts - returnedLiquid;
+    const returnedFinancialDiscount = Math.max(0, financialNet);
+    const returnedFinancialIncrease = Math.max(0, -financialNet);
+    const nonNegative = (value: number) => Math.max(0, roundMoney(value));
     return {
       count: Number(row?.count ?? 0),
-      subTotal: roundMoney(Number(row?.subTotal ?? 0)),
-      discounts: roundMoney(Number(row?.discounts ?? 0)),
-      discountProducts: roundMoney(Number(row?.discountProducts ?? 0)),
+      subTotal: nonNegative(Number(row?.subTotal ?? 0) - returnedSubTotal),
+      discounts: nonNegative(Number(row?.discounts ?? 0) - returnedItemDiscount - returnedFinancialDiscount),
+      discountProducts: nonNegative(
+        Number(row?.discountProducts ?? 0) - returnedItemDiscount - returnedFinancialDiscount,
+      ),
       discountServices: roundMoney(Number(row?.discountServices ?? 0)),
-      increases: roundMoney(Number(row?.increases ?? 0)),
-      products: roundMoney(Number(row?.products ?? 0)),
+      increases: nonNegative(Number(row?.increases ?? 0) - returnedItemIncrease - returnedFinancialIncrease),
+      products: nonNegative(Number(row?.products ?? 0) - returnedProducts),
       services: roundMoney(Number(row?.services ?? 0)),
-      liquid: roundMoney(Number(row?.liquid ?? 0)),
+      liquid: nonNegative(Number(row?.liquid ?? 0) - returnedLiquid),
     };
   }
 

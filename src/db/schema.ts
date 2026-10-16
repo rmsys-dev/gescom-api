@@ -16,6 +16,7 @@ import * as stock from "./entities/stock.js";
 import * as auditoriums from "./auditoriums.js";
 import * as nfe from "./entities/nfe.js";
 import * as printers from "./entities/printers.js";
+import * as financial from "./entities/financial.js";
 
 export * from "./entities/addresses.js";
 export * from "./entities/enterprises.js";
@@ -31,6 +32,7 @@ export * from "./entities/sector.js";
 export * from "./entities/stock.js";
 export * from "./entities/nfe.js";
 export * from "./entities/printers.js";
+export * from "./entities/financial.js";
 export * from "./auditoriums.js";
 
 /**RELAÇÕES**/
@@ -47,6 +49,7 @@ import * as salesRelations from "./relations/sales-relations.js";
 import * as sectorRelations from "./relations/sector-relations.js";
 import * as stockRelations from "./relations/stock-relations.js";
 import * as nfeRelations from "./relations/nfe-relations.js";
+import * as financialRelations from "./relations/financial-relations.js";
 
 export * from "./relations/addresses-relations.js";
 export * from "./relations/enterprise-relations.js";
@@ -60,6 +63,7 @@ export * from "./relations/sales-relations.js";
 export * from "./relations/sector-relations.js";
 export * from "./relations/stock-relations.js";
 export * from "./relations/nfe-relations.js";
+export * from "./relations/financial-relations.js";
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -82,6 +86,7 @@ const schema = {
   ...stock,
   ...nfe,
   ...printers,
+  ...financial,
   ...auditoriums,
   ...addressesRelations,
   ...enterpriseRelations,
@@ -95,6 +100,7 @@ const schema = {
   ...sectorRelations,
   ...stockRelations,
   ...nfeRelations,
+  ...financialRelations,
 };
 
 export const db = drizzle(client, { schema });

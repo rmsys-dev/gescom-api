@@ -855,6 +855,10 @@ export class NfeDocumentService {
         .select({
           salesId: nfeSales.salesId,
           orderNumber: sales.orderNumber,
+          type: sales.type,
+          status: sales.status,
+          valueLiquid: sales.valueLiquid,
+          createdAt: sales.createdAt,
         })
         .from(nfeSales)
         .innerJoin(sales, eq(sales.id, nfeSales.salesId))

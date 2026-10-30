@@ -1,0 +1,133 @@
+import type { Request, Response } from "express";
+import { BadRequestError } from "../../shared/errors/app-error.js";
+import { HttpStatus } from "../../shared/http/http-status.js";
+import type { RequestWithAuth } from "../../shared/middleware/auth-middleware.js";
+import type { RequestWithValidatedQuery } from "../../shared/middleware/validate-schema.js";
+import {
+  sendPageFromService,
+  sendSuccessResponse,
+} from "../../shared/responses/send-success-response.js";
+import type {
+  ListEnterprisesQuery,
+  PatchEnterpriseInput,
+  PatchEnterpriseSequenceInput,
+} from "./schema.js";
+import type { SequenceType } from "../../db/enums.js";
+import { auditContextFromRequest } from "../../shared/audit/request-meta.js";
+import { enterprisesService } from "./service.js";
+import { enterpriseParametersService } from "./parameters/service.js";
+import { enterpriseSequencesService } from "./sequences/service.js";
+
+export class EnterprisesController {
+  //Listagem de empresas
+  public list = async (req: Request, res: Response): Promise<void> => {
+    const reqAuth = req as RequestWithAuth;
+    const query = (req as RequestWithValidatedQuery<ListEnterprisesQuery>)
+      .validatedQuery;
+    const page = await enterprisesService.listForAuthenticatedUser(
+      reqAuth.auth.userId,
+      query,
+    );
+    sendPageFromService(res, HttpStatus.OK, "Empresas listadas com sucesso.", page);
+  };
+
+  //Busca uma empresa por ID
+  public getById = async (req: Request, res: Response): Promise<void> => {
+    const id = req.params["enterpriseId"] as string;
+    const row = await enterprisesService.getById(id);
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Empresa recuperada com sucesso.",
+      data: row,
+    });
+  };
+
+  //Altera uma empresa
+  public patch = async (req: Request, res: Response): Promise<void> => {
+    const id = req.params["enterpriseId"] as string;
+    const body = req.body as PatchEnterpriseInput;
+    const row = await enterprisesService.patch(
+      id,
+      body,
+      auditContextFromRequest(req, "enterprises.service.patch", {
+        enterpriseId: id,
+      }),
+    );
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Empresa atualizada com sucesso.",
+      data: row,
+    });
+  };
+
+  public setLogo = async (req: Request, res: Response): Promise<void> => {
+    const file = (req as Request & { file?: { buffer: Buffer; mimetype: string } })
+      .file;
+    if (!file) {
+      throw new BadRequestError("Logo obrigatorio", "PHOTO_REQUIRED");
+    }
+    const id = req.params["enterpriseId"] as string;
+    const data = await enterprisesService.setLogo(
+      id,
+      file,
+      auditContextFromRequest(req, "enterprises.service.setLogo", {
+        enterpriseId: id,
+      }),
+    );
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Logo da empresa gravado com sucesso.",
+      data,
+    });
+  };
+
+  public removeLogo = async (req: Request, res: Response): Promise<void> => {
+    const id = req.params["enterpriseId"] as string;
+    const data = await enterprisesService.removeLogo(
+      id,
+      auditContextFromRequest(req, "enterprises.service.removeLogo", {
+        enterpriseId: id,
+      }),
+    );
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Logo da empresa removido com sucesso.",
+      data,
+    });
+  };
+
+  public getParameters = async (
+    req: Request,
+    res: Response,
+  ): Promise<void> => {
+    const id = req.params["enterpriseId"] as string;
+    const data = await enterpriseParametersService.getForEnterprise(id);
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Parametros da empresa recuperados com sucesso.",
+      data,
+    });
+  };
+
+  public listSequences = async (req: Request, res: Response): Promise<void> => {
+    const id = req.params["enterpriseId"] as string;
+    const data = await enterpriseSequencesService.list(id);
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Sequencias da empresa recuperadas com sucesso.",
+      data,
+    });
+  };
+
+  public patchSequence = async (req: Request, res: Response): Promise<void> => {
+    const id = req.params["enterpriseId"] as string;
+    const type = req.params["type"] as SequenceType;
+    const body = req.body as PatchEnterpriseSequenceInput;
+    const data = await enterpriseSequencesService.update(
+      id,
+      type,
+      body.sequence,
+      auditContextFromRequest(req, "enterprises.sequences.service.update", { enterpriseId: id }),
+    );
+    sendSuccessResponse(res, HttpStatus.OK, {
+      message: "Sequencia atualizada com sucesso.",
+      data,
+    });
+  };
+}
+
+export const enterprisesController = new EnterprisesController();

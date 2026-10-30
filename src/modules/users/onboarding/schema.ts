@@ -1,0 +1,258 @@
+import { z } from "zod";
+import {
+  adressTypeEnum,
+  creditTypeEnum,
+  genderEnum,
+  housingTypeEnum,
+  maritalStatusEnum,
+  typeUserContactEnum,
+} from "../../../db/schema.js";
+import { userEnterpriseAndIdParamsSchema } from "../schema.js";
+import {
+  dateOnlyIsoSchema,
+  emailSchema,
+  nonEmptyText255Schema,
+  personNameSchema,
+  phoneSchema,
+  uuidSchema,
+} from "../../../shared/validation/common-schemas.js";
+
+const genderSchema = z.enum(genderEnum.enumValues);
+const adressTypeSchema = z.enum(adressTypeEnum.enumValues);
+const typeUserContactSchema = z.enum(typeUserContactEnum.enumValues);
+const maritalStatusSchema = z.enum(maritalStatusEnum.enumValues);
+const housingTypeSchema = z.enum(housingTypeEnum.enumValues);
+const creditTypeSchema = z.enum(creditTypeEnum.enumValues);
+
+export const userDetailsParamsSchema = userEnterpriseAndIdParamsSchema;
+
+export const usersAddressParamsSchema = userEnterpriseAndIdParamsSchema
+  .extend({
+    addressId: uuidSchema("addressId"),
+  })
+  .strict();
+
+export const usersContactParamsSchema = userEnterpriseAndIdParamsSchema
+  .extend({
+    contactId: uuidSchema("contactId"),
+  })
+  .strict();
+
+// -----------------------------
+// Personal info
+// -----------------------------
+
+export const personalInfoCreateSchema = z
+  .object({
+    gender: genderSchema.optional(),
+    birthDate: dateOnlyIsoSchema("birthDate").optional(),  
+    placeOfBirth: personNameSchema("placeOfBirth").optional(),  
+  })
+  .strict();
+
+export const personalInfoPatchSchema = personalInfoCreateSchema
+  .partial()
+  .strict()
+  .refine(
+    (data) =>
+      data.gender !== undefined ||
+      data.birthDate !== undefined ||
+      data.placeOfBirth !== undefined,
+    "Deve haver ao menos um campo para alteração",
+  );
+
+export type PersonalInfoCreateInput = z.infer<typeof personalInfoCreateSchema>;
+export type PersonalInfoPatchInput = z.infer<typeof personalInfoPatchSchema>;
+
+// -----------------------------
+// Address
+// -----------------------------
+
+export const usersAddressCreateSchema = z
+  .object({
+    cepId: uuidSchema("cepId"),
+    number: z.string().trim().min(1).max(255),
+    complement: z.string().trim().max(255).optional(),
+    stateRegistration: nonEmptyText255Schema("stateRegistration").optional(),
+    adressType: adressTypeSchema,
+  })
+  .strict();
+
+export const usersAddressPatchSchema = z
+  .object({
+    cepId: uuidSchema("cepId").optional(),
+    number: z.string().trim().min(1).max(255).optional(),
+    complement: z.string().trim().max(255).optional(),
+    stateRegistration: nonEmptyText255Schema("stateRegistration").optional(),
+    adressType: adressTypeSchema.optional(),
+    softDelete: z.boolean().optional(),
+  })
+  .strict()
+  .refine(
+    (data) =>
+      data.cepId !== undefined ||
+      data.number !== undefined ||
+      data.complement !== undefined ||
+      data.stateRegistration !== undefined ||
+      data.adressType !== undefined ||
+      data.softDelete === true,
+    "Deve haver ao menos um campo para alteração",
+  );
+
+export type UsersAddressCreateInput = z.infer<typeof usersAddressCreateSchema>;
+export type UsersAddressPatchInput = z.infer<typeof usersAddressPatchSchema>;
+
+// -----------------------------
+// Contact
+// -----------------------------
+
+export const usersContactCreateSchema = z
+  .object({
+    phone: phoneSchema("phone").optional(),
+    email: emailSchema("email").optional(),
+    whatsapp: phoneSchema("whatsapp").optional(),
+    type: typeUserContactSchema,
+  })
+  .strict();
+
+export const usersContactPatchSchema = z
+  .object({
+    phone: phoneSchema("phone").optional(),
+    email: emailSchema("email").optional(),
+    whatsapp: phoneSchema("whatsapp").optional(),
+    type: typeUserContactSchema.optional(),
+    softDelete: z.boolean().optional(),
+  })
+  .strict()
+  .refine(
+    (data) =>
+      data.phone !== undefined ||
+      data.email !== undefined ||
+      data.whatsapp !== undefined ||
+      data.type !== undefined ||
+      data.softDelete === true,
+    "Deve haver ao menos um campo para alteração",
+  );
+
+export type UsersContactCreateInput = z.infer<typeof usersContactCreateSchema>;
+export type UsersContactPatchInput = z.infer<typeof usersContactPatchSchema>;
+
+// -----------------------------
+// Relationships
+// -----------------------------
+
+export const usersRelationshipsCreateSchema = z
+  .object({
+    maritalStatus: maritalStatusSchema.optional(),  
+    spouseName: personNameSchema("spouseName").optional(),  
+    housingType: housingTypeSchema.optional(),  
+    rentalPeriod: nonEmptyText255Schema("rentalPeriod").optional(),
+    motherName: personNameSchema("motherName").optional(),
+    fatherName: personNameSchema("fatherName").optional(),
+    workplace: nonEmptyText255Schema("workplace").optional(),
+    workAddress: nonEmptyText255Schema("workAddress").optional(),
+    departmentLabor: nonEmptyText255Schema("departmentLabor").optional(),
+    professionTime: nonEmptyText255Schema("professionTime").optional(),
+    income: z.coerce.number().min(0).optional(),
+    toWarmUp: z.boolean().optional(),
+  })
+  .strict();
+
+export const usersRelationshipsPatchSchema = usersRelationshipsCreateSchema
+  .partial()
+  .strict()
+  .refine(
+    (data) => Object.values(data).some((v) => v !== undefined),
+    "Deve haver ao menos um campo para alteração",
+  );
+
+export type UsersRelationshipsCreateInput = z.infer<
+  typeof usersRelationshipsCreateSchema
+>;
+export type UsersRelationshipsPatchInput = z.infer<
+  typeof usersRelationshipsPatchSchema
+>;
+
+// -----------------------------
+// Tax infos
+// -----------------------------
+
+export const usersTaxInfosCreateSchema = z
+  .object({
+    renegotiation: z.boolean().optional(),
+    spc_registration: z.boolean().optional(),
+    spc_registry_date: dateOnlyIsoSchema("spc_registry_date").optional(),
+    municipalRegistration: nonEmptyText255Schema(
+      "municipalRegistration",
+    ).optional(),
+    suframa_registration: nonEmptyText255Schema(
+      "suframa_registration",
+    ).optional(),
+    userLegalName: nonEmptyText255Schema("userLegalName").optional(),
+    r3_code: z.coerce.number().int().min(0).optional(),
+    sefaz_Date: dateOnlyIsoSchema("sefaz_Date").optional(),
+    governmentEntity: z.string().length(1).optional(),
+    governmentReductionRate: z.coerce.number().min(0).max(100).optional(),
+    identityDocument: nonEmptyText255Schema("identityDocument").optional(),
+    partnerName1: personNameSchema("partnerName1").optional(),
+    partnerName2: personNameSchema("partnerName2").optional(),
+  })
+  .strict();
+
+export const usersTaxInfosPatchSchema = usersTaxInfosCreateSchema
+  .partial()
+  .strict()
+  .refine(
+    (data) => Object.values(data).some((v) => v !== undefined),
+    "Deve haver ao menos um campo para alteração",
+  );
+
+export type UsersTaxInfosCreateInput = z.infer<
+  typeof usersTaxInfosCreateSchema
+>;
+export type UsersTaxInfosPatchInput = z.infer<typeof usersTaxInfosPatchSchema>;
+
+// -----------------------------
+// Financial info
+// -----------------------------
+
+export const usersFinancialInfoCreateSchema = z
+  .object({
+    ICMSReduction: z.coerce.number().min(0).max(100).optional(),
+    discountLimit: z.coerce.number().min(0).max(100).optional(),
+    discoutArrangement: z.coerce.number().min(0).max(100).optional(),
+    creditType: creditTypeSchema.optional(),
+    requestAmount: z.coerce.number().min(0).optional(),
+    creditLimit: z.coerce.number().min(0).optional(),
+    taxRegime: nonEmptyText255Schema("taxRegime").optional(),
+    purchaseOrder: z.boolean().optional(),
+    prevRate: z.coerce.number().min(0).max(100).optional(),
+    ratTax: z.coerce.number().min(0).max(100).optional(),
+    billingCommission: z.coerce.number().min(0).max(100).optional(),
+    senarTax: z.coerce.number().min(0).max(100).optional(),
+    sale_discount: z.coerce.number().min(0).max(100).optional(),
+    sendNF: z.boolean().optional(),
+    quotedPrice: z.boolean().optional(),
+  })
+  .strict();
+
+export const usersFinancialInfoPatchSchema = usersFinancialInfoCreateSchema
+  .partial()
+  .strict()
+  .refine(
+    (data) => Object.values(data).some((v) => v !== undefined),
+    "Deve haver ao menos um campo para alteração",
+  );
+
+export type UsersFinancialInfoCreateInput = z.infer<
+  typeof usersFinancialInfoCreateSchema
+>;
+export type UsersFinancialInfoPatchInput = z.infer<
+  typeof usersFinancialInfoPatchSchema
+>;
+
+// Aliases para perfil vinculado a enterprises_members (members_*)
+export const membersContactCreateSchema = usersContactCreateSchema;
+export const membersRelationshipsCreateSchema = usersRelationshipsCreateSchema;
+export const membersTaxInfosCreateSchema = usersTaxInfosCreateSchema;
+export const membersFinancialInfoCreateSchema = usersFinancialInfoCreateSchema;

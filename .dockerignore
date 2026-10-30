@@ -1,0 +1,43 @@
+node_modules
+dist
+coverage
+.git
+.github
+.idea
+.vscode
+.cursor
+*.tsbuildinfo
+.eslintcache
+
+# Segredos: nenhum .env entra no contexto da imagem
+.env
+.env.*
+
+# Pastas locais / docs / testes (o build só precisa de src)
+docs
+scripts
+postman-collections
+performance
+tests
+tmp
+temp
+logs
+*.log
+fotos
+storage
+
+# Dev-only: o runtime copia drizzle.migrate.config.ts, não este config
+nodemon.json
+drizzle.config.ts
+.editorconfig
+.gitattributes
+
+# Artefatos e metadados
+*.md
+*.pem
+*.p12
+*.pfx
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db

@@ -1,0 +1,54 @@
+node_modules/
+coverage/
+
+# Pastas locais (não versionar)
+docs/*
+!docs/docker.md
+scripts/
+postman-collections/
+performance/
+
+# Segredos locais; os exemplos continuam versionados
+.env*
+!.env.example
+!.env.docker.example
+
+# TypeScript
+*.tsbuildinfo
+
+# Logs e saída de pacotes
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Cache de ferramentas
+.eslintcache
+
+# Pastas temporárias (uploads locais, scratch, etc.)
+tmp/
+temp/
+
+# XML fiscal das notas (NFE_XML_DIR)
+storage/
+
+# Fotos de membros e produtos (PHOTOS_DIR)
+fotos/
+
+# Chaves e certificados (não versionar material criptográfico local)
+*.pem
+*.p12
+*.pfx
+
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+
+.idea/
+.vscode/
+.cursor/
+
+dist/

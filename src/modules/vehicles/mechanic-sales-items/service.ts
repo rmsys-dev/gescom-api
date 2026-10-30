@@ -1,0 +1,458 @@
+import { and, asc, count, eq, gte, isNull, lte, sql } from "drizzle-orm";
+import { db } from "../../../db/index.js";
+import {
+  enterprisesMembers,
+  mechanicSalesItems,
+  productTypes,
+  productsEnterprises,
+  sales,
+  salesItems,
+  users,
+} from "../../../db/schema.js";
+import { effectiveCompletionDateSql } from "../../sales/analytics/scope.js";
+import { PRODUCT_TYPE_SERVICE_CODE } from "../../../shared/products/product-type-service.js";
+import {
+  ConflictError,
+  NotFoundError,
+  ValidationError,
+} from "../../../shared/errors/app-error.js";
+import { isPostgresUniqueViolation } from "../../../shared/db/postgres-errors.js";
+import { resolveListPagination } from "../../../shared/pagination/pagination-params.js";
+import {
+  recordCreateAudit,
+  recordEntityAudit,
+  withEnterpriseAuditContext,
+  type EntityAuditContext,
+} from "../../../shared/audit/entity-audit.js";
+import { toAuditRecord } from "../../../shared/audit/build-field-diff.js";
+import { EntityTypes } from "../../../shared/audit/entity-types.js";
+import type {
+  CreateMechanicSalesItemInput,
+  ListMechanicSalesItemsQuery,
+  PatchMechanicSalesItemInput,
+} from "./schema.js";
+
+export class MechanicSalesItemsService {
+  private tenantScope(enterpriseId: string, id?: string) {
+    const base = [
+      eq(enterprisesMembers.enterpriseId, enterpriseId),
+      isNull(enterprisesMembers.deletedAt),
+      eq(sales.enterprisesId, enterpriseId),
+    ];
+    if (id) base.push(eq(mechanicSalesItems.id, id));
+    return and(...base);
+  }
+
+  private async assertMechanicInEnterprise( // verifica se o mecânico existe na empresa
+    enterpriseId: string,
+    mechanicId: string,
+  ) {
+    const row = (
+      await db
+        .select({
+          id: enterprisesMembers.id,
+          comissionService: enterprisesMembers.comissionService,
+        })
+        .from(enterprisesMembers)
+        .where(
+          and(
+            eq(enterprisesMembers.id, mechanicId),
+            eq(enterprisesMembers.enterpriseId, enterpriseId),
+            isNull(enterprisesMembers.deletedAt),
+          ),
+        )
+        .limit(1)
+    )[0];
+    if (!row) {
+      throw new ValidationError(
+        [
+          {
+            path: "body.mechanic",
+            message: "Mecanico nao encontrado na empresa",
+          },
+        ],
+        "Mecanico invalido",
+      );
+    }
+    const commission = Number(row.comissionService);
+    if (!(Number.isFinite(commission) && commission > 0)) {
+      throw new ValidationError(
+        [
+          {
+            path: "body.mechanic",
+            message:
+              "Membro com comissao de servico zerada nao pode ser incluido na ordem de servico",
+          },
+        ],
+        "Mecanico invalido",
+      );
+    }
+  }
+
+  private async assertSaleItemInEnterprise( // verifica se o item de venda existe na empresa
+    enterpriseId: string,
+    salesItemsId: string,
+  ) {
+    const row = (
+      await db
+        .select({ id: salesItems.id })
+        .from(salesItems)
+        .innerJoin(sales, eq(salesItems.salesId, sales.id))
+        .where(
+          and(
+            eq(salesItems.id, salesItemsId),
+            eq(sales.enterprisesId, enterpriseId),
+          ),
+        )
+        .limit(1)
+    )[0];
+    if (!row) {
+      throw new ValidationError(
+        [
+          {
+            path: "body.salesItemsId",
+            message: "Item de venda nao encontrado na empresa",
+          },
+        ],
+        "Item de venda invalido",
+      );
+    }
+  }
+
+  private listWhere(enterpriseId: string, query: ListMechanicSalesItemsQuery) {
+    const filters = [this.tenantScope(enterpriseId)!];
+    if (query.mechanic) {
+      filters.push(eq(mechanicSalesItems.mechanic, query.mechanic));
+    }
+    if (query.salesItemsId) {
+      filters.push(eq(mechanicSalesItems.salesItemsId, query.salesItemsId));
+    }
+    if (query.saleId) {
+      filters.push(eq(salesItems.salesId, query.saleId));
+    }
+    if (query.typeService) {
+      filters.push(eq(salesItems.typeService, query.typeService));
+    }
+    if (query.status) {
+      filters.push(eq(sales.status, query.status));
+    }
+    if (query.servicesOnly === "true") {
+      filters.push(eq(sales.type, "ORDEM DE SERVICO"));
+      filters.push(eq(productTypes.type, PRODUCT_TYPE_SERVICE_CODE));
+    }
+    if (query.dateFrom && query.dateTo) {
+      const effective = effectiveCompletionDateSql("America/Sao_Paulo");
+      filters.push(
+        and(
+          gte(effective, sql`${query.dateFrom}::date`),
+          lte(effective, sql`${query.dateTo}::date`),
+        )!,
+      );
+    }
+    return and(...filters);
+  }
+
+  private linkFrom() {
+    return db
+      .select({
+        itemId: salesItems.id,
+        quantity: salesItems.quantity,
+        valueUnit: salesItems.valueUnit,
+        valueDiscount: salesItems.valueDiscount,
+        valueAcresce: salesItems.valueAcresce,
+        percent: mechanicSalesItems.comissionService,
+      })
+      .from(mechanicSalesItems)
+      .innerJoin(
+        enterprisesMembers,
+        eq(mechanicSalesItems.mechanic, enterprisesMembers.id),
+      )
+      .innerJoin(salesItems, eq(mechanicSalesItems.salesItemsId, salesItems.id))
+      .innerJoin(sales, eq(salesItems.salesId, sales.id))
+      .innerJoin(productTypes, eq(salesItems.productTypeId, productTypes.id));
+  }
+
+  public async list( // lista os itens de venda relacionados a um mecânico
+    enterpriseId: string,
+    query: ListMechanicSalesItemsQuery = {},
+  ) {
+    const { limit, offset } = resolveListPagination(query);
+    const where = this.listWhere(enterpriseId, query);
+    const from = () =>
+      db
+        .select({
+          id: mechanicSalesItems.id,
+          mechanic: mechanicSalesItems.mechanic,
+          salesItemsId: mechanicSalesItems.salesItemsId,
+          comissionService: mechanicSalesItems.comissionService,
+          createdAt: mechanicSalesItems.createdAt,
+          updatedAt: mechanicSalesItems.updatedAt,
+          saleId: salesItems.salesId,
+          typeService: salesItems.typeService,
+          saleOrderNumber: sales.orderNumber,
+          saleType: sales.type,
+          saleCreatedAt: sales.createdAt,
+          saleStatus: sales.status,
+          mechanicName: users.userName,
+          itemDescription: salesItems.description,
+          productDescription: productsEnterprises.description,
+          quantity: salesItems.quantity,
+          valueUnit: salesItems.valueUnit,
+          valueDiscount: salesItems.valueDiscount,
+          valueAcresce: salesItems.valueAcresce,
+        })
+        .from(mechanicSalesItems)
+        .innerJoin(
+          enterprisesMembers,
+          eq(mechanicSalesItems.mechanic, enterprisesMembers.id),
+        )
+        .leftJoin(users, eq(enterprisesMembers.userId, users.id))
+        .innerJoin(
+          salesItems,
+          eq(mechanicSalesItems.salesItemsId, salesItems.id),
+        )
+        .innerJoin(sales, eq(salesItems.salesId, sales.id))
+        .innerJoin(
+          productTypes,
+          eq(salesItems.productTypeId, productTypes.id),
+        )
+        .innerJoin(
+          productsEnterprises,
+          eq(salesItems.productsEnterprisesId, productsEnterprises.id),
+        );
+
+    const [rows, totalRows] = await Promise.all([
+      from()
+        .where(where)
+        .orderBy(asc(mechanicSalesItems.id))
+        .limit(limit)
+        .offset(offset),
+      db
+        .select({ c: count() })
+        .from(mechanicSalesItems)
+        .innerJoin(
+          enterprisesMembers,
+          eq(mechanicSalesItems.mechanic, enterprisesMembers.id),
+        )
+        .innerJoin(
+          salesItems,
+          eq(mechanicSalesItems.salesItemsId, salesItems.id),
+        )
+        .innerJoin(sales, eq(salesItems.salesId, sales.id))
+        .innerJoin(
+          productTypes,
+          eq(salesItems.productTypeId, productTypes.id),
+        )
+        .where(where),
+    ]);
+    const total = Number(totalRows[0]?.c ?? 0);
+    const items = rows.map((row) => {
+      const percent = Number(row.comissionService);
+      const net =
+        Number(row.quantity) * Number(row.valueUnit) -
+        Number(row.valueDiscount) +
+        Number(row.valueAcresce);
+      const serviceTotal = Number.isFinite(net) ? Math.round(net * 100) / 100 : 0;
+      const commissionValue =
+        Number.isFinite(percent) && Number.isFinite(net)
+          ? Math.round((net * percent) / 100 * 100) / 100
+          : 0;
+      return {
+        ...row,
+        mechanicName: row.mechanicName?.trim() ?? "",
+        date: row.saleCreatedAt,
+        status: row.saleStatus ?? "",
+        serviceDescription:
+          row.itemDescription?.trim() || row.productDescription?.trim() || "",
+        serviceTotal,
+        commissionPercent: Number.isFinite(percent) ? percent : 0,
+        commissionValue,
+      };
+    });
+    return { items, total, limit, offset };
+  }
+
+  /** Totais do filtro inteiro. O serviço entra uma vez; a comissão soma cada mecânico. */
+  public async summary(
+    enterpriseId: string,
+    query: ListMechanicSalesItemsQuery = {},
+  ) {
+    const where = this.listWhere(enterpriseId, query);
+    const links = this.linkFrom().where(where).as("mechanic_links");
+    const round = (value: string | number | null | undefined) => {
+      const amount = Number(value ?? 0);
+      return Number.isFinite(amount) ? Math.round(amount * 100) / 100 : 0;
+    };
+    const net = sql`${links.quantity}::numeric * ${links.valueUnit}::numeric - ${links.valueDiscount}::numeric + ${links.valueAcresce}::numeric`;
+    const [commission] = await db
+      .select({
+        count: count(),
+        commission: sql<string>`coalesce(sum((${net}) * ${links.percent}::numeric / 100), 0)`,
+      })
+      .from(links);
+    const items = db
+      .selectDistinct({
+        itemId: links.itemId,
+        quantity: links.quantity,
+        valueUnit: links.valueUnit,
+        valueDiscount: links.valueDiscount,
+        valueAcresce: links.valueAcresce,
+      })
+      .from(links)
+      .as("service_items");
+    const [money] = await db
+      .select({
+        subTotal: sql<string>`coalesce(sum(${items.quantity}::numeric * ${items.valueUnit}::numeric), 0)`,
+        discounts: sql<string>`coalesce(sum(${items.valueDiscount}::numeric), 0)`,
+        increases: sql<string>`coalesce(sum(${items.valueAcresce}::numeric), 0)`,
+        services: sql<string>`coalesce(sum(${items.quantity}::numeric * ${items.valueUnit}::numeric - ${items.valueDiscount}::numeric + ${items.valueAcresce}::numeric), 0)`,
+      })
+      .from(items);
+    return {
+      count: Number(commission?.count ?? 0),
+      subTotal: round(money?.subTotal),
+      discounts: round(money?.discounts),
+      increases: round(money?.increases),
+      services: round(money?.services),
+      commission: round(commission?.commission),
+    };
+  }
+
+  public async getById(enterpriseId: string, id: string) {
+    const row = (
+      await db
+        .select({
+          id: mechanicSalesItems.id,
+          mechanic: mechanicSalesItems.mechanic,
+          salesItemsId: mechanicSalesItems.salesItemsId,
+          comissionService: mechanicSalesItems.comissionService,
+          createdAt: mechanicSalesItems.createdAt,
+          updatedAt: mechanicSalesItems.updatedAt,
+          saleId: salesItems.salesId,
+          typeService: salesItems.typeService,
+          saleOrderNumber: sales.orderNumber,
+          saleType: sales.type,
+        })
+        .from(mechanicSalesItems)
+        .innerJoin(
+          enterprisesMembers,
+          eq(mechanicSalesItems.mechanic, enterprisesMembers.id),
+        )
+        .innerJoin(
+          salesItems,
+          eq(mechanicSalesItems.salesItemsId, salesItems.id),
+        )
+        .innerJoin(sales, eq(salesItems.salesId, sales.id))
+        .where(this.tenantScope(enterpriseId, id))
+        .limit(1)
+    )[0];
+    if (!row) {
+      throw new NotFoundError(
+        "Comissao de mecanico no item nao encontrada",
+        "MECHANIC_SALE_ITEM_COMMISSION_NOT_FOUND",
+      );
+    }
+    return row;
+  }
+
+  public async create(
+    enterpriseId: string,
+    input: CreateMechanicSalesItemInput,
+    audit: EntityAuditContext,
+  ) {
+    await this.assertMechanicInEnterprise(enterpriseId, input.mechanic);
+    await this.assertSaleItemInEnterprise(enterpriseId, input.salesItemsId);
+    const ctx = withEnterpriseAuditContext(audit, enterpriseId);
+    try {
+      const [row] = await db
+        .insert(mechanicSalesItems)
+        .values({
+          mechanic: input.mechanic,
+          salesItemsId: input.salesItemsId,
+          ...(input.comissionService !== undefined
+            ? { comissionService: input.comissionService.toString() }
+            : {}),
+        })
+        .returning();
+      if (!row) throw new Error("Falha ao criar comissao de mecanico");
+      await recordCreateAudit({
+        entityType: EntityTypes.MECHANIC_SALES_ITEMS,
+        entityId: row.id,
+        after: row,
+        ctx,
+      });
+      return row;
+    } catch (err) {
+      if (isPostgresUniqueViolation(err)) {
+        throw new ConflictError(
+          "Ja existe comissao para este mecanico e item de venda",
+          "MECHANIC_SALE_ITEM_COMMISSION_CONFLICT",
+        );
+      }
+      throw err;
+    }
+  }
+
+  public async patch(
+    enterpriseId: string,
+    id: string,
+    input: PatchMechanicSalesItemInput,
+    audit: EntityAuditContext,
+  ) {
+    const existing = await this.getById(enterpriseId, id);
+    const ctx = withEnterpriseAuditContext(audit, enterpriseId);
+    const [row] = await db
+      .update(mechanicSalesItems)
+      .set({
+        comissionService: input.comissionService.toString(),
+        updatedAt: new Date(),
+      })
+      .where(eq(mechanicSalesItems.id, id))
+      .returning();
+    if (!row) {
+      throw new NotFoundError(
+        "Comissao de mecanico no item nao encontrada",
+        "MECHANIC_SALE_ITEM_COMMISSION_NOT_FOUND",
+      );
+    }
+    await recordEntityAudit({
+      entityType: EntityTypes.MECHANIC_SALES_ITEMS,
+      entityId: id,
+      action: "UPDATE",
+      before: toAuditRecord(existing),
+      after: toAuditRecord(row),
+      ctx,
+    });
+    return row;
+  }
+
+  public async delete(
+    enterpriseId: string,
+    id: string,
+    audit: EntityAuditContext,
+  ) {
+    const existing = await this.getById(enterpriseId, id);
+    const ctx = withEnterpriseAuditContext(audit, enterpriseId);
+    const [row] = await db
+      .delete(mechanicSalesItems)
+      .where(eq(mechanicSalesItems.id, id))
+      .returning();
+    if (!row) {
+      throw new NotFoundError(
+        "Comissao de mecanico no item nao encontrada",
+        "MECHANIC_SALE_ITEM_COMMISSION_NOT_FOUND",
+      );
+    }
+    await recordEntityAudit({
+      entityType: EntityTypes.MECHANIC_SALES_ITEMS,
+      entityId: id,
+      action: "DELETE",
+      before: toAuditRecord(existing),
+      after: toAuditRecord(row),
+      ctx,
+    });
+    return row;
+  }
+}
+
+export const mechanicSalesItemsService = new MechanicSalesItemsService();

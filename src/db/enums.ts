@@ -1,0 +1,866 @@
+import { pgEnum } from "drizzle-orm/pg-core";
+
+// Tipo de sequência (VENDA, NFE, NFSE, NFCE, MDFE, CTE, MEMBRO, PRODUTO)
+export const sequenceTypeEnum = pgEnum("sequence_type", [
+  "VENDA",
+  "NFE",
+  "NFSE",
+  "NFCE",
+  "MDFE",
+  "CTE",
+  "MEMBRO",
+  "PRODUTO",
+]);
+
+export type SequenceType = (typeof sequenceTypeEnum.enumValues)[number];
+
+//Status de usuário (ativo, inativo, bloqueado, pendente, especial, cobrança, não vender)
+export const statusEnum = pgEnum("status", [
+  "ATIVO",
+  "INATIVO",
+  "BLOQUEADO",
+  "PENDENTE",
+  "ESPECIAL",
+  "COBRANCA",
+  "NAO_VENDER",
+  "FUNCIONARIO",
+]);
+
+//Tipo de venda (venda, orçamento, devolução, cancelamento, outro)
+export const saleTypeEnum = pgEnum("sale_type", [
+  "VENDA",
+  "ORCAMENTO",
+  "DEVOLUCAO",
+  "CANCELAMENTO",
+  "ORDEM DE SERVICO",
+]);
+
+// TIPO DE PAGAMENTO ( A VISTA, A PRAZO, OUTROS)
+export const paymentTypeEnum = pgEnum("payment_type", [
+  "A_VISTA",
+  "A_PRAZO",
+  "OUTROS",
+]);
+
+//Tipo de pis/cofins (entrada, saída, transferência, outro)
+export const pisCofinsTypeEnum = pgEnum("pis_cofins_type", [
+  "ENTRADA",
+  "SAIDA",
+  "TRANSFERENCIA",
+  "OUTRO",
+]);
+
+// Enquadramento do PIS/COFINS
+export const pisCofinsFramingEnum = pgEnum("pis_cofins_framing", [
+  "1", // Tributados
+  "2", // Monofasicos
+  "3", // Substituicao tributaria
+  "4", // Aliquota zero
+  "5", // Isencao
+  "6", // Nao incidencia
+  "7", // Suspensao
+]);
+
+//Tipo de contato de usuário (secundário, principal, trabalho, residencial, comercial, conjugue, filho, pai, mãe, amigo, outro)
+export const typeUserContactEnum = pgEnum("type_user_contact", [
+  "SECUNDARIO",
+  "PRINCIPAL",
+  "TRABALHO",
+  "RESIDENCIAL",
+  "COMERCIAL",
+  "CONJUGE",
+  "FILHO",
+  "PAI",
+  "MAE",
+  "OUTRO",
+]);
+
+//Tipo de crédito (crédito, débito, outro)
+export const creditTypeEnum = pgEnum("credit_type", ["MENSAL", "GERAL"]);
+
+//Tipo de moradia (alugado, próprio, doado, emprestado, outro)
+export const housingTypeEnum = pgEnum("housing_type", [
+  "ALUGADO",
+  "PROPRIO",
+  "DOADO",
+  "EMPRESTADO",
+  "OUTRO",
+]);
+
+//Gênero (feminino, masculino, não informado)
+export const genderEnum = pgEnum("gender", [
+  "FEMININO",
+  "MASCULINO",
+  "NAO_INFORMADO",
+]);
+
+export const maritalStatusEnum = pgEnum("marital_status", [
+  "SOLTEIRO",
+  "CASADO",
+  "DIVORCIADO",
+  "VIUVO",
+  "UNIAO_ESTAVEL",
+]);
+
+//Status de permissão (permitido, negado)
+export const statusPermissionEnum = pgEnum("status_permission", [
+  "ALLOW",
+  "DENIED",
+]);
+export type StatusPermission = (typeof statusPermissionEnum.enumValues)[number];
+
+//Tipo de endereço (residencial, comercial, entrega, cobrança, faturamento, secundário, principal, outro)
+export const adressTypeEnum = pgEnum("adress_type", [
+  "RESIDENCIAL",
+  "COMERCIAL",
+  "ENTREGA",
+  "COBRANCA",
+  "FATURAMENTO",
+  "SECUNDARIO",
+  "PRINCIPAL",
+  "OUTRO",
+]);
+
+//Tipo de documento (venda, orçamento)
+export const documentTypeEnum = pgEnum("document_type", ["VENDA", "ORCAMENTO"]);
+
+//Status de venda (aberta, finalizada, cancelada, inativa)
+export const saleStatusEnum = pgEnum("sale_status", [
+  "ABERTA",
+  "FINALIZADA",
+  "CANCELADA",
+  "INATIVA",
+  "PARCIAL",
+]);
+export const loginTypeEnum = pgEnum("login_type", ["EMAIL", "CPF"]);
+
+//Propósito do código enviado por e-mail (primeiro acesso)
+export const invitePurposeEnum = pgEnum("invite_purpose", [
+  "FIRST_ACCESS",
+  "MEMBERSHIP_ACCEPT",
+]);
+
+//Canal de convite (email, sms, whatsapp)
+export const inviteChannelEnum = pgEnum("invite_channel", [
+  "EMAIL",
+  "SMS",
+  "WHATSAPP",
+]);
+
+//Status de checagem do código de redefinição de senha
+export const passwordResetCheckStatusEnum = pgEnum(
+  "password_reset_check_status",
+  ["PENDENTE", "VERIFICADO"],
+);
+export type PasswordResetCheckStatus =
+  (typeof passwordResetCheckStatusEnum.enumValues)[number];
+
+//Classes de membros
+export const memberClassEnum = pgEnum("member_class", [
+  "ADMINISTRADOR",
+  "GERENTE",
+  "COLABORADOR",
+  "CLIENTE",
+  "TRANSPORTADOR",
+  "FORNECEDOR",
+  "PARCEIRO",
+  "SOCIO",
+  "INVESTIDOR",
+  "AUDITOR",
+  "OUTRO",
+]);
+
+//Eventos de auditoria de autenticação
+export const authEventEnum = pgEnum("auth_event", [
+  "LOGIN_SUCCESS",
+  "LOGIN_FAILED_PASSWORD",
+  "LOGIN_FAILED_USER",
+  "LOGIN_BLOCKED",
+  "LOGOUT",
+  "REFRESH",
+  "REFRESH_REUSE",
+  "SWITCH_ENTERPRISE",
+  "RATE_LIMITED",
+  "PERMISSION_DENIED",
+  "SIGNUP",
+  "SIGNUP_FAILED",
+  "FIRST_ACCESS_REQUESTED",
+  "FIRST_ACCESS_VERIFIED",
+  "FIRST_ACCESS_FAILED",
+  "FIRST_ACCESS_COMPLETED",
+  "INVITE_CREATED",
+  "INVITE_ACCEPTED",
+  "INVITE_DECLINED",
+  "INVITE_EXPIRED",
+  "CODE_RATE_LIMITED",
+  "PASSWORD_RESET_REQUESTED",
+  "PASSWORD_RESET_VERIFIED",
+  "PASSWORD_RESET_FAILED",
+  "PASSWORD_RESET_RATE_LIMITED",
+  "PASSWORD_RESET_COMPLETED",
+]);
+
+//Ações de auditoria de entidades de domínio
+export const entityAuditActionEnum = pgEnum("entity_audit_action", [
+  "CREATE",
+  "UPDATE",
+  "SOFT_DELETE",
+  "DELETE",
+]);
+
+//Tipos de entidade auditáveis (domínio)
+export const entityTypeEnum = pgEnum("entity_type", [
+  "USERS",
+  "USERS_PERSONAL_INFO",
+  "USERS_ADDRESS",
+  "USERS_CONTACT",
+  "USERS_RELATIONSHIPS",
+  "USERS_TAX_INFOS",
+  "USERS_FINANCIAL_INFO",
+  "MEMBERS_PERSONAL_INFO",
+  "MEMBERS_ADDRESS",
+  "MEMBERS_CONTACT",
+  "MEMBERS_RELATIONSHIPS",
+  "MEMBERS_TAX_INFOS",
+  "MEMBERS_FINANCIAL_INFO",
+  "ENTERPRISES",
+  "ENTERPRISES_ADDRESS",
+  "ENTERPRISE_PARAMETERS",
+  "ENTERPRISES_MEMBERS",
+  "MEMBERS_DEPARTMENTS",
+  "MEMBER_PERMISSIONS_DEFAULT",
+  "MEMBER_EXTRA_PERMISSIONS",
+  "DEPARTMENTS",
+  "MODULES",
+  "MEMBER_MODULES",
+  "MODULE_PERMISSIONS",
+  "COUNTRIES",
+  "STATES",
+  "CITIES",
+  "CEPS",
+  "PRODUCTS",
+  "PRODUCTS_ENTERPRISES",
+  "MEASUREMENT_UNITS",
+  "PRODUCT_TYPES",
+  "TYPE_SPED",
+  "PRODUCTS_NCM",
+  "PRODUCTS_CEST",
+  "PRODUCTS_ANP",
+  "PRODUCTS_NBS",
+  "PRODUCT_GROUPS",
+  "PRODUCT_SUBGROUPS",
+  "PRODUCT_BRANDS",
+  "PIS_COFINS_SITUATION",
+  "ICMS_TAXATION",
+  "PRODUCT_PRICES",
+  "PROMOTIONAL_PRICES",
+  "PRODUCT_TAXATION",
+  "PRODUCT_APPLICATIONS",
+  "SECTORS",
+  "LOCATIONS",
+  "STOCK_BATCHES",
+  "STOCK_BATCH_BALANCES",
+  "SECTORS_RENTAL",
+  "STOCK_MIN_MAX",
+  "STOCK_MOVEMENTS",
+  "PAYMENT_TYPES",
+  "SALES",
+  "SALES_RETURNS",
+  "TYPE_NETWORKS",
+  "TYPE_SUPPLIER_CUSTOMERS",
+  "VEHICLES",
+  "VEHICLES_ENTERPRISES_MEMBERS",
+  "ENTERPRISES_MEMBER_SALES_ITEMS",
+  "MECHANIC_SALES_ITEMS",
+  "NFE_PARAMETERS",
+  "ENTERPRISES_NFE",
+  "ENTERPRISES_NFE_CERTIFICATES",
+  "CFOPS",
+  "CFOPS_ENTERPRISES",
+  "SITUATION_TRIBUTARY_CST",
+  "BENEFIT_CODE",
+  "CST_COMPATIVEL_BENEFIT",
+  "CST_IBS_CBS",
+  "CLASSIFICATION_IBS_CBS",
+  "ANEXOS_RT",
+  "NFE_HEADERS",
+  "NFE_OPERATIONS",
+  "NFE_OPERATIONS_STATES",
+  "BENEFIT_CODE_BY_CFOP",
+  "BENEFIT_TYPE_COSTUMERS",
+  "BENEFIT_CODE_BY_STATE_AND_PRODUCTS",
+  "STATES_DIVISIONS",
+  "PRESUMED_CREDIT",
+  "ENTERPRISE_GROUPS",
+  "PAYMENT_METHODS",
+  "TYPE_FLAGS",
+  "PAYMENT_TYPES_METHODS_FLAGS",
+  "FISCAL_DOCUMENT_MODELS",
+  "PRINTERS",
+]);
+
+export const stockMovementTypeEnum = pgEnum("stock_movement_type", [
+  "ENTRADA",
+  "SAIDA",
+  "TRANSFERENCIA",
+  "AJUSTE",
+  "PERDA",
+  "VENDA",
+  "COMPRA",
+  "DEVOLUCAO",
+  "CANCELAMENTO",
+  "OUTROS",
+]);
+
+export const stockBatchStatusEnum = pgEnum("stock_batch_status", [
+  "ATIVO",
+  "BLOQUEADO",
+  "ESGOTADO",
+]);
+export const saleReturnStatusEnum = pgEnum("sale_return_status", [
+  "ABERTA",
+  "FINALIZADA",
+  "CANCELADA",
+]);
+export const saleReturnSituationEnum = pgEnum("sale_return_situation", [
+  "SEM_DEVOLUCAO",
+  "PARCIAL",
+  "TOTAL",
+]);
+export const saleReturnKindEnum = pgEnum("sale_return_kind", [
+  "PARCIAL",
+  "TOTAL",
+]);
+export const saleConversionClosureKindEnum = pgEnum(
+  "sale_conversion_closure_kind",
+  ["PARCIAL", "TOTAL"],
+);
+
+//Tipo de cliente (classificacao de clientes, cliente, fornecedor)
+export const typeClassificationCustomersEnum = pgEnum(
+  "type_classification_customers",
+  ["TODOS", "CLIENTE", "FORNECEDOR"],
+);
+
+export const saleOriginEnum = pgEnum("sale_origin", [
+  "WEB",
+  "MOBILE",
+  "DESKTOP",
+]);
+
+// tipo de combustiveis
+export const fuelTypeEnum = pgEnum("fuel_type", [
+  "GASOLINA",
+  "ALCOOL",
+  "DIESEL",
+  "ELETRICO",
+]);
+
+// tipo de proprietario (proprietario, locatario)
+export const ownerTypeEnum = pgEnum("owner_type", [
+  "PROPRIETARIO",
+  "LOCATARIO",
+  "OUTROS",
+]);
+
+// tipo de veiculos ( Truck, Toco, Van, Carroceria, Outros)
+export const vehicleTypeEnum = pgEnum("vehicle_type", [
+  "TRUCK",
+  "TOCO",
+  "CAVALO MECANICO",
+  "VAN",
+  "UTILITARIO",
+  "OUTROS",
+]);
+
+// tipo de carroceria ( Nao aplicavel, Aberta, Fechada, Semi-Fechada, Outros )
+export const bodyTypeEnum = pgEnum("body_type", [
+  "NAO_APLICAVEL",
+  "ABERTA",
+  "FECHADA/BAU",
+  "GRANELERA",
+  "PORTA CONTAINER",
+  "SIDER",
+]);
+
+// tipo de eixo ( Simples, Duplo, Triplo, Quadruplo, Outros )
+export const axleTypeEnum = pgEnum("axle_type", [
+  "VEICULO 2 EIXOS",
+  "VEICULO 3 EIXOS",
+  "VEICULO 4 EIXOS",
+  "VEICULO 5 EIXOS",
+  "VEICULO 6 EIXOS",
+  "VEICULO 7 EIXOS",
+  "VEICULO 8 EIXOS",
+  "VEICULO 9 EIXOS",
+  "VEICULO 10 EIXOS",
+  "VEICULO ACIMA 10 EIXOS",
+]);
+
+// tipo de serviço ( serviço, garantia )
+export const saleServiceTypeEnum = pgEnum("sale_service_type", [
+  "SERVICO",
+  "GARANTIA",
+]);
+
+// inteiro ou fracionado
+export const integerOrFractionalEnum = pgEnum("integer_or_fractional", [
+  "INTEIRO",
+  "FRACIONADO",
+]);
+
+// modelo de ordem servico
+export const orderServiceModelEnum = pgEnum("order_service_model", ["VEICULO"]);
+
+// tipo de serviço ( PROPRIO, OUTROS )
+export const typeServiceEnum = pgEnum("type_service", ["PROPRIO", "OUTROS"]);
+
+// tipo de conversão (orçamento -> venda, orçamento -> OS, OS -> venda)
+export const saleConversionTypeEnum = pgEnum("sale_conversion_type", [
+  "ORCAMENTO-VENDA",
+  "ORCAMENTO-ORDEM_SERVICO",
+  "ORDEM_SERVICO-VENDA",
+]);
+export type SaleConversionType =
+  (typeof saleConversionTypeEnum.enumValues)[number];
+
+// Eventos da fila de sincronizacao Harbour (DBF/CDX)
+export const harbourSaleSyncEventTypeEnum = pgEnum(
+  "harbour_sale_sync_event_type",
+  [
+    "SALE_FINALIZED",
+    "SALE_CANCELLED",
+    "OS_FINALIZED",
+    "OS_CANCELLED",
+    "OS_CONVERTED_TO_SALE",
+    "OS_ESTORNO",
+    "SALE_RETURNED",
+  ],
+);
+export type HarbourSaleSyncEventType =
+  (typeof harbourSaleSyncEventTypeEnum.enumValues)[number];
+
+// Status da fila de sincronizacao Harbour
+export const harbourSaleSyncStatusEnum = pgEnum("harbour_sale_sync_status", [
+  "PENDING",
+  "PROCESSING",
+  "DONE",
+  "ERROR",
+]);
+export type HarbourSaleSyncStatus =
+  (typeof harbourSaleSyncStatusEnum.enumValues)[number];
+
+export const nfeCertificateStatusEnum = pgEnum("nfe_certificate_status", [
+  "ATIVO",
+  "SUBSTITUIDO",
+]);
+export type NfeCertificateStatus =
+  (typeof nfeCertificateStatusEnum.enumValues)[number];
+
+// nivel de acesso (N0 sem permissão … N6 gerenciais)
+export const accessLevelEnum = pgEnum("access_level", [
+  "N0",
+  "N1",
+  "N2",
+  "N3",
+  "N4",
+  "N5",
+  "N6",
+]);
+
+// tipo de emissão de NFE ( PROPRIA, TERCEIRIZADA )
+export const nfeIssuanceTypeEnum = pgEnum("nfe_issuance_type", [
+  "PROPRIA",
+  "TERCEIRO",
+]);
+export type NfeIssuanceType = (typeof nfeIssuanceTypeEnum.enumValues)[number];
+
+// tipo de movimento de NFE ( ENTRADA, SAIDA )
+export const nfeMovimentsEnum = pgEnum("nfe_moviments", ["ENTRADA", "SAIDA"]);
+export type NfeMoviments = (typeof nfeMovimentsEnum.enumValues)[number];
+
+export const nfeEntryTransportKindEnum = pgEnum("nfe_entry_transport_kind", [
+  "DESPACHO",
+  "REDESPACHO",
+]);
+export type NfeEntryTransportKind =
+  (typeof nfeEntryTransportKindEnum.enumValues)[number];
+
+// situação da NF-e perante a emissão e a SEFAZ
+export const nfeInvoiceStatusEnum = pgEnum("nfe_invoice_status", [
+  "PENDENTE",
+  "ASSINADA",
+  "AUTORIZADA",
+  "REJEITADA",
+  "CANCELADA",
+  "DENEGADA",
+  "INUTILIZADA",
+]);
+export type NfeInvoiceStatus = (typeof nfeInvoiceStatusEnum.enumValues)[number];
+
+// documento referenciado em NFref
+export const nfeReferenceTypeEnum = pgEnum("nfe_reference_type", [
+  "NFE",
+  "CTE",
+  "NF",
+  "NFP",
+  "ECF",
+]);
+export type NfeReferenceType = (typeof nfeReferenceTypeEnum.enumValues)[number];
+
+// evento da NF-e ou inutilização de numeração
+export const nfeEventTypeEnum = pgEnum("nfe_event_type", [
+  "CANCELAMENTO",
+  "CARTA_CORRECAO",
+  "INUTILIZACAO",
+  "CANCELAMENTO_SUBSTITUICAO",
+]);
+export type NfeEventType = (typeof nfeEventTypeEnum.enumValues)[number];
+
+/** Manifestação do destinatário sobre NF-e de terceiro. */
+export const nfeManifestationTypeEnum = pgEnum("nfe_manifestation_type", [
+  "CIENCIA",
+  "CONFIRMACAO",
+  "DESCONHECIMENTO",
+  "OPERACAO_NAO_REALIZADA",
+]);
+export type NfeManifestationType =
+  (typeof nfeManifestationTypeEnum.enumValues)[number];
+
+// local de retirada ou de entrega da NF-e
+export const nfePlaceTypeEnum = pgEnum("nfe_place_type", [
+  "RETIRADA",
+  "ENTREGA",
+]);
+export type NfePlaceType = (typeof nfePlaceTypeEnum.enumValues)[number];
+
+// observação do contribuinte ou do fisco na NF-e
+export const nfeAdditionalNoteTypeEnum = pgEnum("nfe_additional_note_type", [
+  "OBS_CONT",
+  "OBS_FISCO",
+]);
+export type NfeAdditionalNoteType =
+  (typeof nfeAdditionalNoteTypeEnum.enumValues)[number];
+
+// tipo de movimento no cfop
+export const cfopMovimentTypeEnum = pgEnum("cfop_moviment_type", [
+  "ENTRADA",
+  "SAIDA",
+  "TRANSFERENCIA",
+  "DEVOLUCAO",
+]);
+export type CfopMovimentType = (typeof cfopMovimentTypeEnum.enumValues)[number];
+
+// regime tributário (CRT, códigos 1 a 4)
+export const regimeTributarioEnum = pgEnum("regime_tributario", [
+  "1", // Simples Nacional
+  "2", // Simples Nacional (excesso sublimite de receita bruta)
+  "3", // Regime Normal (Lucro Presumido ou Lucro Real)
+  "4", // Simples Nacional – Microempreendedor Individual (MEI)
+]);
+export type RegimeTributario = (typeof regimeTributarioEnum.enumValues)[number];
+
+// origem da mercadoria na situação tributária (tabela de origem do CST, códigos 0 a 8)
+export const cstOriginEnum = pgEnum("cst_origin", [
+  "0", // Nacional, exceto as indicadas nos códigos 3, 4, 5 e 8
+  "1", // Estrangeira – Importação direta, exceto a indicada no código 6
+  "2", // Estrangeira – Adquirida no mercado interno, exceto a indicada no código 7
+  "3", // Nacional, mercadoria ou bem com Conteúdo de Importação superior a 40% e inferior ou igual a 70%
+  "4", // Nacional, cuja produção tenha sido feita em conformidade com os processos produtivos básicos de que tratam o Decreto-Lei nº 288/67 e demais legislações (Zona Franca de Manaus)
+  "5", // Nacional, mercadoria ou bem com Conteúdo de Importação inferior ou igual a 40%
+  "6", // Estrangeira – Importação direta, sem similar nacional, constante em lista de Resolução CAMEX e gás natural
+  "7", // Estrangeira – Adquirida no mercado interno, sem similar nacional, constante em lista de Resolução CAMEX e gás natural
+  "8", // Nacional, mercadoria ou bem com Conteúdo de Importação superior a 70%
+]);
+export type CstOrigin = (typeof cstOriginEnum.enumValues)[number];
+
+// tipo de tributação ( 1 - tributado, 2 - Substituicao, 3 - Tributado/Susbstituicao, 4- Isento)
+export const taxationTypeEnum = pgEnum("taxation_type", [
+  "1", // Tributado
+  "2", // Substituicao
+  "3", // Tributado/Susbstituicao
+  "4", // Isento IBS ou CBS
+]);
+export type TaxationType = (typeof taxationTypeEnum.enumValues)[number];
+
+// tipo de calculo de DIFAL ( 0 - Não aplicável, 1 - DIFAL por Fora ( Base Unica ), 2 - DIFIAL por Dentro ( Base Dupla )
+export const difalCalculationEnum = pgEnum("difal_calculation", [
+  "0", // Não aplicável
+  "1", // DIFAL por Fora ( Base Unica )
+  "2", // DIFAL por Dentro ( Base Dupla )
+]);
+export type DifalCalculation = (typeof difalCalculationEnum.enumValues)[number];
+
+// tipo de meio de pagamento ( comanda, outros )
+export const paymentMethodTypeEnum = pgEnum("payment_method_type", [
+  "1", // DEBITO
+  "2", // CREDITO
+  "3", // PIX
+  "4", // VOUCHER
+  "5", // OUTROS
+]);
+export type PaymentMethodType =
+  (typeof paymentMethodTypeEnum.enumValues)[number];
+
+// integração do meio de pagamento ( manual, api, etc. )
+export const paymentMethodIntegrationEnum = pgEnum(
+  "payment_method_integration",
+  [
+    "0", // SEM INTEGRAÇÃO
+    "1", // INTEGRAÇÃO
+    "2", // NÃO INTEGRADO
+  ],
+);
+export type PaymentMethodIntegration =
+  (typeof paymentMethodIntegrationEnum.enumValues)[number];
+
+export const financialDirectionEnum = pgEnum("financial_direction", [
+  "RECEBER",
+  "PAGAR",
+]);
+export type FinancialDirection =
+  (typeof financialDirectionEnum.enumValues)[number];
+
+export const financialSourceEnum = pgEnum("financial_source", [
+  "VENDA",
+  "MANUAL",
+  "COMPRA",
+  "DEVOLUCAO",
+]);
+export type FinancialSource = (typeof financialSourceEnum.enumValues)[number];
+
+export const financialKindEnum = pgEnum("financial_kind", [
+  "PEDIDO",
+  "NFE",
+  "BOLETO",
+  "AVULSO",
+  "COMPRA",
+]);
+export type FinancialKind = (typeof financialKindEnum.enumValues)[number];
+
+export const financialTitleStatusEnum = pgEnum("financial_title_status", [
+  "ABERTO",
+  "PARCIAL",
+  "QUITADO",
+  "CANCELADO",
+  "CONSOLIDADO",
+]);
+export type FinancialTitleStatus =
+  (typeof financialTitleStatusEnum.enumValues)[number];
+
+export const financialInstallmentStatusEnum = pgEnum(
+  "financial_installment_status",
+  ["ABERTA", "PARCIAL", "QUITADA", "CANCELADA"],
+);
+export type FinancialInstallmentStatus =
+  (typeof financialInstallmentStatusEnum.enumValues)[number];
+
+export const financialScheduleSourceEnum = pgEnum("financial_schedule_source", [
+  "PEDIDO",
+  "NFE",
+  "BOLETO",
+]);
+export type FinancialScheduleSource =
+  (typeof financialScheduleSourceEnum.enumValues)[number];
+
+export const financialSettlementKindEnum = pgEnum("financial_settlement_kind", [
+  "BAIXA",
+  "ABATIMENTO_DEVOLUCAO",
+  "ABATIMENTO_CREDITO",
+  "ESTORNO",
+]);
+export type FinancialSettlementKind =
+  (typeof financialSettlementKindEnum.enumValues)[number];
+
+export const memberCreditOriginEnum = pgEnum("member_credit_origin", [
+  "DEVOLUCAO",
+  "MANUAL",
+]);
+export type MemberCreditOrigin =
+  (typeof memberCreditOriginEnum.enumValues)[number];
+
+export const memberCreditStatusEnum = pgEnum("member_credit_status", [
+  "ABERTO",
+  "PARCIAL",
+  "UTILIZADO",
+  "CANCELADO",
+]);
+export type MemberCreditStatus =
+  (typeof memberCreditStatusEnum.enumValues)[number];
+
+export const bankChannelEnum = pgEnum("bank_channel", ["API", "CNAB"]);
+export type BankChannel = (typeof bankChannelEnum.enumValues)[number];
+
+export const cnabLayoutEnum = pgEnum("cnab_layout", ["CNAB240", "CNAB400"]);
+export type CnabLayout = (typeof cnabLayoutEnum.enumValues)[number];
+
+export const bankSlipStatusEnum = pgEnum("bank_slip_status", [
+  "RASCUNHO",
+  "AGUARDANDO_REGISTRO",
+  "REGISTRADO",
+  "REJEITADO",
+  "LIQUIDADO",
+  "BAIXADO",
+  "CANCELADO",
+]);
+export type BankSlipStatus = (typeof bankSlipStatusEnum.enumValues)[number];
+
+export const bankSlipEventKindEnum = pgEnum("bank_slip_event_kind", [
+  "EMISSAO",
+  "REGISTRO",
+  "REJEICAO",
+  "ALTERACAO_VENCIMENTO",
+  "LIQUIDACAO",
+  "BAIXA",
+  "WEBHOOK",
+  "RETORNO",
+]);
+export type BankSlipEventKind =
+  (typeof bankSlipEventKindEnum.enumValues)[number];
+
+export const remittanceStatusEnum = pgEnum("remittance_status", [
+  "GERADA",
+  "PROCESSADA",
+]);
+export type RemittanceStatus = (typeof remittanceStatusEnum.enumValues)[number];
+
+export const remittanceMovementEnum = pgEnum("remittance_movement", [
+  "REGISTRO",
+  "ALTERACAO_VENCIMENTO",
+  "PEDIDO_BAIXA",
+]);
+export type RemittanceMovement =
+  (typeof remittanceMovementEnum.enumValues)[number];
+
+export const returnOccurrenceEnum = pgEnum("return_occurrence", [
+  "REGISTRO_CONFIRMADO",
+  "REGISTRO_REJEITADO",
+  "LIQUIDACAO",
+  "BAIXA",
+]);
+export type ReturnOccurrence = (typeof returnOccurrenceEnum.enumValues)[number];
+
+/** Status do pedido da loja virtual (checkout web). */
+export const marketplaceOrderStatusEnum = pgEnum("marketplace_order_status", [
+  "confirmado",
+  "preparando",
+  "enviado",
+  "entregue",
+  "criado",
+  "cancelado",
+]);
+export type MarketplaceOrderStatus =
+  (typeof marketplaceOrderStatusEnum.enumValues)[number];
+
+/** Meio de pagamento do checkout da loja virtual. */
+export const marketplaceStorePaymentMethodEnum = pgEnum(
+  "marketplace_store_payment_method",
+  ["pix", "credito", "boleto"],
+);
+export type MarketplaceStorePaymentMethod =
+  (typeof marketplaceStorePaymentMethodEnum.enumValues)[number];
+
+/**
+ * Status do pagamento do pedido da loja virtual.
+ * Inicial: `pendente` (pedido criado, aguardando escolha/confirmação).
+ */
+export const marketplacePaymentStatusEnum = pgEnum(
+  "marketplace_payment_status",
+  ["pendente", "aprovado", "recusado", "cancelado", "estornado", "expirado"],
+);
+export type MarketplacePaymentStatus =
+  (typeof marketplacePaymentStatusEnum.enumValues)[number];
+
+/** Tipo de fulfillment do pedido da loja (entrega ou retirada). */
+export const marketplaceDeliveryTypeEnum = pgEnum("marketplace_delivery_type", [
+  "entrega",
+  "retirada",
+]);
+export type MarketplaceDeliveryType =
+  (typeof marketplaceDeliveryTypeEnum.enumValues)[number];
+
+/**
+ * Status da entrega/retirada do pedido da loja.
+ * Inicial: `pendente` (pedido criado, aguardando pagamento/processamento).
+ */
+export const marketplaceDeliveryStatusEnum = pgEnum(
+  "marketplace_delivery_status",
+  [
+    "pendente",
+    "preparando",
+    "enviado",
+    "pronto_retirada",
+    "entregue",
+    "retirado",
+    "cancelado",
+  ],
+);
+export type MarketplaceDeliveryStatus =
+  (typeof marketplaceDeliveryStatusEnum.enumValues)[number];
+
+/** Tipo de desconto do cupom da loja virtual. */
+export const marketplaceCouponDiscountTypeEnum = pgEnum(
+  "marketplace_coupon_discount_type",
+  ["valor_fixo", "porcentagem"],
+);
+export type MarketplaceCouponDiscountType =
+  (typeof marketplaceCouponDiscountTypeEnum.enumValues)[number];
+
+/** Escopo de aplicação do cupom (pedido inteiro ou um produto). */
+export const marketplaceCouponScopeEnum = pgEnum("marketplace_coupon_scope", [
+  "qualquer_produto",
+  "produto",
+]);
+export type MarketplaceCouponScope =
+  (typeof marketplaceCouponScopeEnum.enumValues)[number];
+
+/** Status do resgate do cupom no pedido. */
+export const marketplaceCouponRedemptionStatusEnum = pgEnum(
+  "marketplace_coupon_redemption_status",
+  ["aplicado", "liberado"],
+);
+export type MarketplaceCouponRedemptionStatus =
+  (typeof marketplaceCouponRedemptionStatusEnum.enumValues)[number];
+
+/** Provedor de pagamento da loja virtual. */
+export const marketplacePaymentProviderEnum = pgEnum(
+  "marketplace_payment_provider",
+  ["mercadopago"],
+);
+export type MarketplacePaymentProvider =
+  (typeof marketplacePaymentProviderEnum.enumValues)[number];
+
+/** Ambiente da conta no provedor. */
+export const marketplacePaymentEnvironmentEnum = pgEnum(
+  "marketplace_payment_environment",
+  ["sandbox", "production"],
+);
+export type MarketplacePaymentEnvironment =
+  (typeof marketplacePaymentEnvironmentEnum.enumValues)[number];
+
+/** Tipo de autenticação da config de pagamento. */
+export const marketplacePaymentAuthTypeEnum = pgEnum(
+  "marketplace_payment_auth_type",
+  ["API_KEY", "BEARER_TOKEN", "OAUTH2", "BASIC_AUTH", "MTLS", "CUSTOM"],
+);
+export type MarketplacePaymentAuthType =
+  (typeof marketplacePaymentAuthTypeEnum.enumValues)[number];
+
+/** Status da config de pagamento da loja. */
+export const marketplacePaymentConfigStatusEnum = pgEnum(
+  "marketplace_payment_config_status",
+  ["RASCUNHO", "ATIVO", "INATIVO"],
+);
+export type MarketplacePaymentConfigStatus =
+  (typeof marketplacePaymentConfigStatusEnum.enumValues)[number];
+
+/**
+ * Desfecho interno da tentativa de pagamento.
+ * Independente do status do pedido e do status_detail do provedor.
+ */
+export const marketplacePaymentAttemptOutcomeEnum = pgEnum(
+  "marketplace_payment_attempt_outcome",
+  ["pending", "approved", "rejected", "canceled", "expired"],
+);
+export type MarketplacePaymentAttemptOutcome =
+  (typeof marketplacePaymentAttemptOutcomeEnum.enumValues)[number];

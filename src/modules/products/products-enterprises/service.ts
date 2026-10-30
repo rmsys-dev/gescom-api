@@ -1,0 +1,1313 @@
+import { and, asc, count, eq, exists, ilike, inArray, ne, or, sql } from "drizzle-orm";
+import { db } from "../../../db/index.js";
+import {
+  measurementUnits,
+  prices,
+  productApplication,
+  productBrands,
+  products,
+  productsAnp,
+  icmsTaxation,
+  productGroups,
+  productSubgroups,
+  productTaxation,
+  productTypes,
+  productsCest,
+  productsEnterprises,
+  productsNcm,
+  productsNbs,
+  promotionalPrices,
+  classificationIbsCbs,
+  stockBatchBalances,
+  stockBatches,
+  locations,
+  sectors,
+  sectorsRental,
+} from "../../../db/schema.js";
+import {
+  ConflictError,
+  NotFoundError,
+  ValidationError,
+} from "../../../shared/errors/app-error.js";
+import {
+  isPostgresUniqueViolation,
+  postgresConstraint,
+} from "../../../shared/db/postgres-errors.js";
+import { resolveListPagination } from "../../../shared/pagination/pagination-params.js";
+import { syncEnterpriseSequenceFloor } from "../../../shared/sequences/enterprise-sequence.js";
+import { resolveEntityCode } from "../../../shared/sequences/entity-code.js";
+import {
+  removePhoto as removeStoredPhoto,
+  savePhoto,
+  type PhotoFile,
+} from "../../../shared/photos/photo-storage.js";
+import {
+  recordCreateAudit,
+  recordEntityAudit,
+  withEnterpriseAuditContext,
+  type EntityAuditContext,
+} from "../../../shared/audit/entity-audit.js";
+import { toAuditRecord } from "../../../shared/audit/build-field-diff.js";
+import { EntityTypes } from "../../../shared/audit/entity-types.js";
+import {
+  getProductTypeCode,
+  PRODUCT_TYPE_SERVICE_CODE,
+} from "../../../shared/products/product-type-service.js";
+import type {
+  CreateProductEnterprisePayloadInput,
+  ListProductsEnterprisesQuery,
+  PatchProductEnterpriseInput,
+} from "./schema.js";
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+type DbClient = typeof db | Tx;
+
+const productEnterpriseSelectFields = {
+  id: productsEnterprises.id,
+  productId: productsEnterprises.productId,
+  enterprisesId: productsEnterprises.enterprisesId,
+  code: productsEnterprises.code,
+  description: productsEnterprises.description,
+  origin: productsEnterprises.origin,
+  manufacturer: productsEnterprises.manufacturer,
+  additionalProduct: productsEnterprises.additionalProduct,
+  measurementUnitId: productsEnterprises.measurementUnitId,
+  productTypeId: productsEnterprises.productTypeId,
+  productNcmId: productsEnterprises.productNcmId,
+  productCestId: productsEnterprises.productCestId,
+  productAnpId: productsEnterprises.productAnpId,
+  productNbsId: productsEnterprises.productNbsId,
+  productGroupId: productsEnterprises.productGroupId,
+  productSubgroupId: productsEnterprises.productSubgroupId,
+  productBrandId: productsEnterprises.productBrandId,
+  productTaxationId: productsEnterprises.productTaxationId,
+  classificationIbsCbsId: productsEnterprises.classificationIbsCbsId,
+  controlsBatch: productsEnterprises.controlsBatch,
+  controlsRental: productsEnterprises.controlsRental,
+  stockBalance: productsEnterprises.stockBalance,
+  photoUrl: productsEnterprises.photoUrl,
+  status: products.status,
+  barCode: products.barCode,
+  createdAt: productsEnterprises.createdAt,
+  updatedAt: productsEnterprises.updatedAt,
+};
+
+export class ProductsEnterprisesService {
+  private scope(enterpriseId: string, id?: string) {
+    const base = [eq(productsEnterprises.enterprisesId, enterpriseId)];
+    if (id) base.push(eq(productsEnterprises.id, id));
+    return and(...base);
+  }
+
+  private async assertProductExists(productId: string) {
+    const row = (
+      await db
+        .select({ id: products.id })
+        .from(products)
+        .where(eq(products.id, productId))
+        .limit(1)
+    )[0];
+    if (!row) {
+      throw new NotFoundError("Produto nao encontrado", "PRODUCT_NOT_FOUND");
+    }
+  }
+
+  private async assertFkExists(enterpriseId: string) {
+    return {
+      measurementUnit: async (id: string) => {
+        const row = (
+          await db
+            .select({ id: measurementUnits.id })
+            .from(measurementUnits)
+            .where(eq(measurementUnits.id, id))
+            .limit(1)
+        )[0];
+        if (!row) {
+          throw new NotFoundError(
+            "Unidade de medida nao encontrada",
+            "UNIT_NOT_FOUND",
+          );
+        }
+      },
+      productType: async (id: string) => {
+        const row = (
+          await db
+            .select({ id: productTypes.id })
+            .from(productTypes)
+            .where(eq(productTypes.id, id))
+            .limit(1)
+        )[0];
+        if (!row) {
+          throw new NotFoundError(
+            "Tipo de produto nao encontrado",
+            "PRODUCT_TYPE_NOT_FOUND",
+          );
+        }
+      },
+      ncm: async (id: string) => {
+        const row = (
+          await db
+            .select({ id: productsNcm.id })
+            .from(productsNcm)
+            .where(eq(productsNcm.id, id))
+            .limit(1)
+        )[0];
+        if (!row) {
+          throw new NotFoundError(
+            "NCM de produto nao encontrado",
+            "PRODUCTS_NCM_NOT_FOUND",
+          );
+        }
+      },
+      cest: async (id: string) => {
+        const row = (
+          await db
+            .select({ id: productsCest.id })
+            .from(productsCest)
+            .where(eq(productsCest.id, id))
+            .limit(1)
+        )[0];
+        if (!row) {
+          throw new NotFoundError(
+            "CEST de produto nao encontrado",
+            "PRODUCTS_CEST_NOT_FOUND",
+          );
+        }
+      },
+      anp: async (id: string) => {
+        const row = (
+          await db
+            .select({ id: productsAnp.id })
+            .from(productsAnp)
+            .where(eq(productsAnp.id, id))
+            .limit(1)
+        )[0];
+        if (!row) {
+          throw new NotFoundError(
+            "ANP de produto nao encontrado",
+            "PRODUCTS_ANP_NOT_FOUND",
+          );
+        }
+      },
+      nbs: async (id: string) => {
+        const row = (
+          await db
+            .select({ id: productsNbs.id })
+            .from(productsNbs)
+            .where(eq(productsNbs.id, id))
+            .limit(1)
+        )[0];
+        if (!row) {
+          throw new NotFoundError(
+            "NBS de servico nao encontrado",
+            "PRODUCTS_NBS_NOT_FOUND",
+          );
+        }
+      },
+      group: async (id: string) => {
+        const row = (
+          await db
+            .select({ id: productGroups.id })
+            .from(productGroups)
+            .where(
+              and(
+                eq(productGroups.id, id),
+                eq(productGroups.enterprisesId, enterpriseId),
+              ),
+            )
+            .limit(1)
+        )[0];
+        if (!row) {
+          throw new NotFoundError(
+            "Grupo de produto nao encontrado",
+            "PRODUCT_GROUP_NOT_FOUND",
+          );
+        }
+      },
+      subgroup: async (id: string) => {
+        const row = (
+          await db
+            .select({ id: productSubgroups.id })
+            .from(productSubgroups)
+            .where(
+              and(
+                eq(productSubgroups.id, id),
+                eq(productSubgroups.enterprisesId, enterpriseId),
+              ),
+            )
+            .limit(1)
+        )[0];
+        if (!row) {
+          throw new NotFoundError(
+            "Subgrupo de produto nao encontrado",
+            "PRODUCT_SUBGROUP_NOT_FOUND",
+          );
+        }
+      },
+      brand: async (id: string) => {
+        const row = (
+          await db
+            .select({ id: productBrands.id })
+            .from(productBrands)
+            .where(
+              and(
+                eq(productBrands.id, id),
+                eq(productBrands.enterprisesId, enterpriseId),
+              ),
+            )
+            .limit(1)
+        )[0];
+        if (!row) {
+          throw new NotFoundError(
+            "Marca de produto nao encontrada",
+            "PRODUCT_BRAND_NOT_FOUND",
+          );
+        }
+      },
+      classificationIbsCbs: async (id: string) => {
+        const row = (
+          await db
+            .select({ id: classificationIbsCbs.id })
+            .from(classificationIbsCbs)
+            .where(eq(classificationIbsCbs.id, id))
+            .limit(1)
+        )[0];
+        if (!row) {
+          throw new NotFoundError(
+            "Classificacao IBS/CBS nao encontrada",
+            "CLASSIFICATION_IBS_CBS_NOT_FOUND",
+          );
+        }
+      },
+      productTaxation: async (id: string) => {
+        const row = (
+          await db
+            .select({ id: productTaxation.id })
+            .from(productTaxation)
+            .where(eq(productTaxation.id, id))
+            .limit(1)
+        )[0];
+        if (!row) {
+          throw new NotFoundError(
+            "Tributacao do produto nao encontrada",
+            "PRODUCT_TAXATION_NOT_FOUND",
+          );
+        }
+      },
+    };
+  }
+
+  /** ICMS FF é substituição tributária; só esse caso usa CEST. */
+  private async isSubstitutionTaxation(productTaxationId: string | null | undefined) {
+    if (!productTaxationId) return false;
+    const [row] = await db
+      .select({ icms: icmsTaxation.icms })
+      .from(productTaxation)
+      .innerJoin(icmsTaxation, eq(icmsTaxation.id, productTaxation.icmsTaxationId))
+      .where(eq(productTaxation.id, productTaxationId))
+      .limit(1);
+    return row?.icms.trim().toUpperCase() === "FF";
+  }
+
+  private async validateProductTypeRules(input: {
+    productTypeId: string;
+    productTaxationId?: string | null;
+    productNcmId?: string | null;
+    productCestId?: string | null;
+    productNbsId?: string | null;
+  }) {
+    const typeCode = await getProductTypeCode(input.productTypeId);
+    if (!typeCode) {
+      throw new NotFoundError(
+        "Tipo de produto nao encontrado",
+        "PRODUCT_TYPE_NOT_FOUND",
+      );
+    }
+
+    const isService = typeCode === PRODUCT_TYPE_SERVICE_CODE;
+
+    if (isService) {
+      if (!input.productNbsId) {
+        throw new ValidationError(
+          [
+            {
+              path: "productNbsId",
+              message: "NBS obrigatorio para produto do tipo servico (09)",
+            },
+          ],
+          "NBS obrigatorio para servico",
+        );
+      }
+      return;
+    }
+
+    if (input.productNbsId) {
+      throw new ValidationError(
+        [
+          {
+            path: "productNbsId",
+            message: "NBS permitido apenas para produto do tipo servico (09)",
+          },
+        ],
+        "NBS nao permitido para este tipo de produto",
+      );
+    }
+
+    const missing: { path: string; message: string }[] = [];
+    if (!input.productNcmId) {
+      missing.push({
+        path: "productNcmId",
+        message: "NCM obrigatorio para produto que nao e servico",
+      });
+    }
+    if ((await this.isSubstitutionTaxation(input.productTaxationId)) && !input.productCestId) {
+      missing.push({
+        path: "productCestId",
+        message: "CEST obrigatorio para produto com substituicao tributaria",
+      });
+    }
+    if (missing.length > 0) {
+      throw new ValidationError(
+        missing,
+        "Dados fiscais obrigatorios para produto",
+      );
+    }
+  }
+
+  private async validateProductFks(
+    enterpriseId: string,
+    input: {
+    measurementUnitId: string;
+    productTypeId: string;
+    productNcmId?: string | null;
+    productCestId?: string | null;
+    productAnpId?: string | null;
+    productNbsId?: string | null;
+    productGroupId: string;
+    productSubgroupId: string;
+    productBrandId: string;
+    productTaxationId?: string | null;
+    classificationIbsCbsId?: string | null;
+  },
+  ) {
+    await this.validateProductTypeRules(input);
+
+    const fk = await this.assertFkExists(enterpriseId);
+    const checks = [
+      fk.measurementUnit(input.measurementUnitId),
+      fk.productType(input.productTypeId),
+      fk.group(input.productGroupId),
+      fk.subgroup(input.productSubgroupId),
+      fk.brand(input.productBrandId),
+    ];
+    if (input.productTaxationId) {
+      checks.push(fk.productTaxation(input.productTaxationId));
+    }
+    if (input.productNcmId) {
+      checks.push(fk.ncm(input.productNcmId));
+    }
+    if (input.productCestId) {
+      checks.push(fk.cest(input.productCestId));
+    }
+    if (input.productAnpId) {
+      checks.push(fk.anp(input.productAnpId));
+    }
+    if (input.productNbsId) {
+      checks.push(fk.nbs(input.productNbsId));
+    }
+    if (input.classificationIbsCbsId) {
+      checks.push(fk.classificationIbsCbs(input.classificationIbsCbsId));
+    }
+    await Promise.all(checks);
+  }
+
+  public async assertEnterprisePayload(
+    enterpriseId: string,
+    input: CreateProductEnterprisePayloadInput,
+  ) {
+    await this.validateProductFks(enterpriseId, input);
+  }
+
+  private enterpriseLinkConflict(err: unknown): never {
+    if (
+      isPostgresUniqueViolation(err) &&
+      postgresConstraint(err) === "products_enterprises_enterprise_code_unique"
+    ) {
+      throw new ConflictError(
+        "Ja existe produto com este codigo nesta empresa",
+        "PRODUCT_ENTERPRISE_CODE_DUPLICATE",
+      );
+    }
+    if (isPostgresUniqueViolation(err)) {
+      throw new ConflictError(
+        "Produto ja vinculado a esta empresa ou codigo duplicado",
+        "PRODUCT_ENTERPRISE_CONFLICT",
+      );
+    }
+    throw err;
+  }
+
+  private async isEnterpriseCodeTaken(
+    client: DbClient,
+    enterpriseId: string,
+    code: number,
+    exceptId?: string,
+  ): Promise<boolean> {
+    const filters = [
+      eq(productsEnterprises.enterprisesId, enterpriseId),
+      eq(productsEnterprises.code, code),
+    ];
+    if (exceptId) {
+      filters.push(ne(productsEnterprises.id, exceptId));
+    }
+    const [found] = await client
+      .select({ id: productsEnterprises.id })
+      .from(productsEnterprises)
+      .where(and(...filters))
+      .limit(1);
+    return Boolean(found);
+  }
+
+  private async assertEnterpriseCodeAvailable(
+    client: DbClient,
+    enterpriseId: string,
+    code: number | null | undefined,
+    exceptId?: string,
+  ) {
+    if (code === null || code === undefined) return;
+    if (await this.isEnterpriseCodeTaken(client, enterpriseId, code, exceptId)) {
+      throw new ConflictError(
+        "Ja existe produto com este codigo nesta empresa",
+        "PRODUCT_ENTERPRISE_CODE_DUPLICATE",
+      );
+    }
+  }
+
+  private async insertEnterpriseLink(
+    tx: Tx,
+    enterpriseId: string,
+    productId: string,
+    input: CreateProductEnterprisePayloadInput,
+  ) {
+    await this.assertEnterpriseCodeAvailable(tx, enterpriseId, input.code);
+    const code = await resolveEntityCode({
+      enterpriseId,
+      type: "PRODUTO",
+      informed: input.code,
+      isTaken: (candidate) =>
+        this.isEnterpriseCodeTaken(tx, enterpriseId, candidate),
+      tx,
+    });
+    const substitution = await this.isSubstitutionTaxation(input.productTaxationId);
+    const [row] = await tx
+      .insert(productsEnterprises)
+      .values({
+        code,
+        description: input.description.trim(),
+        origin: input.origin?.trim() ?? null,
+        manufacturer: input.manufacturer?.trim() ?? null,
+        additionalProduct: input.additionalProduct?.trim() || null,
+        productId,
+        enterprisesId: enterpriseId,
+        measurementUnitId: input.measurementUnitId,
+        productTypeId: input.productTypeId,
+        productNcmId: input.productNcmId ?? null,
+        productCestId: substitution ? (input.productCestId ?? null) : null,
+        productAnpId: input.productAnpId ?? null,
+        productNbsId: input.productNbsId ?? null,
+        productGroupId: input.productGroupId,
+        productSubgroupId: input.productSubgroupId,
+        productBrandId: input.productBrandId,
+        productTaxationId: input.productTaxationId,
+        classificationIbsCbsId: input.classificationIbsCbsId ?? null,
+        controlsBatch: input.controlsBatch ?? false,
+        controlsRental: input.controlsRental ?? false,
+      })
+      .returning({ id: productsEnterprises.id });
+    if (!row) throw new Error("Falha ao vincular produto a empresa");
+    return row.id;
+  }
+
+  private async getLinkedRow(
+    enterpriseId: string,
+    id: string,
+    client: DbClient = db,
+  ) {
+    const row = (
+      await client
+        .select(productEnterpriseSelectFields)
+        .from(productsEnterprises)
+        .innerJoin(products, eq(productsEnterprises.productId, products.id))
+        .where(this.scope(enterpriseId, id))
+        .limit(1)
+    )[0];
+    if (!row) {
+      throw new NotFoundError(
+        "Vinculo produto/empresa nao encontrado",
+        "PRODUCT_ENTERPRISE_NOT_FOUND",
+      );
+    }
+    return row;
+  }
+
+  public async createForProduct(
+    enterpriseId: string,
+    productId: string,
+    input: CreateProductEnterprisePayloadInput,
+    tx?: Tx,
+    audit?: EntityAuditContext,
+  ) {
+    const run = async (client: Tx) => {
+      const linkId = await this.insertEnterpriseLink(
+        client,
+        enterpriseId,
+        productId,
+        input,
+      );
+      const row = await this.getLinkedRow(enterpriseId, linkId, client);
+      if (audit) {
+        await recordCreateAudit({
+          entityType: EntityTypes.PRODUCTS_ENTERPRISES,
+          entityId: row.id,
+          after: row,
+          ctx: audit,
+          tx: client,
+        });
+      }
+      return row;
+    };
+    try {
+      return tx ? await run(tx) : await db.transaction(run);
+    } catch (err) {
+      throw this.enterpriseLinkConflict(err);
+    }
+  }
+
+  /** Condições da listagem; exigem `products_enterprises` com join em `products`. */
+  public buildListConditions(
+    enterpriseId: string,
+    query: ListProductsEnterprisesQuery,
+  ) {
+    const conditions = [eq(productsEnterprises.enterprisesId, enterpriseId)];
+
+    if (query.search) {
+      const term = `%${query.search}%`;
+      conditions.push(
+        or(
+          ilike(productsEnterprises.description, term),
+          ilike(products.barCode, term),
+          ilike(products.description, term),
+          sql`cast(${productsEnterprises.code} as text) ilike ${term}`,
+        )!,
+      );
+    }
+
+    if (query.description) {
+      conditions.push(
+        ilike(productsEnterprises.description, `%${query.description}%`),
+      );
+    }
+
+    if (query.code) {
+      conditions.push(
+        /^\d+$/.test(query.code)
+          ? eq(productsEnterprises.code, Number(query.code))
+          : sql`cast(${productsEnterprises.code} as text) ilike ${`%${query.code}%`}`,
+      );
+    }
+
+    if (query.barCode) {
+      conditions.push(ilike(products.barCode, `%${query.barCode}%`));
+    }
+
+    if (query.manufacturer) {
+      conditions.push(
+        ilike(productsEnterprises.manufacturer, `%${query.manufacturer}%`),
+      );
+    }
+
+    if (query.origin) {
+      conditions.push(ilike(productsEnterprises.origin, `%${query.origin}%`));
+    }
+
+    const groupDescription = query.groupDescription ?? query.group;
+    if (groupDescription) {
+      const term = `%${groupDescription}%`;
+      conditions.push(
+        exists(
+          db
+            .select({ id: productGroups.id })
+            .from(productGroups)
+            .where(
+              and(
+                eq(productGroups.id, productsEnterprises.productGroupId),
+                eq(productGroups.enterprisesId, enterpriseId),
+                ilike(productGroups.description, term),
+              ),
+            ),
+        ),
+      );
+    }
+
+    if (query.subgroup) {
+      const term = `%${query.subgroup}%`;
+      conditions.push(
+        exists(
+          db
+            .select({ id: productSubgroups.id })
+            .from(productSubgroups)
+            .where(
+              and(
+                eq(
+                  productSubgroups.id,
+                  productsEnterprises.productSubgroupId,
+                ),
+                eq(productSubgroups.enterprisesId, enterpriseId),
+                ilike(productSubgroups.description, term),
+              ),
+            ),
+        ),
+      );
+    }
+
+    if (query.brand) {
+      const term = `%${query.brand}%`;
+      conditions.push(
+        exists(
+          db
+            .select({ id: productBrands.id })
+            .from(productBrands)
+            .where(
+              and(
+                eq(productBrands.id, productsEnterprises.productBrandId),
+                eq(productBrands.enterprisesId, enterpriseId),
+                ilike(productBrands.description, term),
+              ),
+            ),
+        ),
+      );
+    }
+
+    if (query.application) {
+      const term = `%${query.application}%`;
+      conditions.push(
+        exists(
+          db
+            .select({ id: productApplication.id })
+            .from(productApplication)
+            .where(
+              and(
+                eq(
+                  productApplication.productsEnterprisesId,
+                  productsEnterprises.id,
+                ),
+                ilike(productApplication.description, term),
+              ),
+            ),
+        ),
+      );
+    }
+
+    if (query.location) {
+      const term = `%${query.location}%`;
+      const locationTextMatch = or(
+        ilike(locations.box, term),
+        ilike(locations.description, term),
+      )!;
+
+      conditions.push(
+        or(
+          exists(
+            db
+              .select({ id: sectorsRental.id })
+              .from(sectorsRental)
+              .innerJoin(
+                locations,
+                eq(locations.id, sectorsRental.locationsId),
+              )
+              .innerJoin(sectors, eq(sectors.id, locations.sectorId))
+              .where(
+                and(
+                  eq(
+                    sectorsRental.productsEnterprisesId,
+                    productsEnterprises.id,
+                  ),
+                  eq(sectors.enterprisesId, enterpriseId),
+                  locationTextMatch,
+                ),
+              ),
+          ),
+          exists(
+            db
+              .select({ id: stockBatchBalances.id })
+              .from(stockBatchBalances)
+              .innerJoin(
+                stockBatches,
+                eq(stockBatches.id, stockBatchBalances.stockBatchId),
+              )
+              .innerJoin(
+                locations,
+                eq(locations.id, stockBatchBalances.locationsId),
+              )
+              .innerJoin(sectors, eq(sectors.id, locations.sectorId))
+              .where(
+                and(
+                  eq(
+                    stockBatches.productsEnterprisesId,
+                    productsEnterprises.id,
+                  ),
+                  eq(sectors.enterprisesId, enterpriseId),
+                  locationTextMatch,
+                ),
+              ),
+          ),
+        )!,
+      );
+    }
+
+    if (query.status) {
+      conditions.push(eq(products.status, query.status));
+    }
+
+    return and(...conditions);
+  }
+
+  private async attachRelatedIds<T extends { id: string }>(items: T[]) {
+    if (items.length === 0) {
+      return items.map((item) => ({
+        ...item,
+        productApplicationIds: [] as string[],
+        priceId: null as string | null,
+        price: null as string | null,
+        promotionalPrice: null as string | null,
+        promotionalPriceIds: [] as string[],
+      }));
+    }
+
+    const peIds = items.map((item) => item.id);
+    const [applicationRows, priceRows, promotionalRows] = await Promise.all([
+      db
+        .select({
+          id: productApplication.id,
+          productsEnterprisesId: productApplication.productsEnterprisesId,
+        })
+        .from(productApplication)
+        .where(inArray(productApplication.productsEnterprisesId, peIds))
+        .orderBy(
+          asc(productApplication.description),
+          asc(productApplication.id),
+        ),
+      db
+        .select({
+          id: prices.id,
+          price: prices.price,
+          productsEnterprisesId: prices.productsEnterprisesId,
+        })
+        .from(prices)
+        .where(inArray(prices.productsEnterprisesId, peIds)),
+      db
+        .select({
+          id: promotionalPrices.id,
+          price: promotionalPrices.price,
+          startDate: promotionalPrices.startDate,
+          endDate: promotionalPrices.endDate,
+          productsEnterprisesId: promotionalPrices.productsEnterprisesId,
+        })
+        .from(promotionalPrices)
+        .where(inArray(promotionalPrices.productsEnterprisesId, peIds))
+        .orderBy(asc(promotionalPrices.startDate), asc(promotionalPrices.id)),
+    ]);
+
+    const applicationIdsByPe = new Map<string, string[]>();
+    for (const row of applicationRows) {
+      const list = applicationIdsByPe.get(row.productsEnterprisesId) ?? [];
+      list.push(row.id);
+      applicationIdsByPe.set(row.productsEnterprisesId, list);
+    }
+
+    const priceByPe = new Map(
+      priceRows.map((row) => [row.productsEnterprisesId, row]),
+    );
+
+    const now = Date.now();
+    const promotionalIdsByPe = new Map<string, string[]>();
+    const activePromotionByPe = new Map<string, { price: string; start: number }>();
+    for (const row of promotionalRows) {
+      const list = promotionalIdsByPe.get(row.productsEnterprisesId) ?? [];
+      list.push(row.id);
+      promotionalIdsByPe.set(row.productsEnterprisesId, list);
+      const start = new Date(row.startDate).getTime();
+      if (start > now || new Date(row.endDate).getTime() < now) continue;
+      const current = activePromotionByPe.get(row.productsEnterprisesId);
+      if (!current || start > current.start) {
+        activePromotionByPe.set(row.productsEnterprisesId, { price: row.price, start });
+      }
+    }
+
+    return items.map((item) => ({
+      ...item,
+      productApplicationIds: applicationIdsByPe.get(item.id) ?? [],
+      priceId: priceByPe.get(item.id)?.id ?? null,
+      price: priceByPe.get(item.id)?.price ?? null,
+      /** Preço da promoção vigente agora, quando houver. */
+      promotionalPrice: activePromotionByPe.get(item.id)?.price ?? null,
+      promotionalPriceIds: promotionalIdsByPe.get(item.id) ?? [],
+    }));
+  }
+
+  public async list(
+    enterpriseId: string,
+    query: ListProductsEnterprisesQuery = {},
+  ) {
+    const { limit, offset } = resolveListPagination(query);
+    const where = this.buildListConditions(enterpriseId, query);
+    const [items, totalRows] = await Promise.all([
+      db
+        .select(productEnterpriseSelectFields)
+        .from(productsEnterprises)
+        .innerJoin(products, eq(productsEnterprises.productId, products.id))
+        .where(where)
+        .orderBy(
+          asc(productsEnterprises.description),
+          asc(productsEnterprises.id),
+        )
+        .limit(limit)
+        .offset(offset),
+      db
+        .select({ c: count() })
+        .from(productsEnterprises)
+        .innerJoin(products, eq(productsEnterprises.productId, products.id))
+        .where(where),
+    ]);
+    const total = Number(totalRows[0]?.c ?? 0);
+    const enriched = await this.attachRelatedIds(items);
+    return { items: enriched, total, limit, offset };
+  }
+
+  public async getById(enterpriseId: string, id: string) {
+    const row = await db.query.productsEnterprises.findFirst({
+      where: and(
+        eq(productsEnterprises.enterprisesId, enterpriseId),
+        eq(productsEnterprises.id, id),
+      ),
+      with: {
+        product: true,
+        measurementUnit: true,
+        productType: {
+          with: { typeSped: true },
+        },
+        productNcm: true,
+        productCest: {
+          with: { productsNcm: true },
+        },
+        productAnp: true,
+        productNbs: true,
+        productGroup: true,
+        productSubgroup: true,
+        productBrand: true,
+        productTaxation: {
+          with: {
+            cstPisEntrada: true,
+            cstPisSaida: true,
+            cstCofinsEntrada: true,
+            cstCofinsSaida: true,
+            icmsTaxation: true,
+          },
+        },
+        classificationIbsCbs: {
+          with: { cstIbsCbs: true },
+        },
+        productApplications: {
+          orderBy: [
+            asc(productApplication.description),
+            asc(productApplication.id),
+          ],
+        },
+        price: true,
+        promotionalPrices: {
+          orderBy: [
+            asc(promotionalPrices.startDate),
+            asc(promotionalPrices.id),
+          ],
+        },
+      },
+    });
+
+    if (!row) {
+      throw new NotFoundError(
+        "Vinculo produto/empresa nao encontrado",
+        "PRODUCT_ENTERPRISE_NOT_FOUND",
+      );
+    }
+
+    const {
+      product,
+      productId: _productId,
+      measurementUnit,
+      measurementUnitId: _measurementUnitId,
+      productType,
+      productTypeId: _productTypeId,
+      productNcm,
+      productNcmId: _productNcmId,
+      productCest,
+      productCestId: _productCestId,
+      productAnp,
+      productAnpId: _productAnpId,
+      productNbs,
+      productNbsId: _productNbsId,
+      productGroup,
+      productGroupId: _productGroupId,
+      productSubgroup,
+      productSubgroupId: _productSubgroupId,
+      productBrand,
+      productBrandId: _productBrandId,
+      productTaxation,
+      productTaxationId: _productTaxationId,
+      classificationIbsCbs,
+      productApplications,
+      price,
+      promotionalPrices: promotionalPricesRows,
+      ...link
+    } = row;
+
+    const { typeSpedId: _typeSpedId, typeSped, ...productTypeRest } =
+      productType;
+    const productCestDetail = productCest
+      ? (() => {
+          const {
+            productsNcmId: _cestNcmId,
+            productsNcm,
+            ...cestRest
+          } = productCest;
+          return { ...cestRest, productsNcm };
+        })()
+      : null;
+    const productTaxationDetail = productTaxation
+      ? (() => {
+          const {
+            cstPisEntradaId: _cstPisEntradaId,
+            cstPisSaidaId: _cstPisSaidaId,
+            cstCofinsEntradaId: _cstCofinsEntradaId,
+            cstCofinsSaidaId: _cstCofinsSaidaId,
+            icmsTaxationId: _icmsTaxationId,
+            cstPisEntrada,
+            cstPisSaida,
+            cstCofinsEntrada,
+            cstCofinsSaida,
+            icmsTaxation,
+            ...productTaxationRest
+          } = productTaxation;
+          return {
+            ...productTaxationRest,
+            cstPisEntrada,
+            cstPisSaida,
+            cstCofinsEntrada,
+            cstCofinsSaida,
+            icmsTaxation,
+          };
+        })()
+      : null;
+
+    return {
+      ...link,
+      status: product.status,
+      barCode: product.barCode,
+      product,
+      measurementUnit,
+      productType: { ...productTypeRest, typeSped },
+      productNcm: productNcm ?? null,
+      productCest: productCestDetail,
+      productAnp: productAnp ?? null,
+      productNbs: productNbs ?? null,
+      productGroup,
+      productSubgroup,
+      productBrand,
+      productTaxation: productTaxationDetail,
+      classificationIbsCbs: classificationIbsCbs ?? null,
+      productApplications,
+      price: price ?? null,
+      promotionalPrices: promotionalPricesRows,
+    };
+  }
+
+  public async getByCode(enterpriseId: string, code: number) {
+    const row = (
+      await db
+        .select(productEnterpriseSelectFields)
+        .from(productsEnterprises)
+        .innerJoin(products, eq(productsEnterprises.productId, products.id))
+        .where(
+          and(
+            eq(productsEnterprises.enterprisesId, enterpriseId),
+            eq(productsEnterprises.code, code),
+          ),
+        )
+        .limit(1)
+    )[0];
+    if (!row) {
+      throw new NotFoundError(
+        "Vinculo produto/empresa nao encontrado",
+        "PRODUCT_ENTERPRISE_NOT_FOUND",
+      );
+    }
+    return row;
+  }
+
+  public async patch(
+    enterpriseId: string,
+    id: string,
+    input: PatchProductEnterpriseInput,
+    audit: EntityAuditContext,
+  ) {
+    const existing = await this.getLinkedRow(enterpriseId, id);
+    const merged = {
+      measurementUnitId: input.measurementUnitId ?? existing.measurementUnitId,
+      productTypeId: input.productTypeId ?? existing.productTypeId,
+      productNcmId:
+        input.productNcmId !== undefined
+          ? input.productNcmId
+          : existing.productNcmId,
+      productCestId:
+        input.productCestId !== undefined
+          ? input.productCestId
+          : existing.productCestId,
+      productAnpId:
+        input.productAnpId !== undefined
+          ? input.productAnpId
+          : existing.productAnpId,
+      productNbsId:
+        input.productNbsId !== undefined
+          ? input.productNbsId
+          : existing.productNbsId,
+      productGroupId: input.productGroupId ?? existing.productGroupId,
+      productSubgroupId: input.productSubgroupId ?? existing.productSubgroupId,
+      productBrandId: input.productBrandId ?? existing.productBrandId,
+      productTaxationId: input.productTaxationId ?? existing.productTaxationId,
+      classificationIbsCbsId:
+        input.classificationIbsCbsId !== undefined
+          ? input.classificationIbsCbsId
+          : existing.classificationIbsCbsId,
+    };
+    if (
+      input.measurementUnitId ||
+      input.productTypeId ||
+      input.productNcmId !== undefined ||
+      input.productCestId !== undefined ||
+      input.productAnpId !== undefined ||
+      input.productNbsId !== undefined ||
+      input.productGroupId ||
+      input.productSubgroupId ||
+      input.productBrandId ||
+      input.productTaxationId ||
+      input.classificationIbsCbsId
+    ) {
+      await this.validateProductFks(enterpriseId, merged);
+    }
+    if (typeof input.code === "number") {
+      await this.assertEnterpriseCodeAvailable(
+        db,
+        enterpriseId,
+        input.code,
+        id,
+      );
+    }
+    try {
+      const [row] = await db
+        .update(productsEnterprises)
+        .set({
+          ...(input.code !== undefined ? { code: input.code } : {}),
+          ...(input.description !== undefined
+            ? { description: input.description.trim() }
+            : {}),
+          ...(input.origin !== undefined
+            ? {
+                origin: input.origin === null ? null : input.origin.trim(),
+              }
+            : {}),
+          ...(input.manufacturer !== undefined
+            ? {
+                manufacturer:
+                  input.manufacturer === null
+                    ? null
+                    : input.manufacturer.trim(),
+              }
+            : {}),
+          ...(input.additionalProduct !== undefined
+            ? { additionalProduct: input.additionalProduct?.trim() || null }
+            : {}),
+          ...(input.measurementUnitId !== undefined
+            ? { measurementUnitId: input.measurementUnitId }
+            : {}),
+          ...(input.productTypeId !== undefined
+            ? { productTypeId: input.productTypeId }
+            : {}),
+          ...(input.productNcmId !== undefined
+            ? { productNcmId: input.productNcmId }
+            : {}),
+          ...(input.productCestId !== undefined
+            ? { productCestId: input.productCestId }
+            : {}),
+          ...(input.productAnpId !== undefined
+            ? { productAnpId: input.productAnpId }
+            : {}),
+          ...(input.productNbsId !== undefined
+            ? { productNbsId: input.productNbsId }
+            : {}),
+          ...(input.productGroupId !== undefined
+            ? { productGroupId: input.productGroupId }
+            : {}),
+          ...(input.productSubgroupId !== undefined
+            ? { productSubgroupId: input.productSubgroupId }
+            : {}),
+          ...(input.productBrandId !== undefined
+            ? { productBrandId: input.productBrandId }
+            : {}),
+          ...(input.productTaxationId !== undefined
+            ? { productTaxationId: input.productTaxationId }
+            : {}),
+          ...(input.classificationIbsCbsId !== undefined
+            ? { classificationIbsCbsId: input.classificationIbsCbsId }
+            : {}),
+          ...(input.controlsBatch !== undefined
+            ? { controlsBatch: input.controlsBatch }
+            : {}),
+          ...(input.controlsRental !== undefined
+            ? { controlsRental: input.controlsRental }
+            : {}),
+          updatedAt: new Date(),
+        })
+        .where(this.scope(enterpriseId, id))
+        .returning({ id: productsEnterprises.id });
+      if (!row) {
+        throw new NotFoundError(
+          "Vinculo produto/empresa nao encontrado",
+          "PRODUCT_ENTERPRISE_NOT_FOUND",
+        );
+      }
+      if (typeof input.code === "number") {
+        const code = input.code;
+        await db.transaction((tx) =>
+          syncEnterpriseSequenceFloor(enterpriseId, "PRODUTO", code, tx),
+        );
+      }
+      const updated = await this.getLinkedRow(enterpriseId, row.id);
+      await recordEntityAudit({
+        entityType: EntityTypes.PRODUCTS_ENTERPRISES,
+        entityId: id,
+        action: "UPDATE",
+        before: toAuditRecord(existing),
+        after: toAuditRecord(updated),
+        ctx: withEnterpriseAuditContext(audit, enterpriseId),
+      });
+      return updated;
+    } catch (err) {
+      throw this.enterpriseLinkConflict(err);
+    }
+  }
+
+  public async setPhoto(
+    enterpriseId: string,
+    id: string,
+    file: PhotoFile,
+    audit: EntityAuditContext,
+  ) {
+    const existing = await this.getLinkedRow(enterpriseId, id);
+    const photoUrl = await savePhoto({
+      folder: "produtos",
+      id,
+      name: existing.description,
+      file,
+    });
+    let row: { id: string } | undefined;
+    try {
+      [row] = await db
+        .update(productsEnterprises)
+        .set({ photoUrl, updatedAt: new Date() })
+        .where(this.scope(enterpriseId, id))
+        .returning({ id: productsEnterprises.id });
+    } catch (error) {
+      await removeStoredPhoto(photoUrl);
+      throw error;
+    }
+    if (!row) {
+      await removeStoredPhoto(photoUrl);
+      throw new NotFoundError(
+        "Vinculo produto/empresa nao encontrado",
+        "PRODUCT_ENTERPRISE_NOT_FOUND",
+      );
+    }
+    const updated = await this.getLinkedRow(enterpriseId, id);
+    await recordEntityAudit({
+      entityType: EntityTypes.PRODUCTS_ENTERPRISES,
+      entityId: id,
+      action: "UPDATE",
+      before: toAuditRecord(existing),
+      after: toAuditRecord(updated),
+      ctx: withEnterpriseAuditContext(audit, enterpriseId),
+    });
+    if (existing.photoUrl && existing.photoUrl !== photoUrl) {
+      await removeStoredPhoto(existing.photoUrl);
+    }
+    return { photoUrl };
+  }
+
+  public async removePhoto(
+    enterpriseId: string,
+    id: string,
+    audit: EntityAuditContext,
+  ) {
+    const existing = await this.getLinkedRow(enterpriseId, id);
+    const [row] = await db
+      .update(productsEnterprises)
+      .set({ photoUrl: null, updatedAt: new Date() })
+      .where(this.scope(enterpriseId, id))
+      .returning({ id: productsEnterprises.id });
+    if (!row) {
+      throw new NotFoundError(
+        "Vinculo produto/empresa nao encontrado",
+        "PRODUCT_ENTERPRISE_NOT_FOUND",
+      );
+    }
+    const updated = await this.getLinkedRow(enterpriseId, id);
+    await recordEntityAudit({
+      entityType: EntityTypes.PRODUCTS_ENTERPRISES,
+      entityId: id,
+      action: "UPDATE",
+      before: toAuditRecord(existing),
+      after: toAuditRecord(updated),
+      ctx: withEnterpriseAuditContext(audit, enterpriseId),
+    });
+    await removeStoredPhoto(existing.photoUrl);
+    return { photoUrl: null };
+  }
+
+  public async delete(
+    enterpriseId: string,
+    id: string,
+    audit: EntityAuditContext,
+  ) {
+    const existing = await this.getLinkedRow(enterpriseId, id);
+    const ctx = withEnterpriseAuditContext(audit, enterpriseId);
+    const [row] = await db
+      .delete(productsEnterprises)
+      .where(this.scope(enterpriseId, id))
+      .returning();
+    if (!row) {
+      throw new NotFoundError(
+        "Vinculo produto/empresa nao encontrado",
+        "PRODUCT_ENTERPRISE_NOT_FOUND",
+      );
+    }
+    await recordEntityAudit({
+      entityType: EntityTypes.PRODUCTS_ENTERPRISES,
+      entityId: id,
+      action: "DELETE",
+      before: toAuditRecord(existing),
+      after: toAuditRecord(row),
+      ctx,
+    });
+    return row;
+  }
+}
+
+export const productsEnterprisesService = new ProductsEnterprisesService();

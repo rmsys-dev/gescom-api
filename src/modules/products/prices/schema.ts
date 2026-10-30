@@ -1,0 +1,78 @@
+import { z } from "zod";
+import {
+  createPaginationQuerySchema,
+  optionalTrimmedStringSchema,
+} from "../../../shared/validation/common-schemas.js";
+import { listProductsEnterprisesQuerySchema } from "../products-enterprises/schema.js";
+
+/** Mesmos filtros da listagem de produtos da empresa, aplicados ao produto do preço. */
+export const PRICE_PRODUCT_FILTER_KEYS = [
+  "description",
+  "code",
+  "barCode",
+  "manufacturer",
+  "origin",
+  "group",
+  "groupDescription",
+  "subgroup",
+  "brand",
+  "application",
+  "location",
+  "status",
+] as const;
+
+const productFilterShape = listProductsEnterprisesQuerySchema.pick({
+  description: true,
+  code: true,
+  barCode: true,
+  manufacturer: true,
+  origin: true,
+  group: true,
+  groupDescription: true,
+  subgroup: true,
+  brand: true,
+  application: true,
+  location: true,
+  status: true,
+}).shape;
+
+export const listPricesQuerySchema = createPaginationQuerySchema(100).extend({
+  search: optionalTrimmedStringSchema("search", 255).optional(),
+  ...productFilterShape,
+});
+
+export const createPriceSchema = z
+  .object({
+    price: z.number().positive(),
+    averageCost: z.number().min(0).optional(),
+    actualRealCost: z.number().min(0).optional(),
+    previousCost: z.number().min(0).optional(),
+    priceCost: z.number().min(0).optional(),
+    productsEnterprisesId: z.string().uuid(),
+  })
+  .strict();
+
+export const patchPriceSchema = z
+  .object({
+    price: z.number().positive().optional(),
+    averageCost: z.number().min(0).nullable().optional(),
+    actualRealCost: z.number().min(0).nullable().optional(),
+    previousCost: z.number().min(0).nullable().optional(),
+    priceCost: z.number().min(0).nullable().optional(),
+    productsEnterprisesId: z.string().uuid().optional(),
+  })
+  .strict()
+  .refine(
+    (data) => Object.values(data).some((v) => v !== undefined),
+    "Deve haver ao menos um campo para atualizar",
+  );
+
+export const priceParamsSchema = z
+  .object({
+    priceId: z.string().uuid("Campo 'priceId' deve ser um UUID valido"),
+  })
+  .strict();
+
+export type ListPricesQuery = z.infer<typeof listPricesQuerySchema>;
+export type CreatePriceInput = z.infer<typeof createPriceSchema>;
+export type PatchPriceInput = z.infer<typeof patchPriceSchema>;

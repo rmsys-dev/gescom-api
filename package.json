@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "ERP Gescom",
   "license": "ISC",
+  "engines": {
+    "node": "22.x"
+  },
   "author": "RMSys",
   "type": "module",
   "main": "dist/server.js",
@@ -10,6 +13,7 @@
     "dev": "nodemon --watch src --ext ts --exec tsx src/server.ts",
     "build": "tsc -p tsconfig.json && node src/modules/sales/print/copy-print-assets.mjs",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint . --max-warnings 0",
     "test": "tsx --test tests/**/*.test.ts",
     "start": "node dist/server.js",
     "db:generate": "drizzle-kit generate",

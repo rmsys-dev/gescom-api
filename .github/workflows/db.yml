@@ -1,0 +1,124 @@
+name: DB
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+env:
+  PUPPETEER_SKIP_DOWNLOAD: "1"
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+
+jobs:
+  db-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Banco vazio e descartável. drizzle.config.ts lê DRIZZLE_DATABASE_URL
+    # e, se ausente, DATABASE_URL. src/db/schema.ts exige DATABASE_URL no import.
+    env:
+      DATABASE_URL: postgresql://gescom:gescom@localhost:5432/gescom
+      DRIZZLE_DATABASE_URL: postgresql://gescom:gescom@localhost:5432/gescom
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: gescom
+          POSTGRES_PASSWORD: gescom
+          POSTGRES_DB: gescom
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gescom -d gescom"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Consistência do journal e dos snapshots
+        run: npm run db:check
+
+      - name: Aplicar migrations em banco vazio
+        run: npm run db:migrate
+
+      - name: Buscar a branch base
+        if: github.event_name == 'pull_request'
+        run: git fetch --no-tags origin "${{ github.base_ref }}"
+
+      - name: Bloquear SQL destrutivo sem aprovação
+        if: github.event_name == 'pull_request'
+        run: bash scripts/check-destructive.sh "origin/${{ github.base_ref }}"
+
+      - name: Verificar divergência entre schema e migrations
+        shell: bash
+        run: |
+          timeout 60 npm run db:generate
+          if [ -n "$(git status --porcelain drizzle)" ]; then
+            git status --porcelain drizzle
+            git diff -- drizzle
+            while IFS= read -r untracked; do
+              [ -z "$untracked" ] && continue
+              echo "--- ${untracked} (não rastreado)"
+              git diff --no-index -- /dev/null "$untracked" || true
+            done < <(git ls-files --others --exclude-standard -- drizzle)
+            echo "Schema alterado sem migration, ou migration fora de sincronia. Rode db:generate localmente e commite a pasta drizzle."
+            exit 1
+          fi
+
+  db-deploy-prod:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: db-check
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: db-prod-migrate
+      cancel-in-progress: false
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      # A migration de produção precisa rodar antes do deploy da API.
+      # Este workflow não faz o deploy da aplicação.
+      #
+      # Placeholder de backup/snapshot. O ideal é o snapshot ser feito pelo
+      # provedor do banco (backup gerenciado ou PITR) imediatamente antes
+      # desta migration. O runner não deve guardar dump de produção.
+      # - name: Snapshot do banco (provedor)
+      #   run: echo "substituir pelo snapshot do provedor"
+
+      - name: Aplicar migrations em produção
+        env:
+          # Secret do ambiente production, não do repositório.
+          # Precisa ser conexão direta (porta 5432) ou session mode.
+          # O pooler em transaction mode (6543) não serve para o drizzle-kit.
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DRIZZLE_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npm run db:migrate

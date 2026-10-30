@@ -1,0 +1,7 @@
+# Substitua @SEU-USUARIO-GITHUB pelo usuário ou time real antes de exigir review.
+# O schema Drizzle fica em /src/db/ (entrada: src/db/schema.ts), não em /src/schema/.
+
+/drizzle/ @LeomirDias
+/src/db/ @LeomirDias
+/.github/ @LeomirDias
+/scripts/ @LeomirDias

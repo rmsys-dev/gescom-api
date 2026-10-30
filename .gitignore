@@ -4,7 +4,12 @@ coverage/
 # Pastas locais (não versionar)
 docs/*
 !docs/docker.md
-scripts/
+!docs/CONTRIBUTING-DB.md
+
+# Scripts locais ficam de fora do Git. A exceção é o check de SQL do CI.
+# O padrão é `scripts/**` (não `scripts/`) para a negação abaixo valer.
+scripts/**
+!scripts/check-destructive.sh
 postman-collections/
 performance/
 

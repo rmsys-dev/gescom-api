@@ -1,1 +1,2 @@
 docker/entrypoint.sh text eol=lf
+scripts/check-destructive.sh text eol=lf

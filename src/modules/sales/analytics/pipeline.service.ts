@@ -54,8 +54,8 @@ const conversionDateCondition = (period: ResolvedPeriod) => {
 };
 
 /** Filtros dimensionais aplicados ao orçamento origem (alias de sales). */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const buildBudgetAliasFilterConditions = (
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- alias Drizzle da tabela sales
   budgetSale: any,
   filters: AnalyticsFilters,
 ) => {

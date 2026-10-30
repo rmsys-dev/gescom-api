@@ -134,8 +134,8 @@ export async function createStockMovementInTx(  // REGISTRA MOVIMENTAÇÃO DE ES
 
   const qty = input.quantity;
   const transferGroupId = input.transferGroupId ?? randomUUID();
-  let fromStockBatchId = input.fromStockBatchId ?? null;
-  let toStockBatchId = input.toStockBatchId ?? null;
+  const fromStockBatchId = input.fromStockBatchId ?? null;
+  const toStockBatchId = input.toStockBatchId ?? null;
 
   if (recordOnly) {
     const balance = await getStockBalance(tx, {

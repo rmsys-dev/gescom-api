@@ -126,8 +126,6 @@ import { allocateValueLiquidItemsHeader } from "../sale-item-liquid.js";
 import { effectiveCompletionDateSql } from "../analytics/scope.js";
 import {
   computeItemValueTotal,
-  convertBudgetItemInputSchema,
-  convertOsItemInputSchema,
   type CreateSaleInput,
   type CreateSaleItemInput,
   type ListSalesQuery,
@@ -136,10 +134,6 @@ import {
   type SaleMemberOverrideInput,
   type SalePaymentInput,
 } from "../schema.js";
-import type { z } from "zod";
-
-type ConvertBudgetItemLine = z.infer<typeof convertBudgetItemInputSchema>;
-type ConvertOsItemLine = z.infer<typeof convertOsItemInputSchema>;
 type ConversionStockLine = {
   sectorId?: string;
   locationsId?: string;
@@ -204,8 +198,6 @@ const discountReference = (
   }
   return { listSubTotal, priceReduction };
 };
-
-const formatQuantity = (value: number) => value.toFixed(4);
 
 const moneyCents = (value: number) => Math.round(value * 100);
 
@@ -1572,7 +1564,7 @@ export class SalesServiceCore {
   protected prorateItemFinancials(
     budgetItem: typeof salesItems.$inferSelect,
     convertQuantity: number,
-    itemPath: string,
+    _itemPath: string,
   ): CreateSaleItemInput {
     const budgetQty = decNum(budgetItem.quantity);
     const ratio = convertQuantity / budgetQty;

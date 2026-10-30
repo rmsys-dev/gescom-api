@@ -16,11 +16,7 @@ import {
   validateSaleItemStock,
 } from "../sale-stock.js";
 import { resolveSaleClosingOrigin } from "../sale-origin.js";
-import {
-  buildSaleFinancialAdjustmentValues,
-  computeBudgetStatus,
-  assertSalePaymentsMatchSale,
-} from "../sale-financials.js";
+import { buildSaleFinancialAdjustmentValues } from "../sale-financials.js";
 import {
   dec,
   decNum,

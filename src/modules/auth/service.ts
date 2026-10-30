@@ -15,7 +15,6 @@ import { mapAuthUser, mapEnterprises } from "./enterprise-map.js";
 import {
   findActiveSessionByJti,
   findAnySessionByJti,
-  findEnterpriseById,
   findMembershipContext,
   findMembershipContextByMemberIdForUser,
   findSessionById,
@@ -223,7 +222,7 @@ export class AuthService {
       );
     }
 
-    let memberId: string | null = null;
+    let memberId: string;
     let enterpriseId: string | null = claims.ent ?? null;
 
     if (enterpriseId) {

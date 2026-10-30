@@ -4,7 +4,6 @@ import { memberClassEnum, statusEnum } from "../../db/schema.js";
 import { ACCESS_LEVELS, isPermissionSlug } from "../auth/default-permissions.js";
 import {
   createPaginationQuerySchema,
-  cpfCnpjSchema,
   emailSchema,
   optionalTrimmedStringSchema,
   uuidSchema,

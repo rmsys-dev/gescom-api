@@ -1,9 +1,7 @@
 import { BadRequestError } from "../../../shared/errors/app-error.js";
 import type { CreateNfeInput } from "../document/schema.js";
 
-const ORIGINS = ["0", "1", "2", "3", "4", "5", "6", "7", "8"] as const;
-
-export type IcmsOrigin = (typeof ORIGINS)[number];
+export type IcmsOrigin = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8";
 
 export type ResolvedStateOperation = {
   id: string;
@@ -41,7 +39,12 @@ export const applyPriorityClassification = (
   priority: ResolvedStateOperation | undefined,
 ): { item: CreateNfeInput["items"][number]; operation: ResolvedStateOperation } => {
   if (!priority?.classificationIbsCbsId) return { item, operation };
-  const { pRedIbsUf, pRedIbsMun, pRedCbs, ...tax } = item.tax ?? {};
+  const {
+    pRedIbsUf: _pRedIbsUf,
+    pRedIbsMun: _pRedIbsMun,
+    pRedCbs: _pRedCbs,
+    ...tax
+  } = item.tax ?? {};
   return {
     item: {
       ...item,

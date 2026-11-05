@@ -1,0 +1,8 @@
+# As migrations deste projeto rodam dentro de uma transação.
+# O migrator do Drizzle (pg-core/dialect.migrate) aplica todas as
+# pendentes em session.transaction. A opção abaixo é a da Squawk 2.70.
+pg_version = "16.0"
+assume_in_transaction = true
+
+# O Drizzle não gera IF NOT EXISTS. A regra só produziria ruído.
+excluded_rules = ["prefer-robust-stmts"]

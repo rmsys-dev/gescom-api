@@ -1,0 +1,2 @@
+-- lint-approved: SC-06 excecao revisada pelo code owner
+-- migration vazia

@@ -43,17 +43,21 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
-# drizzle-kit e devDependency; --omit=dev no install separado nao o inclui.
-# Instalar como prod so no runtime para o entrypoint de migrate.
+# scripts/migrate.ts roda com tsx e precisa do parser WASM e do squawk.
+# São devDependencies; o npm ci --omit=dev não as traz.
 RUN npm ci --omit=dev \
-  && npm install drizzle-kit@0.31.10 --save-prod --no-audit --no-fund \
+  && npm install --no-save --no-audit --no-fund \
+    tsx@4.23.15 \
+    squawk-cli@2.70.0 \
+    libpg-query@18.2.2 \
   && apt-get purge -y python3 make g++ \
   && apt-get autoremove -y \
   && rm -rf /var/lib/apt/lists/* /root/.npm
 
 COPY --from=build /app/dist ./dist
 COPY drizzle ./drizzle
-COPY drizzle.migrate.config.ts ./
+COPY scripts ./scripts
+COPY .squawk.toml ./
 COPY docker/entrypoint.sh ./docker/entrypoint.sh
 
 RUN chmod +x ./docker/entrypoint.sh \

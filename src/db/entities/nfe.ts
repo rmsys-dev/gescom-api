@@ -6,6 +6,7 @@ import {
   pgTable,
   smallint,
   text,
+  unique,
   uniqueIndex,
   uuid,
   varchar,
@@ -33,7 +34,7 @@ import {
 import { bytea, tz, valorDuasCasasDecimais, valorQuatroCasasDecimais, percentageDecimal } from "../functions.js";
 import { enterprises } from "./enterprises.js";
 import { enterprisesMembers, typeSupplierCustomers } from "./members.js";
-import { icmsTaxation, products, productsEnterprises } from "./products.js";
+import { icmsTaxation, productsEnterprises } from "./products.js";
 import { productsNcm } from "./products.js";
 import { paymentTypes, paymentTypesMethodsFlags, sales } from "./sales.js";
 import { states } from "./addresses.js";
@@ -725,7 +726,7 @@ export const fiscalDocumentModels = pgTable(
     createdAt: tz("created_at").defaultNow().notNull(),
     updatedAt: tz("updated_at"),
   },
-  (t) => [uniqueIndex("fiscal_document_models_code_unique").on(t.code)],
+  (t) => [unique("fiscal_document_models_code_unique").on(t.code)],
 );
 
 // modelos de nota cujo PDF a empresa grava/imprime ( por empresa )

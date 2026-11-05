@@ -1,0 +1,7 @@
+# Feedback rápido antes do push. Pode ser pulado e NÃO substitui o CI.
+pre-push:
+  commands:
+    db-lint:
+      run: npm run db:lint
+    typecheck:
+      run: npm run typecheck

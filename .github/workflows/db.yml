@@ -1,0 +1,166 @@
+name: DB
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+env:
+  PUPPETEER_SKIP_DOWNLOAD: "1"
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+
+jobs:
+  db-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Banco vazio e descartável. drizzle.config.ts lê DRIZZLE_DATABASE_URL
+    # e, se ausente, DATABASE_URL. src/db/schema.ts exige DATABASE_URL no import.
+    env:
+      DATABASE_URL: postgresql://gescom:gescom@localhost:5432/gescom
+      DRIZZLE_DATABASE_URL: postgresql://gescom:gescom@localhost:5432/gescom
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: gescom
+          POSTGRES_PASSWORD: gescom
+          POSTGRES_DB: gescom
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gescom -d gescom"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Consistência do journal e dos snapshots
+        run: npm run db:check
+
+      - name: Aplicar migrations em banco vazio
+        run: npm run db:migrate
+
+      - name: Buscar a branch base
+        if: github.event_name == 'pull_request'
+        run: git fetch --no-tags origin "${{ github.base_ref }}"
+
+      - name: Lint de migrations
+        if: github.event_name == 'pull_request'
+        run: npx tsx scripts/lint-migrations.ts --base origin/${{ github.base_ref }}
+
+      - name: Verificar divergência entre schema e migrations
+        shell: bash
+        run: |
+          timeout 60 npm run db:generate
+          if [ -n "$(git status --porcelain drizzle)" ]; then
+            git status --porcelain drizzle
+            git diff -- drizzle
+            while IFS= read -r untracked; do
+              [ -z "$untracked" ] && continue
+              echo "--- ${untracked} (não rastreado)"
+              git diff --no-index -- /dev/null "$untracked" || true
+            done < <(git ls-files --others --exclude-standard -- drizzle)
+            echo "Schema alterado sem migration, ou migration fora de sincronia. Rode db:generate localmente e commite a pasta drizzle."
+            exit 1
+          fi
+
+  db-data-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://gescom:gescom@localhost:5432/gescom
+      DRIZZLE_DATABASE_URL: postgresql://gescom:gescom@localhost:5432/gescom
+      JWT_SECRET: ci-dummy-jwt-secret-min-32-chars
+      JWT_REFRESH_SECRET: ci-dummy-jwt-refresh-secret-32ch
+      RESEND_API_KEY: re_ci_dummy
+      MAIL_FROM: ci@example.com
+      MAINTAINER_API_KEY: ci-dummy-maintainer-api-key-32chars
+      NFE_SECRETS_KEY: ci-dummy-nfe-secrets-key-min-32-chars
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: gescom
+          POSTGRES_PASSWORD: gescom
+          POSTGRES_DB: gescom
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gescom -d gescom"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Detectar migrations novas
+        id: detect
+        shell: bash
+        run: |
+          run=false
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "Sem pull request. Passos de dados pulados."
+          else
+            git fetch --no-tags origin "${{ github.base_ref }}"
+            added="$(git diff --name-only --diff-filter=A "origin/${{ github.base_ref }}...HEAD" -- 'drizzle/*.sql' || true)"
+            if [ -z "$added" ]; then
+              echo "Nenhuma migration nova. Passos de dados pulados."
+            elif ! git cat-file -e "origin/${{ github.base_ref }}:drizzle/meta/_journal.json" 2>/dev/null; then
+              echo "A base ainda não tem migrations. Passos seguintes pulados."
+            else
+              sql_count="$(git ls-tree -r --name-only "origin/${{ github.base_ref }}" -- drizzle | grep -c '\.sql$' || true)"
+              if [ "$sql_count" = "0" ]; then
+                echo "A base ainda não tem migrations. Passos seguintes pulados."
+              else
+                mkdir -p "$RUNNER_TEMP/base"
+                git archive "origin/${{ github.base_ref }}" drizzle | tar -x -C "$RUNNER_TEMP/base"
+                run=true
+                echo "base=$RUNNER_TEMP/base/drizzle" >> "$GITHUB_OUTPUT"
+              fi
+            fi
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+
+      - name: Aplicar migrations da base
+        if: steps.detect.outputs.run == 'true'
+        run: npx tsx scripts/ci/apply-migrations.ts "${{ steps.detect.outputs.base }}"
+
+      - name: Seed representativo
+        if: steps.detect.outputs.run == 'true'
+        run: npx tsx scripts/ci/seed.ts
+
+      - name: Aplicar migrations do PR
+        if: steps.detect.outputs.run == 'true'
+        run: npx tsx scripts/ci/apply-migrations.ts drizzle

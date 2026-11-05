@@ -3,8 +3,6 @@ import type { ZodType } from "zod";
 import { ValidationError } from "../errors/app-error.js";
 import { mapZodIssuesToDetails } from "../errors/map-zod-issues.js";
 
-type RequestSegment = "body" | "params" | "query";
-
 type ValidationConfig = {
   body?: ZodType<unknown>;
   params?: ZodType<unknown>;

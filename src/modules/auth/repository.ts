@@ -1,4 +1,4 @@
-import { and, count, eq, gt, isNull } from "drizzle-orm";
+import { and, eq, gt, isNull } from "drizzle-orm";
 import { db } from "../../db/schema.js";
 import {
   enterprises,

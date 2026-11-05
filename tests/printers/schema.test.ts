@@ -21,9 +21,31 @@ describe("createPrinterSchema", () => {
     assert.equal(parsed.status, "ATIVO");
   });
 
-  it("rejeita nome de computador com barras, pontos ou espacos", () => {
-    for (const computerName of ["\\\\CAIXA", "CAIXA\\01", "caixa.local", "CAIXA 01", "x".repeat(64)]) {
-      const result = createPrinterSchema.safeParse({ description: "d", computerName, shareName: "P" });
+  it("remove barras nas pontas do nome do computador", () => {
+    const parsed = createPrinterSchema.parse({
+      description: "d",
+      computerName: "\\\\CAIXA",
+      shareName: "P",
+    });
+    assert.equal(parsed.computerName, "CAIXA");
+  });
+
+  it("aceita nome com ponto", () => {
+    const parsed = createPrinterSchema.parse({
+      description: "d",
+      computerName: "caixa.local",
+      shareName: "P",
+    });
+    assert.equal(parsed.computerName, "caixa.local");
+  });
+
+  it("rejeita barra no meio, espaco e nome longo", () => {
+    for (const computerName of ["CAIXA\\01", "CAIXA 01", "x".repeat(64)]) {
+      const result = createPrinterSchema.safeParse({
+        description: "d",
+        computerName,
+        shareName: "P",
+      });
       assert.equal(result.success, false, computerName);
     }
   });

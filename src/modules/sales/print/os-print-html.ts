@@ -323,9 +323,6 @@ const principalAddress = (enterprise: WorkOrderPrintEnterprise) => {
   );
 };
 
-const dlItem = (label: string, value: string) =>
-  `<div class="kv"><dt>${escapeHtml(label)}</dt><dd>${value}</dd></div>`;
-
 const isBlankPrintValue = (value: string | null | undefined): boolean => {
   if (value === null || value === undefined) return true;
   const s = String(value).trim();

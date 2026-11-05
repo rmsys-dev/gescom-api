@@ -7,7 +7,6 @@ import {
   ilike,
   inArray,
   isNull,
-  ne,
   sql,
   type SQL,
 } from "drizzle-orm";

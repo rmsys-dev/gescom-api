@@ -1,7 +1,3 @@
-# Substitua @SEU-USUARIO-GITHUB pelo usuário ou time real antes de exigir review.
-# O schema Drizzle fica em /src/db/ (entrada: src/db/schema.ts), não em /src/schema/.
-
-/drizzle/ @rmsys-dev
-/src/db/ @rmsys-dev
-/.github/ @rmsys-dev
-/scripts/ @rmsys-dev
+# @rmsys-dev é dono do repositório inteiro.
+# A última regra que casa com o arquivo é a que vale; * cobre qualquer caminho.
+* @rmsys-dev

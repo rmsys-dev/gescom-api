@@ -1,0 +1,1 @@
+LOCK TABLE "public"."users" IN ACCESS EXCLUSIVE MODE;

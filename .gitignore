@@ -6,10 +6,17 @@ docs/*
 !docs/docker.md
 !docs/CONTRIBUTING-DB.md
 
-# Scripts locais ficam de fora do Git. A exceção é o check de SQL do CI.
+# Scripts locais ficam de fora do Git. As exceções são o lint, o migrate
+# de deploy e os passos de dados do CI.
 # O padrão é `scripts/**` (não `scripts/`) para a negação abaixo valer.
 scripts/**
-!scripts/check-destructive.sh
+!scripts/lint-migrations.ts
+!scripts/lint-migrations.config.json
+!scripts/migrate.ts
+!scripts/migration-lint/
+!scripts/migration-lint/**
+!scripts/ci/
+!scripts/ci/**
 postman-collections/
 performance/
 

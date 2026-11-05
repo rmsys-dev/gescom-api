@@ -63,9 +63,9 @@ jobs:
         if: github.event_name == 'pull_request'
         run: git fetch --no-tags origin "${{ github.base_ref }}"
 
-      - name: Bloquear SQL destrutivo sem aprovação
+      - name: Lint de migrations
         if: github.event_name == 'pull_request'
-        run: bash scripts/check-destructive.sh "origin/${{ github.base_ref }}"
+        run: npx tsx scripts/lint-migrations.ts --base origin/${{ github.base_ref }}
 
       - name: Verificar divergência entre schema e migrations
         shell: bash
@@ -83,18 +83,38 @@ jobs:
             exit 1
           fi
 
-  db-deploy-prod:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: db-check
+  db-data-test:
     runs-on: ubuntu-latest
-    environment: production
-    concurrency:
-      group: db-prod-migrate
-      cancel-in-progress: false
     timeout-minutes: 15
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://gescom:gescom@localhost:5432/gescom
+      DRIZZLE_DATABASE_URL: postgresql://gescom:gescom@localhost:5432/gescom
+      JWT_SECRET: ci-dummy-jwt-secret-min-32-chars
+      JWT_REFRESH_SECRET: ci-dummy-jwt-refresh-secret-32ch
+      RESEND_API_KEY: re_ci_dummy
+      MAIL_FROM: ci@example.com
+      MAINTAINER_API_KEY: ci-dummy-maintainer-api-key-32chars
+      NFE_SECRETS_KEY: ci-dummy-nfe-secrets-key-min-32-chars
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: gescom
+          POSTGRES_PASSWORD: gescom
+          POSTGRES_DB: gescom
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gescom -d gescom"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -105,20 +125,42 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
-      # A migration de produção precisa rodar antes do deploy da API.
-      # Este workflow não faz o deploy da aplicação.
-      #
-      # Placeholder de backup/snapshot. O ideal é o snapshot ser feito pelo
-      # provedor do banco (backup gerenciado ou PITR) imediatamente antes
-      # desta migration. O runner não deve guardar dump de produção.
-      # - name: Snapshot do banco (provedor)
-      #   run: echo "substituir pelo snapshot do provedor"
+      - name: Detectar migrations novas
+        id: detect
+        shell: bash
+        run: |
+          run=false
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "Sem pull request. Passos de dados pulados."
+          else
+            git fetch --no-tags origin "${{ github.base_ref }}"
+            added="$(git diff --name-only --diff-filter=A "origin/${{ github.base_ref }}...HEAD" -- 'drizzle/*.sql' || true)"
+            if [ -z "$added" ]; then
+              echo "Nenhuma migration nova. Passos de dados pulados."
+            elif ! git cat-file -e "origin/${{ github.base_ref }}:drizzle/meta/_journal.json" 2>/dev/null; then
+              echo "A base ainda não tem migrations. Passos seguintes pulados."
+            else
+              sql_count="$(git ls-tree -r --name-only "origin/${{ github.base_ref }}" -- drizzle | grep -c '\.sql$' || true)"
+              if [ "$sql_count" = "0" ]; then
+                echo "A base ainda não tem migrations. Passos seguintes pulados."
+              else
+                mkdir -p "$RUNNER_TEMP/base"
+                git archive "origin/${{ github.base_ref }}" drizzle | tar -x -C "$RUNNER_TEMP/base"
+                run=true
+                echo "base=$RUNNER_TEMP/base/drizzle" >> "$GITHUB_OUTPUT"
+              fi
+            fi
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
 
-      - name: Aplicar migrations em produção
-        env:
-          # Secret do ambiente production, não do repositório.
-          # Precisa ser conexão direta (porta 5432) ou session mode.
-          # O pooler em transaction mode (6543) não serve para o drizzle-kit.
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DRIZZLE_DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: npm run db:migrate
+      - name: Aplicar migrations da base
+        if: steps.detect.outputs.run == 'true'
+        run: npx tsx scripts/ci/apply-migrations.ts "${{ steps.detect.outputs.base }}"
+
+      - name: Seed representativo
+        if: steps.detect.outputs.run == 'true'
+        run: npx tsx scripts/ci/seed.ts
+
+      - name: Aplicar migrations do PR
+        if: steps.detect.outputs.run == 'true'
+        run: npx tsx scripts/ci/apply-migrations.ts drizzle

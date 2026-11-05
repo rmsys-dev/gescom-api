@@ -1,0 +1,2 @@
+ALTER TABLE "public"."users" ALTER COLUMN "email" SET NOT NULL;
+ALTER TABLE "public"."products" ALTER COLUMN "name" SET NOT NULL;

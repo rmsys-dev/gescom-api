@@ -14,16 +14,23 @@ Este software é **proprietário** e licenciado de forma **exclusiva** para a RM
 
 Para dúvidas sobre acesso, uso ou permissões, entre em contato com a RMSys.
 
+## Documentação
+
+- [Rotina do dev](docs/rotina-do-dev.md): antes de codar, testes, commits e push
+- [Banco local e produção](docs/banco.md): schema, migrations e o que o lint aceita
+- [CI e a branch main](docs/ci-cd.md): workflows, checks obrigatórios e o review
+- [Docker](docs/docker.md): imagem, variáveis e a ordem da migration no deploy
+
 ## Docker (produção)
 
-Imagem multi-stage da API com Chromium para geração de PDF. O banco PostgreSQL/Supabase é **externo** (não há Postgres no container).
+Imagem multi-stage da API com Chromium para geração de PDF. O banco PostgreSQL é **externo** (não há Postgres no container).
 
-Documentação completa (build, run, checklist, VMs, troubleshooting): [`docs/docker.md`](docs/docker.md).
+No start, o entrypoint roda `scripts/migrate.ts` e, se a migration passar, sobe a API. O passo recomendado é migrar antes, num container separado, e só então trocar a versão da API. Detalhes em [`docs/docker.md`](docs/docker.md).
 
 ### Pré-requisitos
 
 - Docker instalado
-- PostgreSQL acessível (Supabase ou outro) — use a porta **5432** (session mode) em `DRIZZLE_DATABASE_URL`; **não** use o pooler `6543`
+- PostgreSQL acessível. `MIGRATION_DATABASE_URL` na porta **5432** (conexão direta). O pooler `6543` serve para `DATABASE_URL` da API, não para a migration
 - Conta Resend e demais secrets (JWT, `MAINTAINER_API_KEY`, `NFE_SECRETS_KEY`, etc.)
 
 ### Configuração
@@ -51,6 +58,6 @@ docker run --rm -p 3000:3000 --shm-size=1g \
   --env-file .env.docker gescom-api:latest
 ```
 
-No start, o entrypoint aplica migrations (`drizzle-kit migrate --config=drizzle.migrate.config.ts`) e sobe a API. Healthcheck: `GET /health`.
+Healthcheck: `GET /health`.
 
 `--shm-size=1g` evita falhas do Chromium ao gerar PDF. Volumes `gescom-fotos` e `gescom-storage` persistem fotos e XML de NF-e. O path padrão do browser na imagem é `CHROME_EXECUTABLE_PATH=/usr/bin/chromium`.

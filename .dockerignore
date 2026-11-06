@@ -15,7 +15,6 @@ coverage
 
 # Pastas locais / docs / testes (o build só precisa de src)
 docs
-scripts
 postman-collections
 performance
 tests

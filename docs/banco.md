@@ -107,7 +107,7 @@ O GitHub Actions não aplica migration em produção. Não há secret de banco d
 No deploy:
 
 1. Snapshot do banco pelo provedor (backup ou PITR) antes de qualquer deploy que tenha migration.
-2. `npm run db:migrate:deploy`, ou `tsx scripts/migrate.ts`, com `MIGRATION_DATABASE_URL` apontando para a conexão direta.
+2. `tsx scripts/migrate.ts`, com `MIGRATION_DATABASE_URL` apontando para a conexão direta.
 3. Só depois disso, trocar a versão da API.
 
 O script exige `MIGRATION_DATABASE_URL`. Conexão com `max: 1`. Não passe por pgbouncer em transaction mode nem por RDS Proxy: ele toma `pg_advisory_lock`, que é lock de sessão, e esses pools soltam a conexão no meio.
@@ -121,7 +121,7 @@ Se a migration falhar, não troque a versão da API. A imagem Docker ainda chama
 `--dry-run` lista as pendentes e o resultado do lint, sem aplicar:
 
 ```bash
-npm run db:migrate:deploy -- --dry-run
+tsx scripts/migrate.ts --dry-run
 ```
 
 ## O que o lint exige

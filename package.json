@@ -20,7 +20,6 @@
     "db:migrate": "drizzle-kit migrate",
     "db:check": "drizzle-kit check",
     "db:lint": "tsx scripts/lint-migrations.ts --base origin/main",
-    "db:migrate:deploy": "tsx scripts/migrate.ts",
     "prepare": "lefthook install || exit 0",
     "docker:build": "docker build -t gescom-api:latest .",
     "docker:run": "docker run --rm -p 3000:3000 --memory=768m --shm-size=1g -v gescom-fotos:/app/fotos -v gescom-storage:/app/storage --env-file .env.docker gescom-api:latest"

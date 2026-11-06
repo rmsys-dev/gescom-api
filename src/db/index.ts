@@ -1,1 +1,1 @@
-export { db } from "./schema.js";
+export { db, sql } from "./schema.js";

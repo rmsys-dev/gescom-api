@@ -1,7 +1,11 @@
 import { app } from "./app.js";
 import { env } from "./config/env.js";
+import { sql } from "./db/index.js";
 import { LogEvents } from "./shared/logging/log-events.js";
 import { logError, logInfo } from "./shared/logging/logger.js";
+
+const SHUTDOWN_TIMEOUT_MS = 15_000;
+const DB_POOL_END_TIMEOUT_SEC = 10;
 
 const server = app.listen(env.PORT, () => {
   logInfo({
@@ -26,22 +30,53 @@ server.on("error", (error: NodeJS.ErrnoException) => {
   process.exit(1);
 });
 
+let shuttingDown = false;
+
 const gracefulShutdown = async (signal: NodeJS.Signals): Promise<void> => {
+  if (shuttingDown) {
+    return;
+  }
+  shuttingDown = true;
+
   logInfo({
     event: LogEvents.SHUTDOWN_SIGNAL_RECEIVED,
     signal,
   });
 
-  server.close((error?: Error) => {
-    if (error) {
-      logError({
-        event: LogEvents.HTTP_SERVER_CLOSE_ERROR,
-        message: error.message,
-      });
-      process.exit(1);
-    }
+  const forceExit = setTimeout(() => {
+    logError({
+      event: LogEvents.SHUTDOWN_TIMEOUT,
+      message: `Encerramento nao concluiu em ${SHUTDOWN_TIMEOUT_MS}ms.`,
+    });
+    process.exit(1);
+  }, SHUTDOWN_TIMEOUT_MS);
+  forceExit.unref();
 
-    process.exit(0);
+  server.close((error?: Error) => {
+    void (async () => {
+      if (error) {
+        logError({
+          event: LogEvents.HTTP_SERVER_CLOSE_ERROR,
+          message: error.message,
+        });
+        clearTimeout(forceExit);
+        process.exit(1);
+        return;
+      }
+
+      try {
+        await sql.end({ timeout: DB_POOL_END_TIMEOUT_SEC });
+      } catch (endError) {
+        logError({
+          event: LogEvents.DB_POOL_END_ERROR,
+          message:
+            endError instanceof Error ? endError.message : "Falha ao encerrar o pool.",
+        });
+      }
+
+      clearTimeout(forceExit);
+      process.exit(0);
+    })();
   });
 };
 

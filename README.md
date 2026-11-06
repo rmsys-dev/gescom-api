@@ -52,7 +52,7 @@ Equivalente:
 
 ```bash
 docker build -t gescom-api:latest .
-docker run --rm -p 3000:3000 --shm-size=1g \
+docker run --rm -p 3000:3000 --memory=768m --shm-size=1g \
   -v gescom-fotos:/app/fotos \
   -v gescom-storage:/app/storage \
   --env-file .env.docker gescom-api:latest
@@ -60,4 +60,4 @@ docker run --rm -p 3000:3000 --shm-size=1g \
 
 Healthcheck: `GET /health`.
 
-`--shm-size=1g` evita falhas do Chromium ao gerar PDF. Volumes `gescom-fotos` e `gescom-storage` persistem fotos e XML de NF-e. O path padrão do browser na imagem é `CHROME_EXECUTABLE_PATH=/usr/bin/chromium`.
+`--memory=768m` limita o container; a imagem define `NODE_OPTIONS=--max-old-space-size=384` para o heap do Node. `--shm-size=1g` evita falhas do Chromium ao gerar PDF. Volumes `gescom-fotos` e `gescom-storage` persistem fotos e XML de NF-e. O path padrão do browser na imagem é `CHROME_EXECUTABLE_PATH=/usr/bin/chromium`. Em EC2 Graviton, use imagem `linux/arm64`.

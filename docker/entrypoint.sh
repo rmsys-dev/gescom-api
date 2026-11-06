@@ -10,5 +10,8 @@ fi
 echo "[entrypoint] Aplicando migrations (scripts/migrate.ts)..."
 ./node_modules/.bin/tsx scripts/migrate.ts
 
+# Credencial de migrate (DDL) não deve ficar no ambiente do processo da API.
+unset MIGRATION_DATABASE_URL
+
 echo "[entrypoint] Iniciando API..."
 exec node dist/server.js

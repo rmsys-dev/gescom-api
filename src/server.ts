@@ -1,11 +1,19 @@
 import { app } from "./app.js";
 import { env } from "./config/env.js";
 import { sql } from "./db/index.js";
+import {
+  startPoolMetricsLogging,
+  stopPoolMetricsLogging,
+} from "./db/pool-metrics.js";
 import { LogEvents } from "./shared/logging/log-events.js";
 import { logError, logInfo } from "./shared/logging/logger.js";
 
 const SHUTDOWN_TIMEOUT_MS = 15_000;
 const DB_POOL_END_TIMEOUT_SEC = 10;
+/** Distribuição SEFAZ usa no mínimo 60s; NFE_TIMEOUT_MS pode ir até 120s. */
+const HTTP_REQUEST_TIMEOUT_MS = Math.max(env.NFE_TIMEOUT_MS, 60_000) + 5_000;
+const HTTP_HEADERS_TIMEOUT_MS = HTTP_REQUEST_TIMEOUT_MS + 5_000;
+const HTTP_KEEP_ALIVE_TIMEOUT_MS = 5_000;
 
 const server = app.listen(env.PORT, () => {
   logInfo({
@@ -13,7 +21,12 @@ const server = app.listen(env.PORT, () => {
     port: env.PORT,
     nodeEnv: env.NODE_ENV,
   });
+  startPoolMetricsLogging();
 });
+
+server.requestTimeout = HTTP_REQUEST_TIMEOUT_MS;
+server.headersTimeout = HTTP_HEADERS_TIMEOUT_MS;
+server.keepAliveTimeout = HTTP_KEEP_ALIVE_TIMEOUT_MS;
 
 server.on("error", (error: NodeJS.ErrnoException) => {
   const portInUse = error.code === "EADDRINUSE";
@@ -42,6 +55,8 @@ const gracefulShutdown = async (signal: NodeJS.Signals): Promise<void> => {
     event: LogEvents.SHUTDOWN_SIGNAL_RECEIVED,
     signal,
   });
+
+  stopPoolMetricsLogging();
 
   const forceExit = setTimeout(() => {
     logError({

@@ -8,6 +8,8 @@ export const LogEvents = {
   SHUTDOWN_SIGNAL_RECEIVED: "shutdown_signal_received",
   HTTP_SERVER_CLOSE_ERROR: "http_server_close_error",
   DB_POOL_END_ERROR: "db_pool_end_error",
+  DB_POOL_STATS: "db_pool_stats",
+  DB_POOL_STATS_FAILED: "db_pool_stats_failed",
   SHUTDOWN_TIMEOUT: "shutdown_timeout",
 } as const;
 

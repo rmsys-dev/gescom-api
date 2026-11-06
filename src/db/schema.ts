@@ -83,7 +83,7 @@ if (!connectionString) {
  * Parâmetros do pool postgres.js. Ajuste neste arquivo (não via env).
  * Só DATABASE_URL continua vindo do ambiente.
  */
-const DB_POOL_MAX = 10;
+export const DB_POOL_MAX = 10;
 const DB_IDLE_TIMEOUT_SEC = 30;
 const DB_CONNECT_TIMEOUT_SEC = 10;
 const DB_MAX_LIFETIME_SEC = 60 * 30;
@@ -91,7 +91,7 @@ const DB_KEEP_ALIVE_SEC = 60;
 const DB_STATEMENT_TIMEOUT_MS = 30_000;
 const DB_IDLE_IN_TX_TIMEOUT_MS = 30_000;
 const DB_SSL = "verify-full" as const;
-const DB_APPLICATION_NAME = "gescom-api";
+export const DB_APPLICATION_NAME = "gescom-api";
 
 export const sql = postgres(connectionString, {
   prepare: false,

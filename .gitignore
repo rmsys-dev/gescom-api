@@ -15,6 +15,7 @@ scripts/**
 !scripts/lint-migrations.ts
 !scripts/lint-migrations.config.json
 !scripts/migrate.ts
+!scripts/docker-image.ts
 !scripts/migration-lint/
 !scripts/migration-lint/**
 !scripts/ci/
@@ -40,6 +41,9 @@ pnpm-debug.log*
 
 # Cache de ferramentas
 .eslintcache
+
+# Tag da última imagem Docker construída nesta máquina
+.docker-image-tag
 
 # Pastas temporárias (uploads locais, scratch, etc.)
 tmp/

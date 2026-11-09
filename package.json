@@ -21,8 +21,8 @@
     "db:check": "drizzle-kit check",
     "db:lint": "tsx scripts/lint-migrations.ts --base origin/main",
     "prepare": "lefthook install || exit 0",
-    "docker:build": "docker build -t gescom-api:latest .",
-    "docker:run": "docker run --rm -p 3000:3000 --memory=768m --shm-size=1g -v gescom-fotos:/app/fotos -v gescom-storage:/app/storage --env-file .env.docker gescom-api:latest"
+    "docker:build": "tsx scripts/docker-image.ts build",
+    "docker:run": "tsx scripts/docker-image.ts run"
   },
   "dependencies": {
     "axios": "^1.15.1",

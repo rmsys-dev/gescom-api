@@ -39,17 +39,19 @@ npm run docker:run
 
 O `docker:run` publica a porta 3000, limita o container a 768 MB de RAM, reserva 1 GB de `/dev/shm` para o Chromium, monta os volumes `gescom-fotos` e `gescom-storage` e lê `.env.docker`.
 
-Equivalente:
+A tag sai de `scripts/docker-image.ts`: versão do `package.json` e o SHA curto do commit. Exemplo: `gescom-api:1.0.0-a1b2c3d`. O build imprime a tag e a grava em `.docker-image-tag`, que não entra no Git. O `docker:run` lê esse arquivo e sobe essa imagem. Com alteração ainda não commitada, a tag ganha o instante do build (`gescom-api:1.0.0-a1b2c3d-dirty-1731174300123`), para não reaproveitar a imagem do commit limpo. A versão do `package.json` não muda neste passo.
+
+Para repetir o `docker run` na mão, use a tag gravada:
 
 ```bash
-docker build -t gescom-api:latest .
 docker run --rm -p 3000:3000 --memory=768m --shm-size=1g \
   -v gescom-fotos:/app/fotos \
   -v gescom-storage:/app/storage \
-  --env-file .env.docker gescom-api:latest
+  --env-file .env.docker \
+  "gescom-api:$(cat .docker-image-tag)"
 ```
 
-Na EC2 Graviton (`t4g`), construa ou puxe a imagem `linux/arm64` (`docker build --platform=linux/arm64 ...`). Em host x86, use `linux/amd64`. Sem `--platform`, o Docker usa a arquitetura da máquina que está buildando.
+Na EC2 Graviton (`t4g`), defina `DOCKER_DEFAULT_PLATFORM=linux/arm64` antes do `npm run docker:build`. Em host x86, use `linux/amd64`. Sem essa variável, o Docker usa a arquitetura da máquina que está buildando.
 
 Healthcheck da imagem: `GET /health` a cada 30 segundos, com folga de 45 segundos na subida.
 
@@ -73,7 +75,7 @@ Se a migration falhar, a API nova não sobe. Isso só preserva a versão antiga 
    ```bash
    docker run --rm --entrypoint ./node_modules/.bin/tsx \
      --env-file .env.docker \
-     gescom-api:latest scripts/migrate.ts
+     "gescom-api:$(cat .docker-image-tag)" scripts/migrate.ts
    ```
 
 3. Confira a saída. Código 0 e a lista das migrations aplicadas. Código 1: não troque a versão. A mensagem do script diz o mesmo.
@@ -84,7 +86,7 @@ Para ver o que seria aplicado, sem escrever:
 ```bash
 docker run --rm --entrypoint ./node_modules/.bin/tsx \
   --env-file .env.docker \
-  gescom-api:latest scripts/migrate.ts --dry-run
+  "gescom-api:$(cat .docker-image-tag)" scripts/migrate.ts --dry-run
 ```
 
 O que o script confere (lock, journal, lint das pendentes) está em [Banco local e produção](banco.md). Não há flag para desligar o lint.

@@ -48,15 +48,7 @@ npm run docker:build
 npm run docker:run
 ```
 
-Equivalente:
-
-```bash
-docker build -t gescom-api:latest .
-docker run --rm -p 3000:3000 --memory=768m --shm-size=1g \
-  -v gescom-fotos:/app/fotos \
-  -v gescom-storage:/app/storage \
-  --env-file .env.docker gescom-api:latest
-```
+A tag é a versão do `package.json` mais o SHA curto do commit, por exemplo `gescom-api:1.0.0-a1b2c3d`. O build grava essa tag em `.docker-image-tag` e o `docker:run` sobe essa imagem. O arquivo fica só na máquina.
 
 Healthcheck: `GET /health`.
 

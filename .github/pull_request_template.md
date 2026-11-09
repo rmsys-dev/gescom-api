@@ -1,5 +1,6 @@
 ## Checklist de banco
 
+- [ ] Rodei `typechek`, `lint`, `test` e `build` localmente
 - [ ] Rodei `db:generate`, `db:migrate` e `db:check` localmente
 - [ ] Rodei `db:lint` localmente
 - [ ] Conferi o `.sql` gerado (sem DROP/TRUNCATE indevido; rename aparece como `RENAME COLUMN`)

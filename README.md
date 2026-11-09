@@ -48,16 +48,8 @@ npm run docker:build
 npm run docker:run
 ```
 
-Equivalente:
-
-```bash
-docker build -t gescom-api:latest .
-docker run --rm -p 3000:3000 --shm-size=1g \
-  -v gescom-fotos:/app/fotos \
-  -v gescom-storage:/app/storage \
-  --env-file .env.docker gescom-api:latest
-```
+A tag é a versão do `package.json` mais o SHA curto do commit, por exemplo `gescom-api:1.0.0-a1b2c3d`. O build grava essa tag em `.docker-image-tag` e o `docker:run` sobe essa imagem. O arquivo fica só na máquina.
 
 Healthcheck: `GET /health`.
 
-`--shm-size=1g` evita falhas do Chromium ao gerar PDF. Volumes `gescom-fotos` e `gescom-storage` persistem fotos e XML de NF-e. O path padrão do browser na imagem é `CHROME_EXECUTABLE_PATH=/usr/bin/chromium`.
+`--memory=768m` limita o container; a imagem define `NODE_OPTIONS=--max-old-space-size=384` para o heap do Node. `--shm-size=1g` evita falhas do Chromium ao gerar PDF. Volumes `gescom-fotos` e `gescom-storage` persistem fotos e XML de NF-e. O path padrão do browser na imagem é `CHROME_EXECUTABLE_PATH=/usr/bin/chromium`. Em EC2 Graviton, use imagem `linux/arm64`.

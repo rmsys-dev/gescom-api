@@ -10,10 +10,10 @@ Os testes da API não abrem PostgreSQL. O CI não prova essa convivência. Quem 
 
 No `.env` local, copiado de `.env.example`:
 
-- `DATABASE_URL` é a conexão da API. Em desenvolvimento pode ser o pooler (porta `6543`, com `?pgbouncer=true`) ou o Postgres direto.
-- `DRIZZLE_DATABASE_URL` é a conexão do `drizzle-kit`. `db:generate`, `db:migrate` e `db:check` carregam o mesmo `drizzle.config.ts`, então a URL precisa existir. Quem aplica SQL no banco é o `db:migrate`. Porta **5432**, conexão direta ou session mode. O pooler em transaction mode não serve.
+- `DATABASE_URL` é a conexão da API (obrigatória no runtime). Em desenvolvimento pode ser o pooler (porta `6543`, com `?pgbouncer=true`) ou o Postgres direto.
+- `DRIZZLE_DATABASE_URL` é a conexão do `drizzle-kit`. A API **não** exige essa variável. `db:generate`, `db:migrate` e `db:check` carregam o mesmo `drizzle.config.ts`, então a URL precisa existir para esses comandos. Quem aplica SQL no banco é o `db:migrate`. Porta **5432**, conexão direta ou session mode. O pooler em transaction mode não serve.
 
-`db:generate`, `db:migrate` e `db:check` leem `DRIZZLE_DATABASE_URL` e, se ela faltar, `DATABASE_URL` (`drizzle.config.ts`). Por isso as duas, no seu `.env`, apontam para o banco local.
+`db:generate`, `db:migrate` e `db:check` leem `DRIZZLE_DATABASE_URL` e, se ela faltar, `DATABASE_URL` (`drizzle.config.ts`). Por isso as duas, no seu `.env` de dev, apontam para o banco local.
 
 Não coloque host, usuário ou senha de produção nesse arquivo. Não existe URL de produção fora do ambiente de deploy.
 
@@ -107,7 +107,7 @@ O GitHub Actions não aplica migration em produção. Não há secret de banco d
 No deploy:
 
 1. Snapshot do banco pelo provedor (backup ou PITR) antes de qualquer deploy que tenha migration.
-2. `npm run db:migrate:deploy`, ou `tsx scripts/migrate.ts`, com `MIGRATION_DATABASE_URL` apontando para a conexão direta.
+2. `tsx scripts/migrate.ts`, com `MIGRATION_DATABASE_URL` apontando para a conexão direta.
 3. Só depois disso, trocar a versão da API.
 
 O script exige `MIGRATION_DATABASE_URL`. Conexão com `max: 1`. Não passe por pgbouncer em transaction mode nem por RDS Proxy: ele toma `pg_advisory_lock`, que é lock de sessão, e esses pools soltam a conexão no meio.
@@ -121,7 +121,7 @@ Se a migration falhar, não troque a versão da API. A imagem Docker ainda chama
 `--dry-run` lista as pendentes e o resultado do lint, sem aplicar:
 
 ```bash
-npm run db:migrate:deploy -- --dry-run
+tsx scripts/migrate.ts --dry-run
 ```
 
 ## O que o lint exige

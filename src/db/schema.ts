@@ -79,7 +79,35 @@ if (!connectionString) {
   throw new Error("DATABASE_URL não definida no ambiente.");
 }
 
-const client = postgres(connectionString, { prepare: false });
+/**
+ * Parâmetros do pool postgres.js. Ajuste neste arquivo (não via env).
+ * Só DATABASE_URL continua vindo do ambiente.
+ */
+export const DB_POOL_MAX = 10;
+const DB_IDLE_TIMEOUT_SEC = 30;
+const DB_CONNECT_TIMEOUT_SEC = 10;
+const DB_MAX_LIFETIME_SEC = 60 * 30;
+const DB_KEEP_ALIVE_SEC = 60;
+const DB_STATEMENT_TIMEOUT_MS = 30_000;
+const DB_IDLE_IN_TX_TIMEOUT_MS = 30_000;
+const DB_SSL = "verify-full" as const;
+export const DB_APPLICATION_NAME = "gescom-api";
+
+export const sql = postgres(connectionString, {
+  prepare: false,
+  max: DB_POOL_MAX,
+  idle_timeout: DB_IDLE_TIMEOUT_SEC,
+  connect_timeout: DB_CONNECT_TIMEOUT_SEC,
+  max_lifetime: DB_MAX_LIFETIME_SEC,
+  keep_alive: DB_KEEP_ALIVE_SEC,
+  ssl: DB_SSL,
+  connection: {
+    application_name: DB_APPLICATION_NAME,
+    statement_timeout: DB_STATEMENT_TIMEOUT_MS,
+    idle_in_transaction_session_timeout: DB_IDLE_IN_TX_TIMEOUT_MS,
+  },
+});
+
 const schema = {
   ...addresses,
   ...enterprises,
@@ -116,4 +144,4 @@ const schema = {
   ...financialRelations,
 };
 
-export const db = drizzle(client, { schema });
+export const db = drizzle(sql, { schema });

@@ -14,10 +14,17 @@ const envSchema = z.object({
     .string()
     .transform((value) => value.trim())
     .pipe(z.string().url()),
-  DRIZZLE_DATABASE_URL: z
-    .string()
-    .transform((value) => value.trim())
-    .pipe(z.string().url()),
+  // Só o drizzle-kit (dev/CI) precisa. A API em runtime não lê.
+  DRIZZLE_DATABASE_URL: z.preprocess(
+    (value) => {
+      if (typeof value !== "string") {
+        return undefined;
+      }
+      const trimmed = value.trim();
+      return trimmed === "" ? undefined : trimmed;
+    },
+    z.string().url().optional(),
+  ),
   JWT_SECRET: z
     .string()
     .transform((value) => value.trim())

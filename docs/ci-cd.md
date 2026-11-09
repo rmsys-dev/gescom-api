@@ -96,7 +96,6 @@ Actions ficam em versão major (`@v4`). Não use `pull_request_target`. Esse eve
 | `db:migrate` | você, no banco local; `db-check`, no Postgres vazio | `drizzle-kit migrate` |
 | `db:check` | você e o `db-check` | Consistência de journal e snapshots |
 | `db:lint` | você e o pre-push | Lint contra `origin/main` |
-| `db:migrate:deploy` | o ambiente de deploy, não o CI | `scripts/migrate.ts` |
 | `npm test` | você e o job `test` | Unidade, sem banco |
 | `prepare` | `npm ci` / `npm install` | Instala o lefthook. Falha do hook não derruba o `npm ci` da imagem |
 

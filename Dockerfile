@@ -66,8 +66,11 @@ RUN chmod +x ./docker/entrypoint.sh \
   && useradd --system --gid gescom --create-home --home-dir /home/gescom gescom \
   && chown -R gescom:gescom /app
 
+# Heap do Node deixa folga para o Chromium no mesmo container.
+# Ajuste NODE_OPTIONS no --env-file se o --memory do container for outro.
 ENV NODE_ENV=production \
   PORT=3000 \
+  NODE_OPTIONS=--max-old-space-size=384 \
   CHROME_EXECUTABLE_PATH=/usr/bin/chromium \
   PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
   PHOTOS_DIR=fotos \

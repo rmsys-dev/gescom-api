@@ -20,6 +20,9 @@ Para dúvidas sobre acesso, uso ou permissões, entre em contato com a RMSys.
 - [Banco local e produção](docs/banco.md): schema, migrations e o que o lint aceita
 - [CI e a branch main](docs/ci-cd.md): workflows, checks obrigatórios e o review
 - [Docker](docs/docker.md): imagem, variáveis e a ordem da migration no deploy
+- [Estrutura da VM](docs/estrutura-da-vm.md): pastas e permissões em `/opt/api`
+- [Deploy AWS: primeira subida](docs/deploy-aws-primeira-vez.md): build, Docker Hub, Compose e RDS
+- [Atualizar produção](docs/atualizar-producao.md): republicar imagem e trocar o container
 
 ## Docker (produção)
 

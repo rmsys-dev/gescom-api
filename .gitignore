@@ -45,6 +45,9 @@ pnpm-debug.log*
 # Tag da última imagem Docker construída nesta máquina
 .docker-image-tag
 
+# Export local da imagem Docker (docker save) — não versionar
+*.tar
+
 # Pastas temporárias (uploads locais, scratch, etc.)
 tmp/
 temp/

@@ -4,6 +4,8 @@ A imagem leva a API compilada, o Chromium (PDF) e o que o `scripts/migrate.ts` p
 
 O GitHub Actions não constrói essa imagem e não a publica. Build e publicação são um passo seu, ou do servidor, a partir do commit que já passou nos checks. Detalhe do que o CI cobre em [CI e a branch main](ci-cd.md).
 
+Na EC2: primeira subida em [Deploy AWS: primeira subida](deploy-aws-primeira-vez.md); republicar após mudança de código em [Atualizar produção](atualizar-producao.md). Layout em [Estrutura da VM](estrutura-da-vm.md).
+
 ## O que tem na imagem
 
 O `Dockerfile` tem três estágios.

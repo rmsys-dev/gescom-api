@@ -3,10 +3,6 @@ coverage/
 
 # Pastas locais (não versionar). Os guias abaixo entram no Git.
 docs/*
-!docs/docker.md
-!docs/rotina-do-dev.md
-!docs/banco.md
-!docs/ci-cd.md
 
 # Scripts locais ficam de fora do Git. As exceções são o lint, o migrate
 # de deploy e os passos de dados do CI.
